@@ -8,5 +8,9 @@
     "start": "node index.js"
   },
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "dependencies": {
+    "dotenv": "^8.2.0",
+    "storyblok-js-client": "^2.0.12"
+  }
 }
