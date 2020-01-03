@@ -1,13 +1,24 @@
 {
   "name": "sb-mig",
-  "version": "0.0.1",
-  "description": "",
+  "homepage": "https://github.com/marckraw/sb-mig.git",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/marckraw/sb-mig.git"
+  },
+  "version": "0.0.2",
+  "description": "CLI to rule the world.",
+  "keywords": [
+    "cli",
+    "storyblok",
+    "sb",
+    "migrate"
+  ],
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node index.js"
   },
-  "author": "Marcin Krawczyk",
+  "author": "Marcin Krawczyk <marckraw@icloud.com>",
   "license": "MIT",
   "dependencies": {
     "chalk": "^3.0.0",
