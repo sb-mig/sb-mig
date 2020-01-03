@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 const commander = require("commander");
+const package = require('./package.json');
 const fs = require("fs");
 const restApi = require("./restApi");
 const { sbApi } = require("./sbApi.js");
@@ -7,7 +8,7 @@ const program = new commander.Command();
 
 async function start() {
   try {
-    program.version("0.0.1");
+    program.version(package.version);
 
     program
       .option("-d, --debug", "Output extra debugging")

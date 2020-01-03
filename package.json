@@ -5,7 +5,7 @@
     "type": "git",
     "url": "git+https://github.com/marckraw/sb-mig.git"
   },
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "CLI to rule the world.",
   "keywords": [
     "cli",
