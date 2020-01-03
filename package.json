@@ -1,17 +1,28 @@
 {
   "name": "my-storyblok-migrate",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "description": "",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node index.js"
   },
-  "author": "",
-  "license": "ISC",
+  "author": "Marcin Krawczyk",
+  "license": "MIT",
   "dependencies": {
+    "chalk": "^3.0.0",
+    "clear": "^0.1.0",
+    "commander": "^4.0.1",
     "dotenv": "^8.2.0",
+    "figlet": "^1.2.4",
+    "inquirer": "^7.0.1",
     "node-fetch": "^2.6.0",
     "storyblok-js-client": "^2.0.12"
+  },
+  "bin": {
+    "sb-mig": "./cli.js"
+  },
+  "engines": {
+    "node": ">=11"
   }
 }
