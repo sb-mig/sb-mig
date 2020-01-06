@@ -5,7 +5,7 @@ const commander = require("commander");
 const package = require("./package.json");
 const fs = require("fs");
 const restApi = require("./restApi");
-const { sbApi } = require("./sbApi.js");
+const sbApi = require("./sbApi.js");
 const program = new commander.Command();
 
 async function start() {
@@ -137,7 +137,8 @@ async function start() {
     if (program.sbClient) {
       sbApi
         .getAll("cdn/links", { version: "draft" })
-        .then(results => console.log(results));
+        .then(results => console.log(results))
+        .catch(err => console.log(err))
     }
   } catch (error) {
     // eslint-disable-next-line no-console
