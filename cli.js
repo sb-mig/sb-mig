@@ -18,12 +18,12 @@ async function start() {
     program
       .option("-d, --debug", "Output extra debugging")
       .option("-a, --all-components", "Get all components")
-      .option("-c, --component <type>", "Get single component")
+      .option("-c, --component <component-name>", "Get single component by name")
       .option("-q, --all-presets", "Get all presets")
-      .option("-p, --preset <type>", "Get preset by id")
+      .option("-p, --preset <preset-id>", "Get preset by id")
       .option(
-        "-d, --component-presets <type>",
-        "Get all presets for single component"
+        "-d, --component-presets <component-name>",
+        "Get all presets for single component by name"
       )
       .option("-s, --sb-client", "Make test request using StoryblokClient");
 
@@ -125,9 +125,9 @@ async function start() {
 
         console.warn(`All presets written to a file:  ${filename}`);
 
-        await fs.promises.mkdir(`${process.cwd()}/sbmig/`, { recursive: true });
+        await fs.promises.mkdir(`${process.cwd()}/sbmig/presets/`, { recursive: true });
         await fs.promises.writeFile(
-          `./sbmig/${filename}.json`,
+          `./sbmig/presets/${filename}.json`,
           stringifiedResult,
           { flag: `w` }
         );
