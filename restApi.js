@@ -1,6 +1,12 @@
 const Fetch = require("node-fetch");
 const Logger = require("./helpers/logger");
-const { oauthToken, storyblokApiUrl, spaceId } = require("./config");
+const {
+  oauthToken,
+  storyblokApiUrl,
+  spaceId,
+  githubToken,
+  seedRepo
+} = require("./config");
 
 const headers = {
   "Content-Type": "application/json",
@@ -77,10 +83,46 @@ const getPreset = presetId => {
     .catch(err => console.log(err));
 };
 
+const getStoryblokComponent = componentName => {
+  Logger.error("This is very experimental feature!");
+  Logger.error(" ");
+  Logger.warning(
+    `Trying to get '${componentName}' storyblok schema from boilerplate.`
+  );
+  const headers = {
+    Authorization: `token ${githubToken}`
+  };
+  return Fetch(`${seedRepo}/storyblok/${componentName}.js`, {
+    method: "GET",
+    headers: headers
+  })
+    .then(response => response)
+    .catch(err => console.log(err.message));
+};
+
+const getReactComponent = componentName => {
+  Logger.error("This is very experimental feature!");
+  Logger.error(" ");
+  Logger.warning(
+    `Trying to get '${componentName}' storyblok schema react match from boilerplate.`
+  );
+  const headers = {
+    Authorization: `token ${githubToken}`
+  };
+  return Fetch(`${seedRepo}/src/components/web-ui/${componentName}.js`, {
+    method: "GET",
+    headers: headers
+  })
+    .then(response => response)
+    .catch(err => console.log(err.message));
+};
+
 module.exports = {
   getAllComponents,
   getComponent,
   getComponentPresets,
   getAllPresets,
-  getPreset
+  getPreset,
+  getStoryblokComponent,
+  getReactComponent
 };
