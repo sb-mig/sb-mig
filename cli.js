@@ -164,30 +164,45 @@ async function start() {
   }
 
   if (program.getSbTestComponent) {
-    restApi.getStoryblokComponent(program.getSbTestComponent).then(async res => {
-      const randomDatestamp = new Date().toString();
+    restApi
+      .getStoryblokComponent(program.getSbTestComponent)
+      .then(async res => {
+        if (res) {
+          const randomDatestamp = new Date().toString();
 
-      const filename = `${program.getSbTestComponent}-${randomDatestamp}`;
-      await fs.promises.mkdir(`${process.cwd()}/sbmig/storyblok/`, {
-        recursive: true
+          const filename = `${program.getSbTestComponent}-${randomDatestamp}`;
+          await fs.promises.mkdir(`${process.cwd()}/sbmig/storyblok/`, {
+            recursive: true
+          });
+          const dest = await fs.createWriteStream(
+            `./sbmig/storyblok/${filename}.js`
+          );
+          res.body.pipe(dest);
+          Logger.log(
+            `Storyblok schema for '${program.getSbTestComponent}' saved in a ${filename} file.`
+          );
+        }
       });
-      const dest = await fs.createWriteStream(`./sbmig/storyblok/${filename}.js`);
-      res.body.pipe(dest);
-      Logger.log(`Storyblok schema for '${program.getSbTestComponent}' saved in a ${filename} file.`);
-    });
   }
 
   if (program.getReactTestComponent) {
     restApi.getReactComponent(program.getReactTestComponent).then(async res => {
-      const randomDatestamp = new Date().toString();
+      if (res) {
+        console.log(res);
+        const randomDatestamp = new Date().toString();
 
-      const filename = `${program.getReactTestComponent}-${randomDatestamp}`;
-      await fs.promises.mkdir(`${process.cwd()}/sbmig/react-match/`, {
-        recursive: true
-      });
-      const dest = await fs.createWriteStream(`./sbmig/react-match/${filename}.js`);
-      res.body.pipe(dest);
-      Logger.log(`Storyblok react match component for '${program.getReactTestComponent}' saved in a ${filename} file.`);
+        const filename = `${program.getReactTestComponent}-${randomDatestamp}`;
+        await fs.promises.mkdir(`${process.cwd()}/sbmig/react-match/`, {
+          recursive: true
+        });
+        const dest = await fs.createWriteStream(
+          `./sbmig/react-match/${filename}.js`
+        );
+        res.body.pipe(dest);
+        Logger.log(
+          `Storyblok react match component for '${program.getReactTestComponent}' saved in a ${filename} file.`
+        );
+      }
     });
   }
 }

@@ -96,7 +96,13 @@ const getStoryblokComponent = componentName => {
     method: "GET",
     headers: headers
   })
-    .then(response => response)
+    .then(response => {
+      if (response.status === 404) {
+        Logger.error(`There is no file for '${componentName}' filename`);
+        return false;
+      }
+      return response;
+    })
     .catch(err => console.log(err.message));
 };
 
@@ -113,7 +119,13 @@ const getReactComponent = componentName => {
     method: "GET",
     headers: headers
   })
-    .then(response => response)
+    .then(response => {
+      if (response.status === 404) {
+        Logger.error(`There is no file for '${componentName}' filename`);
+        return false;
+      }
+      return response;
+    })
     .catch(err => console.log(err.message));
 };
 
