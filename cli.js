@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+const chalk = require("chalk");
+const figlet = require("figlet");
 const commander = require("commander");
 const package = require("./package.json");
 const fs = require("fs");
@@ -7,6 +9,9 @@ const { sbApi } = require("./sbApi.js");
 const program = new commander.Command();
 
 async function start() {
+  console.log(
+    chalk.yellow(figlet.textSync("sb-mig", { horizontalLayout: "full" }))
+  );
   try {
     program.version(package.version);
 
