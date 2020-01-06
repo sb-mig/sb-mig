@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+const allRowPresets = require('./sbmig/component-presets/component-row-all_presets-2020-01-06T15:37:20.025Z.json')
+const row = require('./sbmig/storyblok/row');
 const chalk = require("chalk");
 const figlet = require("figlet");
 const commander = require("commander");
@@ -18,6 +20,7 @@ async function start() {
 
     program
       .option("-d, --debug", "Output extra debugging")
+      .option("-A, --groups <'get' or 'push'> <group-name>", "Test something")
       .option("-a, --all-components", "Get all components")
       .option(
         "-c, --component <component-name>",
@@ -41,12 +44,25 @@ async function start() {
 
     program.parse(process.argv);
 
+    if (program.groups) {
+      console.log(row.all_presets);
+      console.log(allRowPresets[0].preset.name);
+      if (program.groups === "get") {
+        console.log(program.groups);
+        console.log(program.args);
+      }
+      if (program.groups === "push") {
+        console.log(program.groups);
+        console.log(program.args);
+      }
+    }
+
     if (program.debug) console.log(program.opts());
     if (program.preset) {
       restApi.getPreset(program.preset).then(async res => {
         if (res) {
           const stringifiedResult = JSON.stringify(res);
-          const randomDatestamp = new Date().toString();
+          const randomDatestamp = new Date().toJSON();
 
           const filename = `preset-${program.preset}-${randomDatestamp}`;
 
@@ -69,7 +85,7 @@ async function start() {
     if (program.component) {
       restApi.getComponent(program.component).then(async res => {
         const stringifiedResult = JSON.stringify(res);
-        const randomDatestamp = new Date().toString();
+        const randomDatestamp = new Date().toJSON();
 
         const filename = `component-${program.component}-${randomDatestamp}`;
 
@@ -92,7 +108,7 @@ async function start() {
       restApi.getComponentPresets(program.componentPresets).then(async res => {
         if (res) {
           const stringifiedResult = JSON.stringify(res);
-          const randomDatestamp = new Date().toString();
+          const randomDatestamp = new Date().toJSON();
 
           const filename = `component-${program.componentPresets}-all_presets-${randomDatestamp}`;
 
@@ -115,7 +131,7 @@ async function start() {
     if (program.allComponents) {
       restApi.getAllComponents().then(async res => {
         const stringifiedResult = JSON.stringify(res);
-        const randomDatestamp = new Date().toString();
+        const randomDatestamp = new Date().toJSON();
 
         const filename = `all-components-backup-${randomDatestamp}`;
 
@@ -135,7 +151,7 @@ async function start() {
     if (program.allPresets) {
       restApi.getAllPresets().then(async res => {
         const stringifiedResult = JSON.stringify(res);
-        const randomDatestamp = new Date().toString();
+        const randomDatestamp = new Date().toJSON();
 
         const filename = `all-presets-backup-${randomDatestamp}`;
 
@@ -168,7 +184,7 @@ async function start() {
       .getStoryblokComponent(program.getSbTestComponent)
       .then(async res => {
         if (res) {
-          const randomDatestamp = new Date().toString();
+          const randomDatestamp = new Date().toJSON();
 
           const filename = `${program.getSbTestComponent}-${randomDatestamp}`;
           await fs.promises.mkdir(`${process.cwd()}/sbmig/storyblok/`, {
@@ -189,7 +205,7 @@ async function start() {
     restApi.getReactComponent(program.getReactTestComponent).then(async res => {
       if (res) {
         console.log(res);
-        const randomDatestamp = new Date().toString();
+        const randomDatestamp = new Date().toJSON();
 
         const filename = `${program.getReactTestComponent}-${randomDatestamp}`;
         await fs.promises.mkdir(`${process.cwd()}/sbmig/react-match/`, {
