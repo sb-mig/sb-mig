@@ -1,5 +1,5 @@
 const Fetch = require("node-fetch");
-const Logger = require('./helpers/logger');
+const Logger = require("./helpers/logger");
 const { oauthToken, storyblokApiUrl, spaceId } = require("./config");
 
 const headers = {
@@ -64,7 +64,17 @@ const getPreset = presetId => {
   return Fetch(`${storyblokApiUrl}/spaces/${spaceId}/presets/${presetId}`, {
     method: "GET",
     headers: headers
-  }).then(response => response.json());
+  })
+    .then(response => response.json())
+    .then(response => {
+      if (Array.isArray(response.presets)) {
+        Logger.warning(`There is no preset for '${presetId}' preset id`);
+        return false;
+      }
+
+      return response;
+    })
+    .catch(err => console.log(err));
 };
 
 module.exports = {
