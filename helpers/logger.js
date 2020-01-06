@@ -1,8 +1,15 @@
 const chalk = require("chalk");
+const figlet = require("figlet");
 
 class Logger {
   constructor(name) {
     this.name = name;
+  }
+
+  static bigLog(content) {
+    console.log(
+      chalk.yellow(figlet.textSync(content, { horizontalLayout: "full" }))
+    );
   }
 
   static log(content) {
