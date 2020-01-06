@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 const commander = require("commander");
-const package = require('./package.json');
+const package = require("./package.json");
 const fs = require("fs");
 const restApi = require("./restApi");
 const { sbApi } = require("./sbApi.js");
@@ -16,7 +16,10 @@ async function start() {
       .option("-c, --component <type>", "Get single component")
       .option("-q, --all-presets", "Get all presets")
       .option("-p, --preset <type>", "Get preset by id")
-      .option("-d, --component-presets <type>", "Get all presets for single component")
+      .option(
+        "-d, --component-presets <type>",
+        "Get all presets for single component"
+      )
       .option("-s, --sb-client", "Make test request using StoryblokClient");
 
     program.parse(process.argv);
@@ -35,8 +38,9 @@ async function start() {
           `Preset for '${program.preset}' have been written to a file:  ${filename}`
         );
 
+        await fs.promises.mkdir(`${process.cwd()}/sbmig/presets/`, { recursive: true });
         await fs.promises.writeFile(
-          `./test/presets/${filename}.json`,
+          `./sbmig/presets/${filename}.json`,
           stringifiedResult,
           { flag: `w` }
         );
@@ -58,8 +62,9 @@ async function start() {
           `Component for ${program.component} written to a file:  ${filename}`
         );
 
+        await fs.promises.mkdir(`${process.cwd()}/sbmig/components/`, { recursive: true });
         await fs.promises.writeFile(
-          `./test/components/${filename}.json`,
+          `./sbmig/components/${filename}.json`,
           stringifiedResult,
           { flag: `w` }
         );
@@ -79,8 +84,9 @@ async function start() {
           `Presets for ${program.componentPresets} written to a file:  ${filename}`
         );
 
+        await fs.promises.mkdir(`${process.cwd()}/sbmig/component-presets/`, { recursive: true });
         await fs.promises.writeFile(
-          `./test/component-presets/${filename}.json`,
+          `./sbmig/component-presets/${filename}.json`,
           stringifiedResult,
           { flag: `w` }
         );
@@ -96,8 +102,9 @@ async function start() {
 
         console.warn(`All components written to a file:  ${filename}`);
 
+        await fs.promises.mkdir(`${process.cwd()}/sbmig/components/`, { recursive: true });
         await fs.promises.writeFile(
-          `./test/components/${filename}.json`,
+          `./sbmig/components/${filename}.json`,
           stringifiedResult,
           { flag: `w` }
         );
@@ -113,8 +120,9 @@ async function start() {
 
         console.warn(`All presets written to a file:  ${filename}`);
 
+        await fs.promises.mkdir(`${process.cwd()}/sbmig/`, { recursive: true });
         await fs.promises.writeFile(
-          `./test/${filename}.json`,
+          `./sbmig/${filename}.json`,
           stringifiedResult,
           { flag: `w` }
         );
