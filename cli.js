@@ -35,23 +35,25 @@ async function start() {
     if (program.debug) console.log(program.opts());
     if (program.preset) {
       restApi.getPreset(program.preset).then(async res => {
-        const stringifiedResult = JSON.stringify(res);
-        const randomDatestamp = new Date().toString();
+        if (res) {
+          const stringifiedResult = JSON.stringify(res);
+          const randomDatestamp = new Date().toString();
 
-        const filename = `preset-${program.preset}-${randomDatestamp}`;
+          const filename = `preset-${program.preset}-${randomDatestamp}`;
 
-        console.warn(
-          `Preset for '${program.preset}' have been written to a file:  ${filename}`
-        );
+          console.warn(
+            `Preset for '${program.preset}' have been written to a file:  ${filename}`
+          );
 
-        await fs.promises.mkdir(`${process.cwd()}/sbmig/presets/`, {
-          recursive: true
-        });
-        await fs.promises.writeFile(
-          `./sbmig/presets/${filename}.json`,
-          stringifiedResult,
-          { flag: `w` }
-        );
+          await fs.promises.mkdir(`${process.cwd()}/sbmig/presets/`, {
+            recursive: true
+          });
+          await fs.promises.writeFile(
+            `./sbmig/presets/${filename}.json`,
+            stringifiedResult,
+            { flag: `w` }
+          );
+        }
       });
     }
 
@@ -79,23 +81,25 @@ async function start() {
 
     if (program.componentPresets) {
       restApi.getComponentPresets(program.componentPresets).then(async res => {
-        const stringifiedResult = JSON.stringify(res);
-        const randomDatestamp = new Date().toString();
+        if (res) {
+          const stringifiedResult = JSON.stringify(res);
+          const randomDatestamp = new Date().toString();
 
-        const filename = `component-${program.componentPresets}-all_presets-${randomDatestamp}`;
+          const filename = `component-${program.componentPresets}-all_presets-${randomDatestamp}`;
 
-        console.warn(
-          `Presets for ${program.componentPresets} written to a file:  ${filename}`
-        );
+          console.warn(
+            `Presets for ${program.componentPresets} written to a file:  ${filename}`
+          );
 
-        await fs.promises.mkdir(`${process.cwd()}/sbmig/component-presets/`, {
-          recursive: true
-        });
-        await fs.promises.writeFile(
-          `./sbmig/component-presets/${filename}.json`,
-          stringifiedResult,
-          { flag: `w` }
-        );
+          await fs.promises.mkdir(`${process.cwd()}/sbmig/component-presets/`, {
+            recursive: true
+          });
+          await fs.promises.writeFile(
+            `./sbmig/component-presets/${filename}.json`,
+            stringifiedResult,
+            { flag: `w` }
+          );
+        }
       });
     }
 
@@ -143,7 +147,7 @@ async function start() {
       sbApi
         .getAll("cdn/links", { version: "draft" })
         .then(results => console.log(results))
-        .catch(err => console.log(err));
+        .catch(err => console.log(err.message));
     }
   } catch (error) {
     console.error(error);

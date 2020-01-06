@@ -1,4 +1,5 @@
 const Fetch = require("node-fetch");
+const Logger = require("./helpers/logger");
 const { oauthToken, storyblokApiUrl, spaceId } = require("./config");
 
 const headers = {
@@ -7,7 +8,7 @@ const headers = {
 };
 
 const getAllComponents = () => {
-  console.warn("Getting all components.");
+  Logger.log("Trying to get all components.");
 
   return Fetch(`${storyblokApiUrl}/spaces/${spaceId}/components/`, {
     method: "GET",
@@ -16,7 +17,7 @@ const getAllComponents = () => {
 };
 
 const getComponent = componentName => {
-  console.warn(`Getting ${componentName} component.`);
+  Logger.log(`Trying to get '${componentName}' component.`);
 
   return getAllComponents().then(res =>
     res.components.filter(component => component.name === componentName)
@@ -24,23 +25,32 @@ const getComponent = componentName => {
 };
 
 const getComponentPresets = componentName => {
-  console.warn(`Getting all ${componentName} presets.`);
+  Logger.log(`Trying to get all '${componentName}' presets.`);
 
   return getAllComponents().then(async res => {
     const filteredArray = res.components.filter(
       component => component.name === componentName
     );
 
-    return Promise.all(
-      filteredArray[0].all_presets.map(preset =>
-        getPreset(preset.id).then(res => res)
-      )
-    ).then(res => res);
+    if (filteredArray.length > 0) {
+      if (filteredArray[0].all_presets.length === 0) {
+        Logger.warning(`There is no presets for: '${componentName}' component`);
+      } else {
+        return Promise.all(
+          filteredArray[0].all_presets.map(preset =>
+            getPreset(preset.id).then(res => res)
+          )
+        ).then(res => res);
+      }
+    } else {
+      Logger.warning(`There is no '${componentName}' component`);
+      return false;
+    }
   });
 };
 
 const getAllPresets = () => {
-  console.warn("Getting all Presets.");
+  Logger.log("Trying to get all Presets.");
 
   return Fetch(`${storyblokApiUrl}/spaces/${spaceId}/presets/`, {
     method: "GET",
@@ -49,12 +59,22 @@ const getAllPresets = () => {
 };
 
 const getPreset = presetId => {
-  console.warn(`Getting preset by id: ${presetId}`);
+  Logger.log(`Trying to get preset by id: ${presetId}`);
 
   return Fetch(`${storyblokApiUrl}/spaces/${spaceId}/presets/${presetId}`, {
     method: "GET",
     headers: headers
-  }).then(response => response.json());
+  })
+    .then(response => response.json())
+    .then(response => {
+      if (Array.isArray(response.presets)) {
+        Logger.warning(`There is no preset for '${presetId}' preset id`);
+        return false;
+      }
+
+      return response;
+    })
+    .catch(err => console.log(err));
 };
 
 module.exports = {
