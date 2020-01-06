@@ -18,7 +18,10 @@ async function start() {
     program
       .option("-d, --debug", "Output extra debugging")
       .option("-a, --all-components", "Get all components")
-      .option("-c, --component <component-name>", "Get single component by name")
+      .option(
+        "-c, --component <component-name>",
+        "Get single component by name"
+      )
       .option("-q, --all-presets", "Get all presets")
       .option("-p, --preset <preset-id>", "Get preset by id")
       .option(
@@ -31,8 +34,6 @@ async function start() {
 
     if (program.debug) console.log(program.opts());
     if (program.preset) {
-      console.log(`- ${program.preset}`);
-
       restApi.getPreset(program.preset).then(async res => {
         const stringifiedResult = JSON.stringify(res);
         const randomDatestamp = new Date().toString();
@@ -43,7 +44,9 @@ async function start() {
           `Preset for '${program.preset}' have been written to a file:  ${filename}`
         );
 
-        await fs.promises.mkdir(`${process.cwd()}/sbmig/presets/`, { recursive: true });
+        await fs.promises.mkdir(`${process.cwd()}/sbmig/presets/`, {
+          recursive: true
+        });
         await fs.promises.writeFile(
           `./sbmig/presets/${filename}.json`,
           stringifiedResult,
@@ -53,10 +56,6 @@ async function start() {
     }
 
     if (program.component) {
-      console.warn(`- ${program.component}`);
-
-      // restApi.getComponent(program.component);
-
       restApi.getComponent(program.component).then(async res => {
         const stringifiedResult = JSON.stringify(res);
         const randomDatestamp = new Date().toString();
@@ -67,7 +66,9 @@ async function start() {
           `Component for ${program.component} written to a file:  ${filename}`
         );
 
-        await fs.promises.mkdir(`${process.cwd()}/sbmig/components/`, { recursive: true });
+        await fs.promises.mkdir(`${process.cwd()}/sbmig/components/`, {
+          recursive: true
+        });
         await fs.promises.writeFile(
           `./sbmig/components/${filename}.json`,
           stringifiedResult,
@@ -77,8 +78,6 @@ async function start() {
     }
 
     if (program.componentPresets) {
-      console.warn(`- ${program.componentPresets}`);
-
       restApi.getComponentPresets(program.componentPresets).then(async res => {
         const stringifiedResult = JSON.stringify(res);
         const randomDatestamp = new Date().toString();
@@ -89,7 +88,9 @@ async function start() {
           `Presets for ${program.componentPresets} written to a file:  ${filename}`
         );
 
-        await fs.promises.mkdir(`${process.cwd()}/sbmig/component-presets/`, { recursive: true });
+        await fs.promises.mkdir(`${process.cwd()}/sbmig/component-presets/`, {
+          recursive: true
+        });
         await fs.promises.writeFile(
           `./sbmig/component-presets/${filename}.json`,
           stringifiedResult,
@@ -107,7 +108,9 @@ async function start() {
 
         console.warn(`All components written to a file:  ${filename}`);
 
-        await fs.promises.mkdir(`${process.cwd()}/sbmig/components/`, { recursive: true });
+        await fs.promises.mkdir(`${process.cwd()}/sbmig/components/`, {
+          recursive: true
+        });
         await fs.promises.writeFile(
           `./sbmig/components/${filename}.json`,
           stringifiedResult,
@@ -125,7 +128,9 @@ async function start() {
 
         console.warn(`All presets written to a file:  ${filename}`);
 
-        await fs.promises.mkdir(`${process.cwd()}/sbmig/presets/`, { recursive: true });
+        await fs.promises.mkdir(`${process.cwd()}/sbmig/presets/`, {
+          recursive: true
+        });
         await fs.promises.writeFile(
           `./sbmig/presets/${filename}.json`,
           stringifiedResult,
@@ -138,10 +143,9 @@ async function start() {
       sbApi
         .getAll("cdn/links", { version: "draft" })
         .then(results => console.log(results))
-        .catch(err => console.log(err))
+        .catch(err => console.log(err));
     }
   } catch (error) {
-    // eslint-disable-next-line no-console
     console.error(error);
     process.exit(1);
   }
