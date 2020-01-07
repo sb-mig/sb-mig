@@ -7,7 +7,6 @@ const {
   githubToken,
   seedRepo
 } = require("./config");
-const { createPreset, updatePreset } = require("./presets");
 
 const headers = {
   "Content-Type": "application/json",
@@ -137,7 +136,5 @@ module.exports = {
   getAllPresets,
   getPreset,
   getStoryblokComponent,
-  getReactComponent,
-  createPreset,
-  updatePreset
+  getReactComponent
 };
