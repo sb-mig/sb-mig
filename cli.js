@@ -2,11 +2,13 @@
 const chalk = require("chalk");
 const figlet = require("figlet");
 const commander = require("commander");
-const package = require("./package.json");
 const fs = require("fs");
+const package = require("./package.json");
 const Logger = require("./helpers/logger");
 const restApi = require("./restApi");
 const sbApi = require("./sbApi.js");
+const migrate = require('./migrate.js');
+
 const program = new commander.Command();
 
 async function start() {
@@ -18,6 +20,8 @@ async function start() {
 
     program
       .option("-d, --debug", "Output extra debugging")
+      .option("-M, --migrate <component-name>", "Migrate single component using schema")
+      .option("-S, --sync", "Sync all component from schema")
       .option("-a, --all-components", "Get all components")
       .option(
         "-c, --component <component-name>",
@@ -41,12 +45,20 @@ async function start() {
 
     program.parse(process.argv);
 
+    if (program.sync) {
+      Logger.log("Syncing...");
+      migrate.syncAllComponents(program.sync);
+    }
+    if (program.migrate) {
+      Logger.log("Migrating...");
+      migrate.migrateComponent(program.migrate);
+    }
     if (program.debug) console.log(program.opts());
     if (program.preset) {
       restApi.getPreset(program.preset).then(async res => {
         if (res) {
           const stringifiedResult = JSON.stringify(res);
-          const randomDatestamp = new Date().toString();
+          const randomDatestamp = new Date().toJSON();
 
           const filename = `preset-${program.preset}-${randomDatestamp}`;
 
@@ -69,7 +81,7 @@ async function start() {
     if (program.component) {
       restApi.getComponent(program.component).then(async res => {
         const stringifiedResult = JSON.stringify(res);
-        const randomDatestamp = new Date().toString();
+        const randomDatestamp = new Date().toJSON();
 
         const filename = `component-${program.component}-${randomDatestamp}`;
 
@@ -92,7 +104,7 @@ async function start() {
       restApi.getComponentPresets(program.componentPresets).then(async res => {
         if (res) {
           const stringifiedResult = JSON.stringify(res);
-          const randomDatestamp = new Date().toString();
+          const randomDatestamp = new Date().toJSON();
 
           const filename = `component-${program.componentPresets}-all_presets-${randomDatestamp}`;
 
@@ -115,7 +127,7 @@ async function start() {
     if (program.allComponents) {
       restApi.getAllComponents().then(async res => {
         const stringifiedResult = JSON.stringify(res);
-        const randomDatestamp = new Date().toString();
+        const randomDatestamp = new Date().toJSON();
 
         const filename = `all-components-backup-${randomDatestamp}`;
 
@@ -135,7 +147,7 @@ async function start() {
     if (program.allPresets) {
       restApi.getAllPresets().then(async res => {
         const stringifiedResult = JSON.stringify(res);
-        const randomDatestamp = new Date().toString();
+        const randomDatestamp = new Date().toJSON();
 
         const filename = `all-presets-backup-${randomDatestamp}`;
 
@@ -168,7 +180,7 @@ async function start() {
       .getStoryblokComponent(program.getSbTestComponent)
       .then(async res => {
         if (res) {
-          const randomDatestamp = new Date().toString();
+          const randomDatestamp = new Date().toJSON();
 
           const filename = `${program.getSbTestComponent}-${randomDatestamp}`;
           await fs.promises.mkdir(`${process.cwd()}/sbmig/storyblok/`, {
@@ -189,7 +201,7 @@ async function start() {
     restApi.getReactComponent(program.getReactTestComponent).then(async res => {
       if (res) {
         console.log(res);
-        const randomDatestamp = new Date().toString();
+        const randomDatestamp = new Date().toJSON();
 
         const filename = `${program.getReactTestComponent}-${randomDatestamp}`;
         await fs.promises.mkdir(`${process.cwd()}/sbmig/react-match/`, {
