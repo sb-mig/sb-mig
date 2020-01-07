@@ -37,3 +37,12 @@ Options:
   -x, --get-react-test-component <storyblok-react-component>  Get test react matching to schema based component
   -h, --help                                                  output usage information
 ```
+
+## Roadmap:
+- [ ] Upload presets
+- [ ] Upload components
+- [ ] Upload components using schema based .js file
+- [ ] Component groups
+
+Generally, purpose of this package is to manage creation and maintainance of components and other stuff, from code/command line.
+To be able to create whole space and basic structure of the project without using GUI.
