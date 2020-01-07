@@ -27,6 +27,8 @@ Usage: sb-mig [options]
 Options:
   -V, --version                                               output the version number
   -d, --debug                                                 Output extra debugging
+    * -M, --migrate <component-name>                              Migrate single component using schema
+    * -S, --sync                                                  Sync all component from schema
   -a, --all-components                                        Get all components
   -c, --component <component-name>                            Get single component by name
   -q, --all-presets                                           Get all presets
@@ -36,12 +38,16 @@ Options:
   -z, --get-sb-test-component <storyblok-component>           Get test storyblok schema based component
   -x, --get-react-test-component <storyblok-react-component>  Get test react matching to schema based component
   -h, --help                                                  output usage information
+
+
+
+  * - experimental feature, use with caution
 ```
 
 ## Roadmap:
 - [ ] Upload presets
 - [ ] Upload components
-- [ ] Upload components using schema based .js file
+- [x] Upload components using schema based .js file
 - [ ] Component groups
 
 Generally, purpose of this package is to manage creation and maintainance of components and other stuff, from code/command line.
