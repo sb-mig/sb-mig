@@ -26,6 +26,7 @@
     "commander": "^4.0.1",
     "dotenv": "^8.2.0",
     "figlet": "^1.2.4",
+    "glob": "^7.1.6",
     "node-fetch": "^2.6.0",
     "storyblok-js-client": "^2.0.12"
   },

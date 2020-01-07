@@ -16,6 +16,10 @@ class Logger {
     console.log(content);
   }
 
+  static success(content) {
+    console.log(chalk.green(content));
+  }
+
   static warning(content) {
     console.log(chalk.yellow(content));
   }

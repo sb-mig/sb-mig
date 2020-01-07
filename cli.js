@@ -1,14 +1,14 @@
 #!/usr/bin/env node
-const allRowPresets = require('./sbmig/component-presets/component-row-all_presets-2020-01-06T15:37:20.025Z.json')
-const row = require('./sbmig/storyblok/row');
 const chalk = require("chalk");
 const figlet = require("figlet");
 const commander = require("commander");
-const package = require("./package.json");
 const fs = require("fs");
+const package = require("./package.json");
 const Logger = require("./helpers/logger");
 const restApi = require("./restApi");
 const sbApi = require("./sbApi.js");
+const migrate = require('./migrate.js');
+
 const program = new commander.Command();
 
 async function start() {
@@ -20,7 +20,8 @@ async function start() {
 
     program
       .option("-d, --debug", "Output extra debugging")
-      .option("-A, --groups <'get' or 'push'> <group-name>", "Test something")
+      .option("-M, --migrate <component-name>", "Migrate single component using schema")
+      .option("-S, --sync", "Sync all component from schema")
       .option("-a, --all-components", "Get all components")
       .option(
         "-c, --component <component-name>",
@@ -44,19 +45,14 @@ async function start() {
 
     program.parse(process.argv);
 
-    if (program.groups) {
-      console.log(row.all_presets);
-      console.log(allRowPresets[0].preset.name);
-      if (program.groups === "get") {
-        console.log(program.groups);
-        console.log(program.args);
-      }
-      if (program.groups === "push") {
-        console.log(program.groups);
-        console.log(program.args);
-      }
+    if (program.sync) {
+      Logger.log("Syncing...");
+      migrate.syncAllComponents(program.sync);
     }
-
+    if (program.migrate) {
+      Logger.log("Migrating...");
+      migrate.migrateComponent(program.migrate);
+    }
     if (program.debug) console.log(program.opts());
     if (program.preset) {
       restApi.getPreset(program.preset).then(async res => {
