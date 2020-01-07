@@ -41,7 +41,7 @@ Options:
 ## Roadmap:
 - [ ] Upload presets
 - [ ] Upload components
-- [ ] Upload components using schema based .js file
+- [ ] Upload components using schema based .js file (based on idea from [storyblok-migrate](https://github.com/maoberlehner/storyblok-migrate))
 - [ ] Component groups
 
 Generally, purpose of this package is to manage creation and maintainance of components and other stuff, from code/command line.
