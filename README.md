@@ -9,12 +9,38 @@ STORYBLOK_ACCESS_TOKEN=zxcvbnmasdfghjkl
 ```
 
 if u want to use experimental feature of downloading `.js` files from seed project (storyblok schema based files, and react-match-storyblok files), you have to add and set github access token
+
 ```
 GITHUB_TOKEN=1234567890-qwertyuiop
 SEED_REPO=https://raw.githubusercontent.com/your-org/your-seed-project/master
 ```
 
+You can also provide your custom config. To do that u have to create `storyblok.config.js` file in your root catalog with following structure:
+
+```
+// storyblok.config.js
+module.exports = {
+  componentDirectory: 'sbmig/storyblok',
+  storyblokApiUrl: 'https://api.storyblok.com/v1',
+  oauthToken: process.env.STORYBLOK_OAUTH_TOKEN,
+  spaceId: process.env.STORYBLOK_SPACE_ID,
+  accessToken: process.env.STORYBLOK_ACCESS_TOKEN,
+  githubToken: process.env.GITHUB_TOKEN,
+  seedRepo: process.env.SEED_REPO
+};
+```
+
+You don't need to pass everything to the config file. If u want to have only `componentDirectory` as custom below code will be also valid. 
+
+```
+// storyblok.config.js
+module.exports = {
+  componentDirectory: 'storyblok',
+};
+```
+
 ## Usage
+
 ```
         _                           _
   ___  | |__            _ __ ___   (_)   __ _
@@ -45,6 +71,7 @@ Options:
 ```
 
 ## Roadmap:
+
 - [ ] Upload presets
 - [ ] Upload components
 - [x] Upload components using schema based .js file (based on idea from [storyblok-migrate](https://github.com/maoberlehner/storyblok-migrate))
