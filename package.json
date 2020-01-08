@@ -5,7 +5,7 @@
     "type": "git",
     "url": "git+https://github.com/marckraw/sb-mig.git"
   },
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "CLI to rule the world. (and handle stuff related to Storyblok CMS)",
   "keywords": [
     "cli",
