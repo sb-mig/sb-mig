@@ -1,3 +1,12 @@
+## [0.2.2](https://github.com/marckraw/sb-mig/compare/v0.2.1...v0.2.2) (2020-01-08)
+
+
+### chore
+
+* update readme ([7496c93](https://github.com/marckraw/sb-mig/commit/7496c93c9bf3bf52040c7e6cc271d41f4f117ffc))
+
+
+
 ## [0.2.1](https://github.com/marckraw/sb-mig/compare/v0.2.0...v0.2.1) (2020-01-08)
 
 
