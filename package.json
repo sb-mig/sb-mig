@@ -21,6 +21,8 @@
   "author": "Marcin Krawczyk <marckraw@icloud.com>",
   "license": "MIT",
   "dependencies": {
+    "@commitlint/cli": "^8.3.4",
+    "@commitlint/config-conventional": "^8.3.4",
     "chalk": "^3.0.0",
     "clear": "^0.1.0",
     "commander": "^4.0.1",
