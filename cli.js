@@ -1,27 +1,26 @@
 #!/usr/bin/env node
-const chalk = require("chalk");
-const figlet = require("figlet");
+const Logger = require("./helpers/logger");
 const commander = require("commander");
 const fs = require("fs");
 const package = require("./package.json");
-const Logger = require("./helpers/logger");
 const restApi = require("./restApi");
 const sbApi = require("./sbApi.js");
-const migrate = require('./migrate.js');
+const migrate = require("./migrate.js");
 
 const program = new commander.Command();
 
 async function start() {
-  console.log(
-    chalk.yellow(figlet.textSync("sb-mig", { horizontalLayout: "full" }))
-  );
+  Logger.bigLog("sb-mig");
   try {
     program.version(package.version);
 
     program
-      .option("-d, --debug", "Output extra debugging")
-      .option("-M, --migrate <component-name>", "Migrate single component using schema")
-      .option("-S, --sync", "Sync all component from schema")
+      .option(
+        "-M, --migrate <component-name>",
+        "(DEPRECATED in favor of --sync) Migrate single component using schema"
+      )
+      .option("-s, --sync", "Sync provided components from schema with")
+      .option("-S, --sync-all", "Sync all components from schema with")
       .option("-a, --all-components", "Get all components")
       .option(
         "-c, --component <component-name>",
@@ -33,7 +32,6 @@ async function start() {
         "-d, --component-presets <component-name>",
         "Get all presets for single component by name"
       )
-      .option("-s, --sb-client", "Make test request using StoryblokClient")
       .option(
         "-z, --get-sb-test-component <storyblok-component>",
         "Get test storyblok schema based component"
@@ -41,19 +39,33 @@ async function start() {
       .option(
         "-x, --get-react-test-component <storyblok-react-component>",
         "Get test react matching to schema based component"
-      );
+      )
+      .option("-d, --debug", "Output extra debugging");
 
     program.parse(process.argv);
 
     if (program.sync) {
-      Logger.log("Syncing...");
+      Logger.log("Syncing provided components...");
+
+      if (program.args.length === 0) {
+        Logger.warning(
+          `You have to provide some components separated with empty space. For exmaple: 'row column card'`
+        );
+      } else {
+        migrate.syncComponents(program.args);
+      }
+    }
+
+    if (program.syncAll) {
+      Logger.log("Syncing all components...");
       migrate.syncAllComponents(program.sync);
     }
+
     if (program.migrate) {
       Logger.log("Migrating...");
       migrate.migrateComponent(program.migrate);
     }
-    if (program.debug) console.log(program.opts());
+
     if (program.preset) {
       restApi.getPreset(program.preset).then(async res => {
         if (res) {
@@ -217,6 +229,8 @@ async function start() {
       }
     });
   }
+
+  if (program.debug) console.log(program.opts());
 }
 
 start();

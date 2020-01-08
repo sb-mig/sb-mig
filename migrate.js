@@ -35,11 +35,11 @@ const migrateComponent = componentName => {
           `Trying to create presets for '${componentName}' component`
         );
         all_presets_modified.map(p => {
-            if(p.preset.id) {
-                updatePreset(p);
-            } else {
-                createPreset(p);
-            }
+          if (p.preset.id) {
+            updatePreset(p);
+          } else {
+            createPreset(p);
+          }
         });
       } else {
         Logger.error("There are no presets for this component.");
@@ -51,7 +51,7 @@ const migrateComponent = componentName => {
     });
 };
 
-createPreset = p => {
+const createPreset = p => {
   sbApi
     .post(`spaces/${spaceId}/presets/`, {
       preset: p.preset
@@ -67,7 +67,7 @@ createPreset = p => {
     });
 };
 
-updatePreset = p => {
+const updatePreset = p => {
   sbApi
     .put(`spaces/${spaceId}/presets/${p.preset.id}`, {
       preset: p.preset
@@ -106,11 +106,11 @@ const createComponent = component => {
           `Trying to create presets for '${component.name}' component`
         );
         all_presets_modified.map(p => {
-            if(p.preset.id) {
-                updatePreset(p);
-            } else {
-                createPreset(p);
-            }
+          if (p.preset.id) {
+            updatePreset(p);
+          } else {
+            createPreset(p);
+          }
         });
       } else {
         Logger.error("There are no presets for this component.");
@@ -187,7 +187,60 @@ const syncAllComponents = async () => {
   });
 };
 
+const syncComponents = async specifiedComponents => {
+  Logger.log(`Trying to sync all components from '${componentDirectory}'`);
+  const localComponents = components;
+  const remoteComponents = await restApi.getAllComponents();
+
+  let componentsToUpdate = [];
+  let componentsToCreate = [];
+
+  for (const component of localComponents) {
+    const shouldBeUpdated = remoteComponents.components.find(
+      remoteComponent => component.name === remoteComponent.name
+    );
+    if (shouldBeUpdated) {
+      componentsToUpdate.push({ id: shouldBeUpdated.id, ...component });
+    } else {
+      componentsToCreate.push(component);
+    }
+  }
+
+  const filteredComponentsToUpdate = componentsToUpdate.filter(c => {
+    const temp = specifiedComponents.find(component => component === c.name);
+    if(temp) {
+      specifiedComponents = specifiedComponents.filter(component => component !== temp)
+    }
+
+    return temp
+  });
+  
+  const filteredComponentsToCreate = componentsToCreate.filter(c => {
+    const temp = specifiedComponents.find(component => component === c.name);
+    return temp
+  });
+
+  Logger.log("Components to update after check: ")
+  filteredComponentsToUpdate.forEach(component => {
+    Logger.warning(`   ${component.name}`);
+  })
+
+  Logger.log("Components to create after check: ");
+  filteredComponentsToCreate.forEach(component => {
+    Logger.warning(`   ${component.name}`);
+  })
+
+  filteredComponentsToCreate.map(component => {
+    createComponent(component);
+  });
+
+  filteredComponentsToUpdate.map(component => {
+    updateComponent(component);
+  });
+};
+
 module.exports = {
   migrateComponent,
-  syncAllComponents
+  syncAllComponents,
+  syncComponents
 };
