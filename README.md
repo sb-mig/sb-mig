@@ -1,3 +1,9 @@
+# How to install
+
+```
+npm install --global sb-mig
+```
+
 # How to use
 
 You have to create `.env` file with your variables:
@@ -52,7 +58,7 @@ Usage: sb-mig [options]
 
 Options:
   -V, --version                                               output the version number
-  -d, --debug                                                 Output extra debugging
+  -h, --help                                                  output usage information
     * -M, --migrate <component-name>                              Migrate single component using schema
     * -S, --sync                                                  Sync all component from schema
   -a, --all-components                                        Get all components
@@ -60,10 +66,10 @@ Options:
   -q, --all-presets                                           Get all presets
   -p, --preset <preset-id>                                    Get preset by id
   -d, --component-presets <component-name>                    Get all presets for single component by name
-  -s, --sb-client                                             Make test request using StoryblokClient
   -z, --get-sb-test-component <storyblok-component>           Get test storyblok schema based component
   -x, --get-react-test-component <storyblok-react-component>  Get test react matching to schema based component
-  -h, --help                                                  output usage information
+  -d, --debug                                                 Output extra debugging
+  
 
 
 
