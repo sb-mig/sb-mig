@@ -1,3 +1,12 @@
+## [0.2.1](https://github.com/marckraw/sb-mig/compare/v0.2.0...v0.2.1) (2020-01-08)
+
+
+### feature
+
+* add support for custom config ([17240f0](https://github.com/marckraw/sb-mig/commit/17240f02221052820fd2d09a621f1b82e6f8ac9b))
+
+
+
 # [0.2.0](https://github.com/marckraw/sb-mig/compare/v0.1.2...v0.2.0) (2020-01-08)
 
 
