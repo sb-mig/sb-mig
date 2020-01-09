@@ -98,6 +98,7 @@ module.exports = {
   display_name: "Text block",
   is_root: false,
   is_nestable: true,
+  component_group_name: "Some group",
   schema: {
     title: {
       type: "text",
@@ -112,7 +113,7 @@ module.exports = {
 - [x] Sync single component
 - [x] Sync all components
 - [x] Sync components using schema based .js file (based on idea from [storyblok-migrate](https://github.com/maoberlehner/storyblok-migrate))
-- [ ] Component groups
+- [x] Component groups
 
 General, purpose of this package is to manage creation and maintainance of components and other stuff, from code/command line.
 To be able to create whole space and basic structure of the project without using GUI.
