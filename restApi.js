@@ -97,7 +97,7 @@ const getPreset = presetId => {
 
       return response;
     })
-    .catch(err => console.log(err));
+    .catch(err => Logger.error(err));
 };
 
 const getStoryblokComponent = componentName => {
@@ -120,7 +120,7 @@ const getStoryblokComponent = componentName => {
       }
       return response;
     })
-    .catch(err => console.log(err.message));
+    .catch(err => Logger.error(err.message));
 };
 
 const getReactComponent = componentName => {
@@ -143,7 +143,7 @@ const getReactComponent = componentName => {
       }
       return response;
     })
-    .catch(err => console.log(err.message));
+    .catch(err => Logger.error(err.message));
 };
 
 module.exports = {

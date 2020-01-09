@@ -47,7 +47,7 @@ const migrateComponent = componentName => {
       }
     })
     .catch(err => {
-      console.log("error happened... :(");
+      Logger.error("error happened... :(");
       console.log(
         `${err.message} in migration of ${componentName} in migrateComponent`
       );
@@ -64,7 +64,6 @@ const createComponentsGroup = groupName => {
       }
     })
     .then(res => {
-      console.log(res.data);
       Logger.warning(
         `'${groupName}' created with uuid: ${res.data.component_group.uuid}`
       );
@@ -143,8 +142,7 @@ const createComponent = component => {
       }
     })
     .catch(err => {
-      console.log("error happened... :(");
-      console.log(err);
+      Logger.error("error happened... :(");
       console.log(
         `${err.message} in migration of ${component.name} in createComponent function`
       );
@@ -184,7 +182,7 @@ const updateComponent = component => {
       }
     })
     .catch(err => {
-      console.log("error happened... :(");
+      Logger.error("error happened... :(");
       console.log(
         `${err.message} in migration of ${component.name} in updateComponent function`
       );
@@ -207,18 +205,12 @@ const resolveGroups = async (
       remoteComponentsGroup => remoteComponentsGroup.name === componentsGroup
     ).uuid;
 
-    console.log(
-      `Group id: ${component_group_uuid} for ${component.name} for group name ${component.component_group_name}`
-    );
     return { ...component, component_group_uuid };
   } else {
     const newComponentsGroup = await createComponentsGroup(
       component.component_group_name
     );
     const component_group_uuid = newComponentsGroup.component_group.uuid;
-    console.log(
-      `Group id: ${component_group_uuid} for ${component.name} for group name ${component.component_group_name}`
-    );
 
     return { ...component, component_group_uuid };
   }
@@ -265,9 +257,6 @@ const syncComponents = async specifiedComponents => {
   const uniqueGroupsToCheck = new Set(groupsToCheck);
   const arrayWithUniqueGroupsToCheck = [...uniqueGroupsToCheck];
 
-  Logger.error("this are groups to check");
-  console.log(arrayWithUniqueGroupsToCheck);
-
   const checkGroups = async () => {
     const componentsGroups = await restApi.getAllComponentsGroups();
     const groupExist = groupName =>
@@ -290,6 +279,7 @@ const syncComponents = async specifiedComponents => {
   Promise.all(uberFilteredComponentsToUpdate).then(res => {
     Logger.log("Components to update after check: ");
     res.map(component => {
+      Logger.warning(`   ${component.name}`);
       updateComponent(component);
     });
   });
