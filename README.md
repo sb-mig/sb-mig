@@ -2,13 +2,21 @@
     <img width="250" height="250" src="./sb-mig-logo.png" alt="Logo" />
 </p>
 
-# How to install
+## Contents
+
+- [How to install](#how-to-install)
+- [Usage](#how-to-install)
+- [Schema documentation](#schema-documentation)
+  - [Basics](#basics)
+- [Roadmap](#roadmap)
+
+---
+
+# How to install and configure
 
 ```
 npm install --global sb-mig
 ```
-
-# How to use
 
 You have to create `.env` file with your variables:
 
@@ -80,12 +88,31 @@ Options:
   * - experimental feature, use with caution
 ```
 
+# Schema documentation:
+
+## Basics
+This is basic look of the schame based `.js` file which will map to `Storyblok` component
+```
+module.exports = {
+  name: "text-block",
+  display_name: "Text block",
+  is_root: false,
+  is_nestable: true,
+  schema: {
+    title: {
+      type: "text",
+    },
+  }
+};
+```
+
 ## Roadmap:
 
 - [ ] Upload presets
-- [ ] Upload components
-- [x] Upload components using schema based .js file (based on idea from [storyblok-migrate](https://github.com/maoberlehner/storyblok-migrate))
+- [x] Sync single component
+- [x] Sync all components
+- [x] Sync components using schema based .js file (based on idea from [storyblok-migrate](https://github.com/maoberlehner/storyblok-migrate))
 - [ ] Component groups
 
-Generally, purpose of this package is to manage creation and maintainance of components and other stuff, from code/command line.
+General, purpose of this package is to manage creation and maintainance of components and other stuff, from code/command line.
 To be able to create whole space and basic structure of the project without using GUI.
