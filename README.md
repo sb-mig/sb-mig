@@ -1,5 +1,5 @@
 <p align="center">
-    <img width="250" height="250" src="./sb-mig-logo.svg" alt="Logo" />
+    <img width="250" height="250" src="./sb-mig-logo.png" alt="Logo" />
 </p>
 
 # How to install
