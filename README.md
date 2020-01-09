@@ -1,6 +1,4 @@
-<div style="width: 200px; height: 200px; margin: 2em auto;">
-    <img src="./sb-mig-logo.svg" alt="Logo" style=" display: block;" />
-</div>
+<img align="middle" width="250" height="250" src="./sb-mig-logo.svg" alt="Logo" />
 
 # How to install
 
