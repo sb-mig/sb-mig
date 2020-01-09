@@ -13,6 +13,24 @@ const headers = {
   Authorization: oauthToken
 };
 
+const getAllComponentsGroups = () => {
+  Logger.log("Trying to get all groups.");
+
+  return Fetch(`${storyblokApiUrl}/spaces/${spaceId}/component_groups/`, {
+    method: "GET",
+    headers: headers
+  }).then(response => response.json());
+};
+
+const getComponentsGroup = groupName => {
+  Logger.log(`Trying to get '${groupName}' group.`);
+
+  return getAllComponentsGroups().then(res => {
+    console.log(res);
+    return res.component_groups.filter(group => group.name === groupName);
+  });
+};
+
 const getAllComponents = () => {
   Logger.log("Trying to get all components.");
 
@@ -130,6 +148,8 @@ const getReactComponent = componentName => {
 };
 
 module.exports = {
+  getAllComponentsGroups,
+  getComponentsGroup,
   getAllComponents,
   getComponent,
   getComponentPresets,

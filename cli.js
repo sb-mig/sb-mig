@@ -21,6 +21,11 @@ async function start() {
       )
       .option("-s, --sync", "Sync provided components from schema with")
       .option("-S, --sync-all", "Sync all components from schema with")
+      .option("-g, --all-components-groups", "Get all component groups")
+      .option(
+        "-c, --components-group <components-group-name>",
+        "Get single components group by name"
+      )
       .option("-a, --all-components", "Get all components")
       .option(
         "-c, --component <component-name>",
@@ -133,6 +138,48 @@ async function start() {
             { flag: `w` }
           );
         }
+      });
+    }
+
+    if (program.allComponentsGroups) {
+      restApi.getAllComponentsGroups().then(async res => {
+        const stringifiedResult = JSON.stringify(res);
+        const randomDatestamp = new Date().toJSON();
+
+        const filename = `all-component_groups-backup-${randomDatestamp}`;
+
+        Logger.warning(`All groups written to a file:  ${filename}`);
+
+        await fs.promises.mkdir(`${process.cwd()}/sbmig/component_groups/`, {
+          recursive: true
+        });
+        await fs.promises.writeFile(
+          `./sbmig/component_groups/${filename}.json`,
+          stringifiedResult,
+          { flag: `w` }
+        );
+      })
+    }
+
+    if (program.componentsGroup) {
+      restApi.getComponentsGroup(program.componentsGroup).then(async res => {
+        const stringifiedResult = JSON.stringify(res);
+        const randomDatestamp = new Date().toJSON();
+
+        const filename = `components_group-${program.componentsGroup}-${randomDatestamp}`;
+
+        Logger.warning(
+          `Components group for ${program.componentsGroup} written to a file:  ${filename}`
+        );
+
+        await fs.promises.mkdir(`${process.cwd()}/sbmig/component_groups/`, {
+          recursive: true
+        });
+        await fs.promises.writeFile(
+          `./sbmig/component_groups/${filename}.json`,
+          stringifiedResult,
+          { flag: `w` }
+        );
       });
     }
 
