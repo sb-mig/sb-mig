@@ -1,3 +1,5 @@
+<img src="./sb-mig-logo.svg" alt="Logo" style="width: 200px; height: 200px; display: block; margin: 2em auto;" />
+
 # How to install
 
 ```
