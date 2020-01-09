@@ -195,7 +195,7 @@ const resolveGroups = async (
   remoteComponentsGroups
 ) => {
   if (!component.component_group_name) {
-    return component;
+    return { ...component, component_group_uuid: null };
   }
   const componentsGroup = existedGroups.find(
     group => component.component_group_name === group
@@ -204,13 +204,6 @@ const resolveGroups = async (
     const component_group_uuid = remoteComponentsGroups.component_groups.find(
       remoteComponentsGroup => remoteComponentsGroup.name === componentsGroup
     ).uuid;
-
-    return { ...component, component_group_uuid };
-  } else {
-    const newComponentsGroup = await createComponentsGroup(
-      component.component_group_name
-    );
-    const component_group_uuid = newComponentsGroup.component_group.uuid;
 
     return { ...component, component_group_uuid };
   }
@@ -266,7 +259,7 @@ const syncComponents = async specifiedComponents => {
         await createComponentsGroup(groupName);
       }
     }
-  }
+  };
 
   await checkGroups();
 
