@@ -13,6 +13,23 @@ const headers = {
   Authorization: oauthToken
 };
 
+const getAllComponentsGroups = async () => {
+  Logger.log("Trying to get all groups.");
+
+  return Fetch(`${storyblokApiUrl}/spaces/${spaceId}/component_groups/`, {
+    method: "GET",
+    headers: headers
+  }).then(response => response.json());
+};
+
+const getComponentsGroup = groupName => {
+  Logger.log(`Trying to get '${groupName}' group.`);
+
+  return getAllComponentsGroups().then(res => {
+    return res.component_groups.filter(group => group.name === groupName);
+  });
+};
+
 const getAllComponents = () => {
   Logger.log("Trying to get all components.");
 
@@ -80,7 +97,7 @@ const getPreset = presetId => {
 
       return response;
     })
-    .catch(err => console.log(err));
+    .catch(err => Logger.error(err));
 };
 
 const getStoryblokComponent = componentName => {
@@ -103,7 +120,7 @@ const getStoryblokComponent = componentName => {
       }
       return response;
     })
-    .catch(err => console.log(err.message));
+    .catch(err => Logger.error(err.message));
 };
 
 const getReactComponent = componentName => {
@@ -126,10 +143,12 @@ const getReactComponent = componentName => {
       }
       return response;
     })
-    .catch(err => console.log(err.message));
+    .catch(err => Logger.error(err.message));
 };
 
 module.exports = {
+  getAllComponentsGroups,
+  getComponentsGroup,
   getAllComponents,
   getComponent,
   getComponentPresets,

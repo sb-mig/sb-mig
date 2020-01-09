@@ -21,6 +21,11 @@ async function start() {
       )
       .option("-s, --sync", "Sync provided components from schema with")
       .option("-S, --sync-all", "Sync all components from schema with")
+      .option("-g, --all-components-groups", "Get all component groups")
+      .option(
+        "-c, --components-group <components-group-name>",
+        "Get single components group by name"
+      )
       .option("-a, --all-components", "Get all components")
       .option(
         "-c, --component <component-name>",
@@ -136,6 +141,48 @@ async function start() {
       });
     }
 
+    if (program.allComponentsGroups) {
+      restApi.getAllComponentsGroups().then(async res => {
+        const stringifiedResult = JSON.stringify(res);
+        const randomDatestamp = new Date().toJSON();
+
+        const filename = `all-component_groups-backup-${randomDatestamp}`;
+
+        Logger.warning(`All groups written to a file:  ${filename}`);
+
+        await fs.promises.mkdir(`${process.cwd()}/sbmig/component_groups/`, {
+          recursive: true
+        });
+        await fs.promises.writeFile(
+          `./sbmig/component_groups/${filename}.json`,
+          stringifiedResult,
+          { flag: `w` }
+        );
+      });
+    }
+
+    if (program.componentsGroup) {
+      restApi.getComponentsGroup(program.componentsGroup).then(async res => {
+        const stringifiedResult = JSON.stringify(res);
+        const randomDatestamp = new Date().toJSON();
+
+        const filename = `components_group-${program.componentsGroup}-${randomDatestamp}`;
+
+        Logger.warning(
+          `Components group for ${program.componentsGroup} written to a file:  ${filename}`
+        );
+
+        await fs.promises.mkdir(`${process.cwd()}/sbmig/component_groups/`, {
+          recursive: true
+        });
+        await fs.promises.writeFile(
+          `./sbmig/component_groups/${filename}.json`,
+          stringifiedResult,
+          { flag: `w` }
+        );
+      });
+    }
+
     if (program.allComponents) {
       restApi.getAllComponents().then(async res => {
         const stringifiedResult = JSON.stringify(res);
@@ -176,61 +223,55 @@ async function start() {
       });
     }
 
-    if (program.sbClient) {
-      sbApi
-        .getAll("cdn/links", { version: "draft" })
-        .then(results => console.log(results))
-        .catch(err => console.log(err.message));
+    if (program.getSbTestComponent) {
+      restApi
+        .getStoryblokComponent(program.getSbTestComponent)
+        .then(async res => {
+          if (res) {
+            const randomDatestamp = new Date().toJSON();
+
+            const filename = `${program.getSbTestComponent}-${randomDatestamp}`;
+            await fs.promises.mkdir(`${process.cwd()}/sbmig/storyblok/`, {
+              recursive: true
+            });
+            const dest = await fs.createWriteStream(
+              `./sbmig/storyblok/${filename}.js`
+            );
+            res.body.pipe(dest);
+            Logger.log(
+              `Storyblok schema for '${program.getSbTestComponent}' saved in a ${filename} file.`
+            );
+          }
+        });
     }
+
+    if (program.getReactTestComponent) {
+      restApi
+        .getReactComponent(program.getReactTestComponent)
+        .then(async res => {
+          if (res) {
+            const randomDatestamp = new Date().toJSON();
+
+            const filename = `${program.getReactTestComponent}-${randomDatestamp}`;
+            await fs.promises.mkdir(`${process.cwd()}/sbmig/react-match/`, {
+              recursive: true
+            });
+            const dest = await fs.createWriteStream(
+              `./sbmig/react-match/${filename}.js`
+            );
+            res.body.pipe(dest);
+            Logger.log(
+              `Storyblok react match component for '${program.getReactTestComponent}' saved in a ${filename} file.`
+            );
+          }
+        });
+    }
+
+    if (program.debug) console.log(program.opts());
   } catch (error) {
     console.error(error);
     process.exit(1);
   }
-
-  if (program.getSbTestComponent) {
-    restApi
-      .getStoryblokComponent(program.getSbTestComponent)
-      .then(async res => {
-        if (res) {
-          const randomDatestamp = new Date().toJSON();
-
-          const filename = `${program.getSbTestComponent}-${randomDatestamp}`;
-          await fs.promises.mkdir(`${process.cwd()}/sbmig/storyblok/`, {
-            recursive: true
-          });
-          const dest = await fs.createWriteStream(
-            `./sbmig/storyblok/${filename}.js`
-          );
-          res.body.pipe(dest);
-          Logger.log(
-            `Storyblok schema for '${program.getSbTestComponent}' saved in a ${filename} file.`
-          );
-        }
-      });
-  }
-
-  if (program.getReactTestComponent) {
-    restApi.getReactComponent(program.getReactTestComponent).then(async res => {
-      if (res) {
-        console.log(res);
-        const randomDatestamp = new Date().toJSON();
-
-        const filename = `${program.getReactTestComponent}-${randomDatestamp}`;
-        await fs.promises.mkdir(`${process.cwd()}/sbmig/react-match/`, {
-          recursive: true
-        });
-        const dest = await fs.createWriteStream(
-          `./sbmig/react-match/${filename}.js`
-        );
-        res.body.pipe(dest);
-        Logger.log(
-          `Storyblok react match component for '${program.getReactTestComponent}' saved in a ${filename} file.`
-        );
-      }
-    });
-  }
-
-  if (program.debug) console.log(program.opts());
 }
 
 start();

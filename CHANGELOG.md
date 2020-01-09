@@ -1,3 +1,12 @@
+# [0.3.0](https://github.com/marckraw/sb-mig/compare/v0.2.3...v0.3.0) (2020-01-09)
+
+
+### feature
+
+* add get all groups and get specific group ([8056558](https://github.com/marckraw/sb-mig/commit/80565584c296bdd8095ba1e6850db7a76f181174))
+
+
+
 ## 0.2.5 (2020-01-09)
 
 
