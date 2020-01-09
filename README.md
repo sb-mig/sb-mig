@@ -1,4 +1,4 @@
-<img align="middle" width="250" height="250" src="./sb-mig-logo.svg" alt="Logo" />
+<table width="100%" cellspacing="32"><tr><td align="center"><img align="middle" width="250" height="250" src="./sb-mig-logo.svg" alt="Logo" /></td></tr></table>
 
 # How to install
 
