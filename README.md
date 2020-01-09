@@ -1,10 +1,6 @@
-<table width="100%" cellspacing="32" border="0">
-    <tr>
-        <td width="100%" align="center">
-            <img align="middle" width="250" height="250" src="./sb-mig-logo.svg" alt="Logo" />
-        </td>
-    </tr>
-</table>
+<p align="center">
+    <img width="250" height="250" src="./sb-mig-logo.svg" alt="Logo" />
+</p>
 
 # How to install
 
