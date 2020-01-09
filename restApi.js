@@ -13,7 +13,7 @@ const headers = {
   Authorization: oauthToken
 };
 
-const getAllComponentsGroups = () => {
+const getAllComponentsGroups = async () => {
   Logger.log("Trying to get all groups.");
 
   return Fetch(`${storyblokApiUrl}/spaces/${spaceId}/component_groups/`, {
@@ -26,7 +26,6 @@ const getComponentsGroup = groupName => {
   Logger.log(`Trying to get '${groupName}' group.`);
 
   return getAllComponentsGroups().then(res => {
-    console.log(res);
     return res.component_groups.filter(group => group.name === groupName);
   });
 };

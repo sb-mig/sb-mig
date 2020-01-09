@@ -1,5 +1,6 @@
 const { spaceId, componentDirectory } = require("./config");
 const Logger = require("./helpers/logger");
+const { sleep, sleepBlock } = require("./helpers/sleep");
 const { componentByName, components } = require("./discover");
 const restApi = require("./restApi");
 const sbApi = require("./sbApi");
@@ -47,6 +48,30 @@ const migrateComponent = componentName => {
     })
     .catch(err => {
       console.log("error happened... :(");
+      console.log(
+        `${err.message} in migration of ${componentName} in migrateComponent`
+      );
+    });
+};
+
+const createComponentsGroup = groupName => {
+  Logger.log(`Trying to create '${groupName}' group`);
+  sleepBlock(250);
+  return sbApi
+    .post(`spaces/${spaceId}/component_groups/`, {
+      component_group: {
+        name: groupName
+      }
+    })
+    .then(res => {
+      console.log(res.data);
+      Logger.warning(
+        `'${groupName}' created with uuid: ${res.data.component_group.uuid}`
+      );
+      return res.data;
+    })
+    .catch(err => {
+      Logger.error(`Error happened :()`);
       console.log(err.message);
     });
 };
@@ -87,6 +112,7 @@ const updatePreset = p => {
 
 const createComponent = component => {
   Logger.log(`Trying to create '${component.name}'`);
+  sleepBlock(250);
   const componentWithPresets = component;
   const { all_presets, ...componentWithoutPresets } = componentWithPresets;
 
@@ -118,12 +144,16 @@ const createComponent = component => {
     })
     .catch(err => {
       console.log("error happened... :(");
-      console.log(err.message);
+      console.log(err);
+      console.log(
+        `${err.message} in migration of ${component.name} in createComponent function`
+      );
     });
 };
 
 const updateComponent = component => {
   Logger.log(`Trying to update '${component.name}' with id ${component.id}`);
+  sleepBlock(250);
   const componentWithPresets = component;
   const { all_presets, ...componentWithoutPresets } = componentWithPresets;
 
@@ -155,36 +185,43 @@ const updateComponent = component => {
     })
     .catch(err => {
       console.log("error happened... :(");
-      console.log(err.message);
+      console.log(
+        `${err.message} in migration of ${component.name} in updateComponent function`
+      );
     });
 };
 
-const syncAllComponents = async () => {
-  Logger.log(`Trying to sync all components from '${componentDirectory}'`);
-  const localComponents = components;
-  const remoteComponents = await restApi.getAllComponents();
-
-  let componentsToUpdate = [];
-  let componentsToCreate = [];
-
-  for (const component of localComponents) {
-    const shouldBeUpdated = remoteComponents.components.find(
-      remoteComponent => component.name === remoteComponent.name
-    );
-    if (shouldBeUpdated) {
-      componentsToUpdate.push({ id: shouldBeUpdated.id, ...component });
-    } else {
-      componentsToCreate.push(component);
-    }
+const resolveGroups = async (
+  component,
+  existedGroups,
+  remoteComponentsGroups
+) => {
+  if (!component.component_group_name) {
+    return component;
   }
+  const componentsGroup = existedGroups.find(
+    group => component.component_group_name === group
+  );
+  if (componentsGroup) {
+    const component_group_uuid = remoteComponentsGroups.component_groups.find(
+      remoteComponentsGroup => remoteComponentsGroup.name === componentsGroup
+    ).uuid;
 
-  componentsToCreate.map(component => {
-    createComponent(component);
-  });
+    console.log(
+      `Group id: ${component_group_uuid} for ${component.name} for group name ${component.component_group_name}`
+    );
+    return { ...component, component_group_uuid };
+  } else {
+    const newComponentsGroup = await createComponentsGroup(
+      component.component_group_name
+    );
+    const component_group_uuid = newComponentsGroup.component_group.uuid;
+    console.log(
+      `Group id: ${component_group_uuid} for ${component.name} for group name ${component.component_group_name}`
+    );
 
-  componentsToUpdate.map(component => {
-    updateComponent(component);
-  });
+    return { ...component, component_group_uuid };
+  }
 };
 
 const syncComponents = async specifiedComponents => {
@@ -208,35 +245,71 @@ const syncComponents = async specifiedComponents => {
 
   const filteredComponentsToUpdate = componentsToUpdate.filter(c => {
     const temp = specifiedComponents.find(component => component === c.name);
-    if(temp) {
-      specifiedComponents = specifiedComponents.filter(component => component !== temp)
+    if (temp) {
+      specifiedComponents = specifiedComponents.filter(
+        component => component !== temp
+      );
     }
 
-    return temp
+    return temp;
   });
-  
+
   const filteredComponentsToCreate = componentsToCreate.filter(c => {
     const temp = specifiedComponents.find(component => component === c.name);
-    return temp
+    return temp;
   });
 
-  Logger.log("Components to update after check: ")
-  filteredComponentsToUpdate.forEach(component => {
-    Logger.warning(`   ${component.name}`);
-  })
+  const groupsToCheck = localComponents
+    .filter(component => component.component_group_name)
+    .map(component => component.component_group_name);
+  const uniqueGroupsToCheck = new Set(groupsToCheck);
+  const arrayWithUniqueGroupsToCheck = [...uniqueGroupsToCheck];
 
-  Logger.log("Components to create after check: ");
-  filteredComponentsToCreate.forEach(component => {
-    Logger.warning(`   ${component.name}`);
-  })
+  Logger.error("this are groups to check");
+  console.log(arrayWithUniqueGroupsToCheck);
 
-  filteredComponentsToCreate.map(component => {
-    createComponent(component);
+  const checkGroups = async () => {
+    const componentsGroups = await restApi.getAllComponentsGroups();
+    const groupExist = groupName =>
+      componentsGroups.component_groups.find(group => group.name === groupName);
+    for (groupName of arrayWithUniqueGroupsToCheck) {
+      if (!groupExist(groupName)) {
+        await createComponentsGroup(groupName);
+      }
+    }
+  }
+
+  await checkGroups();
+
+  const componentsGroups = await restApi.getAllComponentsGroups();
+
+  const uberFilteredComponentsToUpdate = filteredComponentsToUpdate.map(
+    component =>
+      resolveGroups(component, arrayWithUniqueGroupsToCheck, componentsGroups)
+  );
+  Promise.all(uberFilteredComponentsToUpdate).then(res => {
+    Logger.log("Components to update after check: ");
+    res.map(component => {
+      updateComponent(component);
+    });
   });
 
-  filteredComponentsToUpdate.map(component => {
-    updateComponent(component);
+  const uberFilteredComponentsToCreate = filteredComponentsToCreate.map(
+    component =>
+      resolveGroups(component, arrayWithUniqueGroupsToCheck, componentsGroups)
+  );
+  Promise.all(uberFilteredComponentsToCreate).then(res => {
+    Logger.log("Components to create after check: ");
+    res.map(component => {
+      Logger.warning(`   ${component.name}`);
+      createComponent(component);
+    });
   });
+};
+
+const syncAllComponents = () => {
+  const specifiedComponents = components.map(component => component.name);
+  syncComponents(specifiedComponents);
 };
 
 module.exports = {
@@ -244,3 +317,50 @@ module.exports = {
   syncAllComponents,
   syncComponents
 };
+
+// old  syncAll method
+
+// const syncAllComponents = async () => {
+//   Logger.log(`Trying to sync all components from '${componentDirectory}'`);
+//   const localComponents = components;
+//   const remoteComponents = await restApi.getAllComponents();
+
+//   let componentsToUpdate = [];
+//   let componentsToCreate = [];
+
+//   for (const component of localComponents) {
+//     const shouldBeUpdated = remoteComponents.components.find(
+//       remoteComponent => component.name === remoteComponent.name
+//     );
+//     if (shouldBeUpdated) {
+//       componentsToUpdate.push({ id: shouldBeUpdated.id, ...component });
+//     } else {
+//       componentsToCreate.push(component);
+//     }
+//   }
+
+//   // const uberFilteredComponentsToUpdate = componentsToUpdate.map(resolveGroups);
+//   // Promise.all(uberFilteredComponentsToUpdate).then(res => {
+//   //   Logger.log("Components to update after check: ");
+//   //   res.map(component => {
+//   //     updateComponent(component);
+//   //   });
+//   // });
+
+//   // const uberFilteredComponentsToCreate = componentsToCreate.map(resolveGroups);
+//   // Promise.all(uberFilteredComponentsToCreate).then(res => {
+//   //   Logger.log("Components to create after check: ");
+//   //   res.map(component => {
+//   //     Logger.warning(`   ${component.name}`);
+//   //     createComponent(component);
+//   //   });
+//   // });
+
+//   componentsToCreate.map(component => {
+//     createComponent(component);
+//   });
+
+//   componentsToUpdate.map(component => {
+//     updateComponent(component);
+//   });
+// };
