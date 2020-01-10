@@ -1,3 +1,16 @@
+# [1.0.0](https://github.com/marckraw/sb-mig/compare/v0.3.1...v1.0.0) (2020-01-10)
+
+
+### docs
+
+* imrpvoe documentation, explain what can be done, and how to handle presets ([c50f44f](https://github.com/marckraw/sb-mig/commit/c50f44f7a37c81b86e63a5a82bd2a08df686b550))
+
+### feature
+
+* major refactor for better dev exp - functionality stays (except deprecated migrate which is removed) ([a280005](https://github.com/marckraw/sb-mig/commit/a2800050ca81f4449920a3fb1569b05510e788a2))
+
+
+
 ## [0.3.1](https://github.com/marckraw/sb-mig/compare/v0.3.0...v0.3.1) (2020-01-10)
 
 
