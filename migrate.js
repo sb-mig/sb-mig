@@ -1,195 +1,23 @@
 const { spaceId, componentDirectory } = require("./config");
 const Logger = require("./helpers/logger");
-const { sleep, sleepBlock } = require("./helpers/sleep");
 const { componentByName, components } = require("./discover");
-const restApi = require("./restApi");
-const sbApi = require("./sbApi");
+const api = require("./api");
+const { sbApi } = require("./api/config");
 
-const migrateComponent = componentName => {
-  Logger.warning(`Trying to find '${componentName}' by name`);
-  const component = componentByName(componentName);
+const _uniqueValuesFrom = array => [...new Set(array)];
 
-  if (!component) {
-    Logger.error(`'${componentName}' is not available to be migrated`);
-    return false;
+const _checkAndPrepareGroups = async groupsToCheck => {
+  const componentsGroups = await api.getAllComponentsGroups();
+  const groupExist = groupName =>
+    componentsGroups.component_groups.find(group => group.name === groupName);
+  for (groupName of groupsToCheck) {
+    if (!groupExist(groupName)) {
+      await api.createComponentsGroup(groupName);
+    }
   }
-
-  Logger.log(`Trying to migrate '${componentName}'`);
-
-  const componentWithPresets = component;
-
-  const { all_presets, ...componentWithoutPresets } = componentWithPresets;
-
-  sbApi
-    .post(`spaces/${spaceId}/components/`, {
-      component: componentWithoutPresets
-    })
-    .then(res => {
-      Logger.success(`Component '${componentName}' has been created.`);
-      const componentId = res.data.component.id;
-
-      if (all_presets && all_presets.length > 0) {
-        const all_presets_modified = all_presets.map(p => {
-          return { preset: { ...p.preset, component_id: componentId } };
-        });
-        Logger.error(
-          `Trying to create presets for '${componentName}' component`
-        );
-        all_presets_modified.map(p => {
-          if (p.preset.id) {
-            updatePreset(p);
-          } else {
-            createPreset(p);
-          }
-        });
-      } else {
-        Logger.error("There are no presets for this component.");
-      }
-    })
-    .catch(err => {
-      Logger.error("error happened... :(");
-      console.log(
-        `${err.message} in migration of ${componentName} in migrateComponent`
-      );
-    });
 };
 
-const createComponentsGroup = groupName => {
-  Logger.log(`Trying to create '${groupName}' group`);
-  sleepBlock(250);
-  return sbApi
-    .post(`spaces/${spaceId}/component_groups/`, {
-      component_group: {
-        name: groupName
-      }
-    })
-    .then(res => {
-      Logger.warning(
-        `'${groupName}' created with uuid: ${res.data.component_group.uuid}`
-      );
-      return res.data;
-    })
-    .catch(err => {
-      Logger.error(`Error happened :()`);
-      console.log(err.message);
-    });
-};
-
-const createPreset = p => {
-  sbApi
-    .post(`spaces/${spaceId}/presets/`, {
-      preset: p.preset
-    })
-    .then(res => {
-      Logger.warning(`Preset: '${p.preset.name}' has been created.`);
-    })
-    .catch(err => {
-      Logger.error(
-        `Error happened. Preset: '${p.preset.name}' has been not created.`
-      );
-      console.log(err.message);
-    });
-};
-
-const updatePreset = p => {
-  sbApi
-    .put(`spaces/${spaceId}/presets/${p.preset.id}`, {
-      preset: p.preset
-    })
-    .then(res => {
-      Logger.warning(
-        `Preset: '${p.preset.name}' with '${p.preset.id}' id has been updated.`
-      );
-    })
-    .catch(err => {
-      Logger.error(
-        `Error happened. Preset: '${p.preset.name}' with '${p.preset.id}' id has been not updated.`
-      );
-      console.log(err.message);
-    });
-};
-
-const createComponent = component => {
-  Logger.log(`Trying to create '${component.name}'`);
-  sleepBlock(250);
-  const componentWithPresets = component;
-  const { all_presets, ...componentWithoutPresets } = componentWithPresets;
-
-  sbApi
-    .post(`spaces/${spaceId}/components/`, {
-      component: componentWithoutPresets
-    })
-    .then(res => {
-      Logger.success(`Component '${component.name}' has been created.`);
-      const componentId = res.data.component.id;
-
-      if (all_presets && all_presets.length > 0) {
-        const all_presets_modified = all_presets.map(p => {
-          return { preset: { ...p.preset, component_id: componentId } };
-        });
-        Logger.error(
-          `Trying to create presets for '${component.name}' component`
-        );
-        all_presets_modified.map(p => {
-          if (p.preset.id) {
-            updatePreset(p);
-          } else {
-            createPreset(p);
-          }
-        });
-      } else {
-        Logger.error("There are no presets for this component.");
-      }
-    })
-    .catch(err => {
-      Logger.error("error happened... :(");
-      console.log(
-        `${err.message} in migration of ${component.name} in createComponent function`
-      );
-    });
-};
-
-const updateComponent = component => {
-  Logger.log(`Trying to update '${component.name}' with id ${component.id}`);
-  sleepBlock(250);
-  const componentWithPresets = component;
-  const { all_presets, ...componentWithoutPresets } = componentWithPresets;
-
-  sbApi
-    .put(`spaces/${spaceId}/components/${component.id}`, {
-      component: componentWithoutPresets
-    })
-    .then(res => {
-      Logger.success(`Component '${component.name}' has been updated.`);
-      const componentId = res.data.component.id;
-
-      if (all_presets && all_presets.length > 0) {
-        const all_presets_modified = all_presets.map(p => {
-          return { preset: { ...p.preset, component_id: componentId } };
-        });
-        Logger.error(
-          `Trying to create presets for '${component.name}' component`
-        );
-        all_presets_modified.map(p => {
-          if (p.preset.id) {
-            updatePreset(p);
-          } else {
-            createPreset(p);
-          }
-        });
-      } else {
-        Logger.error("There are no presets for this component.");
-      }
-    })
-    .catch(err => {
-      Logger.error("error happened... :(");
-      console.log(
-        `${err.message} in migration of ${component.name} in updateComponent function`
-      );
-    });
-};
-
-const resolveGroups = async (
+const _resolveGroups = async (
   component,
   existedGroups,
   remoteComponentsGroups
@@ -212,7 +40,20 @@ const resolveGroups = async (
 const syncComponents = async specifiedComponents => {
   Logger.log(`Trying to sync all components from '${componentDirectory}'`);
   const localComponents = components;
-  const remoteComponents = await restApi.getAllComponents();
+  const groupsToCheck = _uniqueValuesFrom(
+    localComponents
+      .filter(component => component.component_group_name)
+      .map(component => component.component_group_name)
+  );
+
+  await _checkAndPrepareGroups(groupsToCheck);
+
+  // after checkAndPrepareGroups remoteComponents will have synced groups with local groups
+  // updates of the groups had to happen before creation of them, cause creation/updates of components
+  // happens async, so if one component will have the same group, as other one
+  // it will be race of condition kinda issue - we will never now, if the group for current processed component
+  // already exist or is being created by other request
+  const remoteComponents = await api.getAllComponents();
 
   let componentsToUpdate = [];
   let componentsToCreate = [];
@@ -228,64 +69,49 @@ const syncComponents = async specifiedComponents => {
     }
   }
 
-  const filteredComponentsToUpdate = componentsToUpdate.filter(c => {
-    const temp = specifiedComponents.find(component => component === c.name);
-    if (temp) {
-      specifiedComponents = specifiedComponents.filter(
-        component => component !== temp
-      );
-    }
+  const componentsGroups = await api.getAllComponentsGroups();
 
-    return temp;
-  });
+  Promise.all(
+    componentsToUpdate
+      .filter(c => {
+        const temp = specifiedComponents.find(
+          component => component === c.name
+        );
+        if (temp) {
+          specifiedComponents = specifiedComponents.filter(
+            component => component !== temp
+          );
+        }
 
-  const filteredComponentsToCreate = componentsToCreate.filter(c => {
-    const temp = specifiedComponents.find(component => component === c.name);
-    return temp;
-  });
-
-  const groupsToCheck = localComponents
-    .filter(component => component.component_group_name)
-    .map(component => component.component_group_name);
-  const uniqueGroupsToCheck = new Set(groupsToCheck);
-  const arrayWithUniqueGroupsToCheck = [...uniqueGroupsToCheck];
-
-  const checkGroups = async () => {
-    const componentsGroups = await restApi.getAllComponentsGroups();
-    const groupExist = groupName =>
-      componentsGroups.component_groups.find(group => group.name === groupName);
-    for (groupName of arrayWithUniqueGroupsToCheck) {
-      if (!groupExist(groupName)) {
-        await createComponentsGroup(groupName);
-      }
-    }
-  };
-
-  await checkGroups();
-
-  const componentsGroups = await restApi.getAllComponentsGroups();
-
-  const uberFilteredComponentsToUpdate = filteredComponentsToUpdate.map(
-    component =>
-      resolveGroups(component, arrayWithUniqueGroupsToCheck, componentsGroups)
-  );
-  Promise.all(uberFilteredComponentsToUpdate).then(res => {
+        return temp;
+      })
+      .map(component =>
+        _resolveGroups(component, groupsToCheck, componentsGroups)
+      )
+  ).then(res => {
     Logger.log("Components to update after check: ");
     res.map(component => {
       Logger.warning(`   ${component.name}`);
-      updateComponent(component);
+      api.updateComponent(component);
     });
   });
 
-  const uberFilteredComponentsToCreate = filteredComponentsToCreate.map(
-    component =>
-      resolveGroups(component, arrayWithUniqueGroupsToCheck, componentsGroups)
-  );
-  Promise.all(uberFilteredComponentsToCreate).then(res => {
+  Promise.all(
+    componentsToCreate
+      .filter(c => {
+        const temp = specifiedComponents.find(
+          component => component === c.name
+        );
+        return temp;
+      })
+      .map(component =>
+        _resolveGroups(component, groupsToCheck, componentsGroups)
+      )
+  ).then(res => {
     Logger.log("Components to create after check: ");
     res.map(component => {
       Logger.warning(`   ${component.name}`);
-      createComponent(component);
+      api.createComponent(component);
     });
   });
 };
@@ -296,7 +122,6 @@ const syncAllComponents = () => {
 };
 
 module.exports = {
-  migrateComponent,
   syncAllComponents,
   syncComponents
 };
