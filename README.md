@@ -5,9 +5,10 @@
 ## Contents
 
 - [How to install](#how-to-install)
-- [Usage](#how-to-install)
+- [Usage](#usage)
 - [Schema documentation](#schema-documentation)
   - [Basics](#basics)
+  - [Presets support](#presets-support)
 - [Roadmap](#roadmap)
 
 ---
@@ -48,7 +49,7 @@ module.exports = {
 };
 ```
 
-You don't need to pass everything to the config file. If u want to have only `componentDirectory` as custom below code will be also valid. 
+You don't need to pass everything to the config file. If u want to have only `componentDirectory` as custom below code will be also valid.
 
 ```
 // storyblok.config.js
@@ -81,7 +82,7 @@ Options:
   -z, --get-sb-test-component <storyblok-component>           Get test storyblok schema based component
   -x, --get-react-test-component <storyblok-react-component>  Get test react matching to schema based component
   -d, --debug                                                 Output extra debugging
-  
+
 
 
 
@@ -91,7 +92,9 @@ Options:
 # Schema documentation:
 
 ## Basics
-This is basic look of the schame based `.js` file which will map to `Storyblok` component
+
+This is basic look of the schema based `.js` file which will map to `Storyblok` component
+
 ```
 module.exports = {
   name: "text-block",
@@ -107,13 +110,92 @@ module.exports = {
 };
 ```
 
+Basically you should be able to add anything mentioned here: https://www.storyblok.com/docs/api/management#core-resources/components/components for your component. (with exception to `component_group_uuid`, you insert `component_group_name` and `sb-mig` will resolve `uuid` automagically).
+
+You can also add `tabs` to your component schema (which is not documentet in above storyblok documenation):
+
+```
+...
+  schema: {
+    title: {
+      type: "text",
+    },
+    Settings: {
+      type: "tab",
+      display_name: "Settings",
+      "keys": [
+        "title"
+      ]
+    },
+  }
+...
+```
+
+## Presets support
+- Experimental
+
+While writing your own predefined data (presets) for components is pretty hard, with `sb-mig` you can create presets for your components in graphical user interface in Storyblok, export preset, and apply it to schema based `.js` file to be picked up, while syncing component.
+
+First create Preset for your component in Storyblok:
+
+<img src="https://user-images.githubusercontent.com/8228270/72166029-caf8cc00-33c8-11ea-891b-194f57974653.png" width=300 />
+<br>
+<img src="https://user-images.githubusercontent.com/8228270/72166255-33e04400-33c9-11ea-9431-c6d0b684f5fb.png" width=300 />
+
+then, run
+```
+sb-mig --component-presets text-block    // component you've created preset for
+```
+
+It will download all presets related to the `text-block` component.
+Now you can go to your folder structure (by default: `./sbmig/component-presets/`).
+Rename file which is there to for example: `text-block-preset`.
+
+You should remove id field from preset (it will be handled with name)
+
+Now you can add `all_presets` field to tyour `text-block` component schema.
+```
+const allPresets = require('./presets/_text-block-preset.json');
+
+module.exports = {
+  ...
+  schema: {
+    title: {
+      type: "text",
+      pos: 1
+    },
+  },
+  all_presets: allPresets,
+  ...
+};
+```
+
+Now, you can sync your component
+```
+sb-mig --sync text-block
+```
+
+output:
+```
+Checking preset for 'text-block-2' component
+Trying to get all 'text-block-2' presets.
+Trying to get all components.
+Trying to get preset by id: 437086
+Preset: 'My Preset' with '437086' id has been updated.
+```
+
+---
+## This feature is still quite experimental, that's why it's not completely straightforward to do. Workin on it :)
+---
+
 ## Roadmap:
 
-- [ ] Upload presets
+- [x] Sync presets
 - [x] Sync single component
 - [x] Sync all components
 - [x] Sync components using schema based .js file (based on idea from [storyblok-migrate](https://github.com/maoberlehner/storyblok-migrate))
 - [x] Component groups
+- [ ] Improve preset creation/update
 
 General purpose of this package is to manage creation and maintainance of components and other stuff, from code/command line.
 To be able to create whole space and basic structure of the project without using GUI.
