@@ -1,3 +1,12 @@
+## [0.3.1](https://github.com/marckraw/sb-mig/compare/v0.3.0...v0.3.1) (2020-01-10)
+
+
+### cleanup
+
+* refactor creation files to helper functions, add config option for main sb-mig folder ([979d6f6](https://github.com/marckraw/sb-mig/commit/979d6f6e7a628cdb9f5ff79de9c5e178922fcc8a))
+
+
+
 # [0.3.0](https://github.com/marckraw/sb-mig/compare/v0.2.3...v0.3.0) (2020-01-09)
 
 
