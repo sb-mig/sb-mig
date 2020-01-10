@@ -4,8 +4,9 @@ const commander = require("commander");
 const fs = require("fs");
 const package = require("./package.json");
 const restApi = require("./restApi");
-const sbApi = require("./sbApi.js");
-const migrate = require("./migrate.js");
+const migrate = require("./migrate");
+const { sbmigWorkingDirectory } = require("./config");
+const { createDir, createJsonFile } = require("./helpers/files");
 
 const program = new commander.Command();
 
@@ -45,9 +46,14 @@ async function start() {
         "-x, --get-react-test-component <storyblok-react-component>",
         "Get test react matching to schema based component"
       )
-      .option("-d, --debug", "Output extra debugging");
+      .option("-d, --debug", "Output extra debugging")
+      .option("-T, --test", "Test things");
 
     program.parse(process.argv);
+
+    if (program.test) {
+      console.log("testing things");
+    }
 
     if (program.sync) {
       Logger.log("Syncing provided components...");
@@ -74,22 +80,15 @@ async function start() {
     if (program.preset) {
       restApi.getPreset(program.preset).then(async res => {
         if (res) {
-          const stringifiedResult = JSON.stringify(res);
           const randomDatestamp = new Date().toJSON();
-
           const filename = `preset-${program.preset}-${randomDatestamp}`;
-
-          Logger.warning(
-            `Preset for '${program.preset}' have been written to a file:  ${filename}`
+          await createDir(`${sbmigWorkingDirectory}/presets/`);
+          await createJsonFile(
+            JSON.stringify(res),
+            `${sbmigWorkingDirectory}/presets/${filename}.json`
           );
-
-          await fs.promises.mkdir(`${process.cwd()}/sbmig/presets/`, {
-            recursive: true
-          });
-          await fs.promises.writeFile(
-            `./sbmig/presets/${filename}.json`,
-            stringifiedResult,
-            { flag: `w` }
+          Logger.success(
+            `Preset for '${program.preset}' have been written to a file:  ${filename}`
           );
         }
       });
@@ -97,22 +96,15 @@ async function start() {
 
     if (program.component) {
       restApi.getComponent(program.component).then(async res => {
-        const stringifiedResult = JSON.stringify(res);
         const randomDatestamp = new Date().toJSON();
-
         const filename = `component-${program.component}-${randomDatestamp}`;
-
-        Logger.warning(
-          `Component for ${program.component} written to a file:  ${filename}`
+        await createDir(`${sbmigWorkingDirectory}/components/`);
+        await createJsonFile(
+          JSON.stringify(res),
+          `${sbmigWorkingDirectory}/components/${filename}.json`
         );
-
-        await fs.promises.mkdir(`${process.cwd()}/sbmig/components/`, {
-          recursive: true
-        });
-        await fs.promises.writeFile(
-          `./sbmig/components/${filename}.json`,
-          stringifiedResult,
-          { flag: `w` }
+        Logger.success(
+          `Component for ${program.component} written to a file:  ${filename}`
         );
       });
     }
@@ -120,22 +112,15 @@ async function start() {
     if (program.componentPresets) {
       restApi.getComponentPresets(program.componentPresets).then(async res => {
         if (res) {
-          const stringifiedResult = JSON.stringify(res);
           const randomDatestamp = new Date().toJSON();
-
           const filename = `component-${program.componentPresets}-all_presets-${randomDatestamp}`;
-
-          Logger.warning(
-            `Presets for ${program.componentPresets} written to a file:  ${filename}`
+          await createDir(`${sbmigWorkingDirectory}/component-presets/`);
+          await createJsonFile(
+            JSON.stringify(res),
+            `${sbmigWorkingDirectory}/component-presets/${filename}.json`
           );
-
-          await fs.promises.mkdir(`${process.cwd()}/sbmig/component-presets/`, {
-            recursive: true
-          });
-          await fs.promises.writeFile(
-            `./sbmig/component-presets/${filename}.json`,
-            stringifiedResult,
-            { flag: `w` }
+          Logger.success(
+            `Presets for ${program.componentPresets} written to a file:  ${filename}`
           );
         }
       });
@@ -143,83 +128,55 @@ async function start() {
 
     if (program.allComponentsGroups) {
       restApi.getAllComponentsGroups().then(async res => {
-        const stringifiedResult = JSON.stringify(res);
         const randomDatestamp = new Date().toJSON();
-
         const filename = `all-component_groups-backup-${randomDatestamp}`;
-
-        Logger.warning(`All groups written to a file:  ${filename}`);
-
-        await fs.promises.mkdir(`${process.cwd()}/sbmig/component_groups/`, {
-          recursive: true
-        });
-        await fs.promises.writeFile(
-          `./sbmig/component_groups/${filename}.json`,
-          stringifiedResult,
-          { flag: `w` }
+        await createDir(`${sbmigWorkingDirectory}/component_groups/`);
+        await createJsonFile(
+          JSON.stringify(res),
+          `${sbmigWorkingDirectory}/component_groups/${filename}.json`
         );
+        Logger.success(`All groups written to a file:  ${filename}`);
       });
     }
 
     if (program.componentsGroup) {
       restApi.getComponentsGroup(program.componentsGroup).then(async res => {
-        const stringifiedResult = JSON.stringify(res);
         const randomDatestamp = new Date().toJSON();
-
         const filename = `components_group-${program.componentsGroup}-${randomDatestamp}`;
-
-        Logger.warning(
-          `Components group for ${program.componentsGroup} written to a file:  ${filename}`
+        await createDir(`${sbmigWorkingDirectory}/component_groups/`);
+        await createJsonFile(
+          JSON.stringify(res),
+          `${sbmigWorkingDirectory}/component_groups/${filename}.json`
         );
-
-        await fs.promises.mkdir(`${process.cwd()}/sbmig/component_groups/`, {
-          recursive: true
-        });
-        await fs.promises.writeFile(
-          `./sbmig/component_groups/${filename}.json`,
-          stringifiedResult,
-          { flag: `w` }
+        Logger.success(
+          `Components group for ${program.componentsGroup} written to a file:  ${filename}`
         );
       });
     }
 
     if (program.allComponents) {
       restApi.getAllComponents().then(async res => {
-        const stringifiedResult = JSON.stringify(res);
         const randomDatestamp = new Date().toJSON();
-
         const filename = `all-components-backup-${randomDatestamp}`;
-
-        Logger.warning(`All components written to a file:  ${filename}`);
-
-        await fs.promises.mkdir(`${process.cwd()}/sbmig/components/`, {
-          recursive: true
-        });
-        await fs.promises.writeFile(
-          `./sbmig/components/${filename}.json`,
-          stringifiedResult,
-          { flag: `w` }
+        await createDir(`${sbmigWorkingDirectory}/components/`);
+        await createJsonFile(
+          JSON.stringify(res),
+          `${sbmigWorkingDirectory}/components/${filename}.json`
         );
+        Logger.success(`All components written to a file:  ${filename}`);
       });
     }
 
     if (program.allPresets) {
       restApi.getAllPresets().then(async res => {
-        const stringifiedResult = JSON.stringify(res);
         const randomDatestamp = new Date().toJSON();
-
         const filename = `all-presets-backup-${randomDatestamp}`;
-
-        Logger.warning(`All presets written to a file:  ${filename}`);
-
-        await fs.promises.mkdir(`${process.cwd()}/sbmig/presets/`, {
-          recursive: true
-        });
-        await fs.promises.writeFile(
-          `./sbmig/presets/${filename}.json`,
-          stringifiedResult,
-          { flag: `w` }
+        await createDir(`${sbmigWorkingDirectory}/presets/`);
+        await createJsonFile(
+          JSON.stringify(res),
+          `${sbmigWorkingDirectory}/presets/${filename}.json`
         );
+        Logger.success(`All presets written to a file:  ${filename}`);
       });
     }
 
@@ -229,16 +186,13 @@ async function start() {
         .then(async res => {
           if (res) {
             const randomDatestamp = new Date().toJSON();
-
             const filename = `${program.getSbTestComponent}-${randomDatestamp}`;
-            await fs.promises.mkdir(`${process.cwd()}/sbmig/storyblok/`, {
-              recursive: true
-            });
+            await createDir(`${sbmigWorkingDirectory}/storyblok/`);
             const dest = await fs.createWriteStream(
-              `./sbmig/storyblok/${filename}.js`
+              `./${sbmigWorkingDirectory}/storyblok/${filename}.js`
             );
             res.body.pipe(dest);
-            Logger.log(
+            Logger.success(
               `Storyblok schema for '${program.getSbTestComponent}' saved in a ${filename} file.`
             );
           }
@@ -251,16 +205,18 @@ async function start() {
         .then(async res => {
           if (res) {
             const randomDatestamp = new Date().toJSON();
-
             const filename = `${program.getReactTestComponent}-${randomDatestamp}`;
-            await fs.promises.mkdir(`${process.cwd()}/sbmig/react-match/`, {
-              recursive: true
-            });
+            await fs.promises.mkdir(
+              `${process.cwd()}/${sbmigWorkingDirectory}/react-match/`,
+              {
+                recursive: true
+              }
+            );
             const dest = await fs.createWriteStream(
-              `./sbmig/react-match/${filename}.js`
+              `./${sbmigWorkingDirectory}/react-match/${filename}.js`
             );
             res.body.pipe(dest);
-            Logger.log(
+            Logger.success(
               `Storyblok react match component for '${program.getReactTestComponent}' saved in a ${filename} file.`
             );
           }

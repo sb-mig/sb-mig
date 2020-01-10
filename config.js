@@ -10,6 +10,7 @@ try {
 }
 
 const defaultConfig = {
+  sbmigWorkingDirectory: 'sbmig',
   componentDirectory: 'sbmig/storyblok',
   storyblokApiUrl: 'https://api.storyblok.com/v1',
   oauthToken: process.env.STORYBLOK_OAUTH_TOKEN,
