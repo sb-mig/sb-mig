@@ -1,3 +1,12 @@
+## [1.1.7](https://github.com/marckraw/sb-mig/compare/v1.1.6...v1.1.7) (2020-01-11)
+
+
+### chore
+
+* add publish command for patch,minor,major versions ([cf2776b](https://github.com/marckraw/sb-mig/commit/cf2776bfaa607db9c7ce0114ac503e0e9bbc162a))
+
+
+
 ## [1.1.6](https://github.com/marckraw/sb-mig/compare/v1.1.5...v1.1.6) (2020-01-11)
 
 
