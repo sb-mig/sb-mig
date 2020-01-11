@@ -1,3 +1,21 @@
+## [1.1.3](https://github.com/marckraw/sb-mig/compare/v1.1.2...v1.1.3) (2020-01-11)
+
+
+### chore
+
+* update package.json ([0dd1da8](https://github.com/marckraw/sb-mig/commit/0dd1da869b856b3fde794223aeb061a7ddad1e14))
+
+### publish
+
+* some scripts for different deploys ([f6ae621](https://github.com/marckraw/sb-mig/commit/f6ae621c76f7721d034cb94f8ec499fd7cfaf68f))
+
+### testing
+
+* add test command to prepublish ([c2bc39f](https://github.com/marckraw/sb-mig/commit/c2bc39fe7c41f348249deeda2ede5a1b0b0f00d4))
+* set up jest testing environment ([977b088](https://github.com/marckraw/sb-mig/commit/977b08836e3cb79e1932dc4fcd4eebeb375ac904))
+
+
+
 ## [1.1.2](https://github.com/marckraw/sb-mig/compare/v1.1.1...v1.1.2) (2020-01-11)
 
 
