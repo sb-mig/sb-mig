@@ -1,3 +1,12 @@
+## [1.1.2](https://github.com/marckraw/sb-mig/compare/v1.1.1...v1.1.2) (2020-01-11)
+
+
+### chore
+
+* add gulpfile to gitignore ([d43fd32](https://github.com/marckraw/sb-mig/commit/d43fd32afb2b65210a6ab0ffb2d0c3e7a80505ad))
+
+
+
 ## [1.1.1](https://github.com/marckraw/sb-mig/compare/v1.1.0...v1.1.1) (2020-01-11)
 
 
