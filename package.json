@@ -22,17 +22,17 @@
   "author": "Marcin Krawczyk <marckraw@icloud.com>",
   "license": "MIT",
   "dependencies": {
-    "@commitlint/cli": "^8.3.4",
-    "@commitlint/config-conventional": "^8.3.4",
     "chalk": "^3.0.0",
     "clear": "^0.1.0",
     "commander": "^4.0.1",
-    "conventional-changelog-cli": "^2.0.31",
     "dotenv": "^8.2.0",
     "figlet": "^1.2.4",
     "glob": "^7.1.6",
     "node-fetch": "^2.6.0",
     "storyblok-js-client": "^2.0.12"
+  },
+  "devDependencies": {
+    "conventional-changelog-cli": "^2.0.31"
   },
   "bin": {
     "sb-mig": "./cli.js"
