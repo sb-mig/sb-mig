@@ -1,3 +1,16 @@
+# [1.1.0](https://github.com/marckraw/sb-mig/compare/v1.0.2...v1.1.0) (2020-01-11)
+
+
+### chore
+
+* format everything with prettier ([1f868d3](https://github.com/marckraw/sb-mig/commit/1f868d31ed149b8c641e27c195094d024498885c))
+
+### performance
+
+* add gulp task to minify files, without bundling ([5b29959](https://github.com/marckraw/sb-mig/commit/5b2995904df355585dd4f232ec27bfe4ee4ac110))
+
+
+
 ## [1.0.2](https://github.com/marckraw/sb-mig/compare/v1.0.1...v1.0.2) (2020-01-11)
 
 
