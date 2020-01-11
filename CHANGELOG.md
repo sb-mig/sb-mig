@@ -1,3 +1,14 @@
+## [1.1.8](https://github.com/marckraw/sb-mig/compare/v1.1.7...v1.1.8) (2020-01-11)
+
+
+### buildAndDeploy
+
+* add github action for publishing ([d94938b](https://github.com/marckraw/sb-mig/commit/d94938b49a5757060b57fcb8c5ebefcb60b51df2))
+* add test before publish ([ed26feb](https://github.com/marckraw/sb-mig/commit/ed26feb0ff827c3ad02c0630983d5872663eba36))
+* github action to run tests and build ([588c196](https://github.com/marckraw/sb-mig/commit/588c196f38de924f80111f9546442d17eeb1da86))
+
+
+
 ## [1.1.7](https://github.com/marckraw/sb-mig/compare/v1.1.6...v1.1.7) (2020-01-11)
 
 
