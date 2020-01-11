@@ -1,3 +1,15 @@
+## [1.1.9](https://github.com/marckraw/sb-mig/compare/v1.1.8...v1.1.9) (2020-01-11)
+
+
+### hotfix
+
+* add .github  workflows to .npmignore ([160a9fc](https://github.com/marckraw/sb-mig/commit/160a9fc5047a6c6d8a70ab0c582fda29bd50cf54))
+* add secret for npm ([15ea735](https://github.com/marckraw/sb-mig/commit/15ea735f229e6f2322bc024bb23cd47218a3bbe0))
+* fix github action test before publishing ([931b771](https://github.com/marckraw/sb-mig/commit/931b7711dea9b62d34cf851e590abe3383ee0345))
+* forget registry url.. ([c275173](https://github.com/marckraw/sb-mig/commit/c275173023c36da6a065d18d36aebc91a2c961d3))
+
+
+
 ## [1.1.8](https://github.com/marckraw/sb-mig/compare/v1.1.7...v1.1.8) (2020-01-11)
 
 
