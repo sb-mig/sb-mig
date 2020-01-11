@@ -4,12 +4,13 @@
 
 ## Contents
 
-- [How to install](#how-to-install)
-- [Usage](#usage)
-- [Schema documentation](#schema-documentation)
+- [How to install and configure](#how-to-install-and-configure)
+  - [Usage](#usage)
+- [Schema documentation:](#schema-documentation)
   - [Basics](#basics)
   - [Presets support](#presets-support)
-- [Roadmap](#roadmap)
+  - [This feature is still quite experimental, that's why it's not completely straightforward to do. Workin on it :)](#this-feature-is-still-quite-experimental-thats-why-its-not-completely-straightforward-to-do-workin-on-it)
+  - [Roadmap:](#roadmap)
 
 ---
 
@@ -71,9 +72,10 @@ Usage: sb-mig [options]
 
 Options:
   -V, --version                                               output the version number
-  -h, --help                                                  output usage information
-    * -M, --migrate <component-name>                              Migrate single component using schema
-    * -S, --sync                                                  Sync all component from schema
+  -s, --sync                                                  Sync provided components from schema with
+  -S, --sync-all                                              Sync all components from schema with
+  -g, --all-components-groups                                 Get all component groups
+  -c, --components-group <components-group-name>              Get single components group by name
   -a, --all-components                                        Get all components
   -c, --component <component-name>                            Get single component by name
   -q, --all-presets                                           Get all presets
@@ -82,6 +84,7 @@ Options:
   -z, --get-sb-test-component <storyblok-component>           Get test storyblok schema based component
   -x, --get-react-test-component <storyblok-react-component>  Get test react matching to schema based component
   -d, --debug                                                 Output extra debugging
+  -h, --help                                                  output usage information
 
 
 
@@ -132,6 +135,7 @@ You can also add `tabs` to your component schema (which is not documentet in abo
 ```
 
 ## Presets support
+
 - Experimental
 
 While writing your own predefined data (presets) for components is pretty hard, with `sb-mig` you can create presets for your components in graphical user interface in Storyblok, export preset, and apply it to schema based `.js` file to be picked up, while syncing component.
@@ -143,6 +147,7 @@ First create Preset for your component in Storyblok:
 <img src="https://user-images.githubusercontent.com/8228270/72166255-33e04400-33c9-11ea-9431-c6d0b684f5fb.png" width=300 />
 
 then, run
+
 ```
 sb-mig --component-presets text-block    // component you've created preset for
 ```
@@ -154,6 +159,7 @@ Rename file which is there to for example: `text-block-preset`.
 You should remove id field from preset (it will be handled with name)
 
 Now you can add `all_presets` field to tyour `text-block` component schema.
+
 ```
 const allPresets = require('./presets/_text-block-preset.json');
 
@@ -171,11 +177,13 @@ module.exports = {
 ```
 
 Now, you can sync your component
+
 ```
 sb-mig --sync text-block
 ```
 
 output:
+
 ```
 Checking preset for 'text-block-2' component
 Trying to get all 'text-block-2' presets.
@@ -185,7 +193,9 @@ Preset: 'My Preset' with '437086' id has been updated.
 ```
 
 ---
+
 ## This feature is still quite experimental, that's why it's not completely straightforward to do. Workin on it :)
+
 ---
 
 ## Roadmap:
