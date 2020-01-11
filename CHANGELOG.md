@@ -1,3 +1,12 @@
+## [1.1.6](https://github.com/marckraw/sb-mig/compare/v1.1.5...v1.1.6) (2020-01-11)
+
+
+### chore
+
+* update package ([200160d](https://github.com/marckraw/sb-mig/commit/200160dd83fb12293d507bfa1a00d886a0d52ddb))
+
+
+
 ## [1.1.5](https://github.com/marckraw/sb-mig/compare/v1.1.4...v1.1.5) (2020-01-11)
 
 
