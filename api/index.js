@@ -3,25 +3,21 @@ const {
   getAllComponents,
   getComponentsGroup,
   getAllComponentsGroups,
-  createComponentsGroup,
-  
-} = require("./components");
+  createComponentsGroup
+} = require("./components")
 
-const {
-  createComponent,
-  updateComponent
-} = require('./mutateComponents');
+const { createComponent, updateComponent } = require("./mutateComponents")
 
 const {
   getPreset,
   getAllPresets,
   createPreset,
   updatePreset
-} = require("./presets");
+} = require("./presets")
 
-const { getReactComponent, getStoryblokComponent } = require("./repository");
+const { getReactComponent, getStoryblokComponent } = require("./repository")
 
-const { getComponentPresets } = require("./componentPresets");
+const { getComponentPresets } = require("./componentPresets")
 
 module.exports = {
   getAllComponentsGroups,
@@ -38,4 +34,4 @@ module.exports = {
   updatePreset,
   getStoryblokComponent,
   getReactComponent
-};
+}

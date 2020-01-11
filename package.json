@@ -17,7 +17,8 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node index.js",
-    "version": "conventional-changelog -p eslint -i CHANGELOG.md -s && git add CHANGELOG.md"
+    "version": "conventional-changelog -p eslint -i CHANGELOG.md -s && git add CHANGELOG.md",
+    "prettier": "prettier  --write \"./**/*.js\" --config .prettierrc"
   },
   "author": "Marcin Krawczyk <marckraw@icloud.com>",
   "license": "MIT",
@@ -31,7 +32,8 @@
     "storyblok-js-client": "^2.0.12"
   },
   "devDependencies": {
-    "conventional-changelog-cli": "^2.0.31"
+    "conventional-changelog-cli": "^2.0.31",
+    "prettier": "^1.19.1"
   },
   "bin": {
     "sb-mig": "./index.js"
