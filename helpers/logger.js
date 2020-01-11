@@ -17,15 +17,15 @@ class Logger {
   }
 
   static success(content) {
-    console.log(chalk.green(content));
+    console.log(chalk.green(`✓ ${content}`));
   }
 
   static warning(content) {
-    console.log(chalk.yellow(content));
+    console.log(chalk.yellow(`! ${content}`));
   }
 
   static error(content) {
-    console.log(chalk.red(content));
+    console.log(chalk.red(`✘ ${content}`));
   }
 }
 
