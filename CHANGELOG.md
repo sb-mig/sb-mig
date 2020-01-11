@@ -1,3 +1,14 @@
+## [1.0.2](https://github.com/marckraw/sb-mig/compare/v1.0.1...v1.0.2) (2020-01-11)
+
+
+### chore
+
+* add rule to prettier, format some files with it ([7f6e1e6](https://github.com/marckraw/sb-mig/commit/7f6e1e65c843524e2e9bcdf1351ecaae2e404827))
+* remove not needed packages, move conventional-changelog to devDependencies ([7f66b86](https://github.com/marckraw/sb-mig/commit/7f66b869025a47fd318540d8761aa04ed8625861))
+* update gitignore ([6ebd23d](https://github.com/marckraw/sb-mig/commit/6ebd23d35470945d34e0e2f45d2f4e7c00a26359))
+
+
+
 ## 1.0.1 (2020-01-11)
 
 
