@@ -20,8 +20,8 @@
     "build": "gulp compress",
     "checkAndBuild": "npm run test && npm run build",
     "publish:patch": "npm run checkAndBuild && npm version patch && npm publish",
-    "publish:minor": "npm run checkAndBuild && npm version minor",
-    "publish:major": "npm run checkAndBuild && npm version major",
+    "publish:minor": "npm run checkAndBuild && npm version minor && npm publish",
+    "publish:major": "npm run checkAndBuild && npm version major && npm publish",
     "version": "conventional-changelog -p eslint -i CHANGELOG.md -s && git add CHANGELOG.md",
     "prettier": "prettier  --write \"./src/**/*.js\" --config .prettierrc"
   },
