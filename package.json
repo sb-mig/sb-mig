@@ -5,7 +5,7 @@
     "type": "git",
     "url": "git+https://github.com/marckraw/sb-mig.git"
   },
-  "version": "1.1.2",
+  "version": "1.1.7",
   "description": "CLI to rule the world. (and handle stuff related to Storyblok CMS)",
   "keywords": [
     "cli",
@@ -15,8 +15,13 @@
   ],
   "main": "./dist/index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "jest",
     "start": "node index.js",
+    "build": "gulp compress",
+    "checkAndBuild": "npm run test && npm run build",
+    "publish:patch": "npm run checkAndBuild && npm version patch && npm publish",
+    "publish:minor": "npm run checkAndBuild && npm version minor && npm publish",
+    "publish:major": "npm run checkAndBuild && npm version major && npm publish",
     "version": "conventional-changelog -p eslint -i CHANGELOG.md -s && git add CHANGELOG.md",
     "prettier": "prettier  --write \"./src/**/*.js\" --config .prettierrc"
   },
@@ -35,6 +40,7 @@
     "conventional-changelog-cli": "^2.0.31",
     "gulp": "^4.0.2",
     "gulp-uglify": "^3.0.2",
+    "jest": "^24.9.0",
     "prettier": "^1.19.1",
     "pump": "^3.0.0",
     "uglify-es": "^3.3.9"

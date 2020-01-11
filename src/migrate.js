@@ -1,8 +1,7 @@
 const { spaceId, componentDirectory } = require("./config")
 const Logger = require("./helpers/logger")
-const { componentByName, components } = require("./discover")
+const { components } = require("./discover")
 const api = require("./api")
-const { sbApi } = require("./api/config")
 
 const _uniqueValuesFrom = array => [...new Set(array)]
 
