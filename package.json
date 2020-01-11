@@ -19,6 +19,7 @@
     "start": "node index.js",
     "build": "gulp compress",
     "prepare": "npm run test && npm run build",
+    "preversion": "npm run prepare",
     "prepublish:patch": "npm run prepare",
     "prepublish:minor": "npm run prepare",
     "prepublish:major": "npm run prepare",
