@@ -7,7 +7,10 @@ const minify = composer(uglifyES, console)
 
 function compress(cb) {
   const options = {}
-  return pump([src("src/**/*.js"), minify(options), dest("dist")], cb)
+  return pump(
+    [src(["src/**/*.js", "!src/**/*.test.js"]), minify(options), dest("dist")],
+    cb
+  )
 }
 
 function defaultTask(cb) {

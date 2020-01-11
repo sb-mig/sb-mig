@@ -23,8 +23,8 @@ function contentTypeComponents() {
   return components.filter(x => x.is_root)
 }
 
-function componentByName(name) {
-  return components.find(x => x.name === name)
+function componentByName(allComponents = components, name) {
+  return allComponents.find(x => x.name === name)
 }
 
 module.exports = {
