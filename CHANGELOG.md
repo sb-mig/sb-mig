@@ -1,3 +1,12 @@
+## [1.1.1](https://github.com/marckraw/sb-mig/compare/v1.1.0...v1.1.1) (2020-01-11)
+
+
+### chore
+
+* udpate readme ([f23fd0f](https://github.com/marckraw/sb-mig/commit/f23fd0fdbfbb606236ef683899ff43aaf06023e1))
+
+
+
 # [1.1.0](https://github.com/marckraw/sb-mig/compare/v1.0.2...v1.1.0) (2020-01-11)
 
 
