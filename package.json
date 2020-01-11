@@ -23,7 +23,6 @@
   "license": "MIT",
   "dependencies": {
     "chalk": "^3.0.0",
-    "clear": "^0.1.0",
     "commander": "^4.0.1",
     "dotenv": "^8.2.0",
     "figlet": "^1.2.4",
@@ -35,7 +34,7 @@
     "conventional-changelog-cli": "^2.0.31"
   },
   "bin": {
-    "sb-mig": "./cli.js"
+    "sb-mig": "./index.js"
   },
   "engines": {
     "node": ">=11"
