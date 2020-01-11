@@ -13,12 +13,12 @@
     "sb",
     "migrate"
   ],
-  "main": "index.js",
+  "main": "./dist/index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node index.js",
     "version": "conventional-changelog -p eslint -i CHANGELOG.md -s && git add CHANGELOG.md",
-    "prettier": "prettier  --write \"./**/*.js\" --config .prettierrc"
+    "prettier": "prettier  --write \"./src/**/*.js\" --config .prettierrc"
   },
   "author": "Marcin Krawczyk <marckraw@icloud.com>",
   "license": "MIT",
@@ -33,10 +33,14 @@
   },
   "devDependencies": {
     "conventional-changelog-cli": "^2.0.31",
-    "prettier": "^1.19.1"
+    "gulp": "^4.0.2",
+    "gulp-uglify": "^3.0.2",
+    "prettier": "^1.19.1",
+    "pump": "^3.0.0",
+    "uglify-es": "^3.3.9"
   },
   "bin": {
-    "sb-mig": "./index.js"
+    "sb-mig": "./dist/index.js"
   },
   "engines": {
     "node": ">=11"

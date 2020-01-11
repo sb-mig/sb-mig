@@ -4,4 +4,5 @@ backup
 .vscode
 sbmig
 storyblok
-dist
+src
+.prettierrc

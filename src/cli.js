@@ -1,7 +1,7 @@
 const Logger = require("./helpers/logger")
 const commander = require("commander")
 const fs = require("fs")
-const package = require("./package.json")
+const package = require("../package.json")
 const api = require("./api")
 const migrate = require("./migrate")
 const { sbmigWorkingDirectory } = require("./config")
