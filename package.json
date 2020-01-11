@@ -27,6 +27,7 @@
     "chalk": "^3.0.0",
     "clear": "^0.1.0",
     "commander": "^4.0.1",
+    "conventional-changelog-cli": "^2.0.31",
     "dotenv": "^8.2.0",
     "figlet": "^1.2.4",
     "glob": "^7.1.6",
