@@ -1,3 +1,12 @@
+## [1.1.10](https://github.com/marckraw/sb-mig/compare/v1.1.9...v1.1.10) (2020-01-12)
+
+
+### hotfix
+
+* fix content of readme ([22686b4](https://github.com/marckraw/sb-mig/commit/22686b4b648b908734d2ffaa55355a92ae9bb6a8))
+
+
+
 ## [1.1.9](https://github.com/marckraw/sb-mig/compare/v1.1.8...v1.1.9) (2020-01-11)
 
 
