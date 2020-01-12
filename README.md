@@ -9,8 +9,7 @@
 - [Schema documentation:](#schema-documentation)
   - [Basics](#basics)
   - [Presets support](#presets-support)
-  - [This feature is still quite experimental, that's why it's not completely straightforward to do. Workin on it :)](#this-feature-is-still-quite-experimental-thats-why-its-not-completely-straightforward-to-do-workin-on-it)
-  - [Roadmap:](#roadmap)
+  - [Roadmap](#roadmap)
 
 ---
 
@@ -194,11 +193,11 @@ Preset: 'My Preset' with '437086' id has been updated.
 
 ---
 
-## This feature is still quite experimental, that's why it's not completely straightforward to do. Workin on it :)
+_This feature is still quite experimental, that's why it's not completely straightforward to do. Workin on it :)_
 
 ---
 
-## Roadmap:
+## Roadmap
 
 - [x] Sync presets
 - [x] Sync single component
