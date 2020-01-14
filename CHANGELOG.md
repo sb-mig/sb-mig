@@ -1,3 +1,12 @@
+## [1.1.11](https://github.com/marckraw/sb-mig/compare/v1.1.10...v1.1.11) (2020-01-14)
+
+
+### docs
+
+* add basic example how to add fields section inside component ([edc2c56](https://github.com/marckraw/sb-mig/commit/edc2c56a06b07ee086c2cbc68fc66ff669984dea))
+
+
+
 ## [1.1.10](https://github.com/marckraw/sb-mig/compare/v1.1.9...v1.1.10) (2020-01-12)
 
 
