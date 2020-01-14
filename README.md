@@ -114,7 +114,7 @@ module.exports = {
 
 Basically you should be able to add anything mentioned here: https://www.storyblok.com/docs/api/management#core-resources/components/components for your component. (with exception to `component_group_uuid`, you insert `component_group_name` and `sb-mig` will resolve `uuid` automagically).
 
-You can also add `tabs` to your component schema (which is not documentet in above storyblok documenation):
+You can also add `tabs` to your component schema (which is not documented in above storyblok documenation):
 
 ```
 ...
@@ -125,6 +125,23 @@ You can also add `tabs` to your component schema (which is not documentet in abo
     Settings: {
       type: "tab",
       display_name: "Settings",
+      "keys": [
+        "title"
+      ]
+    },
+  }
+...
+```
+
+There is also support for `sections` inside components:
+```
+...
+  schema: {
+    title: {
+      type: "text",
+    },
+    somesection: {
+      type: "section",
       "keys": [
         "title"
       ]
