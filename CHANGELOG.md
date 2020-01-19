@@ -1,3 +1,12 @@
+## [1.1.12](https://github.com/marckraw/sb-mig/compare/v1.1.11...v1.1.12) (2020-01-19)
+
+
+### docs
+
+* add new points what next to roadmap ([03beb11](https://github.com/marckraw/sb-mig/commit/03beb110945615bbd762553825698b36880c477b))
+
+
+
 ## [1.1.11](https://github.com/marckraw/sb-mig/compare/v1.1.10...v1.1.11) (2020-01-14)
 
 
