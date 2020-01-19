@@ -216,12 +216,15 @@ _This feature is still quite experimental, that's why it's not completely straig
 
 ## Roadmap
 
+- [ ] Improve preset creation/update
+- [ ] Sync / Migrate content (stories)
+- [ ] Generate whole project + choose components to use
+- [ ] End-to-end solution to add / update components
 - [x] Sync presets
 - [x] Sync single component
 - [x] Sync all components
 - [x] Sync components using schema based .js file (based on idea from [storyblok-migrate](https://github.com/maoberlehner/storyblok-migrate))
 - [x] Component groups
-- [ ] Improve preset creation/update
 
 General purpose of this package is to manage creation and maintainance of components and other stuff, from code/command line.
 To be able to create whole space and basic structure of the project without using GUI.
