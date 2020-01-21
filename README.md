@@ -217,6 +217,7 @@ _This feature is still quite experimental, that's why it's not completely straig
 ## Roadmap
 
 - [ ] Improve preset creation/update
+- [ ] Sync / Migrate datasources
 - [ ] Sync / Migrate content (stories)
 - [ ] Generate whole project + choose components to use
 - [ ] End-to-end solution to add / update components
