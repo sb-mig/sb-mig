@@ -8,9 +8,9 @@ const {
   sbmigWorkingDirectory,
   schemaFileExt,
   componentsDirectories,
-  componentDirectory,
+  componentDirectory
 } = require("./config")
-const configCliValues = require('./config')
+const configCliValues = require("./config")
 const { createDir, createJsonFile } = require("./helpers/files")
 
 const program = new commander.Command()
@@ -53,6 +53,15 @@ async function start() {
         "-d, --component-presets <component-name>",
         "Get all presets for single component by name"
       )
+      .option(
+        "-e, --datasource <datasource-name>",
+        "Get single datasource by name"
+      )
+      .option(
+        "-f, --datasource-entry <datasource-name>",
+        "Get single datasource entries by name"
+      )
+      .option("-t, --all-datasources", "Get all datasources")
       .option("-d, --debug", "Output extra debugging")
 
     program.parse(process.argv)
@@ -132,6 +141,53 @@ async function start() {
           `${sbmigWorkingDirectory}/presets/${filename}.json`
         )
         Logger.success(`All presets written to a file:  ${filename}`)
+      })
+    }
+
+    if (program.datasourceEntry) {
+      api.getDatasourceEntries(program.datasourceEntry).then(async res => {
+        if (res) {
+          const randomDatestamp = new Date().toJSON()
+          const filename = `datasource-entries-${program.datasourceEntry}-${randomDatestamp}`
+          await createDir(`${sbmigWorkingDirectory}/datasources/`)
+          await createJsonFile(
+            JSON.stringify(res),
+            `${sbmigWorkingDirectory}/datasources/${filename}.json`
+          )
+          Logger.success(
+            `Datasource entries for ${program.datasourceEntry} written to a file:  ${filename}`
+          )
+        }
+      })
+    }
+
+    if (program.datasource) {
+      api.getDatasource(program.datasource).then(async res => {
+        if (res) {
+          const randomDatestamp = new Date().toJSON()
+          const filename = `datasource-${program.datasource}-${randomDatestamp}`
+          await createDir(`${sbmigWorkingDirectory}/datasources/`)
+          await createJsonFile(
+            JSON.stringify(res),
+            `${sbmigWorkingDirectory}/datasources/${filename}.json`
+          )
+          Logger.success(
+            `Datasource for ${program.datasource} written to a file:  ${filename}`
+          )
+        }
+      })
+    }
+
+    if (program.allDatasources) {
+      api.getAllDatasources().then(async res => {
+        const randomDatestamp = new Date().toJSON()
+        const filename = `all-datasources-${randomDatestamp}`
+        await createDir(`${sbmigWorkingDirectory}/datasources/`)
+        await createJsonFile(
+          JSON.stringify(res),
+          `${sbmigWorkingDirectory}/datasources/${filename}.json`
+        )
+        Logger.success(`All datasources written to a file:  ${filename}`)
       })
     }
 

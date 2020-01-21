@@ -17,6 +17,12 @@ const {
 
 const { getComponentPresets } = require("./componentPresets")
 
+  const {
+    getAllDatasources,
+    getDatasource,
+    getDatasourceEntries
+  } = require("./datasources")
+
 module.exports = {
   getAllComponentsGroups,
   getComponentsGroup,
@@ -30,4 +36,7 @@ module.exports = {
   getPreset,
   createPreset,
   updatePreset,
+  getAllDatasources,
+  getDatasource,
+  getDatasourceEntries
 }
