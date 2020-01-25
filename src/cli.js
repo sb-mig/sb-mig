@@ -1,3 +1,4 @@
+const updateNotifier = require("update-notifier")
 const Logger = require("./helpers/logger")
 const commander = require("commander")
 const fs = require("fs")
@@ -12,6 +13,12 @@ const program = new commander.Command()
 async function start() {
   Logger.bigLog("sb-mig")
   try {
+    const notifier = updateNotifier({
+      package,
+      updateCheckInterval: 1000,
+      shouldNotifyInNpmScript: true
+    })
+    notifier.notify()
     program.version(package.version)
 
     program
