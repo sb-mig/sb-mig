@@ -1,3 +1,8 @@
+## [1.1.16](https://github.com/marckraw/sb-mig/compare/v1.1.15...v1.1.16) (2020-01-25)
+
+
+
+
 ## [1.1.15](https://github.com/marckraw/sb-mig/compare/v1.1.14...v1.1.15) (2020-01-25)
 
 
