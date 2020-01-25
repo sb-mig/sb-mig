@@ -1,3 +1,12 @@
+## [1.1.15](https://github.com/marckraw/sb-mig/compare/v1.1.14...v1.1.15) (2020-01-25)
+
+
+### fix
+
+* update notifier ([f84e53a](https://github.com/marckraw/sb-mig/commit/f84e53a1bb0edbd64c948dad533617efdd9c54c7))
+
+
+
 ## [1.1.14](https://github.com/marckraw/sb-mig/compare/v1.1.13...v1.1.14) (2020-01-25)
 
 
