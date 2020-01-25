@@ -14,7 +14,7 @@ async function start() {
   Logger.bigLog("sb-mig")
   try {
     const notifier = updateNotifier({
-      package,
+      pkg: package,
       updateCheckInterval: 1000,
       shouldNotifyInNpmScript: true
     })
