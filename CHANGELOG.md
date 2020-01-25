@@ -1,3 +1,12 @@
+## [1.1.13](https://github.com/marckraw/sb-mig/compare/v1.1.12...v1.1.13) (2020-01-25)
+
+
+### docs
+
+* add sync datasources to roadmap ([d68294f](https://github.com/marckraw/sb-mig/commit/d68294fe758d45b831e022d36edd39b07c5bedd9))
+
+
+
 ## [1.1.12](https://github.com/marckraw/sb-mig/compare/v1.1.11...v1.1.12) (2020-01-19)
 
 
