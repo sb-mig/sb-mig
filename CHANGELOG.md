@@ -1,3 +1,12 @@
+## [1.1.17](https://github.com/marckraw/sb-mig/compare/v1.1.16...v1.1.17) (2020-02-06)
+
+
+### fix
+
+* storyblok js client use by using custom endpoint if configured ([fac304c](https://github.com/marckraw/sb-mig/commit/fac304cea7cd961756deef87e51df9e70f5dc18c))
+
+
+
 ## [1.1.16](https://github.com/marckraw/sb-mig/compare/v1.1.15...v1.1.16) (2020-01-25)
 
 

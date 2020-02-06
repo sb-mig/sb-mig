@@ -1,5 +1,10 @@
 const StoryblokClient = require("storyblok-js-client")
-const { oauthToken, githubToken, accessToken } = require("../config")
+const {
+  oauthToken,
+  githubToken,
+  accessToken,
+  storyblokApiUrl
+} = require("../config")
 
 const headers = {
   "Content-Type": "application/json",
@@ -11,7 +16,7 @@ const githubHeaders = {
   Authorization: `token ${githubToken}`
 }
 
-const sbApi = new StoryblokClient({ accessToken, oauthToken })
+const sbApi = new StoryblokClient({ accessToken, oauthToken }, storyblokApiUrl)
 
 module.exports = {
   headers,
