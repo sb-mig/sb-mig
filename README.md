@@ -9,7 +9,8 @@
 - [Schema documentation:](#schema-documentation)
   - [Basics](#basics)
   - [Presets support](#presets-support)
-  - [Roadmap](#roadmap)
+- [Development](#development)
+- [Roadmap](#roadmap)
 
 ---
 
@@ -134,6 +135,7 @@ You can also add `tabs` to your component schema (which is not documented in abo
 ```
 
 There is also support for `sections` inside components:
+
 ```
 ...
   schema: {
@@ -213,6 +215,40 @@ Preset: 'My Preset' with '437086' id has been updated.
 _This feature is still quite experimental, that's why it's not completely straightforward to do. Workin on it :)_
 
 ---
+
+## Development
+
+To develop and make changes to the library:
+```
+git clone git@github.com:marckraw/sb-mig.git
+```
+
+then change below lines in `package.json`
+```
+...
+"main": "./dist/index.js",
+...
+ "bin": {
+    "sb-mig": "./dist/index.js"
+  },
+...
+```
+
+to
+
+```
+...
+"main": "./src/index.js",
+...
+ "bin": {
+    "sb-mig": "./src/index.js"
+  },
+...
+```
+
+so when u link package it will use not version of a library from `src` folder, rather then minified one.
+
+then run `npm link` in a root folder of `sb-mig`, now it's is linked as global `sb-mig`
 
 ## Roadmap
 
