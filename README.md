@@ -1,6 +1,12 @@
 <p align="center">
     <img width="250" height="250" src="./sb-mig-logo.png" alt="Logo" />
 </p>
+If you've found an issue or you have feature request - <a href="https://github.com/marckraw/sb-mig/issues/new">open an issue</a> or look if it was <a href="https://github.com/marckraw/sb-mig/issues/">already created</a>.
+
+[![npm](https://img.shields.io/npm/v/sb-mig.svg)](https://www.npmjs.com/package/sb-mig)
+[![npm](https://img.shields.io/npm/dt/sb-mig.svg)](ttps://img.shields.io/npm/dt/sb-mig.svg)
+[![GitHub issues](https://img.shields.io/github/issues/marckraw/sb-mig.svg?style=flat-square&v=1)](https://github.com/marckraw/sb-mig/issues?q=is%3Aopen+is%3Aissue)
+[![GitHub closed issues](https://img.shields.io/github/issues-closed/marckraw/sb-mig.svg?style=flat-square&v=1)](https://github.com/marckraw/sb-mig/issues?q=is%3Aissue+is%3Aclosed)
 
 ## Contents
 
@@ -9,8 +15,8 @@
 - [Schema documentation:](#schema-documentation)
   - [Basics](#basics)
   - [Presets support](#presets-support)
-- [Development](#development)
-- [Roadmap](#roadmap)
+  - [Development](#development)
+  - [Roadmap](#roadmap)
 
 ---
 
@@ -219,11 +225,13 @@ _This feature is still quite experimental, that's why it's not completely straig
 ## Development
 
 To develop and make changes to the library:
+
 ```
 git clone git@github.com:marckraw/sb-mig.git
 ```
 
 then change below lines in `package.json`
+
 ```
 ...
 "main": "./dist/index.js",
