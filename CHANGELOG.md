@@ -1,3 +1,17 @@
+## [1.1.18](https://github.com/marckraw/sb-mig/compare/v1.1.16...v1.1.18) (2020-02-15)
+
+
+### docs
+
+* Add develop section to readme ([2a0570e](https://github.com/marckraw/sb-mig/commit/2a0570eca4ae47246687f51f3acaf9263d76d243))
+* add some badges to readme ([ec8f6d1](https://github.com/marckraw/sb-mig/commit/ec8f6d149d6473f66a3cac285a4cd423a6043389))
+
+### fix
+
+* storyblok js client use by using custom endpoint if configured ([fac304c](https://github.com/marckraw/sb-mig/commit/fac304cea7cd961756deef87e51df9e70f5dc18c))
+
+
+
 ## [1.1.17](https://github.com/marckraw/sb-mig/compare/v1.1.16...v1.1.17) (2020-02-06)
 
 
