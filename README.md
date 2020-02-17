@@ -14,6 +14,7 @@ If you've found an issue or you have feature request - <a href="https://github.c
   - [Usage](#usage)
 - [Schema documentation:](#schema-documentation)
   - [Basics](#basics)
+  - [Syncing components](#syncing-components)
   - [Presets support](#presets-support)
   - [Development](#development)
   - [Roadmap](#roadmap)
@@ -46,8 +47,11 @@ You can also provide your custom config. To do that u have to create `storyblok.
 ```
 // storyblok.config.js
 module.exports = {
-  componentDirectory: 'sbmig/storyblok',
-  storyblokApiUrl: 'https://api.storyblok.com/v1',
+  sbmigWorkingDirectory: "sbmig",
+  componentDirectory: "sbmig/storyblok",
+  componentsDirectories: ["src", "storyblok"],
+  schemaFileExt: "sb.js",
+  storyblokApiUrl: "https://api.storyblok.com/v1",
   oauthToken: process.env.STORYBLOK_OAUTH_TOKEN,
   spaceId: process.env.STORYBLOK_SPACE_ID,
   accessToken: process.env.STORYBLOK_ACCESS_TOKEN,
@@ -79,6 +83,7 @@ Usage: sb-mig [options]
 Options:
   -V, --version                                               output the version number
   -s, --sync                                                  Sync provided components from schema with
+  -x, --ext                                                   Use only with --sync, By default sync with *.sb.js extension
   -S, --sync-all                                              Sync all components from schema with
   -g, --all-components-groups                                 Get all component groups
   -c, --components-group <components-group-name>              Get single components group by name
@@ -91,11 +96,6 @@ Options:
   -x, --get-react-test-component <storyblok-react-component>  Get test react matching to schema based component
   -d, --debug                                                 Output extra debugging
   -h, --help                                                  output usage information
-
-
-
-
-  * - experimental feature, use with caution
 ```
 
 # Schema documentation:
@@ -157,6 +157,21 @@ There is also support for `sections` inside components:
   }
 ...
 ```
+
+## Syncing components
+The most important feature of `sb-mig` is ability to sync your `.js` schema based files with `Storyblok` space.
+There are 2 aproaches to that"
+
+```
+sb-mig --sync row column
+```
+This command will look for `row.js` and `column.js` files inside `sbmig/storyblok` (by default, to change this you have to modify `componentDirectory` inside `storyblok.config.js` file. [How to install and configure](#how-to-install-and-configure))
+
+```
+sb-mig --sync --ext row column
+```
+This command will look for any file named `row.sb.js` and `column.sb.js` inside `src` and `storyblok` folders (by default, to change this you have to modify `componentsDirectories`. You can also change extension by changing `schemaFileExt`. [How to install and configure](#how-to-install-and-configure))
+
 
 ## Presets support
 
