@@ -4,7 +4,10 @@
 const glob = require(`glob`)
 const path = require(`path`)
 
-const { componentDirectory } = require(`./config`)
+const {
+  componentDirectory,
+  componentsDirectories,
+} = require(`./config`)
 
 function findComponents(componentDirectory) {
   const directory = path.resolve(process.cwd(), componentDirectory)
@@ -12,6 +15,24 @@ function findComponents(componentDirectory) {
   return (
     glob
       .sync(path.join(directory, `**`, `[^_]*.js`))
+      // eslint-disable-next-line global-require, import/no-dynamic-require
+      .map(file => require(path.resolve(directory, file)))
+  )
+}
+
+function findComponentsWithExt(ext) {
+  const rootDirectory = "./"
+  const directory = path.resolve(process.cwd(), rootDirectory)
+
+  return (
+    glob
+      .sync(
+        path.join(
+          `${directory}/{${componentsDirectories.join(",")}}`,
+          `**`,
+          `[^_]*.${ext}`
+        )
+      )
       // eslint-disable-next-line global-require, import/no-dynamic-require
       .map(file => require(path.resolve(directory, file)))
   )
@@ -30,5 +51,6 @@ function componentByName(allComponents = components, name) {
 module.exports = {
   componentByName,
   components,
-  contentTypeComponents
+  contentTypeComponents,
+  findComponentsWithExt
 }

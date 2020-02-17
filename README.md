@@ -14,6 +14,7 @@ If you've found an issue or you have feature request - <a href="https://github.c
   - [Usage](#usage)
 - [Schema documentation:](#schema-documentation)
   - [Basics](#basics)
+  - [Syncing components](#syncing-components)
   - [Presets support](#presets-support)
   - [Development](#development)
   - [Roadmap](#roadmap)
@@ -26,7 +27,7 @@ If you've found an issue or you have feature request - <a href="https://github.c
 npm install --global sb-mig
 ```
 
-You have to create `.env` file with your variables:
+You have to create a `.env` file with your variables:
 
 ```
 STORYBLOK_OAUTH_TOKEN=1234567890qwertyuiop
@@ -34,20 +35,23 @@ STORYBLOK_SPACE_ID=12345
 STORYBLOK_ACCESS_TOKEN=zxcvbnmasdfghjkl
 ```
 
-if u want to use experimental feature of downloading `.js` files from seed project (storyblok schema based files, and react-match-storyblok files), you have to add and set github access token
+To use the experimental feature of downloading `.js` files from the seed project (storyblok schema based files, and react-match-storyblok files), add and set a github access token
 
 ```
 GITHUB_TOKEN=1234567890-qwertyuiop
 SEED_REPO=https://raw.githubusercontent.com/your-org/your-seed-project/master
 ```
 
-You can also provide your custom config. To do that u have to create `storyblok.config.js` file in your root catalog with following structure:
+You can also provide a custom config. To do so, create a `storyblok.config.js` file in your project root with following structure:
 
 ```
 // storyblok.config.js
 module.exports = {
-  componentDirectory: 'sbmig/storyblok',
-  storyblokApiUrl: 'https://api.storyblok.com/v1',
+  sbmigWorkingDirectory: "sbmig",
+  componentDirectory: "sbmig/storyblok",
+  componentsDirectories: ["src", "storyblok"],
+  schemaFileExt: "sb.js",
+  storyblokApiUrl: "https://api.storyblok.com/v1",
   oauthToken: process.env.STORYBLOK_OAUTH_TOKEN,
   spaceId: process.env.STORYBLOK_SPACE_ID,
   accessToken: process.env.STORYBLOK_ACCESS_TOKEN,
@@ -56,7 +60,7 @@ module.exports = {
 };
 ```
 
-You don't need to pass everything to the config file. If u want to have only `componentDirectory` as custom below code will be also valid.
+You don't need to pass everything to the config file, just add what you need and it will be merged with the original config. If you just need to set the `componentDirectory`, for example, add the following:
 
 ```
 // storyblok.config.js
@@ -77,9 +81,10 @@ module.exports = {
 Usage: sb-mig [options]
 
 Options:
-  -V, --version                                               output the version number
-  -s, --sync                                                  Sync provided components from schema with
-  -S, --sync-all                                              Sync all components from schema with
+  -V, --version                                               Output the version number
+  -s, --sync                                                  Sync provided components from schema
+  -x, --ext                                                   Use only with --sync, By default sync with *.sb.js extension
+  -S, --sync-all                                              Sync all components from schemas
   -g, --all-components-groups                                 Get all component groups
   -c, --components-group <components-group-name>              Get single components group by name
   -a, --all-components                                        Get all components
@@ -90,19 +95,14 @@ Options:
   -z, --get-sb-test-component <storyblok-component>           Get test storyblok schema based component
   -x, --get-react-test-component <storyblok-react-component>  Get test react matching to schema based component
   -d, --debug                                                 Output extra debugging
-  -h, --help                                                  output usage information
-
-
-
-
-  * - experimental feature, use with caution
+  -h, --help                                                  Output options information
 ```
 
 # Schema documentation:
 
 ## Basics
 
-This is basic look of the schema based `.js` file which will map to `Storyblok` component
+This is what a basic storyblok `.js` schema file which maps to a component looks like:
 
 ```
 module.exports = {
@@ -119,9 +119,9 @@ module.exports = {
 };
 ```
 
-Basically you should be able to add anything mentioned here: https://www.storyblok.com/docs/api/management#core-resources/components/components for your component. (with exception to `component_group_uuid`, you insert `component_group_name` and `sb-mig` will resolve `uuid` automagically).
+You can add anything mentioned here: https://www.storyblok.com/docs/api/management#core-resources/components/components to your component. (with the exception of `component_group_uuid`: insert `component_group_name` and `sb-mig` will resolve `uuid` automagically).
 
-You can also add `tabs` to your component schema (which is not documented in above storyblok documenation):
+You can also add `tabs` to your component schema (which is not documented in above storyblok documentation):
 
 ```
 ...
@@ -158,31 +158,48 @@ There is also support for `sections` inside components:
 ...
 ```
 
+## Syncing components
+
+The main purpose of `sb-mig` is to sync your `.js` component schema files with your `Storyblok` space.
+
+There are 2 ways to sync your schemas, which to use depends on your file structure. If you are keeping all of your schema files in a single folder, use:
+
+```
+sb-mig --sync row column
+```
+
+This command will look for `row.js` and `column.js` files inside a directory named `storyblok`. You can change the directory name mapping by modifying `componentDirectory` inside `storyblok.config.js`). [How to install and configure](#how-to-install-and-configure))
+
+```
+sb-mig --sync --ext row column
+```
+
+This command will look for any file named `row.sb.js` and `column.sb.js` inside `src` and `storyblok` folders. To modify the directories in this case you can set `componentsDirectories` in the config. You can also change the extension searched by changing `schemaFileExt`. [How to install and configure](#how-to-install-and-configure))
+
 ## Presets support
 
 - Experimental
 
-While writing your own predefined data (presets) for components is pretty hard, with `sb-mig` you can create presets for your components in graphical user interface in Storyblok, export preset, and apply it to schema based `.js` file to be picked up, while syncing component.
+Writing your own predefined data (presets) for components can be a pain, so with `sb-mig` you can create presets for your components in the storyblok gui, and then export them to a schema based `.js` file to be picked up while syncing.
 
-First create Preset for your component in Storyblok:
+To do so, first create a preset for your component in storyblok:
 
 <img src="https://user-images.githubusercontent.com/8228270/72166029-caf8cc00-33c8-11ea-891b-194f57974653.png" width=300 />
 <br>
 <img src="https://user-images.githubusercontent.com/8228270/72166255-33e04400-33c9-11ea-9431-c6d0b684f5fb.png" width=300 />
 
-then, run
+then run
 
 ```
 sb-mig --component-presets text-block    // component you've created preset for
 ```
 
-It will download all presets related to the `text-block` component.
-Now you can go to your folder structure (by default: `./sbmig/component-presets/`).
-Rename file which is there to for example: `text-block-preset`.
+The tool will now download all presets related to the `text-block` component.
+Now you can go to your folder structure (by default: `./sbmig/component-presets/`), and rename the generated file to (for example): `text-block-preset`.
 
-You should remove id field from preset (it will be handled with name)
+You should remove the id field from the preset (it will be looked up by name)
 
-Now you can add `all_presets` field to tyour `text-block` component schema.
+Finally, add the `all_presets` field to your `text-block` component schema.
 
 ```
 const allPresets = require('./presets/_text-block-preset.json');
@@ -200,7 +217,7 @@ module.exports = {
 };
 ```
 
-Now, you can sync your component
+Now, sync your component
 
 ```
 sb-mig --sync text-block
@@ -254,9 +271,9 @@ to
 ...
 ```
 
-so when u link package it will use not version of a library from `src` folder, rather then minified one.
+Now when you link the package it will use the version of the library from `src` folder, rather than the minified one.
 
-then run `npm link` in a root folder of `sb-mig`, now it's is linked as global `sb-mig`
+Run `npm link` in the root folder of `sb-mig`, and it will be linked as global `sb-mig`
 
 ## Roadmap
 
@@ -270,6 +287,6 @@ then run `npm link` in a root folder of `sb-mig`, now it's is linked as global `
 - [x] Sync all components
 - [x] Sync components using schema based .js file (based on idea from [storyblok-migrate](https://github.com/maoberlehner/storyblok-migrate))
 - [x] Component groups
+- [ ] Sync custom fields
 
-General purpose of this package is to manage creation and maintainance of components and other stuff, from code/command line.
-To be able to create whole space and basic structure of the project without using GUI.
+The general purpose of this package is to manage creation and maintenance of components from code/command line, to be able to create a whole space and project structure without using GUI.
