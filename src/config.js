@@ -17,9 +17,7 @@ const defaultConfig = {
   storyblokApiUrl: "https://api.storyblok.com/v1",
   oauthToken: process.env.STORYBLOK_OAUTH_TOKEN,
   spaceId: process.env.STORYBLOK_SPACE_ID,
-  accessToken: process.env.STORYBLOK_ACCESS_TOKEN,
-  githubToken: process.env.GITHUB_TOKEN,
-  seedRepo: process.env.SEED_REPO
+  accessToken: process.env.STORYBLOK_ACCESS_TOKEN
 }
 
 module.exports = { ...defaultConfig, ...customConfig }

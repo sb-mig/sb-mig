@@ -15,8 +15,6 @@ const {
   updatePreset
 } = require("./presets")
 
-const { getReactComponent, getStoryblokComponent } = require("./repository")
-
 const { getComponentPresets } = require("./componentPresets")
 
 module.exports = {

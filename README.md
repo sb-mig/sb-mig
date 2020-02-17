@@ -35,14 +35,7 @@ STORYBLOK_SPACE_ID=12345
 STORYBLOK_ACCESS_TOKEN=zxcvbnmasdfghjkl
 ```
 
-To use the experimental feature of downloading `.js` files from the seed project (storyblok schema based files, and react-match-storyblok files), add and set a github access token
-
-```
-GITHUB_TOKEN=1234567890-qwertyuiop
-SEED_REPO=https://raw.githubusercontent.com/your-org/your-seed-project/master
-```
-
-You can also provide a custom config. To do so, create a `storyblok.config.js` file in your project root with following structure:
+You can also provide your custom config. To do that u have to create `storyblok.config.js` file in your root catalog with following structure:
 
 ```
 // storyblok.config.js
@@ -55,8 +48,6 @@ module.exports = {
   oauthToken: process.env.STORYBLOK_OAUTH_TOKEN,
   spaceId: process.env.STORYBLOK_SPACE_ID,
   accessToken: process.env.STORYBLOK_ACCESS_TOKEN,
-  githubToken: process.env.GITHUB_TOKEN,
-  seedRepo: process.env.SEED_REPO
 };
 ```
 
@@ -92,8 +83,6 @@ Options:
   -q, --all-presets                                           Get all presets
   -p, --preset <preset-id>                                    Get preset by id
   -d, --component-presets <component-name>                    Get all presets for single component by name
-  -z, --get-sb-test-component <storyblok-component>           Get test storyblok schema based component
-  -x, --get-react-test-component <storyblok-react-component>  Get test react matching to schema based component
   -d, --debug                                                 Output extra debugging
   -h, --help                                                  Output options information
 ```
@@ -282,6 +271,7 @@ Run `npm link` in the root folder of `sb-mig`, and it will be linked as global `
 - [ ] Sync / Migrate content (stories)
 - [ ] Generate whole project + choose components to use
 - [ ] End-to-end solution to add / update components
+- [x] Sync components with extensions
 - [x] Sync presets
 - [x] Sync single component
 - [x] Sync all components
