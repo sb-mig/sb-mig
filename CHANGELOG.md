@@ -1,3 +1,16 @@
+# [1.2.0](https://github.com/marckraw/sb-mig/compare/v1.1.18...v1.2.0) (2020-02-17)
+
+
+### docs
+
+* Document new --sync --ext approach ([18bba3e](https://github.com/marckraw/sb-mig/commit/18bba3e3b36a54825db356e7a873cdc69624af87))
+
+### feature
+
+* Add ability to sync with .sb.js extension ([5199806](https://github.com/marckraw/sb-mig/commit/51998062c716fb86407e89c6734ad1e4a2cd4107))
+
+
+
 ## [1.1.18](https://github.com/marckraw/sb-mig/compare/v1.1.16...v1.1.18) (2020-02-15)
 
 
