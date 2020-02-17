@@ -12,6 +12,8 @@ try {
 const defaultConfig = {
   sbmigWorkingDirectory: "sbmig",
   componentDirectory: "sbmig/storyblok",
+  componentsDirectories: ["src", "storyblok"],
+  schemaFileExt: "sb.js",
   storyblokApiUrl: "https://api.storyblok.com/v1",
   oauthToken: process.env.STORYBLOK_OAUTH_TOKEN,
   spaceId: process.env.STORYBLOK_SPACE_ID,

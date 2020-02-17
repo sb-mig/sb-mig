@@ -1,6 +1,6 @@
 const { spaceId, componentDirectory } = require("./config")
 const Logger = require("./helpers/logger")
-const { components } = require("./discover")
+const { components, findComponentsWithExt } = require("./discover")
 const api = require("./api")
 
 const _uniqueValuesFrom = array => [...new Set(array)]
@@ -36,9 +36,15 @@ const _resolveGroups = async (
   }
 }
 
-const syncComponents = async specifiedComponents => {
+const syncComponents = async (specifiedComponents, ext) => {
   Logger.log(`Trying to sync all components from '${componentDirectory}'`)
-  const localComponents = components
+  let localComponents
+  if (ext) {
+    localComponents = findComponentsWithExt(ext)
+  } else {
+    localComponents = components
+  }
+
   const groupsToCheck = _uniqueValuesFrom(
     localComponents
       .filter(component => component.component_group_name)

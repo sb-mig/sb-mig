@@ -5,7 +5,7 @@ const fs = require("fs")
 const package = require("../package.json")
 const api = require("./api")
 const migrate = require("./migrate")
-const { sbmigWorkingDirectory } = require("./config")
+const { sbmigWorkingDirectory, schemaFileExt, componentsDirectories } = require("./config")
 const { createDir, createJsonFile } = require("./helpers/files")
 
 const program = new commander.Command()
@@ -23,6 +23,7 @@ async function start() {
 
     program
       .option("-s, --sync", "Sync provided components from schema with")
+      .option("-x, --ext", "Use only with --sync, By default sync with *.sb.js extension")
       .option("-S, --sync-all", "Sync all components from schema with")
       .option("-g, --all-components-groups", "Get all component groups")
       .option(
@@ -52,7 +53,15 @@ async function start() {
 
     program.parse(process.argv)
 
-    if (program.sync) {
+    if (program.ext && !program.sync) {
+      Logger.warning(
+        `Use only with --sync option: sb-mig --sync --ext ${program.args.join(
+          " "
+        )}`
+      )
+    }
+
+    if (program.sync && !program.ext) {
       Logger.log("Syncing provided components...")
 
       if (program.args.length === 0) {
@@ -61,6 +70,18 @@ async function start() {
         )
       } else {
         migrate.syncComponents(program.args)
+      }
+    }
+
+    if (program.sync && program.ext) {
+      Logger.log(`Syncing provided components with ${schemaFileExt} extension, inside [${componentsDirectories.join(', ')}] directories ...`)
+
+      if (program.args.length === 0) {
+        Logger.warning(
+          `You have to provide some components separated with empty space. For exmaple: 'row column card'`
+        )
+      } else {
+        migrate.syncComponents(program.args, schemaFileExt)
       }
     }
 
