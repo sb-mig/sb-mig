@@ -1,6 +1,6 @@
 {
   "name": "sb-mig",
-  "homepage": "https://github.com/marckraw/sb-mig.git",
+  "homepage": "https://helper.sb-mig.com",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/marckraw/sb-mig.git"
@@ -22,7 +22,7 @@
     "publish:patch": "npm run checkAndBuild && npm version patch && npm publish",
     "publish:minor": "npm run checkAndBuild && npm version minor && npm publish",
     "publish:major": "npm run checkAndBuild && npm version major && npm publish",
-    "version": "conventional-changelog -p eslint -i CHANGELOG.md -s && git add CHANGELOG.md",
+    "version": "conventional-changelog -p angular -i CHANGELOG.md -s && git add CHANGELOG.md",
     "prettier": "prettier  --write \"./src/**/*.js\" --config .prettierrc"
   },
   "author": "Marcin Krawczyk <marckraw@icloud.com>",
