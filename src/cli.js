@@ -7,7 +7,8 @@ const migrate = require("./migrate")
 const {
   sbmigWorkingDirectory,
   schemaFileExt,
-  componentsDirectories
+  componentsDirectories,
+  componentDirectory
 } = require("./config")
 const { createDir, createJsonFile } = require("./helpers/files")
 
@@ -51,9 +52,9 @@ async function start() {
 
     program.parse(process.argv)
 
-    if (program.ext && !program.sync) {
+    if (program.ext && !program.sync && !program.syncAll) {
       Logger.warning(
-        `Use only with --sync option: sb-mig --sync --ext ${program.args.join(
+        `Use only with --sync or --sync-all option: sb-mig --sync --ext ${program.args.join(
           " "
         )}`
       )
@@ -87,9 +88,16 @@ async function start() {
       }
     }
 
-    if (program.syncAll) {
-      Logger.log("Syncing all components...")
-      migrate.syncAllComponents(program.sync)
+    if (program.syncAll && !program.ext) {
+      Logger.log(
+        `Syncing all components from ${componentDirectory} directory...`
+      )
+      migrate.syncAllComponents()
+    }
+
+    if (program.syncAll && program.ext) {
+      Logger.log(`Syncing all components with ${schemaFileExt} extension...`)
+      migrate.syncAllComponents(schemaFileExt)
     }
 
     if (program.preset) {
