@@ -1,3 +1,12 @@
+## [1.2.7](https://github.com/marckraw/sb-mig/compare/v1.2.6...v1.2.7) (2020-02-18)
+
+
+### changelog
+
+* fix changelog reps ([53f8c91](https://github.com/marckraw/sb-mig/commit/53f8c912fb874196900532ff5bc5a7e778e828a4))
+
+
+
 ## [1.2.6](https://github.com/marckraw/sb-mig/compare/v1.2.0...v1.2.6) (2020-02-18)
 
 ### docs
