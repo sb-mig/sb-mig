@@ -29,7 +29,7 @@ async function start() {
       .option("-s, --sync", "Sync provided components from schema with")
       .option(
         "-x, --ext",
-        "Use only with --sync, By default sync with *.sb.js extension"
+        "Use only with --sync or --sync-all. By default sync with *.sb.js extension"
       )
       .option("-S, --sync-all", "Sync all components from schema with")
       .option("-g, --all-components-groups", "Get all component groups")
