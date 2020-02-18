@@ -9,12 +9,18 @@ const {
   schemaFileExt,
   componentsDirectories,
   componentDirectory,
+  reactComponentsDirectory,
   storyblokApiUrl,
   oauthToken,
   spaceId,
   accessToken
 } = require("./config")
-const { createDir, createJsonFile } = require("./helpers/files")
+const {
+  createDir,
+  createJsonFile,
+  getCurrentDirectoryBase,
+  copyFile
+} = require("./helpers/files")
 
 const program = new commander.Command()
 
@@ -30,6 +36,7 @@ async function start() {
     program.version(package.version)
 
     program
+      .option("-a, --copy", "Copy stuff")
       .option("-s, --sync", "Sync provided components from schema with")
       .option(
         "-x, --ext",
@@ -38,7 +45,7 @@ async function start() {
       .option("-S, --sync-all", "Sync all components from schema with")
       .option("-g, --all-components-groups", "Get all component groups")
       .option(
-        "-c, --components-group <components-group-name>",
+        "-C, --components-group <components-group-name>",
         "Get single components group by name"
       )
       .option("-a, --all-components", "Get all components")
@@ -55,6 +62,28 @@ async function start() {
       .option("-d, --debug", "Output extra debugging")
 
     program.parse(process.argv)
+
+    if (program.copy) {
+      console.log("copy stuff")
+      console.log("args: ")
+      console.log(program.args)
+      program.args.map(componentName => {
+        // here i have to check for any component started it's name with component name, and just copy them
+        // ??
+
+        // copy schemas
+        copyFile(
+          `./node_modules/@ef-gc/storyblok-components_web-ui-${componentName}/${componentName}.sb.js`,
+          `./${reactComponentsDirectory}/web-ui/${componentName}.sb.js`
+        )
+
+        // copy react component
+        copyFile(
+          `./node_modules/@ef-gc/storyblok-components_web-ui-${componentName}/src/${componentName}.js`,
+          `./${reactComponentsDirectory}/web-ui/${componentName}.js`
+        )
+      })
+    }
 
     if (program.ext && !program.sync && !program.syncAll) {
       Logger.warning(
@@ -217,6 +246,7 @@ async function start() {
       console.log("schemaFileExt: ", schemaFileExt)
       console.log("componentsDirectories: ", componentsDirectories)
       console.log("componentDirectory: ", componentDirectory)
+      console.log("reactComponentsDirectory: ", reactComponentsDirectory)
       console.log("storyblokApiUrl: ", storyblokApiUrl)
       console.log("oauthToken: ", oauthToken)
       console.log("spaceId: ", spaceId)

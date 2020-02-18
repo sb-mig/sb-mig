@@ -10,6 +10,7 @@ try {
 }
 
 const defaultConfig = {
+  reactComponentsDirectory: 'src/components',
   sbmigWorkingDirectory: "sbmig",
   componentDirectory: "sbmig/storyblok",
   componentsDirectories: ["src", "storyblok"],

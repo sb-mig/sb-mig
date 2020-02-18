@@ -37,7 +37,7 @@ const _resolveGroups = async (
 }
 
 const syncComponents = async (specifiedComponents, ext) => {
-  Logger.log(`Trying to sync all components from '${componentDirectory}'`)
+  Logger.log(`Trying to sync specified components from '${componentDirectory}'`)
   let localComponents
   if (ext) {
     localComponents = findComponentsWithExt(ext)
