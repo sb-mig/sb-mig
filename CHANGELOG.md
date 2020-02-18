@@ -1,3 +1,20 @@
+## <small>1.2.6 (2020-02-18)</small>
+
+* chore(package.json): change homepage and conventional-changelog preset ([3ff5df7](https://github.com/marckraw/sb-mig/commit/3ff5df7))
+* 1.2.1 ([2712d48](https://github.com/marckraw/sb-mig/commit/2712d48))
+* 1.2.2 ([bb48ba0](https://github.com/marckraw/sb-mig/commit/bb48ba0))
+* 1.2.3 ([6d5ccd5](https://github.com/marckraw/sb-mig/commit/6d5ccd5))
+* 1.2.4 ([6866d9d](https://github.com/marckraw/sb-mig/commit/6866d9d))
+* 1.2.5 ([1e4d65b](https://github.com/marckraw/sb-mig/commit/1e4d65b))
+* fix: debug command breaks sb-mig ([e1b3819](https://github.com/marckraw/sb-mig/commit/e1b3819))
+* fix: remove not existing function from exports ([88d0b8a](https://github.com/marckraw/sb-mig/commit/88d0b8a))
+* debug: add debug command with some information ([36af2b4](https://github.com/marckraw/sb-mig/commit/36af2b4))
+* docs: modify cli doc for --ext ([414547c](https://github.com/marckraw/sb-mig/commit/414547c))
+* feature: Add ability to --sync-all files with .sb.js extension ([333a70f](https://github.com/marckraw/sb-mig/commit/333a70f))
+* remove: support for not fully working solution to download .js files from github seed repo ([8b6ec00](https://github.com/marckraw/sb-mig/commit/8b6ec00))
+
+
+
 ## [1.2.5](https://github.com/marckraw/sb-mig/compare/v1.2.4...v1.2.5) (2020-02-18)
 
 
