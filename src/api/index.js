@@ -30,6 +30,4 @@ module.exports = {
   getPreset,
   createPreset,
   updatePreset,
-  getStoryblokComponent,
-  getReactComponent
 }

@@ -1,3 +1,12 @@
+## [1.2.2](https://github.com/marckraw/sb-mig/compare/v1.2.1...v1.2.2) (2020-02-18)
+
+
+### fix
+
+* remove not existing function from exports ([88d0b8a](https://github.com/marckraw/sb-mig/commit/88d0b8a4634a53a2b2113732f0a0acf2d6e2efe5))
+
+
+
 ## [1.2.1](https://github.com/marckraw/sb-mig/compare/v1.1.17...v1.2.1) (2020-02-18)
 
 
