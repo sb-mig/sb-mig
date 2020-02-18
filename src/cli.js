@@ -217,7 +217,6 @@ async function start() {
       console.log("schemaFileExt: ", schemaFileExt)
       console.log("componentsDirectories: ", componentsDirectories)
       console.log("componentDirectory: ", componentDirectory)
-      console.log("reactComponentsDirectory: ", reactComponentsDirectory)
       console.log("storyblokApiUrl: ", storyblokApiUrl)
       console.log("oauthToken: ", oauthToken)
       console.log("spaceId: ", spaceId)

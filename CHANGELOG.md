@@ -1,3 +1,12 @@
+## [1.2.5](https://github.com/marckraw/sb-mig/compare/v1.2.4...v1.2.5) (2020-02-18)
+
+
+### fix
+
+* debug command breaks sb-mig ([e1b3819](https://github.com/marckraw/sb-mig/commit/e1b3819b27e32e161c17e187fe4a7e4319322b5f))
+
+
+
 ## [1.2.4](https://github.com/marckraw/sb-mig/compare/v1.2.3...v1.2.4) (2020-02-18)
 
 
