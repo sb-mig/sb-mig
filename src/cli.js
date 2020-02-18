@@ -8,7 +8,11 @@ const {
   sbmigWorkingDirectory,
   schemaFileExt,
   componentsDirectories,
-  componentDirectory
+  componentDirectory,
+  storyblokApiUrl,
+  oauthToken,
+  spaceId,
+  accessToken
 } = require("./config")
 const { createDir, createJsonFile } = require("./helpers/files")
 
@@ -207,7 +211,18 @@ async function start() {
       })
     }
 
-    if (program.debug) console.log(program.opts())
+    if (program.debug) {
+      console.log("Values used by sb-mig: ")
+      console.log("sbmigWorkingDirectory: ", sbmigWorkingDirectory)
+      console.log("schemaFileExt: ", schemaFileExt)
+      console.log("componentsDirectories: ", componentsDirectories)
+      console.log("componentDirectory: ", componentDirectory)
+      console.log("reactComponentsDirectory: ", reactComponentsDirectory)
+      console.log("storyblokApiUrl: ", storyblokApiUrl)
+      console.log("oauthToken: ", oauthToken)
+      console.log("spaceId: ", spaceId)
+      console.log("accessToken: ", accessToken)
+    }
   } catch (error) {
     console.error(error)
     process.exit(1)

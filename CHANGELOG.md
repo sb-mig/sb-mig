@@ -1,3 +1,16 @@
+## [1.2.4](https://github.com/marckraw/sb-mig/compare/v1.2.3...v1.2.4) (2020-02-18)
+
+
+### debug
+
+* add debug command with some information ([36af2b4](https://github.com/marckraw/sb-mig/commit/36af2b4d75c282f213e304b26481f1f3df3275bb))
+
+### docs
+
+* modify cli doc for --ext ([414547c](https://github.com/marckraw/sb-mig/commit/414547c5c97cfd27c65d0c93677c869e3feddd31))
+
+
+
 ## [1.2.3](https://github.com/marckraw/sb-mig/compare/v1.2.2...v1.2.3) (2020-02-18)
 
 
