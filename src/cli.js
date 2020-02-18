@@ -1,11 +1,14 @@
 const updateNotifier = require("update-notifier")
 const Logger = require("./helpers/logger")
 const commander = require("commander")
-const fs = require("fs")
 const package = require("../package.json")
 const api = require("./api")
 const migrate = require("./migrate")
-const { sbmigWorkingDirectory, schemaFileExt, componentsDirectories } = require("./config")
+const {
+  sbmigWorkingDirectory,
+  schemaFileExt,
+  componentsDirectories
+} = require("./config")
 const { createDir, createJsonFile } = require("./helpers/files")
 
 const program = new commander.Command()
@@ -23,7 +26,10 @@ async function start() {
 
     program
       .option("-s, --sync", "Sync provided components from schema with")
-      .option("-x, --ext", "Use only with --sync, By default sync with *.sb.js extension")
+      .option(
+        "-x, --ext",
+        "Use only with --sync, By default sync with *.sb.js extension"
+      )
       .option("-S, --sync-all", "Sync all components from schema with")
       .option("-g, --all-components-groups", "Get all component groups")
       .option(
@@ -40,14 +46,6 @@ async function start() {
       .option(
         "-d, --component-presets <component-name>",
         "Get all presets for single component by name"
-      )
-      .option(
-        "-z, --get-sb-test-component <storyblok-component>",
-        "Get test storyblok schema based component"
-      )
-      .option(
-        "-x, --get-react-test-component <storyblok-react-component>",
-        "Get test react matching to schema based component"
       )
       .option("-d, --debug", "Output extra debugging")
 
@@ -74,7 +72,11 @@ async function start() {
     }
 
     if (program.sync && program.ext) {
-      Logger.log(`Syncing provided components with ${schemaFileExt} extension, inside [${componentsDirectories.join(', ')}] directories ...`)
+      Logger.log(
+        `Syncing provided components with ${schemaFileExt} extension, inside [${componentsDirectories.join(
+          ", "
+        )}] directories ...`
+      )
 
       if (program.args.length === 0) {
         Logger.warning(
@@ -194,45 +196,6 @@ async function start() {
           `${sbmigWorkingDirectory}/components/${filename}.json`
         )
         Logger.success(`All components written to a file:  ${filename}`)
-      })
-    }
-
-    if (program.getSbTestComponent) {
-      api.getStoryblokComponent(program.getSbTestComponent).then(async res => {
-        if (res) {
-          const randomDatestamp = new Date().toJSON()
-          const filename = `${program.getSbTestComponent}-${randomDatestamp}`
-          await createDir(`${sbmigWorkingDirectory}/storyblok/`)
-          const dest = await fs.createWriteStream(
-            `./${sbmigWorkingDirectory}/storyblok/${filename}.js`
-          )
-          res.body.pipe(dest)
-          Logger.success(
-            `Storyblok schema for '${program.getSbTestComponent}' saved in a ${filename} file.`
-          )
-        }
-      })
-    }
-
-    if (program.getReactTestComponent) {
-      api.getReactComponent(program.getReactTestComponent).then(async res => {
-        if (res) {
-          const randomDatestamp = new Date().toJSON()
-          const filename = `${program.getReactTestComponent}-${randomDatestamp}`
-          await fs.promises.mkdir(
-            `${process.cwd()}/${sbmigWorkingDirectory}/react-match/`,
-            {
-              recursive: true
-            }
-          )
-          const dest = await fs.createWriteStream(
-            `./${sbmigWorkingDirectory}/react-match/${filename}.js`
-          )
-          res.body.pipe(dest)
-          Logger.success(
-            `Storyblok react match component for '${program.getReactTestComponent}' saved in a ${filename} file.`
-          )
-        }
       })
     }
 
