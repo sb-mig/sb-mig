@@ -1,3 +1,22 @@
+## [1.2.1](https://github.com/marckraw/sb-mig/compare/v1.1.17...v1.2.1) (2020-02-18)
+
+
+### docs
+
+* Add develop section to readme ([2a0570e](https://github.com/marckraw/sb-mig/commit/2a0570eca4ae47246687f51f3acaf9263d76d243))
+* add some badges to readme ([ec8f6d1](https://github.com/marckraw/sb-mig/commit/ec8f6d149d6473f66a3cac285a4cd423a6043389))
+* Document new --sync --ext approach ([18bba3e](https://github.com/marckraw/sb-mig/commit/18bba3e3b36a54825db356e7a873cdc69624af87))
+
+### feature
+
+* Add ability to sync with .sb.js extension ([5199806](https://github.com/marckraw/sb-mig/commit/51998062c716fb86407e89c6734ad1e4a2cd4107))
+
+### remove
+
+* support for not fully working solution to download .js files from github seed repo ([8b6ec00](https://github.com/marckraw/sb-mig/commit/8b6ec00403e4e72ea42791bf5aeebeb895d87d09))
+
+
+
 # [1.2.0](https://github.com/marckraw/sb-mig/compare/v1.1.18...v1.2.0) (2020-02-17)
 
 
