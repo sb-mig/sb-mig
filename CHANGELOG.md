@@ -1,3 +1,12 @@
+## [1.2.3](https://github.com/marckraw/sb-mig/compare/v1.2.2...v1.2.3) (2020-02-18)
+
+
+### feature
+
+* Add ability to --sync-all files with .sb.js extension ([333a70f](https://github.com/marckraw/sb-mig/commit/333a70fed32dd273e7d86155ecab1038bcfe8ee9))
+
+
+
 ## [1.2.2](https://github.com/marckraw/sb-mig/compare/v1.2.1...v1.2.2) (2020-02-18)
 
 

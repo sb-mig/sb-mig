@@ -117,9 +117,15 @@ const syncComponents = async (specifiedComponents, ext) => {
   })
 }
 
-const syncAllComponents = () => {
-  const specifiedComponents = components.map(component => component.name)
-  syncComponents(specifiedComponents)
+const syncAllComponents = (ext) => {
+  let specifiedComponents;
+  if(ext) {
+    specifiedComponents = findComponentsWithExt(ext).map(component => component.name);
+  } else {
+    specifiedComponents = components.map(component => component.name)
+  }
+ 
+  syncComponents(specifiedComponents, ext)
 }
 
 module.exports = {
