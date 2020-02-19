@@ -15,6 +15,11 @@ const {
   updatePreset
 } = require("./presets")
 
+const {
+  createSpace,
+  getSpace
+} = require("./spaces")
+
 const { getComponentPresets } = require("./componentPresets")
 
   const {
@@ -40,5 +45,7 @@ module.exports = {
   getAllDatasources,
   getDatasource,
   getDatasourceEntries,
-  syncDatasources
+  syncDatasources,
+  createSpace,
+  getSpace
 }

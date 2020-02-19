@@ -1,4 +1,6 @@
 const updateNotifier = require("update-notifier")
+const execa = require("execa")
+const fs = require("fs")
 const Logger = require("./helpers/logger")
 const commander = require("commander")
 const package = require("../package.json")
@@ -6,6 +8,7 @@ const api = require("./api")
 const migrate = require("./migrate")
 const { components } = require("./discover")
 const {
+  boilerplateUrl,
   sbmigWorkingDirectory,
   schemaFileExt,
   componentsDirectories,
@@ -13,8 +16,7 @@ const {
   reactComponentsDirectory
 } = require("./config")
 const { createDir, createJsonFile, copyFile } = require("./helpers/files")
-const configCliValues = require("./config")
-const { createDir, createJsonFile } = require("./helpers/files")
+const configValues = require("./config")
 
 const program = new commander.Command()
 
@@ -30,6 +32,7 @@ async function start() {
     program.version(package.version)
 
     program
+      .option("-G, --generate", "Generate project")
       .option("-a, --copy", "Copy stuff")
       .option("-s, --sync", "Sync provided components from schema with")
       .option("-S, --sync-all", "Sync all components from schema with")
@@ -99,6 +102,53 @@ async function start() {
     if (program.syncDatasources) {
       Logger.log(`Synciong priovided datasources ${program.args}...`)
       api.syncDatasources(program.args)
+    }
+
+    if (program.generate) {
+      Logger.warning(`Starting generating project...`)
+      ;(async () => {
+        if (program.args.length > 0) {
+          const {
+            data: { space }
+          } = await api.createSpace(program.args[0])
+          Logger.success(`Space ${program.args[0]} has been created.`)
+          Logger.log(`Creating start project...`)
+          Logger.log(`Using ${boilerplateUrl} boilerplate...`)
+          await execa.command(
+            `git clone ${boilerplateUrl} storyblok-boilerplate`,
+            {
+              shell: true
+            }
+          )
+          await execa.command(`rm -rf ./storyblok-boilerplate/.git`)
+          await execa.command(`rm ./storyblok-boilerplate/storyblok.config.js`)
+          fs.appendFile(
+            "./.env",
+            `STORYBLOK_SPACE_ID=${space.id}\nGATSBY_STORYBLOK_ACCESS_TOKEN=${space.first_token}`,
+            err => {
+              if (err) {
+                return console.log(err)
+              }
+              Logger.success(`.env file has been updated`)
+            }
+          )
+          await execa.command(`mv ./storyblok-boilerplate/* ./`, {
+            shell: true
+          })
+          await execa.command(`mv ./storyblok-boilerplate/.[!.]* ./`, {
+            shell: true
+          })
+          await execa.command(`rm -rf storyblok-boilerplate`)
+          Logger.log(`Installing dependencies...`)
+          await execa.command(`npm install`)
+          Logger.success(`Dependenciess installed.`)
+          Logger.log(
+            `Run sb-mig --sync-all to synchronize all storyblok components. Than go to http://app.storyblok.com/#!/me/spaces/${space.id}/ and enjoy.`
+          )
+        } else {
+          Logger.warning(`Provide name of the space to be created`)
+        }
+      })()
     }
 
     if (program.ext && !program.sync && !program.syncAll) {
@@ -305,7 +355,7 @@ async function start() {
 
     if (program.debug) {
       console.log("Values used by sb-mig: ")
-      console.log(configCliValues)
+      console.log(configValues)
     }
   } catch (error) {
     console.error(error)
