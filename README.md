@@ -12,6 +12,7 @@ If you've found an issue or you have feature request - <a href="https://github.c
 
 - [How to install and configure](#how-to-install-and-configure)
   - [Usage](#usage)
+  - [Generate whole starter project](#generate-whole-starter-project)
 - [Schema documentation:](#schema-documentation)
   - [Basics](#basics)
   - [Syncing components](#syncing-components)
@@ -74,6 +75,7 @@ Usage: sb-mig [options]
 
 Options:
   -V, --version                                   output the version number
+  -G, --generate                                  Generate project
   -s, --sync                                      Sync provided components from schema
   -S, --sync-all                                  Sync all components from schema
   -D, --sync-datasources                          Sync provided datasources from schema
@@ -92,6 +94,24 @@ Options:
   -d, --debug                                     Output extra debugging
   -h, --help                                      output usage information
 ```
+
+## Generate whole starter project
+1. Create folder with custom name and get inside
+2. Create `storyblok.config.js` file if u want to use custom gatsby storyblok starter, or custom npm component scope
+3. Create `.env` file only with your storyblok oauth token (which you can get from your storyblok account - this is needed for script to have access to creating space api)
+```
+STORYBLOK_OAUTH_TOKEN=1234567890qwertyuiop
+```
+4. Run
+```
+sb-mig --generate "My Greatest Project"
+```
+5. Wait for magic to happen.
+6. Run sync command to sync all components to storyblok.
+```
+sb-mig --sync-all
+```
+7. Enjoy your new project.
 
 # Schema documentation:
 
