@@ -1,16 +1,14 @@
-const Fetch = require("node-fetch")
 const Logger = require("../helpers/logger")
-const { storyblokApiUrl, spaceId } = require("../config")
-const { headers, sbApi } = require("./config")
+const { spaceId } = require("../config")
+const { sbApi } = require("./config")
 
 // GET
 const getPreset = presetId => {
   Logger.log(`Trying to get preset by id: ${presetId}`)
 
-  return Fetch(`${storyblokApiUrl}/spaces/${spaceId}/presets/${presetId}`, {
-    headers
-  })
-    .then(response => response.json())
+  return sbApi
+    .get(`spaces/${spaceId}/presets/${presetId}`)
+    .then(response => response.data)
     .then(response => {
       if (Array.isArray(response.presets)) {
         Logger.warning(`There is no preset for '${presetId}' preset id`)
@@ -25,10 +23,9 @@ const getPreset = presetId => {
 const getAllPresets = () => {
   Logger.log("Trying to get all Presets.")
 
-  return Fetch(`${storyblokApiUrl}/spaces/${spaceId}/presets/`, {
-    headers
-  })
-    .then(response => response.json())
+  return sbApi
+    .get(`spaces/${spaceId}/presets/`)
+    .then(response => response.data)
     .catch(err => Logger.error(err))
 }
 

@@ -1,17 +1,15 @@
-const Fetch = require("node-fetch")
 const Logger = require("../helpers/logger")
 const { sleepBlock } = require("../helpers/sleep")
-const { storyblokApiUrl, spaceId } = require("../config")
-const { headers, sbApi } = require("./config")
+const { spaceId } = require("../config")
+const { sbApi } = require("./config")
 
 // GET
 const getAllComponents = () => {
   Logger.log("Trying to get all components.")
 
-  return Fetch(`${storyblokApiUrl}/spaces/${spaceId}/components/`, {
-    headers
-  })
-    .then(response => response.json())
+  return sbApi
+    .get(`spaces/${spaceId}/components/`)
+    .then(res => res.data)
     .catch(err => Logger.error(err))
 }
 
@@ -52,10 +50,9 @@ const getComponentsGroup = groupName => {
 const getAllComponentsGroups = async () => {
   Logger.log("Trying to get all groups.")
 
-  return Fetch(`${storyblokApiUrl}/spaces/${spaceId}/component_groups/`, {
-    headers
-  })
-    .then(response => response.json())
+  return sbApi
+    .get(`spaces/${spaceId}/component_groups/`)
+    .then(response => response.data)
     .catch(err => Logger.error(err))
 }
 
