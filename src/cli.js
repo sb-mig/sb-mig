@@ -13,7 +13,8 @@ const {
   schemaFileExt,
   componentsDirectories,
   componentDirectory,
-  reactComponentsDirectory
+  reactComponentsDirectory,
+  npmScopeForComponents
 } = require("./config")
 const { createDir, createJsonFile, copyFile } = require("./helpers/files")
 const configValues = require("./config")
@@ -33,13 +34,11 @@ async function start() {
 
     program
       .option("-G, --generate", "Generate project")
+      .option("-A, --add", "Add components")
       .option("-a, --copy", "Copy stuff")
-      .option("-s, --sync", "Sync provided components from schema with")
-      .option("-S, --sync-all", "Sync all components from schema with")
-      .option(
-        "-D, --sync-datasources",
-        "Sync provided datasources from schema"
-      )
+      .option("-s, --sync", "Sync provided components from schema")
+      .option("-S, --sync-all", "Sync all components from schema")
+      .option("-D, --sync-datasources", "Sync provided datasources from schema")
       .option(
         "-n, --no-presets",
         "Use with --sync or --sync-all. Sync components without presets"
@@ -139,6 +138,17 @@ async function start() {
             shell: true
           })
           await execa.command(`rm -rf storyblok-boilerplate`)
+          Logger.log(`Installing dependencies...`)
+          if (program.add) {
+            Logger.log(`Adding components...`)
+            program.args.map(async component => {
+              execa
+                .command(
+                  `npm install ${npmScopeForComponents}/${component} --save`
+                )
+                .stdout.pipe(process.stdout)
+            })
+          }
           Logger.log(`Installing dependencies...`)
           await execa.command(`npm install`)
           Logger.success(`Dependenciess installed.`)
