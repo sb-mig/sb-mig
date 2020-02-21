@@ -132,7 +132,7 @@ async function start() {
 
     if (program.syncAll && program.ext) {
       Logger.log(`Syncing all components with ${schemaFileExt} extension...`)
-      migrate.syncAllComponents(schemaFileExt)
+      migrate.syncAllComponents(schemaFileExt, program.presets)
     }
 
     if (program.preset) {
