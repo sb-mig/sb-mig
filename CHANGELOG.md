@@ -1,3 +1,12 @@
+## [1.2.9](https://github.com/marckraw/sb-mig/compare/v1.2.8...v1.2.9) (2020-02-21)
+
+
+### fix
+
+* no-presets didn't work for ext sync-all ([9ea3c08](https://github.com/marckraw/sb-mig/commit/9ea3c08f083bc873efe09d116348bb6872dd5c89))
+
+
+
 ## [1.2.8](https://github.com/marckraw/sb-mig/compare/v1.2.7...v1.2.8) (2020-02-21)
 
 
