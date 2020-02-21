@@ -72,19 +72,20 @@ module.exports = {
 Usage: sb-mig [options]
 
 Options:
-  -V, --version                                               Output the version number
-  -s, --sync                                                  Sync provided components from schema
-  -x, --ext                                                   Use only with --sync, By default sync with *.sb.js extension
-  -S, --sync-all                                              Sync all components from schemas
-  -g, --all-components-groups                                 Get all component groups
-  -c, --components-group <components-group-name>              Get single components group by name
-  -a, --all-components                                        Get all components
-  -c, --component <component-name>                            Get single component by name
-  -q, --all-presets                                           Get all presets
-  -p, --preset <preset-id>                                    Get preset by id
-  -d, --component-presets <component-name>                    Get all presets for single component by name
-  -d, --debug                                                 Output extra debugging
-  -h, --help                                                  Output options information
+  -V, --version                                   output the version number
+  -s, --sync                                      Sync provided components from schema with
+  -n, --no-presets                                Use with --sync or --sync-all. Sync components without presets
+  -x, --ext                                       Use only with --sync or --sync-all. By default sync with *.sb.js extension
+  -S, --sync-all                                  Sync all components from schema with
+  -g, --all-components-groups                     Get all component groups
+  -c, --components-group <components-group-name>  Get single components group by name
+  -a, --all-components                            Get all components
+  -c, --component <component-name>                Get single component by name
+  -q, --all-presets                               Get all presets
+  -p, --preset <preset-id>                        Get preset by id
+  -d, --component-presets <component-name>        Get all presets for single component by name
+  -d, --debug                                     Output extra debugging
+  -h, --help                                      output usage information
 ```
 
 # Schema documentation:
@@ -277,6 +278,6 @@ Run `npm link` in the root folder of `sb-mig`, and it will be linked as global `
 - [x] Sync all components
 - [x] Sync components using schema based .js file (based on idea from [storyblok-migrate](https://github.com/maoberlehner/storyblok-migrate))
 - [x] Component groups
-- [ ] Sync custom fields
+- [x] Sync custom fields
 
 The general purpose of this package is to manage creation and maintenance of components from code/command line, to be able to create a whole space and project structure without using GUI.

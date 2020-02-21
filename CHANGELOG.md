@@ -1,3 +1,24 @@
+## [1.2.8](https://github.com/marckraw/sb-mig/compare/v1.2.7...v1.2.8) (2020-02-21)
+
+
+### chore
+
+* add license ([b4f5595](https://github.com/marckraw/sb-mig/commit/b4f559556207f2282d31c7baaf80d36efa899010))
+
+### docs
+
+* update readme with added no-preset option ([34842cd](https://github.com/marckraw/sb-mig/commit/34842cd689ea8bedd88464bed2bf815f791cbb78))
+
+### feature
+
+* Add no-preset option to --sync and --sync-all command ([1dd76d4](https://github.com/marckraw/sb-mig/commit/1dd76d4bf5b817df81b49d43af1cd3b2dbe0c5fd))
+
+### fix
+
+* rewrite any node-fetch to storyblok-js-client requests, to handle rate limits ([c7d117e](https://github.com/marckraw/sb-mig/commit/c7d117ea43bb2644393bd74e8e883411fa5d4813))
+
+
+
 ## [1.2.7](https://github.com/marckraw/sb-mig/compare/v1.2.6...v1.2.7) (2020-02-18)
 
 

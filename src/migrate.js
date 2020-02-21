@@ -36,7 +36,7 @@ const _resolveGroups = async (
   }
 }
 
-const syncComponents = async (specifiedComponents, ext) => {
+const syncComponents = async (specifiedComponents, ext, presets) => {
   Logger.log(`Trying to sync all components from '${componentDirectory}'`)
   let localComponents
   if (ext) {
@@ -95,7 +95,7 @@ const syncComponents = async (specifiedComponents, ext) => {
     Logger.log("Components to update after check: ")
     res.map(component => {
       Logger.warning(`   ${component.name}`)
-      api.updateComponent(component)
+      api.updateComponent(component, presets)
     })
   })
 
@@ -112,12 +112,12 @@ const syncComponents = async (specifiedComponents, ext) => {
     Logger.log("Components to create after check: ")
     res.map(component => {
       Logger.warning(`   ${component.name}`)
-      api.createComponent(component)
+      api.createComponent(component, presets)
     })
   })
 }
 
-const syncAllComponents = (ext) => {
+const syncAllComponents = (ext, presets) => {
   let specifiedComponents;
   if(ext) {
     specifiedComponents = findComponentsWithExt(ext).map(component => component.name);
@@ -125,7 +125,7 @@ const syncAllComponents = (ext) => {
     specifiedComponents = components.map(component => component.name)
   }
  
-  syncComponents(specifiedComponents, ext)
+  syncComponents(specifiedComponents, ext, presets)
 }
 
 module.exports = {
