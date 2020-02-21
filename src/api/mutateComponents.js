@@ -5,7 +5,7 @@ const { sbApi } = require("./config")
 const _resolvePresets = require("./resolvePresets")
 
 // UPDATE
-const updateComponent = component => {
+const updateComponent = (component, presets) => {
   Logger.log(`Trying to update '${component.name}' with id ${component.id}`)
   sleepBlock(250)
   const componentWithPresets = component
@@ -17,7 +17,9 @@ const updateComponent = component => {
     })
     .then(res => {
       Logger.success(`Component '${component.name}' has been updated.`)
-      _resolvePresets(res, all_presets, component)
+      if (presets) {
+        _resolvePresets(res, all_presets, component)
+      }
     })
     .catch(err => {
       Logger.error("error happened... :(")
@@ -28,7 +30,7 @@ const updateComponent = component => {
 }
 
 // CREATE
-const createComponent = component => {
+const createComponent = (component, presets) => {
   Logger.log(`Trying to create '${component.name}'`)
   sleepBlock(250)
   const componentWithPresets = component
@@ -40,7 +42,9 @@ const createComponent = component => {
     })
     .then(res => {
       Logger.success(`Component '${component.name}' has been created.`)
-      _resolvePresets(res, all_presets, component)
+      if (presets) {
+        _resolvePresets(res, all_presets, component)
+      }
     })
     .catch(err => {
       Logger.error("error happened... :(")
