@@ -10,17 +10,15 @@ const {
   componentsDirectories,
   componentDirectory,
   reactComponentsDirectory,
-  storyblokApiUrl,
-  oauthToken,
-  spaceId,
-  accessToken
 } = require("./config")
 const {
   createDir,
   createJsonFile,
-  getCurrentDirectoryBase,
   copyFile
 } = require("./helpers/files")
+} = require("./config")
+const configCliValues = require('./config')
+const { createDir, createJsonFile } = require("./helpers/files")
 
 const program = new commander.Command()
 
@@ -38,6 +36,10 @@ async function start() {
     program
       .option("-a, --copy", "Copy stuff")
       .option("-s, --sync", "Sync provided components from schema with")
+      .option(
+        "-n, --no-presets",
+        "Use with --sync or --sync-all. Sync components without presets"
+      )
       .option(
         "-x, --ext",
         "Use only with --sync or --sync-all. By default sync with *.sb.js extension"
@@ -101,7 +103,7 @@ async function start() {
           `You have to provide some components separated with empty space. For exmaple: 'row column card'`
         )
       } else {
-        migrate.syncComponents(program.args)
+        migrate.syncComponents(program.args, program.ext, program.presets)
       }
     }
 
@@ -117,7 +119,7 @@ async function start() {
           `You have to provide some components separated with empty space. For exmaple: 'row column card'`
         )
       } else {
-        migrate.syncComponents(program.args, schemaFileExt)
+        migrate.syncComponents(program.args, schemaFileExt, program.presets)
       }
     }
 
@@ -125,7 +127,7 @@ async function start() {
       Logger.log(
         `Syncing all components from ${componentDirectory} directory...`
       )
-      migrate.syncAllComponents()
+      migrate.syncAllComponents(false, program.presets)
     }
 
     if (program.syncAll && program.ext) {
@@ -242,15 +244,7 @@ async function start() {
 
     if (program.debug) {
       console.log("Values used by sb-mig: ")
-      console.log("sbmigWorkingDirectory: ", sbmigWorkingDirectory)
-      console.log("schemaFileExt: ", schemaFileExt)
-      console.log("componentsDirectories: ", componentsDirectories)
-      console.log("componentDirectory: ", componentDirectory)
-      console.log("reactComponentsDirectory: ", reactComponentsDirectory)
-      console.log("storyblokApiUrl: ", storyblokApiUrl)
-      console.log("oauthToken: ", oauthToken)
-      console.log("spaceId: ", spaceId)
-      console.log("accessToken: ", accessToken)
+      console.log(configCliValues)
     }
   } catch (error) {
     console.error(error)
