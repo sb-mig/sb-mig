@@ -4,18 +4,15 @@ const commander = require("commander")
 const package = require("../package.json")
 const api = require("./api")
 const migrate = require("./migrate")
+const { components } = require("./discover")
 const {
   sbmigWorkingDirectory,
   schemaFileExt,
   componentsDirectories,
   componentDirectory,
-  reactComponentsDirectory,
+  reactComponentsDirectory
 } = require("./config")
-const {
-  createDir,
-  createJsonFile,
-  copyFile
-} = require("./helpers/files")
+const { createDir, createJsonFile, copyFile } = require("./helpers/files")
 const configCliValues = require("./config")
 const { createDir, createJsonFile } = require("./helpers/files")
 
@@ -35,6 +32,11 @@ async function start() {
     program
       .option("-a, --copy", "Copy stuff")
       .option("-s, --sync", "Sync provided components from schema with")
+      .option("-S, --sync-all", "Sync all components from schema with")
+      .option(
+        "-D, --sync-datasources",
+        "Sync provided components from schema with"
+      )
       .option(
         "-n, --no-presets",
         "Use with --sync or --sync-all. Sync components without presets"
@@ -43,7 +45,6 @@ async function start() {
         "-x, --ext",
         "Use only with --sync or --sync-all. By default sync with *.sb.js extension"
       )
-      .option("-S, --sync-all", "Sync all components from schema with")
       .option("-g, --all-components-groups", "Get all component groups")
       .option(
         "-C, --components-group <components-group-name>",
@@ -93,6 +94,10 @@ async function start() {
           `./${reactComponentsDirectory}/web-ui/${componentName}.js`
         )
       })
+    }
+
+    if (program.syncDatasources) {
+      api.syncDatasources(program.args)
     }
 
     if (program.ext && !program.sync && !program.syncAll) {

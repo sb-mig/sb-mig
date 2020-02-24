@@ -1,6 +1,7 @@
 const Logger = require("../helpers/logger")
 const { spaceId } = require("../config")
 const { sbApi } = require("./config")
+const { findDatasources } = require("../discover")
 
 // GET
 const getAllDatasources = () => {
@@ -36,8 +37,6 @@ const getDatasourceEntries = async datasourceName => {
 
   const data = await getDatasource(datasourceName)
 
-  console.log("data from datasroucme entries: ", data)
-
   if (data) {
     return sbApi
       .get(`spaces/${spaceId}/datasource_entries/?datasource_id=${data[0].id}`)
@@ -46,8 +45,18 @@ const getDatasourceEntries = async datasourceName => {
   }
 }
 
+const syncDatasources = specifiedDatasources => {
+  localDatasources = findDatasources(".datasource.js")
+  const filteredLocalDatasources = localDatasources.filter(datasource => {
+    return specifiedDatasources.some(
+      specifiedDatasource => datasource.name === specifiedDatasource
+    )
+  })
+}
+
 module.exports = {
   getAllDatasources,
   getDatasource,
-  getDatasourceEntries
+  getDatasourceEntries,
+  syncDatasources
 }
