@@ -1,16 +1,14 @@
-const Fetch = require("node-fetch")
 const Logger = require("../helpers/logger")
-const { storyblokApiUrl, spaceId } = require("../config")
-const { headers, sbApi } = require("./config")
+const { spaceId } = require("../config")
+const { sbApi } = require("./config")
 
 // GET
 const getAllDatasources = () => {
   Logger.log("Trying to get all Datasources.")
 
-  return Fetch(`${storyblokApiUrl}/spaces/${spaceId}/datasources/`, {
-    headers
-  })
-    .then(response => response.json())
+  return sbApi
+    .get(`spaces/${spaceId}/datasources/`)
+    .then(({ data }) => data)
     .catch(err => Logger.error(err))
 }
 
@@ -18,9 +16,11 @@ const getDatasource = datasourceName => {
   Logger.log(`Trying to get '${datasourceName}' datasource.`)
 
   return getAllDatasources()
-    .then(res =>
-      res.datasources.filter(datasource => datasource.name === datasourceName)
-    )
+    .then(res => {
+      return res.datasources.filter(
+        datasource => datasource.name === datasourceName
+      )
+    })
     .then(res => {
       if (Array.isArray(res) && res.length === 0) {
         Logger.warning(`There is no datasource named '${datasourceName}'`)
@@ -36,14 +36,14 @@ const getDatasourceEntries = async datasourceName => {
 
   const data = await getDatasource(datasourceName)
 
-  return Fetch(
-    `${storyblokApiUrl}/spaces/${spaceId}/datasource_entries/?datasource_id=${data[0].id}`,
-    {
-      headers
-    }
-  )
-    .then(async response => response.json())
-    .catch(err => Logger.error(err))
+  console.log("data from datasroucme entries: ", data)
+
+  if (data) {
+    return sbApi
+      .get(`spaces/${spaceId}/datasource_entries/?datasource_id=${data[0].id}`)
+      .then(async ({ data }) => data)
+      .catch(err => Logger.error(err))
+  }
 }
 
 module.exports = {

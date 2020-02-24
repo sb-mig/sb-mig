@@ -65,7 +65,7 @@ async function start() {
         "Get single datasource by name"
       )
       .option(
-        "-f, --datasource-entry <datasource-name>",
+        "-f, --datasource-entries <datasource-name>",
         "Get single datasource entries by name"
       )
       .option("-t, --all-datasources", "Get all datasources")
@@ -173,18 +173,18 @@ async function start() {
       })
     }
 
-    if (program.datasourceEntry) {
-      api.getDatasourceEntries(program.datasourceEntry).then(async res => {
+    if (program.datasourceEntries) {
+      api.getDatasourceEntries(program.datasourceEntries).then(async res => {
         if (res) {
           const randomDatestamp = new Date().toJSON()
-          const filename = `datasource-entries-${program.datasourceEntry}-${randomDatestamp}`
+          const filename = `datasource-entries-${program.datasourceEntries}-${randomDatestamp}`
           await createDir(`${sbmigWorkingDirectory}/datasources/`)
           await createJsonFile(
             JSON.stringify(res),
             `${sbmigWorkingDirectory}/datasources/${filename}.json`
           )
           Logger.success(
-            `Datasource entries for ${program.datasourceEntry} written to a file:  ${filename}`
+            `Datasource entries for ${program.datasourceEntries} written to a file:  ${filename}`
           )
         }
       })
