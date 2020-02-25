@@ -28,9 +28,11 @@
   "author": "Marcin Krawczyk <marckraw@icloud.com>",
   "license": "MIT",
   "dependencies": {
+    "camelcase": "^5.3.1",
     "chalk": "^3.0.0",
     "commander": "^4.0.1",
     "dotenv": "^8.2.0",
+    "execa": "^4.0.0",
     "figlet": "^1.2.4",
     "glob": "^7.1.6",
     "storyblok-js-client": "^2.0.12",
