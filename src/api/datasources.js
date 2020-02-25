@@ -10,7 +10,16 @@ const getAllDatasources = () => {
   return sbApi
     .get(`spaces/${spaceId}/datasources/`)
     .then(({ data }) => data)
-    .catch(err => Logger.error(err))
+    .catch(err => {
+      if (err.response.status === 404) {
+        Logger.error(
+          `There is no datasources in your Storyblok ${spaceId} space.`
+        )
+      } else {
+        Logger.error(err)
+        return false
+      }
+    })
 }
 
 const getDatasource = datasourceName => {
@@ -18,9 +27,11 @@ const getDatasource = datasourceName => {
 
   return getAllDatasources()
     .then(res => {
-      return res.datasources.filter(
-        datasource => datasource.name === datasourceName
-      )
+      if (res) {
+        return res.datasources.filter(
+          datasource => datasource.name === datasourceName
+        )
+      }
     })
     .then(res => {
       if (Array.isArray(res) && res.length === 0) {
@@ -57,7 +68,43 @@ const createDatasource = datasource =>
       data,
       datasource_entries: datasource.datasource_entries
     }))
-    .catch(err => console.log(err))
+    .catch(err => Logger.err(err))
+
+
+const createDatasourceEntry = (datasourceEntry, datasourceId) => {
+  return sbApi
+    .post(`spaces/${spaceId}/datasource_entries/`, {
+      datasource_entry: {
+        name: Object.values(datasourceEntry)[0],
+        value: Object.values(datasourceEntry)[1],
+        datasource_id: datasourceId
+      }
+    })
+    .then(({ data }) => {
+      return data
+    })
+    .catch(err => Logger.err(err))
+}
+
+const updateDatasourceEntry = (
+  datasourceEntry,
+  datasourceId,
+  datasourceToBeUpdated
+) => {
+  return sbApi
+    .put(`spaces/${spaceId}/datasource_entries/${datasourceToBeUpdated.id}`, {
+      datasource_entry: {
+        name: Object.values(datasourceEntry)[0],
+        value: Object.values(datasourceEntry)[1],
+        datasource_id: datasourceId,
+        id: datasourceToBeUpdated.id
+      }
+    })
+    .then(({ data }) => {
+      return data
+    })
+    .catch(err => Logger.err(err))
+}
 
 const updateDatasource = (datasource, temp) =>
   sbApi
@@ -74,7 +121,7 @@ const updateDatasource = (datasource, temp) =>
         datasource_entries: datasource.datasource_entries
       }
     })
-    .catch(err => console.log(err))
+    .catch(err => Logger.err(err))
 
 const createDatasourceEntries = (
   datasourceId,
@@ -83,58 +130,34 @@ const createDatasourceEntries = (
 ) => {
   Promise.all(
     datasource_entries.map(datasourceEntry => {
-      const temp3 = remoteDatasourceEntries.datasource_entries.find(
+      const datasourceEntriesToBeUpdated = remoteDatasourceEntries.datasource_entries.find(
         remoteDatasourceEntry =>
-          remoteDatasourceEntry.name === datasourceEntry.componentName
-      );
-      if (
-        temp3
-      ) {
-        return sbApi
-          .put(
-            `spaces/${spaceId}/datasource_entries/${temp3.id}`,
-            {
-              datasource_entry: {
-                name: datasourceEntry.componentName,
-                value: datasourceEntry.importPath,
-                datasource_id: datasourceId,
-                id: temp3.id
-              }
-            }
-          )
-          .then(({ data }) => {
-            console.log("res from single updated entry: ", data)
-            return data
-          })
-          .catch(err => console.log(err))
+          remoteDatasourceEntry.name === Object.values(datasourceEntry)[0]
+      )
+      if (datasourceEntriesToBeUpdated) {
+        return updateDatasourceEntry(
+          datasourceEntry,
+          datasourceId,
+          datasourceEntriesToBeUpdated
+        )
       } else {
-        return sbApi
-          .post(`spaces/${spaceId}/datasource_entries/`, {
-            datasource_entry: {
-              name: datasourceEntry.componentName,
-              value: datasourceEntry.importPath,
-              datasource_id: datasourceId
-            }
-          })
-          .then(({ data }) => {
-            console.log("res from single added entry: ", data)
-            return data
-          })
-          .catch(err => console.log(err))
+        return createDatasourceEntry(datasourceEntry, datasourceId)
       }
     })
   )
-    .then(response => {
-      console.log("repsonse from promise.all of adding entries: ", response)
-      return response
+    .then(({ data }) => {
+      Logger.success(
+        `Datasource entries for ${datasourceId} datasource id has been successfully synced.`
+      )
+      return data
     })
-    .catch(err => console.log(err))
+    .catch(err => Logger.err(err))
 }
 
 const syncDatasources = async specifiedDatasources => {
+  Logger.log(`Trying to sync provided datasources: ${specifiedDatasources}`)
   localDatasources = findDatasources(".datasource.js")
   remoteDatasources = await getAllDatasources()
-  console.log(remoteDatasources)
   const filteredLocalDatasources = localDatasources.filter(datasource => {
     return specifiedDatasources.some(
       specifiedDatasource => datasource.name === specifiedDatasource
@@ -143,18 +166,17 @@ const syncDatasources = async specifiedDatasources => {
 
   Promise.all(
     filteredLocalDatasources.map(datasource => {
-      const temp = remoteDatasources.datasources.find(
+      const datasourceToBeUpdated = remoteDatasources.datasources.find(
         remoteDatasource => datasource.name === remoteDatasource.name
       )
-      if (temp) {
-        return updateDatasource(datasource, temp)
+      if (datasourceToBeUpdated) {
+        return updateDatasource(datasource, datasourceToBeUpdated)
       } else {
         return createDatasource(datasource)
       }
     })
   )
     .then(res => {
-      console.log("Promise all from datasource was resolved: ")
       res.map(async ({ data, datasource_entries }) => {
         const remoteDatasourceEntries = await getDatasourceEntries(
           data.datasource.name
@@ -169,7 +191,6 @@ const syncDatasources = async specifiedDatasources => {
     })
     .catch(err => {
       Logger.warning("There is error inside promise.all from datasource")
-      console.log(err)
       return false
     })
 }

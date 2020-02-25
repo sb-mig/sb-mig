@@ -72,8 +72,7 @@ async function start() {
     program.parse(process.argv)
 
     if (program.syncDatasources) {
-      Logger.log("Start synciong datasources...")
-      console.log(program.args);
+      Logger.log(`Synciong priovided datasources ${program.args}...`)
       api.syncDatasources(program.args)
     }
 
