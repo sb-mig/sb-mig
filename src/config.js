@@ -10,6 +10,9 @@ try {
 }
 
 const defaultConfig = {
+  reactComponentsDirectory: 'src/components',
+  npmScopeForComponents: '@storyblok-components',
+  boilerplateUrl: 'git@github.com:marckraw/gatsby-storyblok-boilerplate.git',
   sbmigWorkingDirectory: "sbmig",
   componentDirectory: "sbmig/storyblok",
   datasourcesDirectory: "storyblok", 
