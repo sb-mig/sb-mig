@@ -1,3 +1,24 @@
+# [1.3.0](https://github.com/marckraw/sb-mig/compare/v1.2.9...v1.3.0) (2020-02-25)
+
+
+### docs
+
+* update readme with docs for syncing datasources ([18b5eff](https://github.com/marckraw/sb-mig/commit/18b5effc54f6afe851951af00ba5386170d7729e))
+
+### feature
+
+* add adding/updating datasource entries: need cleanup and tests ([72e25c1](https://github.com/marckraw/sb-mig/commit/72e25c10c8f0310f06e6c2a07a09bedc6bd914cb))
+* add discover for .datasource.js ([9586e2f](https://github.com/marckraw/sb-mig/commit/9586e2f4376fd29ab17a3f646c9fb40e4c1100c2))
+* add getting all datasources, and getting datasource by name (1dimension) ([41a1222](https://github.com/marckraw/sb-mig/commit/41a12226fd9c69fb48cc96af6f4bf449b626ae57))
+* datasources support ready to use ([c58f48f](https://github.com/marckraw/sb-mig/commit/c58f48f97da27e492f84460f447f9b5c901fbc18))
+
+### fix
+
+* change node-fetch to storyblok-js-client for get datasources ([13c0165](https://github.com/marckraw/sb-mig/commit/13c01657ba68aaece476cd3edc0b5a9656b39bf2))
+* remove and change not bad console logs ([ad3e5f4](https://github.com/marckraw/sb-mig/commit/ad3e5f47a7b06f31d21589d26959bf2f00ac9ecc))
+
+
+
 ## [1.2.9](https://github.com/marckraw/sb-mig/compare/v1.2.8...v1.2.9) (2020-02-21)
 
 
