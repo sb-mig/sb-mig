@@ -6,6 +6,8 @@ const commander = require("commander")
 const package = require("../package.json")
 const api = require("./api")
 const migrate = require("./migrate")
+const { sbApi } = require("./api/config")
+const { generateComponentsFile } = require("./helpers/componentsFileGenerator")
 const { components } = require("./discover")
 const {
   boilerplateUrl,
@@ -18,11 +20,7 @@ const {
 } = require("./config")
 const configValues = require("./config")
 
-const {
-  createDir,
-  createJsonFile,
-  copyFile
-} = require("./helpers/files")
+const { createDir, createJsonFile, copyFile } = require("./helpers/files")
 
 const program = new commander.Command()
 
@@ -43,10 +41,7 @@ async function start() {
       .option("-a, --copy", "Copy stuff")
       .option("-s, --sync", "Sync provided components from schema")
       .option("-S, --sync-all", "Sync all components from schema")
-      .option(
-        "-D, --sync-datasources",
-        "Sync provided datasources from schema"
-      )
+      .option("-D, --sync-datasources", "Sync provided datasources from schema")
       .option(
         "-n, --no-presets",
         "Use with --sync or --sync-all. Sync components without presets"
@@ -86,25 +81,12 @@ async function start() {
     }
 
     if (program.copy) {
-      console.log("copy stuff")
-      console.log("args: ")
-      console.log(program.args)
-      program.args.map(componentName => {
-        // here i have to check for any component started it's name with component name, and just copy them
-        // ??
-
-        // copy schemas
-        copyFile(
-          `./node_modules/@ef-gc/storyblok-components_web-ui-${componentName}/${componentName}.sb.js`,
-          `./${reactComponentsDirectory}/web-ui/${componentName}.sb.js`
-        )
-
-        // copy react component
-        copyFile(
-          `./node_modules/@ef-gc/storyblok-components_web-ui-${componentName}/src/${componentName}.js`,
-          `./${reactComponentsDirectory}/web-ui/${componentName}.js`
-        )
-      })
+      const {
+        data: { stories }
+      } = await sbApi.get(`spaces/76853/stories/`)
+      const { data } = await sbApi.get(
+        `spaces/76853/stories/${stories[0].id}/publish`
+      )
     }
 
     if (program.syncDatasources) {
@@ -130,6 +112,9 @@ async function start() {
           )
           await execa.command(`rm -rf ./storyblok-boilerplate/.git`)
           await execa.command(`rm ./storyblok-boilerplate/storyblok.config.js`)
+          await execa.command(
+            `rm ./storyblok-boilerplate/src/components/components.js`
+          )
           fs.appendFile(
             "./.env",
             `STORYBLOK_SPACE_ID=${space.id}\nGATSBY_STORYBLOK_ACCESS_TOKEN=${space.first_token}`,
@@ -147,22 +132,48 @@ async function start() {
             shell: true
           })
           await execa.command(`rm -rf storyblok-boilerplate`)
-          Logger.log(`Installing dependencies...`)
           if (program.add) {
+            const filteredArgs = program.args.slice(1, program.args.length)
             Logger.log(`Adding components...`)
-            program.args.map(async component => {
-              execa
-                .command(
-                  `npm install ${npmScopeForComponents}/${component} --save`
-                )
-                .stdout.pipe(process.stdout)
+            filteredArgs.map(async component => {
+              execa.commandSync(
+                `npm install ${npmScopeForComponents}/${component} --save`
+              )
             })
           }
           Logger.log(`Installing dependencies...`)
           await execa.command(`npm install`)
           Logger.success(`Dependenciess installed.`)
           Logger.log(
-            `Run sb-mig --sync-all to synchronize all storyblok components. Than go to http://app.storyblok.com/#!/me/spaces/${space.id}/ and enjoy.`
+            `Starting copying components and schemas from node_modules...`
+          )
+          if (program.add) {
+            const filteredArgs = program.args.slice(1, program.args.length)
+            filteredArgs.map(async component => {
+              // copy .sb.js ext schema file
+              await copyFile(
+                `./node_modules/${npmScopeForComponents}/${component}/${component}.sb.js`,
+                `./${reactComponentsDirectory}/scoped/${component}.sb.js`
+              )
+
+              // copy react component
+              await copyFile(
+                `./node_modules/${npmScopeForComponents}/${component}/src/${component}.js`,
+                `./${reactComponentsDirectory}/scoped/${component}.js`
+              )
+            })
+            await createJsonFile(
+              generateComponentsFile(filteredArgs),
+              `./src/components/components.js`
+            )
+          }
+          // here is publishing changes to easy run npm start or working gatsby + storyblok
+          const {
+            data: { stories }
+          } = await sbApi.get(`spaces/${space.id}/stories/`)
+          await sbApi.get(`spaces/${space.id}/stories/${stories[0].id}/publish`)
+          Logger.log(
+            `Run Run sb-mig --sync-all to synchronize all storyblok components. Than go to http://app.storyblok.com/#!/me/spaces/${space.id}/ and enjoy.`
           )
         } else {
           Logger.warning(`Provide name of the space to be created`)
