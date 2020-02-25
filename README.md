@@ -15,6 +15,7 @@ If you've found an issue or you have feature request - <a href="https://github.c
 - [Schema documentation:](#schema-documentation)
   - [Basics](#basics)
   - [Syncing components](#syncing-components)
+  - [Syncing datasources](#syncing-datasources)
   - [Presets support](#presets-support)
   - [Development](#development)
   - [Roadmap](#roadmap)
@@ -73,10 +74,11 @@ Usage: sb-mig [options]
 
 Options:
   -V, --version                                   output the version number
-  -s, --sync                                      Sync provided components from schema with
+  -s, --sync                                      Sync provided components from schema
+  -S, --sync-all                                  Sync all components from schema
+  -D, --sync-datasources                          Sync provided datasources from schema
   -n, --no-presets                                Use with --sync or --sync-all. Sync components without presets
   -x, --ext                                       Use only with --sync or --sync-all. By default sync with *.sb.js extension
-  -S, --sync-all                                  Sync all components from schema with
   -g, --all-components-groups                     Get all component groups
   -c, --components-group <components-group-name>  Get single components group by name
   -a, --all-components                            Get all components
@@ -84,6 +86,9 @@ Options:
   -q, --all-presets                               Get all presets
   -p, --preset <preset-id>                        Get preset by id
   -d, --component-presets <component-name>        Get all presets for single component by name
+  -e, --datasource <datasource-name>              Get single datasource by name
+  -f, --datasource-entries <datasource-name>      Get single datasource entries by name
+  -t, --all-datasources                           Get all datasources
   -d, --debug                                     Output extra debugging
   -h, --help                                      output usage information
 ```
@@ -108,6 +113,8 @@ module.exports = {
   }
 };
 ```
+
+**Important notice:** name inside `.js` schema need to match `.js` filename.
 
 You can add anything mentioned here: https://www.storyblok.com/docs/api/management#core-resources/components/components to your component. (with the exception of `component_group_uuid`: insert `component_group_name` and `sb-mig` will resolve `uuid` automagically).
 
@@ -165,6 +172,72 @@ sb-mig --sync --ext row column
 ```
 
 This command will look for any file named `row.sb.js` and `column.sb.js` inside `src` and `storyblok` folders. To modify the directories in this case you can set `componentsDirectories` in the config. You can also change the extension searched by changing `schemaFileExt`. [How to install and configure](#how-to-install-and-configure))
+
+## Syncing datasources
+
+**Beta feature:** You can also sync your `datasources`.
+Add `datasourcesDirectory` to `storyblok.config.js`. (default: 'storyblok')
+```
+// storyblok.config.js
+module.exports = {
+  ...
+  datasourcesDirectory: "datasources"
+  ...
+};
+```
+Create file with `.datasource.js` extension inside it. Basic schema for datasources file:
+```
+module.exports = {
+  name: "icons",
+  slug: "icons",
+  datasource_entries: [
+    {
+      componentName: "icon1",
+      importPath: "icon 2"
+    },
+    {
+      componentName: "icon2",
+      importPath: "icon 2"
+    },
+    {
+      componentName: "icon3",
+      importPath: "icon 3"
+    },
+    {
+      componentName: "icon4",
+      importPath: "icon 4"
+    },
+  ]
+};
+```
+
+Above snippet will create `datasource` with `icons` name and `icons` slug. `datasource_entries` will be your `name <-> value` array.
+Single `datasource entry` consist of **precisely** 2 fieldds. But they can be named however you like (advise to name it: `name` and `value`, it will be anyway translated to that, due to how storyblok stores them)
+
+Command for syncing datasources: 
+```
+sb-mig --sync-datasources icons
+```
+
+Example output from above command
+```
+Synciong priovided datasources icons...
+Trying to sync provided datasources: icons
+Trying to get all Datasources.
+Trying to get 'icons' datasource entries.
+Trying to get 'icons' datasource.
+✓ Datasource entries for 15558 datasource id has been successfully synced
+```
+
+Like with syncing component, you can also use syncing multiple datasources at once:
+```
+sb-mig --sync-datasources icons logos
+```
+
+```
+✓ Datasource entries for 15558 datasource id has been successfully synced.
+✓ Datasource entries for 15559 datasource id has been successfully synced.
+```
 
 ## Presets support
 

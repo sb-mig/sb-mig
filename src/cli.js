@@ -35,7 +35,7 @@ async function start() {
       .option("-S, --sync-all", "Sync all components from schema with")
       .option(
         "-D, --sync-datasources",
-        "Sync provided components from schema with"
+        "Sync provided datasources from schema"
       )
       .option(
         "-n, --no-presets",
