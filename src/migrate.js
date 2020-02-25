@@ -1,4 +1,4 @@
-const { spaceId, componentDirectory } = require("./config")
+const { componentDirectory } = require("./config")
 const Logger = require("./helpers/logger")
 const { components, findComponentsWithExt } = require("./discover")
 const api = require("./api")
