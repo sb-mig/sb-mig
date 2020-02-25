@@ -73,7 +73,6 @@ const createComponentsGroup = groupName => {
     })
     .catch(err => {
       Logger.error(`Error happened :()`)
-      console.log(err.message)
     })
 }
 
