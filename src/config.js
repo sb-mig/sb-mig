@@ -12,6 +12,7 @@ try {
 const defaultConfig = {
   sbmigWorkingDirectory: "sbmig",
   componentDirectory: "sbmig/storyblok",
+  datasourcesDirectory: "storyblok", 
   componentsDirectories: ["src", "storyblok"],
   schemaFileExt: "sb.js",
   storyblokApiUrl: "https://api.storyblok.com/v1",

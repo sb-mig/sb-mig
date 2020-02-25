@@ -28,11 +28,11 @@ async function start() {
     program.version(package.version)
 
     program
-      .option("-s, --sync", "Sync provided components from schema with")
-      .option("-S, --sync-all", "Sync all components from schema with")
+      .option("-s, --sync", "Sync provided components from schema")
+      .option("-S, --sync-all", "Sync all components from schema")
       .option(
         "-D, --sync-datasources",
-        "Sync provided components from schema with"
+        "Sync provided datasources from schema"
       )
       .option(
         "-n, --no-presets",
