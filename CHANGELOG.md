@@ -1,3 +1,12 @@
+## [1.3.2](https://github.com/marckraw/sb-mig/compare/v1.3.1...v1.3.2) (2020-02-26)
+
+
+### fix
+
+* .env and components.js generation was failing ([d6ac7f0](https://github.com/marckraw/sb-mig/commit/d6ac7f084f3892f2140fc64510e23b8d7f1137cb))
+
+
+
 ## [1.3.1](https://github.com/marckraw/sb-mig/compare/v1.3.0...v1.3.1) (2020-02-26)
 
 
