@@ -14,14 +14,14 @@ const defaultConfig = {
   npmScopeForComponents: "@storyblok-components",
   boilerplateUrl: "git@github.com:marckraw/gatsby-storyblok-boilerplate.git",
   sbmigWorkingDirectory: "sbmig",
-  componentDirectory: "sbmig/storyblok",
+  componentDirectory: "storyblok",
   datasourcesDirectory: "storyblok",
   componentsDirectories: ["src", "storyblok"],
   schemaFileExt: "sb.js",
   storyblokApiUrl: "https://api.storyblok.com/v1",
   oauthToken: process.env.STORYBLOK_OAUTH_TOKEN,
   spaceId: process.env.STORYBLOK_SPACE_ID,
-  accessToken: process.env.STORYBLOK_ACCESS_TOKEN
+  accessToken: process.env.GATSBY_STORYBLOK_ACCESS_TOKEN
 }
 
 module.exports = { ...defaultConfig, ...customConfig }

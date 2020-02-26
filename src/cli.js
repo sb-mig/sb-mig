@@ -36,15 +36,16 @@ async function start() {
     program.version(package.version)
 
     program
-      .option("-G, --generate", "Generate project")
-      .option("-A, --add", "Add components")
-      .option("-a, --copy", "Copy stuff")
       .option("-s, --sync", "Sync provided components from schema")
       .option("-S, --sync-all", "Sync all components from schema")
       .option("-D, --sync-datasources", "Sync provided datasources from schema")
       .option(
         "-n, --no-presets",
         "Use with --sync or --sync-all. Sync components without presets"
+      )
+      .option(
+        "-x, --ext",
+        "Use only with --sync or --sync-all. By default sync with *.sb.js extension"
       )
       .option("-g, --all-components-groups", "Get all component groups")
       .option(
@@ -71,6 +72,8 @@ async function start() {
         "Get single datasource entries by name"
       )
       .option("-t, --all-datasources", "Get all datasources")
+      .option("-G, --generate", "Generate project")
+      .option("-A, --add", "Add components. Use only with --generate")
       .option("-d, --debug", "Output extra debugging")
 
     program.parse(process.argv)
@@ -78,15 +81,6 @@ async function start() {
     if (program.syncDatasources) {
       Logger.log(`Synciong priovided datasources ${program.args}...`)
       api.syncDatasources(program.args)
-    }
-
-    if (program.copy) {
-      const {
-        data: { stories }
-      } = await sbApi.get(`spaces/76853/stories/`)
-      const { data } = await sbApi.get(
-        `spaces/76853/stories/${stories[0].id}/publish`
-      )
     }
 
     if (program.syncDatasources) {
@@ -112,6 +106,7 @@ async function start() {
           )
           await execa.command(`rm -rf ./storyblok-boilerplate/.git`)
           await execa.command(`rm ./storyblok-boilerplate/storyblok.config.js`)
+          await execa.command(`rm ./storyblok-boilerplate/.npmrc`)
           await execa.command(
             `rm ./storyblok-boilerplate/src/components/components.js`
           )
@@ -173,7 +168,7 @@ async function start() {
           } = await sbApi.get(`spaces/${space.id}/stories/`)
           await sbApi.get(`spaces/${space.id}/stories/${stories[0].id}/publish`)
           Logger.log(
-            `Run Run sb-mig --sync-all to synchronize all storyblok components. Than go to http://app.storyblok.com/#!/me/spaces/${space.id}/ and enjoy.`
+            `Run sb-mig --sync-all --ext to synchronize all storyblok components. Then: npm start. Go to http://app.storyblok.com/#!/me/spaces/${space.id}/ and enjoy.`
           )
         } else {
           Logger.warning(`Provide name of the space to be created`)

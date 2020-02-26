@@ -24,8 +24,12 @@ class Logger {
     console.log(chalk.yellow(`! ${content}`))
   }
 
-  static error(content) {
-    console.log(chalk.red(`✘ ${content}`))
+  static error(content, {verbose} = { verbose: false}) {
+    if(verbose) {
+      console.log(content);
+    } else {
+      console.log(chalk.red(`✘ ${content}`))
+    }
   }
 }
 

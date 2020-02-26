@@ -118,13 +118,15 @@ const syncComponents = async (specifiedComponents, ext, presets) => {
 }
 
 const syncAllComponents = (ext, presets) => {
-  let specifiedComponents;
-  if(ext) {
-    specifiedComponents = findComponentsWithExt(ext).map(component => component.name);
+  let specifiedComponents
+  if (ext) {
+    specifiedComponents = findComponentsWithExt(ext).map(
+      component => component.name
+    )
   } else {
     specifiedComponents = components.map(component => component.name)
   }
- 
+
   syncComponents(specifiedComponents, ext, presets)
 }
 
