@@ -1,18 +1,26 @@
 const updateNotifier = require("update-notifier")
+const execa = require("execa")
+const fs = require("fs")
 const Logger = require("./helpers/logger")
 const commander = require("commander")
 const package = require("../package.json")
 const api = require("./api")
 const migrate = require("./migrate")
+const { sbApi } = require("./api/config")
+const { generateComponentsFile } = require("./helpers/componentsFileGenerator")
 const { components } = require("./discover")
 const {
+  boilerplateUrl,
   sbmigWorkingDirectory,
   schemaFileExt,
   componentsDirectories,
-  componentDirectory
+  componentDirectory,
+  reactComponentsDirectory,
+  npmScopeForComponents
 } = require("./config")
-const configCliValues = require("./config")
-const { createDir, createJsonFile } = require("./helpers/files")
+const configValues = require("./config")
+
+const { createDir, createJsonFile, copyFile } = require("./helpers/files")
 
 const program = new commander.Command()
 
@@ -30,10 +38,7 @@ async function start() {
     program
       .option("-s, --sync", "Sync provided components from schema")
       .option("-S, --sync-all", "Sync all components from schema")
-      .option(
-        "-D, --sync-datasources",
-        "Sync provided datasources from schema"
-      )
+      .option("-D, --sync-datasources", "Sync provided datasources from schema")
       .option(
         "-n, --no-presets",
         "Use with --sync or --sync-all. Sync components without presets"
@@ -44,7 +49,7 @@ async function start() {
       )
       .option("-g, --all-components-groups", "Get all component groups")
       .option(
-        "-c, --components-group <components-group-name>",
+        "-C, --components-group <components-group-name>",
         "Get single components group by name"
       )
       .option("-a, --all-components", "Get all components")
@@ -63,10 +68,12 @@ async function start() {
         "Get single datasource by name"
       )
       .option(
-        "-f, --datasource-entries <datasource-name>",
+        "-f, --datasource-entry <datasource-name>",
         "Get single datasource entries by name"
       )
       .option("-t, --all-datasources", "Get all datasources")
+      .option("-G, --generate", "Generate project")
+      .option("-A, --add", "Add components. Use only with --generate")
       .option("-d, --debug", "Output extra debugging")
 
     program.parse(process.argv)
@@ -74,6 +81,99 @@ async function start() {
     if (program.syncDatasources) {
       Logger.log(`Synciong priovided datasources ${program.args}...`)
       api.syncDatasources(program.args)
+    }
+
+    if (program.syncDatasources) {
+      Logger.log(`Synciong priovided datasources ${program.args}...`)
+      api.syncDatasources(program.args)
+    }
+
+    if (program.generate) {
+      Logger.warning(`Starting generating project...`)
+      ;(async () => {
+        if (program.args.length > 0) {
+          const {
+            data: { space }
+          } = await api.createSpace(program.args[0])
+          Logger.success(`Space ${program.args[0]} has been created.`)
+          Logger.log(`Creating start project...`)
+          Logger.log(`Using ${boilerplateUrl} boilerplate...`)
+          await execa.command(
+            `git clone ${boilerplateUrl} storyblok-boilerplate`,
+            {
+              shell: true
+            }
+          )
+          await execa.command(`rm -rf ./storyblok-boilerplate/.git`)
+          await execa.command(`rm ./storyblok-boilerplate/storyblok.config.js`)
+          await execa.command(`rm ./storyblok-boilerplate/.npmrc`)
+          await execa.command(
+            `rm ./storyblok-boilerplate/src/components/components.js`
+          )
+          fs.appendFile(
+            "./.env",
+            `STORYBLOK_SPACE_ID=${space.id}\nGATSBY_STORYBLOK_ACCESS_TOKEN=${space.first_token}`,
+            err => {
+              if (err) {
+                return console.log(err)
+              }
+              Logger.success(`.env file has been updated`)
+            }
+          )
+          await execa.command(`mv ./storyblok-boilerplate/* ./`, {
+            shell: true
+          })
+          await execa.command(`mv ./storyblok-boilerplate/.[!.]* ./`, {
+            shell: true
+          })
+          await execa.command(`rm -rf storyblok-boilerplate`)
+          if (program.add) {
+            const filteredArgs = program.args.slice(1, program.args.length)
+            Logger.log(`Adding components...`)
+            filteredArgs.map(async component => {
+              execa.commandSync(
+                `npm install ${npmScopeForComponents}/${component} --save`
+              )
+            })
+          }
+          Logger.log(`Installing dependencies...`)
+          await execa.command(`npm install`)
+          Logger.success(`Dependenciess installed.`)
+          Logger.log(
+            `Starting copying components and schemas from node_modules...`
+          )
+          if (program.add) {
+            const filteredArgs = program.args.slice(1, program.args.length)
+            filteredArgs.map(async component => {
+              // copy .sb.js ext schema file
+              await copyFile(
+                `./node_modules/${npmScopeForComponents}/${component}/${component}.sb.js`,
+                `./${reactComponentsDirectory}/scoped/${component}.sb.js`
+              )
+
+              // copy react component
+              await copyFile(
+                `./node_modules/${npmScopeForComponents}/${component}/src/${component}.js`,
+                `./${reactComponentsDirectory}/scoped/${component}.js`
+              )
+            })
+            await createJsonFile(
+              generateComponentsFile(filteredArgs),
+              `./src/components/components.js`
+            )
+          }
+          // here is publishing changes to easy run npm start or working gatsby + storyblok
+          const {
+            data: { stories }
+          } = await sbApi.get(`spaces/${space.id}/stories/`)
+          await sbApi.get(`spaces/${space.id}/stories/${stories[0].id}/publish`)
+          Logger.log(
+            `Run sb-mig --sync-all --ext to synchronize all storyblok components. Then: npm start. Go to http://app.storyblok.com/#!/me/spaces/${space.id}/ and enjoy.`
+          )
+        } else {
+          Logger.warning(`Provide name of the space to be created`)
+        }
+      })()
     }
 
     if (program.ext && !program.sync && !program.syncAll) {
@@ -154,18 +254,18 @@ async function start() {
       })
     }
 
-    if (program.datasourceEntries) {
-      api.getDatasourceEntries(program.datasourceEntries).then(async res => {
+    if (program.datasourceEntry) {
+      api.getDatasourceEntries(program.datasourceEntry).then(async res => {
         if (res) {
           const randomDatestamp = new Date().toJSON()
-          const filename = `datasource-entries-${program.datasourceEntries}-${randomDatestamp}`
+          const filename = `datasource-entries-${program.datasourceEntry}-${randomDatestamp}`
           await createDir(`${sbmigWorkingDirectory}/datasources/`)
           await createJsonFile(
             JSON.stringify(res),
             `${sbmigWorkingDirectory}/datasources/${filename}.json`
           )
           Logger.success(
-            `Datasource entries for ${program.datasourceEntries} written to a file:  ${filename}`
+            `Datasource entries for ${program.datasourceEntry} written to a file:  ${filename}`
           )
         }
       })
@@ -280,7 +380,7 @@ async function start() {
 
     if (program.debug) {
       console.log("Values used by sb-mig: ")
-      console.log(configCliValues)
+      console.log(configValues)
     }
   } catch (error) {
     console.error(error)

@@ -37,7 +37,7 @@ const _resolveGroups = async (
 }
 
 const syncComponents = async (specifiedComponents, ext, presets) => {
-  Logger.log(`Trying to sync all components from '${componentDirectory}'`)
+  Logger.log(`Trying to sync specified components from '${componentDirectory}'`)
   let localComponents
   if (ext) {
     localComponents = findComponentsWithExt(ext)
@@ -118,13 +118,15 @@ const syncComponents = async (specifiedComponents, ext, presets) => {
 }
 
 const syncAllComponents = (ext, presets) => {
-  let specifiedComponents;
-  if(ext) {
-    specifiedComponents = findComponentsWithExt(ext).map(component => component.name);
+  let specifiedComponents
+  if (ext) {
+    specifiedComponents = findComponentsWithExt(ext).map(
+      component => component.name
+    )
   } else {
     specifiedComponents = components.map(component => component.name)
   }
- 
+
   syncComponents(specifiedComponents, ext, presets)
 }
 

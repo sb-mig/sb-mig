@@ -12,6 +12,7 @@ If you've found an issue or you have feature request - <a href="https://github.c
 
 - [How to install and configure](#how-to-install-and-configure)
   - [Usage](#usage)
+  - [Generate whole starter project](#generate-whole-starter-project) * experimental
 - [Schema documentation:](#schema-documentation)
   - [Basics](#basics)
   - [Syncing components](#syncing-components)
@@ -80,18 +81,55 @@ Options:
   -n, --no-presets                                Use with --sync or --sync-all. Sync components without presets
   -x, --ext                                       Use only with --sync or --sync-all. By default sync with *.sb.js extension
   -g, --all-components-groups                     Get all component groups
-  -c, --components-group <components-group-name>  Get single components group by name
+  -C, --components-group <components-group-name>  Get single components group by name
   -a, --all-components                            Get all components
   -c, --component <component-name>                Get single component by name
   -q, --all-presets                               Get all presets
   -p, --preset <preset-id>                        Get preset by id
   -d, --component-presets <component-name>        Get all presets for single component by name
   -e, --datasource <datasource-name>              Get single datasource by name
-  -f, --datasource-entries <datasource-name>      Get single datasource entries by name
+  -f, --datasource-entry <datasource-name>        Get single datasource entries by name
   -t, --all-datasources                           Get all datasources
+  -G, --generate                                  Generate project
+  -A, --add                                       Add components. Use only with --generate
   -d, --debug                                     Output extra debugging
   -h, --help                                      output usage information
 ```
+
+## Generate whole starter project
+**This is highly experimental feature** right now, works only with private npm registry
+1. Create folder with custom name and get inside
+2. Create `storyblok.config.js` file if u want to use custom gatsby storyblok starter, or custom npm component scope
+```
+module.exports = {
+  ...
+  npmScopeForComponents: "@your-custom-scope-with-components",
+  boilerplateUrl: "git@github.com:your-custom-gatsby-storyblok-boilerplate.git",
+  ...
+}
+
+```
+3. Create `.env` file only with your storyblok oauth token (which you can get from your storyblok account - this is needed for script to have access to creating space api)
+```
+STORYBLOK_OAUTH_TOKEN=1234567890qwertyuiop
+```
+4. Run
+```
+sb-mig --generate "My Greatest Project"
+```
+It will generate basic boilerplate.
+
+If u want to specify components you would like to add you can do that by adding parameter to the command, and list of components (list of all available components: **TBD**):
+```
+sb-mig --generate "My Greatest Project" --add web-ui-text-block web-ui-surface
+```
+5. Wait for magic to happen.
+6. Run sync command to sync all components to storyblok.
+```
+sb-mig --sync-all --ext
+```
+7. `npm start`
+8. Enjoy your new project.
 
 # Schema documentation:
 
@@ -341,9 +379,9 @@ Run `npm link` in the root folder of `sb-mig`, and it will be linked as global `
 ## Roadmap
 
 - [ ] Improve preset creation/update
-- [ ] Sync / Migrate datasources
+- [x] Sync / Migrate datasources
 - [ ] Sync / Migrate content (stories)
-- [ ] Generate whole project + choose components to use
+- [x] Generate whole project + choose components to use
 - [ ] End-to-end solution to add / update components
 - [x] Sync components with extensions
 - [x] Sync presets
