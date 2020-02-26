@@ -1,3 +1,12 @@
+## [1.3.3](https://github.com/marckraw/sb-mig/compare/v1.3.2...v1.3.3) (2020-02-26)
+
+
+### fix
+
+* ordering of tasks in generating project ([f3ce9fc](https://github.com/marckraw/sb-mig/commit/f3ce9fceedd268a9f2e84b00b61e8d1ca910132f))
+
+
+
 ## [1.3.2](https://github.com/marckraw/sb-mig/compare/v1.3.1...v1.3.2) (2020-02-26)
 
 

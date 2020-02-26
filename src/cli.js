@@ -92,18 +92,21 @@ async function start() {
       Logger.warning(`Starting generating project...`)
       ;(async () => {
         if (program.args.length > 0) {
-          const {
-            data: { space }
-          } = await api.createSpace(program.args[0])
-          Logger.success(`Space ${program.args[0]} has been created.`)
           Logger.log(`Creating start project...`)
           Logger.log(`Using ${boilerplateUrl} boilerplate...`)
-          await execa.command(
+          const data = await execa.command(
             `git clone ${boilerplateUrl} storyblok-boilerplate`,
             {
               shell: true
             }
           )
+          if(data.failed) {
+            return false
+          }
+          const {
+            data: { space }
+          } = await api.createSpace(program.args[0])
+          Logger.success(`Space ${program.args[0]} has been created.`)
           await execa.command(`rm -rf ./storyblok-boilerplate/.git`)
           await execa.command(`rm ./storyblok-boilerplate/storyblok.config.js`)
           await execa.command(`rm ./storyblok-boilerplate/.npmrc`)
