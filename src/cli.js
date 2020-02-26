@@ -112,7 +112,7 @@ async function start() {
           )
           fs.appendFile(
             "./.env",
-            `STORYBLOK_SPACE_ID=${space.id}\nGATSBY_STORYBLOK_ACCESS_TOKEN=${space.first_token}`,
+            `\nSTORYBLOK_SPACE_ID=${space.id}\nGATSBY_STORYBLOK_ACCESS_TOKEN=${space.first_token}`,
             err => {
               if (err) {
                 return console.log(err)

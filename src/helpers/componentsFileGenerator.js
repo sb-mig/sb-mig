@@ -2,6 +2,7 @@ const camelCase = require("camelcase")
 
 const generateComponentsFile = components => {
   return `
+import React from 'react;
 import ComponentNotFound from "./component_not_found";
 import Page from "./page";
 import Blank from "./blank";
@@ -41,7 +42,7 @@ const ComponentList = {
   "video-card": VideoCard,
   list: List,
   fullbleed: Fullbleed,
-  "text-block": TextBlock
+  "text-block": TextBlock,
   ${components.reduce((prev, next) => {
     return `${prev}"${next}": ${camelCase(next, {
       pascalCase: true
