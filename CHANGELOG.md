@@ -1,3 +1,18 @@
+## [1.3.1](https://github.com/marckraw/sb-mig/compare/v1.3.0...v1.3.1) (2020-02-26)
+
+
+### feature
+
+* add components.js generation file, and finish experimental generate feature ([a1e763f](https://github.com/marckraw/sb-mig/commit/a1e763ffc8a50f8e3a47e17dd8b1313c9634262d))
+* add generating project - beta functionality ([a23be49](https://github.com/marckraw/sb-mig/commit/a23be491bff5f81c86178abaa2708b888020b14a))
+* full solution for generating whole project ([8eb0772](https://github.com/marckraw/sb-mig/commit/8eb077234d72ac4a8d0c7cc011c77c41639d145f))
+
+### packages
+
+* add camelcase and execa package ([ed3fb7e](https://github.com/marckraw/sb-mig/commit/ed3fb7eebd4faa2e30bc731f675c8c1ad061b886))
+
+
+
 # [1.3.0](https://github.com/marckraw/sb-mig/compare/v1.2.9...v1.3.0) (2020-02-25)
 
 
