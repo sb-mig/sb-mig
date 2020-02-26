@@ -2,7 +2,7 @@ const camelCase = require("camelcase")
 
 const generateComponentsFile = components => {
   return `
-import React from 'react;
+import React from "react";
 import ComponentNotFound from "./component_not_found";
 import Page from "./page";
 import Blank from "./blank";
