@@ -1,3 +1,16 @@
+## [1.3.5](https://github.com/marckraw/sb-mig/compare/v1.3.3...v1.3.5) (2020-02-28)
+
+
+### feature
+
+* improve windows support ([258654e](https://github.com/marckraw/sb-mig/commit/258654ee30b7e44da91fd058cebf680ff552acc8))
+
+### fix
+
+* typo in components.js generator ([e950f2c](https://github.com/marckraw/sb-mig/commit/e950f2caa3b7a6e369a8acbe2f47d540bfd91325))
+
+
+
 ## [1.3.3](https://github.com/marckraw/sb-mig/compare/v1.3.2...v1.3.3) (2020-02-26)
 
 
