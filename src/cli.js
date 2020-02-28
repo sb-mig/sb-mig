@@ -5,6 +5,7 @@ const Logger = require("./helpers/logger")
 const commander = require("commander")
 const package = require("../package.json")
 const api = require("./api")
+const os = require("os")
 const migrate = require("./migrate")
 const { sbApi } = require("./api/config")
 const { generateComponentsFile } = require("./helpers/componentsFileGenerator")
@@ -107,29 +108,34 @@ async function start() {
             data: { space }
           } = await api.createSpace(program.args[0])
           Logger.success(`Space ${program.args[0]} has been created.`)
-          await execa.command(`rm -rf ./storyblok-boilerplate/.git`)
-          await execa.command(`rm ./storyblok-boilerplate/storyblok.config.js`)
-          await execa.command(`rm ./storyblok-boilerplate/.npmrc`)
-          await execa.command(
-            `rm ./storyblok-boilerplate/src/components/components.js`
-          )
+          await rimraf(`./storyblok-boilerplate/.git`)
+          await rimraf(`./storyblok-boilerplate/storyblok.config.js`)
+          await rimraf(`./storyblok-boilerplate/.npmrc`)
+          await rimraf(`./storyblok-boilerplate/src/components/components.js`)
           fs.appendFile(
             "./.env",
             `\nSTORYBLOK_SPACE_ID=${space.id}\nGATSBY_STORYBLOK_ACCESS_TOKEN=${space.first_token}`,
             err => {
               if (err) {
-                return console.log(err)
+                return Logger.error(err)
               }
               Logger.success(`.env file has been updated`)
             }
           )
-          await execa.command(`mv ./storyblok-boilerplate/* ./`, {
-            shell: true
-          })
-          await execa.command(`mv ./storyblok-boilerplate/.[!.]* ./`, {
-            shell: true
-          })
-          await execa.command(`rm -rf storyblok-boilerplate`)
+          if (os.type() === 'Windows_NT') {
+            await execa.command(`move ./storyblok-boilerplate/* ./`, {
+              shell: true
+            })
+          } else {
+            await execa.command(`mv ./storyblok-boilerplate/* ./`, {
+              shell: true
+            })
+            await execa.command(`mv ./storyblok-boilerplate/.[!.]* ./`, {
+              shell: true
+            })
+          }
+          
+          await rimraf(`storyblok-boilerplate`)
           if (program.add) {
             const filteredArgs = program.args.slice(1, program.args.length)
             Logger.log(`Adding components...`)
@@ -382,11 +388,11 @@ async function start() {
     }
 
     if (program.debug) {
-      console.log("Values used by sb-mig: ")
-      console.log(configValues)
+      Logger.log("Values used by sb-mig: ")
+      Logger.log(configValues)
     }
-  } catch (error) {
-    console.error(error)
+  } catch (err) {
+    Logger.error(err)
     process.exit(1)
   }
 }
