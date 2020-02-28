@@ -1,3 +1,34 @@
+## [1.3.5](https://github.com/marckraw/sb-mig/compare/v1.2.9...v1.3.5) (2020-02-28)
+
+
+### docs
+
+* update readme with docs for syncing datasources ([18b5eff](https://github.com/marckraw/sb-mig/commit/18b5effc54f6afe851951af00ba5386170d7729e))
+
+### feature
+
+* add adding/updating datasource entries: need cleanup and tests ([72e25c1](https://github.com/marckraw/sb-mig/commit/72e25c10c8f0310f06e6c2a07a09bedc6bd914cb))
+* add components.js generation file, and finish experimental generate feature ([a1e763f](https://github.com/marckraw/sb-mig/commit/a1e763ffc8a50f8e3a47e17dd8b1313c9634262d))
+* add discover for .datasource.js ([9586e2f](https://github.com/marckraw/sb-mig/commit/9586e2f4376fd29ab17a3f646c9fb40e4c1100c2))
+* add generating project - beta functionality ([a23be49](https://github.com/marckraw/sb-mig/commit/a23be491bff5f81c86178abaa2708b888020b14a))
+* add getting all datasources, and getting datasource by name (1dimension) ([41a1222](https://github.com/marckraw/sb-mig/commit/41a12226fd9c69fb48cc96af6f4bf449b626ae57))
+* datasources support ready to use ([c58f48f](https://github.com/marckraw/sb-mig/commit/c58f48f97da27e492f84460f447f9b5c901fbc18))
+* full solution for generating whole project ([8eb0772](https://github.com/marckraw/sb-mig/commit/8eb077234d72ac4a8d0c7cc011c77c41639d145f))
+
+### fix
+
+* .env and components.js generation was failing ([d6ac7f0](https://github.com/marckraw/sb-mig/commit/d6ac7f084f3892f2140fc64510e23b8d7f1137cb))
+* change node-fetch to storyblok-js-client for get datasources ([13c0165](https://github.com/marckraw/sb-mig/commit/13c01657ba68aaece476cd3edc0b5a9656b39bf2))
+* ordering of tasks in generating project ([f3ce9fc](https://github.com/marckraw/sb-mig/commit/f3ce9fceedd268a9f2e84b00b61e8d1ca910132f))
+* remove and change not bad console logs ([ad3e5f4](https://github.com/marckraw/sb-mig/commit/ad3e5f47a7b06f31d21589d26959bf2f00ac9ecc))
+* typo in components.js generator ([e950f2c](https://github.com/marckraw/sb-mig/commit/e950f2caa3b7a6e369a8acbe2f47d540bfd91325))
+
+### packages
+
+* add camelcase and execa package ([ed3fb7e](https://github.com/marckraw/sb-mig/commit/ed3fb7eebd4faa2e30bc731f675c8c1ad061b886))
+
+
+
 ## [1.3.3](https://github.com/marckraw/sb-mig/compare/v1.3.2...v1.3.3) (2020-02-26)
 
 
