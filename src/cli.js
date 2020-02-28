@@ -108,7 +108,6 @@ async function start() {
             data: { space }
           } = await api.createSpace(program.args[0])
           Logger.success(`Space ${program.args[0]} has been created.`)
-          await rimraf('./storyblok-boilerplate/.git')
           await rimraf(`./storyblok-boilerplate/.git`)
           await rimraf(`./storyblok-boilerplate/storyblok.config.js`)
           await rimraf(`./storyblok-boilerplate/.npmrc`)
@@ -118,7 +117,7 @@ async function start() {
             `\nSTORYBLOK_SPACE_ID=${space.id}\nGATSBY_STORYBLOK_ACCESS_TOKEN=${space.first_token}`,
             err => {
               if (err) {
-                return console.log(err)
+                return Logger.error(err)
               }
               Logger.success(`.env file has been updated`)
             }
@@ -389,11 +388,11 @@ async function start() {
     }
 
     if (program.debug) {
-      console.log("Values used by sb-mig: ")
-      console.log(configValues)
+      Logger.log("Values used by sb-mig: ")
+      Logger.log(configValues)
     }
-  } catch (error) {
-    console.error(error)
+  } catch (err) {
+    Logger.error(err)
     process.exit(1)
   }
 }
