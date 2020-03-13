@@ -68,7 +68,7 @@ const createDatasource = datasource =>
       data,
       datasource_entries: datasource.datasource_entries
     }))
-    .catch(err => Logger.err(err))
+    .catch(err => Logger.error(err))
 
 
 const createDatasourceEntry = (datasourceEntry, datasourceId) => {
@@ -83,7 +83,7 @@ const createDatasourceEntry = (datasourceEntry, datasourceId) => {
     .then(({ data }) => {
       return data
     })
-    .catch(err => Logger.err(err))
+    .catch(err => Logger.error(err))
 }
 
 const updateDatasourceEntry = (
@@ -103,7 +103,7 @@ const updateDatasourceEntry = (
     .then(({ data }) => {
       return data
     })
-    .catch(err => Logger.err(err))
+    .catch(err => Logger.error(err))
 }
 
 const updateDatasource = (datasource, temp) =>
@@ -121,7 +121,7 @@ const updateDatasource = (datasource, temp) =>
         datasource_entries: datasource.datasource_entries
       }
     })
-    .catch(err => Logger.err(err))
+    .catch(err => Logger.error(err))
 
 const createDatasourceEntries = (
   datasourceId,
@@ -151,7 +151,7 @@ const createDatasourceEntries = (
       )
       return data
     })
-    .catch(err => Logger.err(err))
+    .catch(err => Logger.error(err))
 }
 
 const syncDatasources = async specifiedDatasources => {
@@ -190,6 +190,7 @@ const syncDatasources = async specifiedDatasources => {
       return res
     })
     .catch(err => {
+      cosnole.log(err);
       Logger.warning("There is error inside promise.all from datasource")
       return false
     })
