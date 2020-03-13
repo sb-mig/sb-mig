@@ -42,7 +42,6 @@ const createPreset = p => {
       Logger.error(
         `Error happened. Preset: '${p.preset.name}' has been not created.`
       )
-      Logger.err(err.message)
     })
 }
 
@@ -61,7 +60,6 @@ const updatePreset = p => {
       Logger.error(
         `Error happened. Preset: '${p.preset.name}' with '${p.preset.id}' id has been not updated.`
       )
-      Logger.err(err.message)
     })
 }
 

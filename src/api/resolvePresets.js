@@ -41,7 +41,7 @@ const _resolvePresets = async (res, all_presets, component) => {
       createPreset(preset)
     })
   } else {
-    Logger.error("There are no presets for this component.")
+    Logger.warning("There are no presets for this component.")
   }
 }
 
