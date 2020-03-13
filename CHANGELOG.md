@@ -1,3 +1,12 @@
+## [1.3.6](https://github.com/marckraw/sb-mig/compare/v1.3.5...v1.3.6) (2020-03-13)
+
+
+### update
+
+* change logs for presets to warning from error ([0f4035d](https://github.com/marckraw/sb-mig/commit/0f4035d507ae9acaa957a7789f90254aafa6f9af))
+
+
+
 ## [1.3.5](https://github.com/marckraw/sb-mig/compare/v1.3.3...v1.3.5) (2020-02-28)
 
 
