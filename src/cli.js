@@ -74,7 +74,7 @@ async function start() {
       )
       .option("-t, --all-datasources", "Get all datasources")
       .option("-G, --generate", "Generate project")
-      .option("-A, --add", "Add components. Use only with --generate")
+      .option("-A, --add", "Add components.")
       .option("-d, --debug", "Output extra debugging")
 
     program.parse(process.argv)
@@ -89,6 +89,31 @@ async function start() {
       api.syncDatasources(program.args)
     }
 
+    if (program.add && !program.generate) {
+      console.log("Installing components to project...");
+      console.log(program.args)
+      
+      program.args.map(async component => {
+        execa.commandSync(
+          `npm install ${npmScopeForComponents}/${component} --save`
+        )
+      })
+
+      program.args.map(async component => {
+        // copy .sb.js ext schema file
+        await copyFile(
+          `./node_modules/${npmScopeForComponents}/${component}/${component}.sb.js`,
+          `./${reactComponentsDirectory}/scoped/${component}.sb.js`
+        )
+
+        // copy react component
+        await copyFile(
+          `./node_modules/${npmScopeForComponents}/${component}/src/${component}.js`,
+          `./${reactComponentsDirectory}/scoped/${component}.js`
+        )
+      })
+    }
+
     if (program.generate) {
       Logger.warning(`Starting generating project...`)
       ;(async () => {
@@ -101,7 +126,7 @@ async function start() {
               shell: true
             }
           )
-          if(data.failed) {
+          if (data.failed) {
             return false
           }
           const {
@@ -122,7 +147,7 @@ async function start() {
               Logger.success(`.env file has been updated`)
             }
           )
-          if (os.type() === 'Windows_NT') {
+          if (os.type() === "Windows_NT") {
             await execa.command(`move ./storyblok-boilerplate/* ./`, {
               shell: true
             })
@@ -134,7 +159,7 @@ async function start() {
               shell: true
             })
           }
-          
+
           await rimraf(`storyblok-boilerplate`)
           if (program.add) {
             const filteredArgs = program.args.slice(1, program.args.length)
