@@ -1,3 +1,12 @@
+## [1.3.7](https://github.com/marckraw/sb-mig/compare/v1.3.6...v1.3.7) (2020-03-19)
+
+
+### add
+
+* add command to install and move storyblok scoped components ([1dc427a](https://github.com/marckraw/sb-mig/commit/1dc427aadf273e15300f3be093328443fa124b14))
+
+
+
 ## [1.3.6](https://github.com/marckraw/sb-mig/compare/v1.3.5...v1.3.6) (2020-03-13)
 
 
