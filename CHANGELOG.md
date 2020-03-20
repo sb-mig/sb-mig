@@ -1,3 +1,12 @@
+## [1.3.8](https://github.com/marckraw/sb-mig/compare/v1.3.7...v1.3.8) (2020-03-20)
+
+
+### feat
+
+* fix generate command and adding components ([7a1310b](https://github.com/marckraw/sb-mig/commit/7a1310b87d81a163d88a09902f676ed612ba7d55))
+
+
+
 ## [1.3.7](https://github.com/marckraw/sb-mig/compare/v1.3.6...v1.3.7) (2020-03-19)
 
 

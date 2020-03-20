@@ -10,6 +10,7 @@ const migrate = require("./migrate")
 const { sbApi } = require("./api/config")
 const { generateComponentsFile } = require("./helpers/componentsFileGenerator")
 const { components } = require("./discover")
+const rimraf = require("rimraf")
 const {
   boilerplateUrl,
   sbmigWorkingDirectory,
@@ -90,9 +91,9 @@ async function start() {
     }
 
     if (program.add && !program.generate) {
-      console.log("Installing components to project...");
+      console.log("Installing components to project...")
       console.log(program.args)
-      
+
       program.args.map(async component => {
         execa.commandSync(
           `npm install ${npmScopeForComponents}/${component} --save`
@@ -133,10 +134,10 @@ async function start() {
             data: { space }
           } = await api.createSpace(program.args[0])
           Logger.success(`Space ${program.args[0]} has been created.`)
-          await rimraf(`./storyblok-boilerplate/.git`)
-          await rimraf(`./storyblok-boilerplate/storyblok.config.js`)
-          await rimraf(`./storyblok-boilerplate/.npmrc`)
-          await rimraf(`./storyblok-boilerplate/src/components/components.js`)
+          rimraf.sync(`./storyblok-boilerplate/.git`)
+          rimraf.sync(`./storyblok-boilerplate/storyblok.config.js`)
+          rimraf.sync(`./storyblok-boilerplate/.npmrc`)
+          rimraf.sync(`./storyblok-boilerplate/src/components/components.js`)
           fs.appendFile(
             "./.env",
             `\nSTORYBLOK_SPACE_ID=${space.id}\nGATSBY_STORYBLOK_ACCESS_TOKEN=${space.first_token}`,
@@ -148,19 +149,19 @@ async function start() {
             }
           )
           if (os.type() === "Windows_NT") {
-            await execa.command(`move ./storyblok-boilerplate/* ./`, {
+            execa.commandSync(`move ./storyblok-boilerplate/* ./`, {
               shell: true
             })
           } else {
-            await execa.command(`mv ./storyblok-boilerplate/* ./`, {
-              shell: true
-            })
-            await execa.command(`mv ./storyblok-boilerplate/.[!.]* ./`, {
-              shell: true
-            })
+          execa.commandSync(`mv ./storyblok-boilerplate/* ./`, {
+            shell: true
+          })
+          execa.commandSync(`mv ./storyblok-boilerplate/.[!.]* ./`, {
+            shell: true
+          })
           }
 
-          await rimraf(`storyblok-boilerplate`)
+          rimraf.sync(`storyblok-boilerplate`)
           if (program.add) {
             const filteredArgs = program.args.slice(1, program.args.length)
             Logger.log(`Adding components...`)
