@@ -54,6 +54,6 @@
     "sb-mig": "./dist/index.js"
   },
   "engines": {
-    "node": ">=11"
+    "node": ">=12"
   }
 }

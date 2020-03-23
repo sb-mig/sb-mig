@@ -44,7 +44,6 @@ async function start() {
     program.version(package.version)
 
     program
-      .option("-L, --dupa", "Dupa")
       .option("-s, --sync", "Sync provided components from schema")
       .option("-S, --sync-all", "Sync all components from schema")
       .option("-D, --sync-datasources", "Sync provided datasources from schema")
@@ -86,21 +85,6 @@ async function start() {
       .option("-d, --debug", "Output extra debugging")
 
     program.parse(process.argv)
-
-    if (program.dupa) {
-      const spinner = ora(`Installing ${component}...`).start()
-      const { stdout } = await execa.command(
-        `npm install @ef-sbc/web-ui-carousel --save`
-      )
-      spinner.stop()
-      Logger.success("Success!")
-
-      // setTimeout(() => {
-      //   spinner.color = "yellow"
-      //   spinner.text = "Loading rainbows"
-      //   spinner.stop()
-      // }, 10000)
-    }
 
     if (program.syncDatasources) {
       Logger.log(`Syncing priovided datasources ${program.args}...`)
