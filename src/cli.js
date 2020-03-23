@@ -23,7 +23,12 @@ const {
 } = require("./config")
 const configValues = require("./config")
 
-const { createDir, createJsonFile, copyFile, copyFolder } = require("./helpers/files")
+const {
+  createDir,
+  createJsonFile,
+  copyFile,
+  copyFolder
+} = require("./helpers/files")
 
 const program = new commander.Command()
 
@@ -39,6 +44,7 @@ async function start() {
     program.version(package.version)
 
     program
+      .option("-L, --dupa", "Dupa")
       .option("-s, --sync", "Sync provided components from schema")
       .option("-S, --sync-all", "Sync all components from schema")
       .option("-D, --sync-datasources", "Sync provided datasources from schema")
@@ -81,6 +87,21 @@ async function start() {
 
     program.parse(process.argv)
 
+    if (program.dupa) {
+      const spinner = ora(`Installing ${component}...`).start()
+      const { stdout } = await execa.command(
+        `npm install @ef-sbc/web-ui-carousel --save`
+      )
+      spinner.stop()
+      Logger.success("Success!")
+
+      // setTimeout(() => {
+      //   spinner.color = "yellow"
+      //   spinner.text = "Loading rainbows"
+      //   spinner.stop()
+      // }, 10000)
+    }
+
     if (program.syncDatasources) {
       Logger.log(`Syncing priovided datasources ${program.args}...`)
       api.syncDatasources(program.args)
@@ -92,24 +113,58 @@ async function start() {
     }
 
     if (program.add && !program.generate) {
-      const spinner = ora("Installing components to project...").start()
       console.log(program.args)
+      let spinner = ora(`Installing components...`).start()
 
-      program.args.map(component => {
-        execa.commandSync(
-          `npm install ${npmScopeForComponents}/${component} --save`
-        )
-      })
+      Promise.allSettled(
+        program.args.map(component => {
+          return execa.command(
+            `npm install ${npmScopeForComponents}/${component} --save`
+          )
+        })
+      )
+        .then(res => {
+          res.map(singleRes => {
+            spinner.stop()
+            if (singleRes.status === 'fulfilled') {
+              Logger.success(`${singleRes.value.command} end successful!`)
+            }
+            if (singleRes.status === 'rejected') {
+              Logger.error(`${singleRes.value.command} rejected :( !`)
+              console.log(singleRes.value.stdout);
+            }
+          })
+          spinner = ora(`Copying folders...`).start()
 
-      spinner.text = "Copying components..."
-      program.args.map(async component => {
-        const componentName = component.split("@")[0];
+          Promise.allSettled(
+            program.args.map(component => {
+              const componentName = component.split("@")[0]
 
-        const spinner = ora("Copying folder...").start()
-        await copyFolder(`./node_modules/${npmScopeForComponents}/${componentName}/src/`, `./${reactComponentsDirectory}/scoped/`)
-        spinner.stop()
-      })
-      spinner.stop()
+              return copyFolder(
+                `./node_modules/${npmScopeForComponents}/${componentName}/src/`,
+                `./${reactComponentsDirectory}/scoped/`
+              )
+            })
+          ).then(response => {
+            response.map(singleResponse => {
+              spinner.stop()
+              if (singleResponse.status === 'fulfilled') {
+                Logger.success(singleResponse.value.message)
+              }
+              if (singleResponse.status === 'rejected') {
+                Logger.error(singleResponse.value.message)
+                console.log(singleResponse);
+              }
+            })
+          }).catch(error => {
+            Logger.error("error happened when copying folders... :(")
+            console.log(error);
+          })
+        })
+        .catch(err => {
+          Logger.error("error happened when installing scoped components... :(")
+          console.log(err)
+        })
     }
 
     if (program.generate) {

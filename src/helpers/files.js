@@ -18,11 +18,19 @@ const createJsonFile = async (content, pathWithFilename) => {
 }
 
 const copyFolder = async (src, dest) => {
-  ncp(src, dest, function(err) {
-    if (err) {
-      return console.error(err)
-    }
-    console.log("done!")
+  return new Promise((resolve, reject) => {
+    ncp(src, dest, function(err) {
+      if (err) {
+        reject({
+          failed: true,
+          message: `${src} copied unsuccessfully.`
+        })
+      }
+      resolve({
+        failed: false,
+        message: `${src} copied successfully.`
+      })
+    })
   })
 }
 
