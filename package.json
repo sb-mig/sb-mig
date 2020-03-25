@@ -5,7 +5,7 @@
     "type": "git",
     "url": "git+https://github.com/marckraw/sb-mig.git"
   },
-  "version": "1.3.8",
+  "version": "1.3.9",
   "description": "CLI to rule the world. (and handle stuff related to Storyblok CMS)",
   "keywords": [
     "cli",
@@ -35,6 +35,8 @@
     "execa": "^4.0.0",
     "figlet": "^1.2.4",
     "glob": "^7.1.6",
+    "ncp": "^2.0.0",
+    "ora": "^4.0.3",
     "rimraf": "^3.0.2",
     "storyblok-js-client": "^2.0.12",
     "update-notifier": "^4.0.0"
@@ -52,6 +54,6 @@
     "sb-mig": "./dist/index.js"
   },
   "engines": {
-    "node": ">=11"
+    "node": ">=12"
   }
 }

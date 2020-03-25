@@ -10,6 +10,7 @@ const migrate = require("./migrate")
 const { sbApi } = require("./api/config")
 const { generateComponentsFile } = require("./helpers/componentsFileGenerator")
 const { components } = require("./discover")
+const ora = require("ora")
 const rimraf = require("rimraf")
 const {
   boilerplateUrl,
@@ -22,7 +23,12 @@ const {
 } = require("./config")
 const configValues = require("./config")
 
-const { createDir, createJsonFile, copyFile } = require("./helpers/files")
+const {
+  createDir,
+  createJsonFile,
+  copyFile,
+  copyFolder
+} = require("./helpers/files")
 
 const program = new commander.Command()
 
@@ -81,38 +87,68 @@ async function start() {
     program.parse(process.argv)
 
     if (program.syncDatasources) {
-      Logger.log(`Synciong priovided datasources ${program.args}...`)
+      Logger.log(`Syncing priovided datasources ${program.args}...`)
       api.syncDatasources(program.args)
     }
 
     if (program.syncDatasources) {
-      Logger.log(`Synciong priovided datasources ${program.args}...`)
+      Logger.log(`Syncing priovided datasources ${program.args}...`)
       api.syncDatasources(program.args)
     }
 
     if (program.add && !program.generate) {
-      console.log("Installing components to project...")
       console.log(program.args)
+      let spinner = ora(`Installing components...`).start()
 
-      program.args.map(async component => {
-        execa.commandSync(
-          `npm install ${npmScopeForComponents}/${component} --save`
-        )
-      })
+      Promise.allSettled(
+        program.args.map(component => {
+          return execa.command(
+            `npm install ${npmScopeForComponents}/${component} --save`
+          )
+        })
+      )
+        .then(res => {
+          res.map(singleRes => {
+            spinner.stop()
+            if (singleRes.status === 'fulfilled') {
+              Logger.success(`${singleRes.value.command} end successful!`)
+            }
+            if (singleRes.status === 'rejected') {
+              Logger.error(`${singleRes.value.command} rejected :( !`)
+              console.log(singleRes.value.stdout);
+            }
+          })
+          spinner = ora(`Copying folders...`).start()
 
-      program.args.map(async component => {
-        // copy .sb.js ext schema file
-        await copyFile(
-          `./node_modules/${npmScopeForComponents}/${component}/${component}.sb.js`,
-          `./${reactComponentsDirectory}/scoped/${component}.sb.js`
-        )
+          Promise.allSettled(
+            program.args.map(component => {
+              const componentName = component.split("@")[0]
 
-        // copy react component
-        await copyFile(
-          `./node_modules/${npmScopeForComponents}/${component}/src/${component}.js`,
-          `./${reactComponentsDirectory}/scoped/${component}.js`
-        )
-      })
+              return copyFolder(
+                `./node_modules/${npmScopeForComponents}/${componentName}/src/`,
+                `./${reactComponentsDirectory}/scoped/`
+              )
+            })
+          ).then(response => {
+            response.map(singleResponse => {
+              spinner.stop()
+              if (singleResponse.status === 'fulfilled') {
+                Logger.success(singleResponse.value.message)
+              }
+              if (singleResponse.status === 'rejected') {
+                Logger.error(singleResponse.value.message)
+                console.log(singleResponse);
+              }
+            })
+          }).catch(error => {
+            Logger.error("error happened when copying folders... :(")
+            console.log(error);
+          })
+        })
+        .catch(err => {
+          Logger.error("error happened when installing scoped components... :(")
+          console.log(err)
+        })
     }
 
     if (program.generate) {
@@ -153,18 +189,17 @@ async function start() {
               shell: true
             })
           } else {
-          execa.commandSync(`mv ./storyblok-boilerplate/* ./`, {
-            shell: true
-          })
-          execa.commandSync(`mv ./storyblok-boilerplate/.[!.]* ./`, {
-            shell: true
-          })
+            execa.commandSync(`mv ./storyblok-boilerplate/* ./`, {
+              shell: true
+            })
+            execa.commandSync(`mv ./storyblok-boilerplate/.[!.]* ./`, {
+              shell: true
+            })
           }
 
           rimraf.sync(`storyblok-boilerplate`)
           if (program.add) {
             const filteredArgs = program.args.slice(1, program.args.length)
-            Logger.log(`Adding components...`)
             filteredArgs.map(async component => {
               execa.commandSync(
                 `npm install ${npmScopeForComponents}/${component} --save`

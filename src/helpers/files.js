@@ -1,4 +1,6 @@
 const fs = require("fs")
+const ncp = require("ncp").ncp
+const ora = require("ora")
 const path = require("path")
 const Logger = require("./logger")
 
@@ -13,6 +15,23 @@ const createDir = async dirPath => {
 
 const createJsonFile = async (content, pathWithFilename) => {
   await fs.promises.writeFile(pathWithFilename, content, { flag: `w` })
+}
+
+const copyFolder = async (src, dest) => {
+  return new Promise((resolve, reject) => {
+    ncp(src, dest, function(err) {
+      if (err) {
+        reject({
+          failed: true,
+          message: `${src} copied unsuccessfully.`
+        })
+      }
+      resolve({
+        failed: false,
+        message: `${src} copied successfully.`
+      })
+    })
+  })
 }
 
 const copyFile = async (src, dest) => {
@@ -38,5 +57,6 @@ module.exports = {
   isDirectoryExists,
   createDir,
   createJsonFile,
-  copyFile
+  copyFile,
+  copyFolder
 }
