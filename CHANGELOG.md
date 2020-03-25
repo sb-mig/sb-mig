@@ -1,6 +1,13 @@
 ## [1.3.9](https://github.com/marckraw/sb-mig/compare/v1.3.8...v1.3.9) (2020-03-25)
 
+### node-version-needed
 
+* d6510e5 nump version to 12 (using Promise.allSettled)
+
+### add-command
+
+* improve loaders and async copyfolder / installing ([ade4c61](https://github.com/marckraw/sb-mig/commit/ade4c61))
+* add copyFolder utils, change the way folder is copying, add ora loaders ([6847a03](https://github.com/marckraw/sb-mig/commit/6847a03))
 
 
 ## [1.3.8](https://github.com/marckraw/sb-mig/compare/v1.3.7...v1.3.8) (2020-03-20)
