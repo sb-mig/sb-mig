@@ -1,3 +1,10 @@
+## [1.3.10](https://github.com/marckraw/sb-mig/compare/v1.3.9...v1.3.10) (2020-03-25)
+
+### build(deps)
+
+* bump acorn from 5.7.3 to 5.7.4 ([d6510e5](https://github.com/marckraw/sb-mig/commit/d6510e5))
+
+
 ## [1.3.9](https://github.com/marckraw/sb-mig/compare/v1.3.8...v1.3.9) (2020-03-25)
 
 ### node-version-needed
