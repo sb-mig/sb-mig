@@ -1,3 +1,8 @@
+## [1.3.10](https://github.com/marckraw/sb-mig/compare/v1.3.9...v1.3.10) (2020-03-25)
+
+
+
+
 ## [1.3.9](https://github.com/marckraw/sb-mig/compare/v1.3.8...v1.3.9) (2020-03-25)
 
 ### node-version-needed
