@@ -1,7 +1,7 @@
-const { componentDirectory } = require("./config")
-const Logger = require("./helpers/logger")
-const { components, findComponentsWithExt } = require("./discover")
-const api = require("./api")
+const { componentDirectory } = require("../config/config")
+const Logger = require("../utils/loggerumd")
+const { components, findComponentsWithExt } = require("../utils/discover")
+const api = require("./index")
 
 const _uniqueValuesFrom = array => [...new Set(array)]
 

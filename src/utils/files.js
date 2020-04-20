@@ -2,7 +2,7 @@ const fs = require("fs")
 const ncp = require("ncp").ncp
 const ora = require("ora")
 const path = require("path")
-const Logger = require("./logger")
+const Logger = require("./loggerumd")
 
 const getCurrentDirectoryBase = () => path.basename(process.cwd())
 const isDirectoryExists = path => fs.existsSync(path)

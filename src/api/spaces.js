@@ -1,4 +1,4 @@
-const Logger = require("../helpers/logger")
+const Logger = require("../utils/loggerumd")
 const { sbApi } = require("./config")
 
 // CREATE

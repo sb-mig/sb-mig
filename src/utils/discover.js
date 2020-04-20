@@ -8,7 +8,7 @@ const {
   componentDirectory,
   componentsDirectories,
   datasourcesDirectory
-} = require(`./config`)
+} = require(`../config/config`)
 
 function findComponents(componentDirectory) {
   const directory = path.resolve(process.cwd(), componentDirectory)

@@ -1,7 +1,7 @@
-const Logger = require("../helpers/logger")
-const { spaceId } = require("../config")
+const Logger = require("../utils/loggerumd")
+const { spaceId } = require("../config/config")
 const { sbApi } = require("./config")
-const { findDatasources } = require("../discover")
+const { findDatasources } = require("../utils/discover")
 
 // GET
 const getAllDatasources = () => {

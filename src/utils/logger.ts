@@ -1,30 +1,32 @@
-const chalk = require("chalk")
-const figlet = require("figlet")
+import chalk from 'chalk';
+import * as figlet from 'figlet';
 
-class Logger {
-  constructor(name) {
+export default class Logger {
+  name: any;
+
+  constructor(name: any) {
     this.name = name
   }
 
-  static bigLog(content) {
+  static bigLog(content: any) {
     console.log(
       chalk.yellow(figlet.textSync(content, { horizontalLayout: "full" }))
     )
   }
 
-  static log(content) {
+  static log(content: any) {
     console.log(content)
   }
 
-  static success(content) {
+  static success(content: any) {
     console.log(chalk.green(`✓ ${content}`))
   }
 
-  static warning(content) {
+  static warning(content: any) {
     console.log(chalk.yellow(`! ${content}`))
   }
 
-  static error(content, {verbose} = { verbose: false}) {
+  static error(content: any, {verbose} = { verbose: false}) {
     if(verbose) {
       console.log(content);
     } else {
@@ -32,5 +34,3 @@ class Logger {
     }
   }
 }
-
-module.exports = Logger
