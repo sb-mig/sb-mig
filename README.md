@@ -66,18 +66,70 @@ module.exports = {
 <!-- usage -->
 ```sh-session
 $ npm install -g sb-mig
-$ sb-mig COMMAND
+$ marckraw-oclif-test COMMAND
 running command...
-$ sb-mig (-v|--version|version)
-sb-mig/0.0.2 darwin-x64 node-v12.16.1
-$ sb-mig --help [COMMAND]
+$ marckraw-oclif-test (-v|--version|version)
+sb-mig/2.0.0-beta.0 darwin-x64 node-v12.16.1
+$ marckraw-oclif-test --help [COMMAND]
 USAGE
-  $ sb-mig COMMAND
+  $ marckraw-oclif-test COMMAND
 ...
 ```
 <!-- usagestop -->
 # Commands
 <!-- commands -->
+* [`marckraw-oclif-test backup`](#marckraw-oclif-test-backup)
+* [`marckraw-oclif-test debug`](#marckraw-oclif-test-debug)
+* [`marckraw-oclif-test help [COMMAND]`](#marckraw-oclif-test-help-command)
+
+## `marckraw-oclif-test backup`
+
+describe the command here
+
+```
+USAGE
+  $ marckraw-oclif-test backup
+
+OPTIONS
+  -a, --all            Backup all components.
+  -h, --help           show CLI help
+  -l, --list=list      Backup provided list of components.
+  -s, --single=single  Backup provided single component
+```
+
+_See code: [src/commands/backup.ts](https://github.com/sb-mig/sb-mig/blob/v2.0.0-beta.0/src/commands/backup.ts)_
+
+## `marckraw-oclif-test debug`
+
+Output extra debugging
+
+```
+USAGE
+  $ marckraw-oclif-test debug
+
+OPTIONS
+  -h, --help  show CLI help
+```
+
+_See code: [src/commands/debug.ts](https://github.com/sb-mig/sb-mig/blob/v2.0.0-beta.0/src/commands/debug.ts)_
+
+## `marckraw-oclif-test help [COMMAND]`
+
+display help for marckraw-oclif-test
+
+```
+USAGE
+  $ marckraw-oclif-test help [COMMAND]
+
+ARGUMENTS
+  COMMAND  command to show help for
+
+OPTIONS
+  --all  see all commands in CLI
+```
+
+_See code: [@oclif/plugin-help](https://github.com/oclif/plugin-help/blob/v2.2.3/src/commands/help.ts)_
+<!-- commandsstop -->
 
 ## `sb-mig backup`
 

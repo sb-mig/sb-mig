@@ -1,3 +1,12 @@
+# [2.0.0-beta.0](https://github.com/sb-mig/sb-mig/compare/v1.3.11...v2.0.0-beta.0) (2020-04-20)
+
+
+### feat
+
+* Moving whole CLI to use Oclif and plugin system to customize it ([36776f4](https://github.com/sb-mig/sb-mig/commit/36776f42fea769a4d5e0fcbe349f5c42a25be279))
+
+
+
 ## [1.3.11](https://github.com/marckraw/sb-mig/compare/v1.3.7...v1.3.11) (2020-04-20)
 
 
