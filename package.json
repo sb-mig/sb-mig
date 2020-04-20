@@ -60,7 +60,7 @@
   "main": "lib/index.js",
   "oclif": {
     "commands": "./lib/commands",
-    "bin": "marckraw-oclif-test",
+    "bin": "sb-mig",
     "plugins": [
       "@oclif/plugin-help"
     ]
