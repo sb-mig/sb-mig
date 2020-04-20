@@ -1,3 +1,16 @@
+## [1.3.11](https://github.com/marckraw/sb-mig/compare/v1.3.7...v1.3.11) (2020-04-20)
+
+
+### chore
+
+* update .gitignore ([48a330c](https://github.com/marckraw/sb-mig/commit/48a330c7b41046b845e0fae38423713a3a3b4a0b))
+
+### feat
+
+* fix generate command and adding components ([7a1310b](https://github.com/marckraw/sb-mig/commit/7a1310b87d81a163d88a09902f676ed612ba7d55))
+
+
+
 ## [1.3.10](https://github.com/marckraw/sb-mig/compare/v1.3.9...v1.3.10) (2020-03-25)
 
 ### build(deps)
