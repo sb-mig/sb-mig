@@ -1,3 +1,12 @@
+# [2.0.0](https://github.com/sb-mig/sb-mig/compare/v2.0.0-beta.0...v2.0.0) (2020-04-20)
+
+
+### feat
+
+* Modify some descriptions ([0ee8875](https://github.com/sb-mig/sb-mig/commit/0ee887550f5685d8a0fe3d2efa11474b98f31694))
+
+
+
 # [2.0.0-beta.0](https://github.com/sb-mig/sb-mig/compare/v1.3.11...v2.0.0-beta.0) (2020-04-20)
 
 

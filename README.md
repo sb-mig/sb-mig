@@ -72,7 +72,7 @@ $ npm install -g sb-mig
 $ sb-mig COMMAND
 running command...
 $ sb-mig (-v|--version|version)
-sb-mig/2.0.0-beta.0 darwin-x64 node-v12.16.1
+sb-mig/2.0.0 darwin-x64 node-v12.16.1
 $ sb-mig --help [COMMAND]
 USAGE
   $ sb-mig COMMAND
@@ -87,7 +87,7 @@ USAGE
 
 ## `sb-mig backup`
 
-describe the command here
+Backup your Storyblok components
 
 ```
 USAGE
@@ -96,11 +96,10 @@ USAGE
 OPTIONS
   -a, --all            Backup all components.
   -h, --help           show CLI help
-  -l, --list=list      Backup provided list of components.
   -s, --single=single  Backup provided single component
 ```
 
-_See code: [src/commands/backup.ts](https://github.com/sb-mig/sb-mig/blob/v2.0.0-beta.0/src/commands/backup.ts)_
+_See code: [src/commands/backup.ts](https://github.com/sb-mig/sb-mig/blob/v2.0.0/src/commands/backup.ts)_
 
 ## `sb-mig debug`
 
@@ -114,7 +113,7 @@ OPTIONS
   -h, --help  show CLI help
 ```
 
-_See code: [src/commands/debug.ts](https://github.com/sb-mig/sb-mig/blob/v2.0.0-beta.0/src/commands/debug.ts)_
+_See code: [src/commands/debug.ts](https://github.com/sb-mig/sb-mig/blob/v2.0.0/src/commands/debug.ts)_
 
 ## `sb-mig help [COMMAND]`
 
