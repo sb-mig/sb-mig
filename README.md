@@ -69,7 +69,7 @@ $ npm install -g sb-mig
 $ marckraw-oclif-test COMMAND
 running command...
 $ marckraw-oclif-test (-v|--version|version)
-sb-mig/2.0.0-beta.0 darwin-x64 node-v12.16.1
+sb-mig/2.0.0-beta.1 darwin-x64 node-v12.16.1
 $ marckraw-oclif-test --help [COMMAND]
 USAGE
   $ marckraw-oclif-test COMMAND
@@ -97,7 +97,7 @@ OPTIONS
   -s, --single=single  Backup provided single component
 ```
 
-_See code: [src/commands/backup.ts](https://github.com/sb-mig/sb-mig/blob/v2.0.0-beta.0/src/commands/backup.ts)_
+_See code: [src/commands/backup.ts](https://github.com/sb-mig/sb-mig/blob/v2.0.0-beta.1/src/commands/backup.ts)_
 
 ## `marckraw-oclif-test debug`
 
@@ -111,7 +111,7 @@ OPTIONS
   -h, --help  show CLI help
 ```
 
-_See code: [src/commands/debug.ts](https://github.com/sb-mig/sb-mig/blob/v2.0.0-beta.0/src/commands/debug.ts)_
+_See code: [src/commands/debug.ts](https://github.com/sb-mig/sb-mig/blob/v2.0.0-beta.1/src/commands/debug.ts)_
 
 ## `marckraw-oclif-test help [COMMAND]`
 
