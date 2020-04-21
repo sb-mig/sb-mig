@@ -1,3 +1,12 @@
+# [2.0.0-beta.5](https://github.com/sb-mig/sb-mig/compare/v2.0.0-beta.4...v2.0.0-beta.5) (2020-04-21)
+
+
+### migrating
+
+* Migrate synchronizing components to sync command ([fbf6196](https://github.com/sb-mig/sb-mig/commit/fbf6196a27bd72f8fbeec8d47c62baea7bf8bf1d))
+
+
+
 # [2.0.0-beta.4](https://github.com/sb-mig/sb-mig/compare/v2.0.0-beta.0...v2.0.0-beta.4) (2020-04-21)
 
 
