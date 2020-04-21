@@ -1,3 +1,12 @@
+# [2.0.0-beta.6](https://github.com/sb-mig/sb-mig/compare/v2.0.0-beta.5...v2.0.0-beta.6) (2020-04-21)
+
+
+### docs
+
+* update migration guide and readme ([867fb29](https://github.com/sb-mig/sb-mig/commit/867fb29b0c2643704928a76920809132f1311696))
+
+
+
 # [2.0.0-beta.5](https://github.com/sb-mig/sb-mig/compare/v2.0.0-beta.4...v2.0.0-beta.5) (2020-04-21)
 
 
