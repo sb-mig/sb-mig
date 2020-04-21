@@ -74,7 +74,7 @@
     "posttest": "eslint . --ext .ts --config .eslintrc",
     "prepack": "rm -rf lib && tsc -b && oclif-dev manifest && oclif-dev readme",
     "test": "nyc --extension .ts mocha --forbid-only \"test/**/*.test.ts\"",
-    "version": "conventional-changelog -p eslint -i CHANGELOG.md -s && git add CHANGELOG.md && oclif-dev readme && git add README.md"
+    "version": "conventional-changelog -p eslint -i CHANGELOG.md -s && oclif-dev readme && git add README.md && git add CHANGELOG.md"
   },
   "types": "lib/index.d.ts"
 }
