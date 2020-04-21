@@ -1,3 +1,12 @@
+# [2.0.0-beta.8](https://github.com/sb-mig/sb-mig/compare/v2.0.0-beta.7...v2.0.0-beta.8) (2020-04-21)
+
+
+### docs
+
+* update readme with new commands, remove old readme ([8431b85](https://github.com/sb-mig/sb-mig/commit/8431b85a7685da86d98a9d4f9c827935858c0978))
+
+
+
 # [2.0.0-beta.7](https://github.com/sb-mig/sb-mig/compare/v2.0.0-beta.6...v2.0.0-beta.7) (2020-04-21)
 
 
