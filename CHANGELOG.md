@@ -1,3 +1,12 @@
+# [2.0.0-beta.7](https://github.com/sb-mig/sb-mig/compare/v2.0.0-beta.6...v2.0.0-beta.7) (2020-04-21)
+
+
+### docs
+
+* update readme ([cee6d1b](https://github.com/sb-mig/sb-mig/commit/cee6d1ba8d9586195399686738228b1e2d65146f))
+
+
+
 # [2.0.0-beta.6](https://github.com/sb-mig/sb-mig/compare/v2.0.0-beta.5...v2.0.0-beta.6) (2020-04-21)
 
 
