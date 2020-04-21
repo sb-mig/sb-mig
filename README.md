@@ -9,8 +9,6 @@ If you've found an issue or you have feature request - <a href="https://github.c
 
 ## Contents
 
-- [THIS IS HIGHLY BETA RELEASE](#this-is-highly-beta-release)
-  - [Contents](#contents)
 - [How to install and configure](#how-to-install-and-configure)
 - [Usage](#usage)
 - [Commands](#commands)
@@ -68,8 +66,6 @@ module.exports = {
 # Usage
 
 ```sh-session
-$ npm install -g sb-mig
-
 $ sb-mig help
 CLI to rule the world. (and handle stuff related to Storyblok CMS)
 
@@ -89,10 +85,11 @@ COMMANDS
 # Commands
 
 <!-- commands -->
-* [`sb-mig backup`](#sb-mig-backup)
-* [`sb-mig debug`](#sb-mig-debug)
-* [`sb-mig help [COMMAND]`](#sb-mig-help-command)
-* [`sb-mig sync TYPE [LIST]`](#sb-mig-sync-type-list)
+
+- [`sb-mig backup`](#sb-mig-backup)
+- [`sb-mig debug`](#sb-mig-debug)
+- [`sb-mig help [COMMAND]`](#sb-mig-help-command)
+- [`sb-mig sync TYPE [LIST]`](#sb-mig-sync-type-list)
 
 ## `sb-mig backup`
 
@@ -169,6 +166,7 @@ OPTIONS
 ```
 
 _See code: [src/commands/sync.ts](https://github.com/sb-mig/sb-mig/blob/v2.0.0-beta.7/src/commands/sync.ts)_
+
 <!-- commandsstop -->
 
 # Schema documentation:
@@ -240,13 +238,13 @@ The main purpose of `sb-mig` is to sync your `.js` component schema files with y
 There are 2 ways to sync your schemas, which to use depends on your file structure. If you are keeping all of your schema files in a single folder, use:
 
 ```
-sb-mig --sync row column
+sb-mig sync components row column
 ```
 
 This command will look for `row.js` and `column.js` files inside a directory named `storyblok`. You can change the directory name mapping by modifying `componentDirectory` inside `storyblok.config.js`). [How to install and configure](#how-to-install-and-configure))
 
 ```
-sb-mig --sync --ext row column
+sb-mig sync components --ext row column
 ```
 
 This command will look for any file named `row.sb.js` and `column.sb.js` inside `src` and `storyblok` folders. To modify the directories in this case you can set `componentsDirectories` in the config. You can also change the extension searched by changing `schemaFileExt`. [How to install and configure](#how-to-install-and-configure))
@@ -293,12 +291,12 @@ module.exports = {
 ```
 
 Above snippet will create `datasource` with `icons` name and `icons` slug. `datasource_entries` will be your `name <-> value` array.
-Single `datasource entry` consist of **precisely** 2 fieldds. But they can be named however you like (advise to name it: `name` and `value`, it will be anyway translated to that, due to how storyblok stores them)
+Single `datasource entry` consist of **precisely** 2 fields. But they can be named however you like (advise to name it: `name` and `value`, it will be anyway translated to that, due to how storyblok stores them)
 
 Command for syncing datasources:
 
 ```
-sb-mig --sync-datasources icons
+sb-mig sync datasources icons
 ```
 
 Example output from above command
@@ -315,7 +313,7 @@ Trying to get 'icons' datasource.
 Like with syncing component, you can also use syncing multiple datasources at once:
 
 ```
-sb-mig --sync-datasources icons logos
+sb-mig sync datasources icons logos
 ```
 
 ```
@@ -338,7 +336,7 @@ To do so, first create a preset for your component in storyblok:
 then run
 
 ```
-sb-mig --component-presets text-block    // component you've created preset for
+sb-mig backup --oneComponentPresets text-block    // component you've created preset for
 ```
 
 The tool will now download all presets related to the `text-block` component.
@@ -367,7 +365,7 @@ module.exports = {
 Now, sync your component
 
 ```
-sb-mig --sync text-block
+sb-mig sync components --presets text-block
 ```
 
 output:
