@@ -67,25 +67,33 @@ module.exports = {
 ```
 
 # Usage
-<!-- usage -->
 ```sh-session
 $ npm install -g sb-mig
-$ sb-mig COMMAND
-running command...
-$ sb-mig (-v|--version|version)
-sb-mig/2.0.0-beta.5 darwin-x64 node-v12.16.2
-$ sb-mig --help [COMMAND]
+
+$ sb-mig help
+CLI to rule the world. (and handle stuff related to Storyblok CMS)
+
+VERSION
+  sb-mig/2.0.0-beta.5 darwin-x64 node-v12.16.2
+
 USAGE
-  $ sb-mig COMMAND
-...
+  $ sb-mig [COMMAND]
+
+COMMANDS
+  backup  Command for backing up anything related to Storyblok
+  debug   Output extra debugging
+  help    display help for sb-mig
+  sync    Synchronize components, datasources with Storyblok space.
 ```
-<!-- usagestop -->
+
 # Commands
+
 <!-- commands -->
-* [`sb-mig backup`](#sb-mig-backup)
-* [`sb-mig debug`](#sb-mig-debug)
-* [`sb-mig help [COMMAND]`](#sb-mig-help-command)
-* [`sb-mig sync TYPE [LIST]`](#sb-mig-sync-type-list)
+
+- [`sb-mig backup`](#sb-mig-backup)
+- [`sb-mig debug`](#sb-mig-debug)
+- [`sb-mig help [COMMAND]`](#sb-mig-help-command)
+- [`sb-mig sync TYPE [LIST]`](#sb-mig-sync-type-list)
 
 ## `sb-mig backup`
 
@@ -162,8 +170,8 @@ OPTIONS
 ```
 
 _See code: [src/commands/sync.ts](https://github.com/sb-mig/sb-mig/blob/v2.0.0-beta.5/src/commands/sync.ts)_
-<!-- commandsstop -->
 
+<!-- commandsstop -->
 
 # Schema documentation:
 
@@ -249,6 +257,7 @@ This command will look for any file named `row.sb.js` and `column.sb.js` inside 
 
 **Beta feature:** You can also sync your `datasources`.
 Add `datasourcesDirectory` to `storyblok.config.js`. (default: 'storyblok')
+
 ```
 // storyblok.config.js
 module.exports = {
@@ -257,7 +266,9 @@ module.exports = {
   ...
 };
 ```
+
 Create file with `.datasource.js` extension inside it. Basic schema for datasources file:
+
 ```
 module.exports = {
   name: "icons",
@@ -286,12 +297,14 @@ module.exports = {
 Above snippet will create `datasource` with `icons` name and `icons` slug. `datasource_entries` will be your `name <-> value` array.
 Single `datasource entry` consist of **precisely** 2 fieldds. But they can be named however you like (advise to name it: `name` and `value`, it will be anyway translated to that, due to how storyblok stores them)
 
-Command for syncing datasources: 
+Command for syncing datasources:
+
 ```
 sb-mig --sync-datasources icons
 ```
 
 Example output from above command
+
 ```
 Synciong priovided datasources icons...
 Trying to sync provided datasources: icons
@@ -302,6 +315,7 @@ Trying to get 'icons' datasource.
 ```
 
 Like with syncing component, you can also use syncing multiple datasources at once:
+
 ```
 sb-mig --sync-datasources icons logos
 ```
