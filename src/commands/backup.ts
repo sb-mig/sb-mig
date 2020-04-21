@@ -31,10 +31,6 @@ export default class Backup extends Command {
   async run() {
     const { args, flags, argv } = this.parse(Backup);
 
-    console.log("args: ", args);
-    console.log("argv: ", argv);
-    console.log("flags: ", flags);
-
     // Backup all components as json file
     if (flags.allComponents) {
       return getAllComponents()
@@ -54,6 +50,8 @@ export default class Backup extends Command {
           this.error("error happened... :(");
         });
     }
+
+
 
     // Backup one component as json file
     if (flags.oneComponent) {
