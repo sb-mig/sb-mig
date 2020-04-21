@@ -1,3 +1,5 @@
+# THIS IS HIGHLY BETA RELEASE
+
 <p align="center">
     <img width="250" height="250" src="./sb-mig-logo.png" alt="Logo" />
 </p>
@@ -9,6 +11,8 @@ If you've found an issue or you have feature request - <a href="https://github.c
 
 ## Contents
 
+- [THIS IS HIGHLY BETA RELEASE](#this-is-highly-beta-release)
+  - [Contents](#contents)
 - [How to install and configure](#how-to-install-and-configure)
 - [Usage](#usage)
 - [Commands](#commands)
@@ -66,70 +70,21 @@ module.exports = {
 <!-- usage -->
 ```sh-session
 $ npm install -g sb-mig
-$ marckraw-oclif-test COMMAND
+$ sb-mig COMMAND
 running command...
-$ marckraw-oclif-test (-v|--version|version)
+$ sb-mig (-v|--version|version)
 sb-mig/2.0.0-beta.1 darwin-x64 node-v12.16.1
-$ marckraw-oclif-test --help [COMMAND]
+$ sb-mig --help [COMMAND]
 USAGE
-  $ marckraw-oclif-test COMMAND
+  $ sb-mig COMMAND
 ...
 ```
 <!-- usagestop -->
 # Commands
 <!-- commands -->
-* [`marckraw-oclif-test backup`](#marckraw-oclif-test-backup)
-* [`marckraw-oclif-test debug`](#marckraw-oclif-test-debug)
-* [`marckraw-oclif-test help [COMMAND]`](#marckraw-oclif-test-help-command)
-
-## `marckraw-oclif-test backup`
-
-describe the command here
-
-```
-USAGE
-  $ marckraw-oclif-test backup
-
-OPTIONS
-  -a, --all            Backup all components.
-  -h, --help           show CLI help
-  -l, --list=list      Backup provided list of components.
-  -s, --single=single  Backup provided single component
-```
-
-_See code: [src/commands/backup.ts](https://github.com/sb-mig/sb-mig/blob/v2.0.0-beta.1/src/commands/backup.ts)_
-
-## `marckraw-oclif-test debug`
-
-Output extra debugging
-
-```
-USAGE
-  $ marckraw-oclif-test debug
-
-OPTIONS
-  -h, --help  show CLI help
-```
-
-_See code: [src/commands/debug.ts](https://github.com/sb-mig/sb-mig/blob/v2.0.0-beta.1/src/commands/debug.ts)_
-
-## `marckraw-oclif-test help [COMMAND]`
-
-display help for marckraw-oclif-test
-
-```
-USAGE
-  $ marckraw-oclif-test help [COMMAND]
-
-ARGUMENTS
-  COMMAND  command to show help for
-
-OPTIONS
-  --all  see all commands in CLI
-```
-
-_See code: [@oclif/plugin-help](https://github.com/oclif/plugin-help/blob/v2.2.3/src/commands/help.ts)_
-<!-- commandsstop -->
+* [`sb-mig backup`](#sb-mig-backup)
+* [`sb-mig debug`](#sb-mig-debug)
+* [`sb-mig help [COMMAND]`](#sb-mig-help-command)
 
 ## `sb-mig backup`
 
@@ -146,11 +101,11 @@ OPTIONS
   -s, --single=single  Backup provided single component
 ```
 
-_See code: [src/commands/backup.ts](https://github.com/marckraw/oclif-test/blob/v0.0.2/src/commands/backup.ts)_
+_See code: [src/commands/backup.ts](https://github.com/sb-mig/sb-mig/blob/v2.0.0-beta.1/src/commands/backup.ts)_
 
 ## `sb-mig debug`
 
-describe the command here
+Output extra debugging
 
 ```
 USAGE
@@ -160,7 +115,7 @@ OPTIONS
   -h, --help  show CLI help
 ```
 
-_See code: [src/commands/debug.ts](https://github.com/marckraw/oclif-test/blob/v0.0.2/src/commands/debug.ts)_
+_See code: [src/commands/debug.ts](https://github.com/sb-mig/sb-mig/blob/v2.0.0-beta.1/src/commands/debug.ts)_
 
 ## `sb-mig help [COMMAND]`
 
@@ -178,6 +133,7 @@ OPTIONS
 ```
 
 _See code: [@oclif/plugin-help](https://github.com/oclif/plugin-help/blob/v2.2.3/src/commands/help.ts)_
+<!-- commandsstop -->
 
 
 # Schema documentation:
