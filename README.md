@@ -73,7 +73,7 @@ $ npm install -g sb-mig
 $ sb-mig COMMAND
 running command...
 $ sb-mig (-v|--version|version)
-sb-mig/2.0.0-beta.1 darwin-x64 node-v12.16.1
+sb-mig/2.0.0-beta.3 darwin-x64 node-v12.16.2
 $ sb-mig --help [COMMAND]
 USAGE
   $ sb-mig COMMAND
@@ -85,23 +85,31 @@ USAGE
 * [`sb-mig backup`](#sb-mig-backup)
 * [`sb-mig debug`](#sb-mig-debug)
 * [`sb-mig help [COMMAND]`](#sb-mig-help-command)
+* [`sb-mig sync [FILE]`](#sb-mig-sync-file)
 
 ## `sb-mig backup`
 
-describe the command here
+Command for backing up anything related to Storyblok
 
 ```
 USAGE
   $ sb-mig backup
 
 OPTIONS
-  -a, --all            Backup all components.
-  -h, --help           show CLI help
-  -l, --list=list      Backup provided list of components.
-  -s, --single=single  Backup provided single component
+  -a, --allComponents                            Backup all components.
+  -d, --allDatasources                           Backup all datasources.
+  -e, --datasourceEntries=datasourceEntries      Backup one datasource entries by datasource name.
+  -f, --oneComponentsGroup=oneComponentsGroup    Backup one components group by name.
+  -g, --allComponentsGroups                      Backup all components groups.
+  -h, --help                                     show CLI help
+  -i, --onePreset=onePreset                      Backup one preset by id.
+  -l, --allPresets                               Backup all presets.
+  -o, --oneComponent=oneComponent                Backup one component by name.
+  -p, --oneComponentPresets=oneComponentPresets  Backup all presets for one component
+  -x, --oneDatasource=oneDatasource              Backup one datasource by name.
 ```
 
-_See code: [src/commands/backup.ts](https://github.com/sb-mig/sb-mig/blob/v2.0.0-beta.1/src/commands/backup.ts)_
+_See code: [src/commands/backup.ts](https://github.com/sb-mig/sb-mig/blob/v2.0.0-beta.3/src/commands/backup.ts)_
 
 ## `sb-mig debug`
 
@@ -115,7 +123,7 @@ OPTIONS
   -h, --help  show CLI help
 ```
 
-_See code: [src/commands/debug.ts](https://github.com/sb-mig/sb-mig/blob/v2.0.0-beta.1/src/commands/debug.ts)_
+_See code: [src/commands/debug.ts](https://github.com/sb-mig/sb-mig/blob/v2.0.0-beta.3/src/commands/debug.ts)_
 
 ## `sb-mig help [COMMAND]`
 
@@ -133,6 +141,22 @@ OPTIONS
 ```
 
 _See code: [@oclif/plugin-help](https://github.com/oclif/plugin-help/blob/v2.2.3/src/commands/help.ts)_
+
+## `sb-mig sync [FILE]`
+
+describe the command here
+
+```
+USAGE
+  $ sb-mig sync [FILE]
+
+OPTIONS
+  -f, --force
+  -h, --help       show CLI help
+  -n, --name=name  name to print
+```
+
+_See code: [src/commands/sync.ts](https://github.com/sb-mig/sb-mig/blob/v2.0.0-beta.3/src/commands/sync.ts)_
 <!-- commandsstop -->
 
 
