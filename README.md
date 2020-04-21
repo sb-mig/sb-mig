@@ -1,5 +1,3 @@
-# THIS IS HIGHLY BETA RELEASE
-
 <p align="center">
     <img width="250" height="250" src="./sb-mig-logo.png" alt="Logo" />
 </p>
@@ -19,6 +17,7 @@ If you've found an issue or you have feature request - <a href="https://github.c
   - [`sb-mig backup`](#sb-mig-backup)
   - [`sb-mig debug`](#sb-mig-debug)
   - [`sb-mig help [COMMAND]`](#sb-mig-help-command)
+  - [`sb-mig sync TYPE [LIST]`](#sb-mig-sync-TYPE-[LIST])
 - [Schema documentation:](#schema-documentation)
   - [Basics](#basics)
   - [Syncing components](#syncing-components)
@@ -67,6 +66,7 @@ module.exports = {
 ```
 
 # Usage
+
 ```sh-session
 $ npm install -g sb-mig
 
@@ -89,10 +89,11 @@ COMMANDS
 # Commands
 
 <!-- commands -->
-* [`sb-mig backup`](#sb-mig-backup)
-* [`sb-mig debug`](#sb-mig-debug)
-* [`sb-mig help [COMMAND]`](#sb-mig-help-command)
-* [`sb-mig sync TYPE [LIST]`](#sb-mig-sync-type-list)
+
+- [`sb-mig backup`](#sb-mig-backup)
+- [`sb-mig debug`](#sb-mig-debug)
+- [`sb-mig help [COMMAND]`](#sb-mig-help-command)
+- [`sb-mig sync TYPE [LIST]`](#sb-mig-sync-type-list)
 
 ## `sb-mig backup`
 
@@ -169,6 +170,7 @@ OPTIONS
 ```
 
 _See code: [src/commands/sync.ts](https://github.com/sb-mig/sb-mig/blob/v2.0.0-beta.6/src/commands/sync.ts)_
+
 <!-- commandsstop -->
 
 # Schema documentation:
