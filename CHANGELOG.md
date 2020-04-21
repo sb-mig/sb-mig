@@ -1,3 +1,28 @@
+# [2.0.0-beta.4](https://github.com/sb-mig/sb-mig/compare/v2.0.0-beta.0...v2.0.0-beta.4) (2020-04-21)
+
+
+### chore
+
+* modify name of main command, fix linting issue ([f24bcaf](https://github.com/sb-mig/sb-mig/commit/f24bcafbf33c4e88315a5804b67f7bfa7ee58179))
+* remove package-lock ([cc9c7c5](https://github.com/sb-mig/sb-mig/commit/cc9c7c5d8d735b0c1dc01dceb9756b4f65265e48))
+
+### docs
+
+* clean readme a little ([663bd0d](https://github.com/sb-mig/sb-mig/commit/663bd0dc35d6537318ae27dd7a3a72bce4bc75aa))
+
+### ichore
+
+* modify package.json version script ([f690815](https://github.com/sb-mig/sb-mig/commit/f6908156bb70555fd0b39852eaf51a4310c27971))
+
+### migration
+
+* add migration guide document ([17c0bac](https://github.com/sb-mig/sb-mig/commit/17c0bac3f071930b9e3007fe1ea64de056c5bc5e))
+* add sync command ([0494515](https://github.com/sb-mig/sb-mig/commit/0494515cdcd46dd936cd53f0404635554537865b))
+* migrate all backup (get*) functionality to backup command ([a3b8abf](https://github.com/sb-mig/sb-mig/commit/a3b8abf7842e33ef0dc3d8d76f8da4e0d217bebf))
+* update migration guide - change of commands structure ([340910e](https://github.com/sb-mig/sb-mig/commit/340910e43a9766ffa2e680bfd1cc56585df275bf))
+
+
+
 # [2.0.0-beta.3](https://github.com/sb-mig/sb-mig/compare/v2.0.0-beta.0...v2.0.0-beta.3) (2020-04-21)
 
 

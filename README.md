@@ -73,7 +73,7 @@ $ npm install -g sb-mig
 $ sb-mig COMMAND
 running command...
 $ sb-mig (-v|--version|version)
-sb-mig/2.0.0-beta.3 darwin-x64 node-v12.16.2
+sb-mig/2.0.0-beta.4 darwin-x64 node-v12.16.2
 $ sb-mig --help [COMMAND]
 USAGE
   $ sb-mig COMMAND
@@ -109,7 +109,7 @@ OPTIONS
   -x, --oneDatasource=oneDatasource              Backup one datasource by name.
 ```
 
-_See code: [src/commands/backup.ts](https://github.com/sb-mig/sb-mig/blob/v2.0.0-beta.3/src/commands/backup.ts)_
+_See code: [src/commands/backup.ts](https://github.com/sb-mig/sb-mig/blob/v2.0.0-beta.4/src/commands/backup.ts)_
 
 ## `sb-mig debug`
 
@@ -123,7 +123,7 @@ OPTIONS
   -h, --help  show CLI help
 ```
 
-_See code: [src/commands/debug.ts](https://github.com/sb-mig/sb-mig/blob/v2.0.0-beta.3/src/commands/debug.ts)_
+_See code: [src/commands/debug.ts](https://github.com/sb-mig/sb-mig/blob/v2.0.0-beta.4/src/commands/debug.ts)_
 
 ## `sb-mig help [COMMAND]`
 
@@ -156,7 +156,7 @@ OPTIONS
   -n, --name=name  name to print
 ```
 
-_See code: [src/commands/sync.ts](https://github.com/sb-mig/sb-mig/blob/v2.0.0-beta.3/src/commands/sync.ts)_
+_See code: [src/commands/sync.ts](https://github.com/sb-mig/sb-mig/blob/v2.0.0-beta.4/src/commands/sync.ts)_
 <!-- commandsstop -->
 
 
