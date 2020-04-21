@@ -26,8 +26,8 @@ export default class Logger {
     console.log(chalk.yellow(`! ${content}`))
   }
 
-  static error(content: any, {verbose} = { verbose: false}) {
-    if(verbose) {
+  static error(content: any, { verbose } = { verbose: false }) {
+    if (verbose) {
       console.log(content);
     } else {
       console.log(chalk.red(`✘ ${content}`))
