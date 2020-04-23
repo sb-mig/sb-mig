@@ -19,7 +19,7 @@ $ npm install -g @sb-mig/plugin-add-components
 $ oclif-example COMMAND
 running command...
 $ oclif-example (-v|--version|version)
-@sb-mig/plugin-add-components/0.0.2 darwin-x64 node-v12.16.2
+@sb-mig/plugin-add-components/0.0.3 darwin-x64 node-v12.16.2
 $ oclif-example --help [COMMAND]
 USAGE
   $ oclif-example COMMAND
@@ -48,5 +48,5 @@ EXAMPLE
   hello world from ./src/hello.ts!
 ```
 
-_See code: [src/commands/hello.ts](https://github.com/sb-mig/plugin-add-components/blob/v0.0.2/src/commands/hello.ts)_
+_See code: [src/commands/hello.ts](https://github.com/sb-mig/plugin-add-components/blob/v0.0.3/src/commands/hello.ts)_
 <!-- commandsstop -->

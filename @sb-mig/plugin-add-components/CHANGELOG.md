@@ -1,3 +1,12 @@
+## [0.0.3](https://github.com/sb-mig/plugin-add-components/compare/v0.0.2...v0.0.3) (2020-04-23)
+
+
+### fix
+
+* make package public ([9492525](https://github.com/sb-mig/plugin-add-components/commit/94925251c85bced943956863cc8aed71e8726891))
+
+
+
 ## 0.0.2 (2020-04-23)
 
 
