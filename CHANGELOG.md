@@ -1,3 +1,12 @@
+# [2.0.0-beta.9](https://github.com/sb-mig/sb-mig/compare/v2.0.0-beta.8...v2.0.0-beta.9) (2020-04-23)
+
+
+### migrating
+
+* fix sync groupName issue ([6dc4e87](https://github.com/sb-mig/sb-mig/commit/6dc4e879775be5437e338279389f4b905ec81088))
+
+
+
 # [2.0.0-beta.8](https://github.com/sb-mig/sb-mig/compare/v2.0.0-beta.7...v2.0.0-beta.8) (2020-04-21)
 
 
