@@ -1,3 +1,12 @@
+# [2.0.0-beta.11](https://github.com/sb-mig/sb-mig/compare/v2.0.0-beta.10...v2.0.0-beta.11) (2020-04-23)
+
+
+### fix
+
+* fix sb-mig scope for oclif plugins ([7bf48f3](https://github.com/sb-mig/sb-mig/commit/7bf48f3dbe77bc3407e5f00627aedbca2fcb6efb))
+
+
+
 # [2.0.0-beta.10](https://github.com/sb-mig/sb-mig/compare/v2.0.0-beta.9...v2.0.0-beta.10) (2020-04-23)
 
 
