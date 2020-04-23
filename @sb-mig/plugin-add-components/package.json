@@ -1,5 +1,5 @@
 {
-  "name": "plugin-add-components",
+  "name": "@sb-mig/plugin-add-components",
   "description": "Plugin for sb-mig to add components to your project/",
   "version": "0.0.1",
   "author": "Marcin Krawczyk marckraw@icloud.com",
@@ -17,6 +17,7 @@
     "@types/mocha": "^5",
     "@types/node": "^10",
     "chai": "^4",
+    "conventional-changelog-cli": "^2.0.31",
     "eslint": "^5.13",
     "eslint-config-oclif": "^3.1",
     "eslint-config-oclif-typescript": "^0.1",
@@ -47,12 +48,15 @@
       "@oclif/plugin-help"
     ]
   },
-  "repository": "sb-mig/plugin-add-components",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sb-mig/plugin-add-components.git"
+  },
   "scripts": {
     "postpack": "rm -f oclif.manifest.json",
     "posttest": "eslint . --ext .ts --config .eslintrc",
     "prepack": "rm -rf lib && tsc -b && oclif-dev manifest && oclif-dev readme",
     "test": "nyc --extension .ts mocha --forbid-only \"test/**/*.test.ts\"",
-    "version": "oclif-dev readme && git add README.md"
+    "version": "conventional-changelog -p eslint -i CHANGELOG.md -s && oclif-dev readme && git add README.md && git add CHANGELOG.md"
   }
 }
