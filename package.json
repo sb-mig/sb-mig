@@ -11,6 +11,7 @@
     "@oclif/command": "^1",
     "@oclif/config": "^1",
     "@oclif/plugin-help": "^2",
+    "@oclif/plugin-plugins": "^1.7.9",
     "camelcase": "^5.3.1",
     "dotenv": "^8.2.0",
     "execa": "^4.0.0",
@@ -61,8 +62,10 @@
   "oclif": {
     "commands": "./lib/commands",
     "bin": "sb-mig",
+    "scope": "@sb-mig",
     "plugins": [
-      "@oclif/plugin-help"
+      "@oclif/plugin-help",
+      "@oclif/plugin-plugins"
     ]
   },
   "repository": {
