@@ -1,7 +1,7 @@
 plugin-add-components
 =====================
 
-Plugin for sb-mig to add components to your project/
+Plugin for sb-mig to add components to your project.
 
 [![oclif](https://img.shields.io/badge/cli-oclif-brightgreen.svg)](https://oclif.io)
 [![Version](https://img.shields.io/npm/v/plugin-add-components.svg)](https://npmjs.org/package/plugin-add-components)
