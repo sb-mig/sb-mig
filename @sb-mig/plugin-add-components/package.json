@@ -1,5 +1,6 @@
 {
   "name": "@sb-mig/plugin-add-components",
+  "private": false,
   "description": "Plugin for sb-mig to add components to your project/",
   "version": "0.0.2",
   "author": "Marcin Krawczyk marckraw@icloud.com",
