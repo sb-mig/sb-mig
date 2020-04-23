@@ -62,7 +62,7 @@
   "oclif": {
     "commands": "./lib/commands",
     "bin": "sb-mig",
-    "scope": "@sb-mig",
+    "scope": "sb-mig",
     "plugins": [
       "@oclif/plugin-help",
       "@oclif/plugin-plugins"
