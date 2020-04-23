@@ -1,3 +1,12 @@
+# [2.0.0-beta.10](https://github.com/sb-mig/sb-mig/compare/v2.0.0-beta.9...v2.0.0-beta.10) (2020-04-23)
+
+
+### plugins
+
+* add ability to install plugins runtime by user ([fccd9b0](https://github.com/sb-mig/sb-mig/commit/fccd9b0539573f83f38e0283af4ad95b2da201c7))
+
+
+
 # [2.0.0-beta.9](https://github.com/sb-mig/sb-mig/compare/v2.0.0-beta.8...v2.0.0-beta.9) (2020-04-23)
 
 
