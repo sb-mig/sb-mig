@@ -1,3 +1,16 @@
+## [0.0.4](https://github.com/sb-mig/plugin-add-components/compare/v0.0.3...v0.0.4) (2020-04-24)
+
+
+### docs
+
+* update readme and package.json ([eae5f7e](https://github.com/sb-mig/plugin-add-components/commit/eae5f7eec98ef22bd5d5108f154b3a52933767d9))
+
+### packages
+
+* add ora and execa ([a9d6f3b](https://github.com/sb-mig/plugin-add-components/commit/a9d6f3bf17457b8e0e9ace3d54f3de71d0cecb0f))
+
+
+
 ## [0.0.3](https://github.com/sb-mig/plugin-add-components/compare/v0.0.2...v0.0.3) (2020-04-23)
 
 

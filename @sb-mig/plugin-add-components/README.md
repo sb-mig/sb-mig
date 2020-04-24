@@ -16,27 +16,27 @@ Plugin for sb-mig to add components to your project.
 <!-- usage -->
 ```sh-session
 $ npm install -g @sb-mig/plugin-add-components
-$ oclif-example COMMAND
+$ sb-mig COMMAND
 running command...
-$ oclif-example (-v|--version|version)
-@sb-mig/plugin-add-components/0.0.3 darwin-x64 node-v12.16.2
-$ oclif-example --help [COMMAND]
+$ sb-mig (-v|--version|version)
+@sb-mig/plugin-add-components/0.0.4 darwin-x64 node-v12.16.2
+$ sb-mig --help [COMMAND]
 USAGE
-  $ oclif-example COMMAND
+  $ sb-mig COMMAND
 ...
 ```
 <!-- usagestop -->
 # Commands
 <!-- commands -->
-* [`oclif-example hello [FILE]`](#oclif-example-hello-file)
+* [`sb-mig hello [FILE]`](#sb-mig-hello-file)
 
-## `oclif-example hello [FILE]`
+## `sb-mig hello [FILE]`
 
 describe the command here
 
 ```
 USAGE
-  $ oclif-example hello [FILE]
+  $ sb-mig hello [FILE]
 
 OPTIONS
   -f, --force
@@ -48,5 +48,5 @@ EXAMPLE
   hello world from ./src/hello.ts!
 ```
 
-_See code: [src/commands/hello.ts](https://github.com/sb-mig/plugin-add-components/blob/v0.0.3/src/commands/hello.ts)_
+_See code: [src/commands/hello.ts](https://github.com/sb-mig/plugin-add-components/blob/v0.0.4/src/commands/hello.ts)_
 <!-- commandsstop -->
