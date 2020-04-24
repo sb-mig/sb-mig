@@ -1,3 +1,12 @@
+## [0.0.6](https://github.com/sb-mig/plugin-add-components/compare/v0.0.5...v0.0.6) (2020-04-24)
+
+
+### docs
+
+* fix badges ([34e3513](https://github.com/sb-mig/plugin-add-components/commit/34e3513876f02ec7e9ca19d9f71818b232c9df5f))
+
+
+
 ## [0.0.5](https://github.com/sb-mig/plugin-add-components/compare/v0.0.4...v0.0.5) (2020-04-24)
 
 
