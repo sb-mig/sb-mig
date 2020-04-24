@@ -503,3 +503,43 @@ Preset: 'My Preset' with '437086' id has been updated.
 _This feature is still quite experimental, that's why it's not completely straightforward to do. Workin on it :)_
 
 ---
+
+## Development
+
+To develop and make changes to the library:
+
+```
+git clone git@github.com:sb-mig/sb-mig.git
+```
+Install packages
+```
+yarn
+```
+
+Link package to easy test it with `sb-mig` command
+```
+yarn link
+```
+
+or use it like that without linking:
+```
+./bin/run // same as linked `sb-mig` command
+```
+
+## Roadmap
+
+
+- [ ] Sync / Migrate content (stories)
+- [ ] Improve preset creation/update
+- ~~[ ] End-to-end solution to add / update components~~ // it will be responsibility of different plugin. Check [here](https://github.com/sb-mig/plugin-generate-project)
+- [x] Sync / Migrate datasources
+- [x] Sync components with extensions
+- [x] Sync presets
+- [x] Sync single component
+- [x] Sync all components
+- [x] Sync components using schema based .js file (based on idea from [storyblok-migrate](https://github.com/maoberlehner/storyblok-migrate))
+- [x] Component groups
+- [x] Sync custom fields
+
+The general purpose of this package is to manage creation and maintenance of components from code/command line, to be able to create a whole space and project structure without using GUI.
+
