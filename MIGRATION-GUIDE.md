@@ -97,3 +97,32 @@ v2.0.0
 ```
 sb-mig debug
 ```
+
+### backing up stuff
+All pull / backup commands are inside `sb-mig backup`. Run
+```
+sb-mig backup
+```
+to get help about that command. It will output:
+```
+Command for backing up anything related to Storyblok
+
+USAGE
+  $ sb-mig backup
+
+OPTIONS
+  -a, --allComponents                            Backup all components.
+  -d, --allDatasources                           Backup all datasources.
+  -e, --datasourceEntries=datasourceEntries      Backup one datasource entries by datasource name.
+  -f, --oneComponentsGroup=oneComponentsGroup    Backup one components group by name.
+  -g, --allComponentsGroups                      Backup all components groups.
+  -h, --help                                     show CLI help
+  -i, --onePreset=onePreset                      Backup one preset by id.
+  -l, --allPresets                               Backup all presets.
+  -o, --oneComponent=oneComponent                Backup one component by name.
+  -p, --oneComponentPresets=oneComponentPresets  Backup all presets for one component
+  -x, --oneDatasource=oneDatasource              Backup one datasource by name.
+```
+
+Worth mentioning: Commands here, will probably change once again their structure, after deciding on more generic aproach.
+
