@@ -16,27 +16,27 @@ Plugin for sb-mig to create component in monorepos compliant with sb-mig
 <!-- usage -->
 ```sh-session
 $ npm install -g @sb-mig/plugin-create-component
-$ oclif-example COMMAND
+$ sb-mig COMMAND
 running command...
-$ oclif-example (-v|--version|version)
-@sb-mig/plugin-create-component/0.0.4 darwin-x64 node-v12.16.2
-$ oclif-example --help [COMMAND]
+$ sb-mig (-v|--version|version)
+@sb-mig/plugin-create-component/0.0.5 darwin-x64 node-v12.16.2
+$ sb-mig --help [COMMAND]
 USAGE
-  $ oclif-example COMMAND
+  $ sb-mig COMMAND
 ...
 ```
 <!-- usagestop -->
 # Commands
 <!-- commands -->
-* [`oclif-example create-component [BOILERPLATE-REPO]`](#oclif-example-create-component-boilerplate-repo)
+* [`sb-mig create-component [BOILERPLATE-REPO]`](#sb-mig-create-component-boilerplate-repo)
 
-## `oclif-example create-component [BOILERPLATE-REPO]`
+## `sb-mig create-component [BOILERPLATE-REPO]`
 
 Create package inside sb-mig compliant components monorepo.
 
 ```
 USAGE
-  $ oclif-example create-component [BOILERPLATE-REPO]
+  $ sb-mig create-component [BOILERPLATE-REPO]
 
 OPTIONS
   -f, --force
@@ -48,5 +48,5 @@ EXAMPLE
   git@github.com:sb-mig/storyblok-components-boilerplate-component.git for @storyblok-components
 ```
 
-_See code: [src/commands/create-component.ts](https://github.com/sb-mig/plugin-create-component/blob/v0.0.4/src/commands/create-component.ts)_
+_See code: [src/commands/create-component.ts](https://github.com/sb-mig/plugin-create-component/blob/v0.0.5/src/commands/create-component.ts)_
 <!-- commandsstop -->

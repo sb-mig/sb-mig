@@ -1,3 +1,12 @@
+## [0.0.5](https://github.com/sb-mig/plugin-create-component/compare/v0.0.4...v0.0.5) (2020-04-24)
+
+
+### packages
+
+* update package.json ([402ea22](https://github.com/sb-mig/plugin-create-component/commit/402ea22dff6fd0419299604356c579201f597a7b))
+
+
+
 ## [0.0.4](https://github.com/sb-mig/plugin-create-component/compare/v0.0.3...v0.0.4) (2020-04-24)
 
 
