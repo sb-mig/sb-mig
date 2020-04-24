@@ -4,7 +4,7 @@ const {
   githubToken,
   accessToken,
   storyblokApiUrl
-} = require("../config")
+} = require("../config/config")
 
 const headers = {
   "Content-Type": "application/json",

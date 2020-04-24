@@ -1,3 +1,185 @@
+# [2.0.0-beta.14](https://github.com/sb-mig/sb-mig/compare/v2.0.0-beta.13...v2.0.0-beta.14) (2020-04-24)
+
+
+### docs
+
+* modify contents links in readme ([27b637e](https://github.com/sb-mig/sb-mig/commit/27b637ec07792ba06bf6aeff10180deec3f1794b))
+
+
+
+# [2.0.0-beta.13](https://github.com/sb-mig/sb-mig/compare/v2.0.0-beta.12...v2.0.0-beta.13) (2020-04-24)
+
+
+### docs
+
+* add migration guide for backing up ([3f77d11](https://github.com/sb-mig/sb-mig/commit/3f77d1110ee2d474f3bd5b0a25c181a9deb92356))
+* add migration guide for datasources ([5003aaf](https://github.com/sb-mig/sb-mig/commit/5003aaf5c47c879a8c4bb0b3f6ee401e0599e7b4))
+
+
+
+# [2.0.0-beta.12](https://github.com/sb-mig/sb-mig/compare/v2.0.0-beta.11...v2.0.0-beta.12) (2020-04-24)
+
+
+### docs
+
+* add information about release ([a5a2998](https://github.com/sb-mig/sb-mig/commit/a5a2998647fecece3ef0561cdd1f451bc2957d13))
+* add plugins command to contents ([02a8c3a](https://github.com/sb-mig/sb-mig/commit/02a8c3a1ebb01eb856da0fb9de3d4ec40920c2b8))
+* update readme ([376d5db](https://github.com/sb-mig/sb-mig/commit/376d5db7e5ddd5da3cc47eb4330baaf558462911))
+
+
+
+# [2.0.0-beta.11](https://github.com/sb-mig/sb-mig/compare/v2.0.0-beta.10...v2.0.0-beta.11) (2020-04-23)
+
+
+### fix
+
+* fix sb-mig scope for oclif plugins ([7bf48f3](https://github.com/sb-mig/sb-mig/commit/7bf48f3dbe77bc3407e5f00627aedbca2fcb6efb))
+
+
+
+# [2.0.0-beta.10](https://github.com/sb-mig/sb-mig/compare/v2.0.0-beta.9...v2.0.0-beta.10) (2020-04-23)
+
+
+### plugins
+
+* add ability to install plugins runtime by user ([fccd9b0](https://github.com/sb-mig/sb-mig/commit/fccd9b0539573f83f38e0283af4ad95b2da201c7))
+
+
+
+# [2.0.0-beta.9](https://github.com/sb-mig/sb-mig/compare/v2.0.0-beta.8...v2.0.0-beta.9) (2020-04-23)
+
+
+### migrating
+
+* fix sync groupName issue ([6dc4e87](https://github.com/sb-mig/sb-mig/commit/6dc4e879775be5437e338279389f4b905ec81088))
+
+
+
+# [2.0.0-beta.8](https://github.com/sb-mig/sb-mig/compare/v2.0.0-beta.7...v2.0.0-beta.8) (2020-04-21)
+
+
+### docs
+
+* update readme with new commands, remove old readme ([8431b85](https://github.com/sb-mig/sb-mig/commit/8431b85a7685da86d98a9d4f9c827935858c0978))
+
+
+
+# [2.0.0-beta.7](https://github.com/sb-mig/sb-mig/compare/v2.0.0-beta.6...v2.0.0-beta.7) (2020-04-21)
+
+
+### docs
+
+* update readme ([cee6d1b](https://github.com/sb-mig/sb-mig/commit/cee6d1ba8d9586195399686738228b1e2d65146f))
+
+
+
+# [2.0.0-beta.6](https://github.com/sb-mig/sb-mig/compare/v2.0.0-beta.5...v2.0.0-beta.6) (2020-04-21)
+
+
+### docs
+
+* update migration guide and readme ([867fb29](https://github.com/sb-mig/sb-mig/commit/867fb29b0c2643704928a76920809132f1311696))
+
+
+
+# [2.0.0-beta.5](https://github.com/sb-mig/sb-mig/compare/v2.0.0-beta.4...v2.0.0-beta.5) (2020-04-21)
+
+
+### migrating
+
+* Migrate synchronizing components to sync command ([fbf6196](https://github.com/sb-mig/sb-mig/commit/fbf6196a27bd72f8fbeec8d47c62baea7bf8bf1d))
+
+
+
+# [2.0.0-beta.4](https://github.com/sb-mig/sb-mig/compare/v2.0.0-beta.0...v2.0.0-beta.4) (2020-04-21)
+
+
+### chore
+
+* modify name of main command, fix linting issue ([f24bcaf](https://github.com/sb-mig/sb-mig/commit/f24bcafbf33c4e88315a5804b67f7bfa7ee58179))
+* remove package-lock ([cc9c7c5](https://github.com/sb-mig/sb-mig/commit/cc9c7c5d8d735b0c1dc01dceb9756b4f65265e48))
+
+### docs
+
+* clean readme a little ([663bd0d](https://github.com/sb-mig/sb-mig/commit/663bd0dc35d6537318ae27dd7a3a72bce4bc75aa))
+
+### ichore
+
+* modify package.json version script ([f690815](https://github.com/sb-mig/sb-mig/commit/f6908156bb70555fd0b39852eaf51a4310c27971))
+
+### migration
+
+* add migration guide document ([17c0bac](https://github.com/sb-mig/sb-mig/commit/17c0bac3f071930b9e3007fe1ea64de056c5bc5e))
+* add sync command ([0494515](https://github.com/sb-mig/sb-mig/commit/0494515cdcd46dd936cd53f0404635554537865b))
+* migrate all backup (get*) functionality to backup command ([a3b8abf](https://github.com/sb-mig/sb-mig/commit/a3b8abf7842e33ef0dc3d8d76f8da4e0d217bebf))
+* update migration guide - change of commands structure ([340910e](https://github.com/sb-mig/sb-mig/commit/340910e43a9766ffa2e680bfd1cc56585df275bf))
+
+
+
+# [2.0.0-beta.3](https://github.com/sb-mig/sb-mig/compare/v2.0.0-beta.0...v2.0.0-beta.3) (2020-04-21)
+
+
+### chore
+
+* modify name of main command, fix linting issue ([f24bcaf](https://github.com/sb-mig/sb-mig/commit/f24bcafbf33c4e88315a5804b67f7bfa7ee58179))
+* remove package-lock ([cc9c7c5](https://github.com/sb-mig/sb-mig/commit/cc9c7c5d8d735b0c1dc01dceb9756b4f65265e48))
+
+### docs
+
+* clean readme a little ([663bd0d](https://github.com/sb-mig/sb-mig/commit/663bd0dc35d6537318ae27dd7a3a72bce4bc75aa))
+
+### migration
+
+* add migration guide document ([17c0bac](https://github.com/sb-mig/sb-mig/commit/17c0bac3f071930b9e3007fe1ea64de056c5bc5e))
+* migrate all backup (get*) functionality to backup command ([a3b8abf](https://github.com/sb-mig/sb-mig/commit/a3b8abf7842e33ef0dc3d8d76f8da4e0d217bebf))
+* update migration guide - change of commands structure ([340910e](https://github.com/sb-mig/sb-mig/commit/340910e43a9766ffa2e680bfd1cc56585df275bf))
+
+
+
+# [2.0.0-beta.2](https://github.com/sb-mig/sb-mig/compare/v2.0.0-beta.0...v2.0.0-beta.2) (2020-04-21)
+
+
+### chore
+
+* modify name of main command, fix linting issue ([f24bcaf](https://github.com/sb-mig/sb-mig/commit/f24bcafbf33c4e88315a5804b67f7bfa7ee58179))
+* remove package-lock ([cc9c7c5](https://github.com/sb-mig/sb-mig/commit/cc9c7c5d8d735b0c1dc01dceb9756b4f65265e48))
+
+### docs
+
+* clean readme a little ([663bd0d](https://github.com/sb-mig/sb-mig/commit/663bd0dc35d6537318ae27dd7a3a72bce4bc75aa))
+
+### migration
+
+* add migration guide document ([17c0bac](https://github.com/sb-mig/sb-mig/commit/17c0bac3f071930b9e3007fe1ea64de056c5bc5e))
+* migrate all backup (get*) functionality to backup command ([a3b8abf](https://github.com/sb-mig/sb-mig/commit/a3b8abf7842e33ef0dc3d8d76f8da4e0d217bebf))
+* update migration guide - change of commands structure ([340910e](https://github.com/sb-mig/sb-mig/commit/340910e43a9766ffa2e680bfd1cc56585df275bf))
+
+
+
+# [2.0.0-beta.1](https://github.com/sb-mig/sb-mig/compare/v2.0.0-beta.0...v2.0.0-beta.1) (2020-04-20)
+
+# [2.0.0-beta.0](https://github.com/sb-mig/sb-mig/compare/v1.3.11...v2.0.0-beta.0) (2020-04-20)
+
+
+### feat
+
+* Moving whole CLI to use Oclif and plugin system to customize it ([36776f4](https://github.com/sb-mig/sb-mig/commit/36776f42fea769a4d5e0fcbe349f5c42a25be279))
+
+
+
+## [1.3.11](https://github.com/marckraw/sb-mig/compare/v1.3.7...v1.3.11) (2020-04-20)
+
+
+### chore
+
+* update .gitignore ([48a330c](https://github.com/marckraw/sb-mig/commit/48a330c7b41046b845e0fae38423713a3a3b4a0b))
+
+### feat
+
+* fix generate command and adding components ([7a1310b](https://github.com/marckraw/sb-mig/commit/7a1310b87d81a163d88a09902f676ed612ba7d55))
+
+
+
 ## [1.3.10](https://github.com/marckraw/sb-mig/compare/v1.3.9...v1.3.10) (2020-03-25)
 
 ### build(deps)

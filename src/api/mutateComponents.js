@@ -1,13 +1,11 @@
-const Logger = require("../helpers/logger")
-const { sleepBlock } = require("../helpers/sleep")
-const { spaceId } = require("../config")
+const Logger = require("../utils/loggerumd")
+const { spaceId } = require("../config/config")
 const { sbApi } = require("./config")
 const _resolvePresets = require("./resolvePresets")
 
 // UPDATE
 const updateComponent = (component, presets) => {
   Logger.log(`Trying to update '${component.name}' with id ${component.id}`)
-  sleepBlock(250)
   const componentWithPresets = component
   const { all_presets, ...componentWithoutPresets } = componentWithPresets
 
@@ -32,7 +30,6 @@ const updateComponent = (component, presets) => {
 // CREATE
 const createComponent = (component, presets) => {
   Logger.log(`Trying to create '${component.name}'`)
-  sleepBlock(250)
   const componentWithPresets = component
   const { all_presets, ...componentWithoutPresets } = componentWithPresets
 

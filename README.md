@@ -1,25 +1,36 @@
 <p align="center">
     <img width="250" height="250" src="./sb-mig-logo.png" alt="Logo" />
 </p>
-If you've found an issue or you have feature request - <a href="https://github.com/marckraw/sb-mig/issues/new">open an issue</a> or look if it was <a href="https://github.com/marckraw/sb-mig/issues/">already created</a>.
+If you've found an issue or you have feature request - <a href="https://github.com/marckraw/sb-mig/issues/new">open an issue</a> or look if it was <a href="https://github.com/sb-mig/sb-mig/issues/">already created</a>.
 
 [![npm](https://img.shields.io/npm/v/sb-mig.svg)](https://www.npmjs.com/package/sb-mig)
 [![npm](https://img.shields.io/npm/dt/sb-mig.svg)](ttps://img.shields.io/npm/dt/sb-mig.svg)
-[![GitHub issues](https://img.shields.io/github/issues/marckraw/sb-mig.svg?style=flat-square&v=1)](https://github.com/marckraw/sb-mig/issues?q=is%3Aopen+is%3Aissue)
-[![GitHub closed issues](https://img.shields.io/github/issues-closed/marckraw/sb-mig.svg?style=flat-square&v=1)](https://github.com/marckraw/sb-mig/issues?q=is%3Aissue+is%3Aclosed)
+[![GitHub issues](https://img.shields.io/github/issues/sb-mig/sb-mig.svg?style=flat-square&v=1)](https://github.com/sb-mig/sb-mig/issues?q=is%3Aopen+is%3Aissue)
+
+# 2.x.x version released!
+
+- completely rewritten to [Oclif](https://github.com/oclif/oclif) framework written in Typescript (with as little changes to usage as possible, check [migration guide](https://github.com/sb-mig/sb-mig/blob/oclif-research/MIGRATION-GUIDE.md))
+- support for Oclif plugin system
+- created [sb-mig](https://github.com/sb-mig) organization for better grouping related stuff
+- created npm `@sb-mig` scope aswell, for the same reason
 
 ## Contents
 
 - [How to install and configure](#how-to-install-and-configure)
-  - [Usage](#usage)
-  - [Generate whole starter project](#generate-whole-starter-project) * experimental
+- [Usage](#usage)
+- [Commands](#commands)
+  - [`sb-mig backup`](#sb-mig-backup)
+  - [`sb-mig debug`](#sb-mig-debug)
+  - [`sb-mig help [COMMAND]`](#sb-mig-help-command)
+  - [`sb-mig plugins`](#sb-mig-plugins)
+  - [`sb-mig sync TYPE [LIST]`](#sb-mig-sync-type-list)
 - [Schema documentation:](#schema-documentation)
   - [Basics](#basics)
   - [Syncing components](#syncing-components)
   - [Syncing datasources](#syncing-datasources)
   - [Presets support](#presets-support)
-  - [Development](#development)
-  - [Roadmap](#roadmap)
+- [Development](#development)
+- [Roadmap](#roadmap)
 
 ---
 
@@ -62,74 +73,231 @@ module.exports = {
 };
 ```
 
-## Usage
+# Usage
 
-```
-        _                           _
-  ___  | |__            _ __ ___   (_)   __ _
- / __| | '_ \   _____  | '_ ` _ \  | |  / _` |
- \__ \ | |_) | |_____| | | | | | | | | | (_| |
- |___/ |_.__/          |_| |_| |_| |_|  \__, |
-                                        |___/
-Usage: sb-mig [options]
+```sh-session
+$ sb-mig help
+CLI to rule the world. (and handle stuff related to Storyblok CMS)
 
-Options:
-  -V, --version                                   output the version number
-  -s, --sync                                      Sync provided components from schema
-  -S, --sync-all                                  Sync all components from schema
-  -D, --sync-datasources                          Sync provided datasources from schema
-  -n, --no-presets                                Use with --sync or --sync-all. Sync components without presets
-  -x, --ext                                       Use only with --sync or --sync-all. By default sync with *.sb.js extension
-  -g, --all-components-groups                     Get all component groups
-  -C, --components-group <components-group-name>  Get single components group by name
-  -a, --all-components                            Get all components
-  -c, --component <component-name>                Get single component by name
-  -q, --all-presets                               Get all presets
-  -p, --preset <preset-id>                        Get preset by id
-  -d, --component-presets <component-name>        Get all presets for single component by name
-  -e, --datasource <datasource-name>              Get single datasource by name
-  -f, --datasource-entry <datasource-name>        Get single datasource entries by name
-  -t, --all-datasources                           Get all datasources
-  -G, --generate                                  Generate project
-  -A, --add                                       Add components. Use only with --generate
-  -d, --debug                                     Output extra debugging
-  -h, --help                                      output usage information
+VERSION
+  sb-mig/2.0.0-beta.5 darwin-x64 node-v12.16.2
+
+USAGE
+  $ sb-mig [COMMAND]
+
+COMMANDS
+  backup  Command for backing up anything related to Storyblok
+  debug   Output extra debugging
+  help    display help for sb-mig
+  sync    Synchronize components, datasources with Storyblok space.
 ```
 
-## Generate whole starter project
-**This is highly experimental feature** right now, works only with private npm registry
-1. Create folder with custom name and get inside
-2. Create `storyblok.config.js` file if u want to use custom gatsby storyblok starter, or custom npm component scope
-```
-module.exports = {
-  ...
-  npmScopeForComponents: "@your-custom-scope-with-components",
-  boilerplateUrl: "git@github.com:your-custom-gatsby-storyblok-boilerplate.git",
-  ...
-}
+# Commands
+
+<!-- commands -->
+* [`sb-mig backup`](#sb-mig-backup)
+* [`sb-mig debug`](#sb-mig-debug)
+* [`sb-mig help [COMMAND]`](#sb-mig-help-command)
+* [`sb-mig plugins`](#sb-mig-plugins)
+* [`sb-mig plugins:install PLUGIN...`](#sb-mig-pluginsinstall-plugin)
+* [`sb-mig plugins:link PLUGIN`](#sb-mig-pluginslink-plugin)
+* [`sb-mig plugins:uninstall PLUGIN...`](#sb-mig-pluginsuninstall-plugin)
+* [`sb-mig plugins:update`](#sb-mig-pluginsupdate)
+* [`sb-mig sync TYPE [LIST]`](#sb-mig-sync-type-list)
+
+## `sb-mig backup`
+
+Command for backing up anything related to Storyblok
 
 ```
-3. Create `.env` file only with your storyblok oauth token (which you can get from your storyblok account - this is needed for script to have access to creating space api)
-```
-STORYBLOK_OAUTH_TOKEN=1234567890qwertyuiop
-```
-4. Run
-```
-sb-mig --generate "My Greatest Project"
-```
-It will generate basic boilerplate.
+USAGE
+  $ sb-mig backup
 
-If u want to specify components you would like to add you can do that by adding parameter to the command, and list of components (list of all available components: **TBD**):
+OPTIONS
+  -a, --allComponents                            Backup all components.
+  -d, --allDatasources                           Backup all datasources.
+  -e, --datasourceEntries=datasourceEntries      Backup one datasource entries by datasource name.
+  -f, --oneComponentsGroup=oneComponentsGroup    Backup one components group by name.
+  -g, --allComponentsGroups                      Backup all components groups.
+  -h, --help                                     show CLI help
+  -i, --onePreset=onePreset                      Backup one preset by id.
+  -l, --allPresets                               Backup all presets.
+  -o, --oneComponent=oneComponent                Backup one component by name.
+  -p, --oneComponentPresets=oneComponentPresets  Backup all presets for one component
+  -x, --oneDatasource=oneDatasource              Backup one datasource by name.
 ```
-sb-mig --generate "My Greatest Project" --add web-ui-text-block web-ui-surface
+
+_See code: [src/commands/backup.ts](https://github.com/sb-mig/sb-mig/blob/v2.0.0-beta.14/src/commands/backup.ts)_
+
+## `sb-mig debug`
+
+Output extra debugging
+
 ```
-5. Wait for magic to happen.
-6. Run sync command to sync all components to storyblok.
+USAGE
+  $ sb-mig debug
+
+OPTIONS
+  -h, --help  show CLI help
 ```
-sb-mig --sync-all --ext
+
+_See code: [src/commands/debug.ts](https://github.com/sb-mig/sb-mig/blob/v2.0.0-beta.14/src/commands/debug.ts)_
+
+## `sb-mig help [COMMAND]`
+
+display help for sb-mig
+
 ```
-7. `npm start`
-8. Enjoy your new project.
+USAGE
+  $ sb-mig help [COMMAND]
+
+ARGUMENTS
+  COMMAND  command to show help for
+
+OPTIONS
+  --all  see all commands in CLI
+```
+
+_See code: [@oclif/plugin-help](https://github.com/oclif/plugin-help/blob/v2.2.3/src/commands/help.ts)_
+
+## `sb-mig plugins`
+
+list installed plugins
+
+```
+USAGE
+  $ sb-mig plugins
+
+OPTIONS
+  --core  show core plugins
+
+EXAMPLE
+  $ sb-mig plugins
+```
+
+_See code: [@oclif/plugin-plugins](https://github.com/oclif/plugin-plugins/blob/v1.7.9/src/commands/plugins/index.ts)_
+
+## `sb-mig plugins:install PLUGIN...`
+
+installs a plugin into the CLI
+
+```
+USAGE
+  $ sb-mig plugins:install PLUGIN...
+
+ARGUMENTS
+  PLUGIN  plugin to install
+
+OPTIONS
+  -f, --force    yarn install with force flag
+  -h, --help     show CLI help
+  -v, --verbose
+
+DESCRIPTION
+  Can be installed from npm or a git url.
+
+  Installation of a user-installed plugin will override a core plugin.
+
+  e.g. If you have a core plugin that has a 'hello' command, installing a user-installed plugin with a 'hello' command 
+  will override the core plugin implementation. This is useful if a user needs to update core plugin functionality in 
+  the CLI without the need to patch and update the whole CLI.
+
+ALIASES
+  $ sb-mig plugins:add
+
+EXAMPLES
+  $ sb-mig plugins:install myplugin 
+  $ sb-mig plugins:install https://github.com/someuser/someplugin
+  $ sb-mig plugins:install someuser/someplugin
+```
+
+_See code: [@oclif/plugin-plugins](https://github.com/oclif/plugin-plugins/blob/v1.7.9/src/commands/plugins/install.ts)_
+
+## `sb-mig plugins:link PLUGIN`
+
+links a plugin into the CLI for development
+
+```
+USAGE
+  $ sb-mig plugins:link PLUGIN
+
+ARGUMENTS
+  PATH  [default: .] path to plugin
+
+OPTIONS
+  -h, --help     show CLI help
+  -v, --verbose
+
+DESCRIPTION
+  Installation of a linked plugin will override a user-installed or core plugin.
+
+  e.g. If you have a user-installed or core plugin that has a 'hello' command, installing a linked plugin with a 'hello' 
+  command will override the user-installed or core plugin implementation. This is useful for development work.
+
+EXAMPLE
+  $ sb-mig plugins:link myplugin
+```
+
+_See code: [@oclif/plugin-plugins](https://github.com/oclif/plugin-plugins/blob/v1.7.9/src/commands/plugins/link.ts)_
+
+## `sb-mig plugins:uninstall PLUGIN...`
+
+removes a plugin from the CLI
+
+```
+USAGE
+  $ sb-mig plugins:uninstall PLUGIN...
+
+ARGUMENTS
+  PLUGIN  plugin to uninstall
+
+OPTIONS
+  -h, --help     show CLI help
+  -v, --verbose
+
+ALIASES
+  $ sb-mig plugins:unlink
+  $ sb-mig plugins:remove
+```
+
+_See code: [@oclif/plugin-plugins](https://github.com/oclif/plugin-plugins/blob/v1.7.9/src/commands/plugins/uninstall.ts)_
+
+## `sb-mig plugins:update`
+
+update installed plugins
+
+```
+USAGE
+  $ sb-mig plugins:update
+
+OPTIONS
+  -h, --help     show CLI help
+  -v, --verbose
+```
+
+_See code: [@oclif/plugin-plugins](https://github.com/oclif/plugin-plugins/blob/v1.7.9/src/commands/plugins/update.ts)_
+
+## `sb-mig sync TYPE [LIST]`
+
+Synchronize components, datasources with Storyblok space.
+
+```
+USAGE
+  $ sb-mig sync TYPE [LIST]
+
+ARGUMENTS
+  TYPE  (components|datasources) What to synchronize
+  LIST  Space separated list of component names. Example: card product-card row layout
+
+OPTIONS
+  -a, --all      Synchronize all components.
+  -e, --ext      Synchronize with file extension. Default extension: '.sb.js'
+  -h, --help     show CLI help
+  -p, --presets  Synchronize components with presets.
+```
+
+_See code: [src/commands/sync.ts](https://github.com/sb-mig/sb-mig/blob/v2.0.0-beta.14/src/commands/sync.ts)_
+<!-- commandsstop -->
 
 # Schema documentation:
 
@@ -200,13 +368,13 @@ The main purpose of `sb-mig` is to sync your `.js` component schema files with y
 There are 2 ways to sync your schemas, which to use depends on your file structure. If you are keeping all of your schema files in a single folder, use:
 
 ```
-sb-mig --sync row column
+sb-mig sync components row column
 ```
 
 This command will look for `row.js` and `column.js` files inside a directory named `storyblok`. You can change the directory name mapping by modifying `componentDirectory` inside `storyblok.config.js`). [How to install and configure](#how-to-install-and-configure))
 
 ```
-sb-mig --sync --ext row column
+sb-mig sync components --ext row column
 ```
 
 This command will look for any file named `row.sb.js` and `column.sb.js` inside `src` and `storyblok` folders. To modify the directories in this case you can set `componentsDirectories` in the config. You can also change the extension searched by changing `schemaFileExt`. [How to install and configure](#how-to-install-and-configure))
@@ -215,6 +383,7 @@ This command will look for any file named `row.sb.js` and `column.sb.js` inside 
 
 **Beta feature:** You can also sync your `datasources`.
 Add `datasourcesDirectory` to `storyblok.config.js`. (default: 'storyblok')
+
 ```
 // storyblok.config.js
 module.exports = {
@@ -223,7 +392,9 @@ module.exports = {
   ...
 };
 ```
+
 Create file with `.datasource.js` extension inside it. Basic schema for datasources file:
+
 ```
 module.exports = {
   name: "icons",
@@ -250,14 +421,16 @@ module.exports = {
 ```
 
 Above snippet will create `datasource` with `icons` name and `icons` slug. `datasource_entries` will be your `name <-> value` array.
-Single `datasource entry` consist of **precisely** 2 fieldds. But they can be named however you like (advise to name it: `name` and `value`, it will be anyway translated to that, due to how storyblok stores them)
+Single `datasource entry` consist of **precisely** 2 fields. But they can be named however you like (advise to name it: `name` and `value`, it will be anyway translated to that, due to how storyblok stores them)
 
-Command for syncing datasources: 
+Command for syncing datasources:
+
 ```
-sb-mig --sync-datasources icons
+sb-mig sync datasources icons
 ```
 
 Example output from above command
+
 ```
 Synciong priovided datasources icons...
 Trying to sync provided datasources: icons
@@ -268,8 +441,9 @@ Trying to get 'icons' datasource.
 ```
 
 Like with syncing component, you can also use syncing multiple datasources at once:
+
 ```
-sb-mig --sync-datasources icons logos
+sb-mig sync datasources icons logos
 ```
 
 ```
@@ -292,7 +466,7 @@ To do so, first create a preset for your component in storyblok:
 then run
 
 ```
-sb-mig --component-presets text-block    // component you've created preset for
+sb-mig backup --oneComponentPresets text-block    // component you've created preset for
 ```
 
 The tool will now download all presets related to the `text-block` component.
@@ -321,7 +495,7 @@ module.exports = {
 Now, sync your component
 
 ```
-sb-mig --sync text-block
+sb-mig sync components --presets text-block
 ```
 
 output:
@@ -345,44 +519,33 @@ _This feature is still quite experimental, that's why it's not completely straig
 To develop and make changes to the library:
 
 ```
-git clone git@github.com:marckraw/sb-mig.git
+git clone git@github.com:sb-mig/sb-mig.git
 ```
 
-then change below lines in `package.json`
+Install packages
 
 ```
-...
-"main": "./dist/index.js",
-...
- "bin": {
-    "sb-mig": "./dist/index.js"
-  },
-...
+yarn
 ```
 
-to
+Link package to easy test it with `sb-mig` command
 
 ```
-...
-"main": "./src/index.js",
-...
- "bin": {
-    "sb-mig": "./src/index.js"
-  },
-...
+yarn link
 ```
 
-Now when you link the package it will use the version of the library from `src` folder, rather than the minified one.
+or use it like that without linking:
 
-Run `npm link` in the root folder of `sb-mig`, and it will be linked as global `sb-mig`
+```
+./bin/run // same as linked `sb-mig` command
+```
 
 ## Roadmap
 
-- [ ] Improve preset creation/update
-- [x] Sync / Migrate datasources
 - [ ] Sync / Migrate content (stories)
-- [x] Generate whole project + choose components to use
-- [ ] End-to-end solution to add / update components
+- [ ] Improve preset creation/update
+- ~~[ ] End-to-end solution to add / update components~~ // it will be responsibility of different plugin. Check [here](https://github.com/sb-mig/plugin-generate-project)
+- [x] Sync / Migrate datasources
 - [x] Sync components with extensions
 - [x] Sync presets
 - [x] Sync single component
