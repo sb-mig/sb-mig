@@ -8,12 +8,11 @@ If you've found an issue or you have feature request - <a href="https://github.c
 [![GitHub issues](https://img.shields.io/github/issues/sb-mig/sb-mig.svg?style=flat-square&v=1)](https://github.com/sb-mig/sb-mig/issues?q=is%3Aopen+is%3Aissue)
 
 # 2.x.x version released!
+
 - completely rewritten to [Oclif](https://github.com/oclif/oclif) framework written in Typescript (with as little changes to usage as possible, check [migration guide](https://github.com/sb-mig/sb-mig/blob/oclif-research/MIGRATION-GUIDE.md))
 - support for Oclif plugin system
 - created [sb-mig](https://github.com/sb-mig) organization for better grouping related stuff
 - created npm `@sb-mig` scope aswell, for the same reason
-
-
 
 ## Contents
 
@@ -23,7 +22,8 @@ If you've found an issue or you have feature request - <a href="https://github.c
   - [`sb-mig backup`](#sb-mig-backup)
   - [`sb-mig debug`](#sb-mig-debug)
   - [`sb-mig help [COMMAND]`](#sb-mig-help-command)
-  - [`sb-mig sync TYPE [LIST]`](#sb-mig-sync-TYPE-[LIST])
+  - [`sb-mig plugins`](#sb-mig-plugins)
+  - [`sb-mig sync TYPE [LIST]`](#sb-mig-sync-type-list)
 - [Schema documentation:](#schema-documentation)
   - [Basics](#basics)
   - [Syncing components](#syncing-components)
@@ -93,15 +93,16 @@ COMMANDS
 # Commands
 
 <!-- commands -->
-* [`sb-mig backup`](#sb-mig-backup)
-* [`sb-mig debug`](#sb-mig-debug)
-* [`sb-mig help [COMMAND]`](#sb-mig-help-command)
-* [`sb-mig plugins`](#sb-mig-plugins)
-* [`sb-mig plugins:install PLUGIN...`](#sb-mig-pluginsinstall-plugin)
-* [`sb-mig plugins:link PLUGIN`](#sb-mig-pluginslink-plugin)
-* [`sb-mig plugins:uninstall PLUGIN...`](#sb-mig-pluginsuninstall-plugin)
-* [`sb-mig plugins:update`](#sb-mig-pluginsupdate)
-* [`sb-mig sync TYPE [LIST]`](#sb-mig-sync-type-list)
+
+- [`sb-mig backup`](#sb-mig-backup)
+- [`sb-mig debug`](#sb-mig-debug)
+- [`sb-mig help [COMMAND]`](#sb-mig-help-command)
+- [`sb-mig plugins`](#sb-mig-plugins)
+- [`sb-mig plugins:install PLUGIN...`](#sb-mig-pluginsinstall-plugin)
+- [`sb-mig plugins:link PLUGIN`](#sb-mig-pluginslink-plugin)
+- [`sb-mig plugins:uninstall PLUGIN...`](#sb-mig-pluginsuninstall-plugin)
+- [`sb-mig plugins:update`](#sb-mig-pluginsupdate)
+- [`sb-mig sync TYPE [LIST]`](#sb-mig-sync-type-list)
 
 ## `sb-mig backup`
 
@@ -196,15 +197,15 @@ DESCRIPTION
 
   Installation of a user-installed plugin will override a core plugin.
 
-  e.g. If you have a core plugin that has a 'hello' command, installing a user-installed plugin with a 'hello' command 
-  will override the core plugin implementation. This is useful if a user needs to update core plugin functionality in 
+  e.g. If you have a core plugin that has a 'hello' command, installing a user-installed plugin with a 'hello' command
+  will override the core plugin implementation. This is useful if a user needs to update core plugin functionality in
   the CLI without the need to patch and update the whole CLI.
 
 ALIASES
   $ sb-mig plugins:add
 
 EXAMPLES
-  $ sb-mig plugins:install myplugin 
+  $ sb-mig plugins:install myplugin
   $ sb-mig plugins:install https://github.com/someuser/someplugin
   $ sb-mig plugins:install someuser/someplugin
 ```
@@ -229,7 +230,7 @@ OPTIONS
 DESCRIPTION
   Installation of a linked plugin will override a user-installed or core plugin.
 
-  e.g. If you have a user-installed or core plugin that has a 'hello' command, installing a linked plugin with a 'hello' 
+  e.g. If you have a user-installed or core plugin that has a 'hello' command, installing a linked plugin with a 'hello'
   command will override the user-installed or core plugin implementation. This is useful for development work.
 
 EXAMPLE
@@ -295,6 +296,7 @@ OPTIONS
 ```
 
 _See code: [src/commands/sync.ts](https://github.com/sb-mig/sb-mig/blob/v2.0.0-beta.11/src/commands/sync.ts)_
+
 <!-- commandsstop -->
 
 # Schema documentation:
@@ -519,23 +521,26 @@ To develop and make changes to the library:
 ```
 git clone git@github.com:sb-mig/sb-mig.git
 ```
+
 Install packages
+
 ```
 yarn
 ```
 
 Link package to easy test it with `sb-mig` command
+
 ```
 yarn link
 ```
 
 or use it like that without linking:
+
 ```
 ./bin/run // same as linked `sb-mig` command
 ```
 
 ## Roadmap
-
 
 - [ ] Sync / Migrate content (stories)
 - [ ] Improve preset creation/update
@@ -550,4 +555,3 @@ or use it like that without linking:
 - [x] Sync custom fields
 
 The general purpose of this package is to manage creation and maintenance of components from code/command line, to be able to create a whole space and project structure without using GUI.
-
