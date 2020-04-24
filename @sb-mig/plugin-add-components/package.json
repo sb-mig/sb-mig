@@ -39,12 +39,15 @@
   ],
   "homepage": "https://github.com/sb-mig/plugin-add-components",
   "keywords": [
-    "oclif-plugin"
+    "add-component",
+    "sb-mig",
+    "storyblok",
+    "plugin"
   ],
   "license": "MIT",
   "oclif": {
     "commands": "./lib/commands",
-    "bin": "oclif-example",
+    "bin": "sb-mig",
     "devPlugins": [
       "@oclif/plugin-help"
     ]
