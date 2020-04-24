@@ -1,3 +1,20 @@
+## [0.0.4](https://github.com/sb-mig/plugin-create-component/compare/v0.0.3...v0.0.4) (2020-04-24)
+
+
+### chore
+
+* assing package to @sb-mig scope ([537927e](https://github.com/sb-mig/plugin-create-component/commit/537927e72d3e24fbef30d96200fd3c7339f07397))
+
+### docs
+
+* update readme ([027c577](https://github.com/sb-mig/plugin-create-component/commit/027c5770ccc333d85e462c2c41c9cc468daed17e))
+
+### packages
+
+* add ora and execa ([68e476e](https://github.com/sb-mig/plugin-create-component/commit/68e476eae95fd96141fefa0f0a1fe7c7cd62e0bb))
+
+
+
 ## 0.0.3 (2020-04-24)
 
 
