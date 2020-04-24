@@ -7,6 +7,14 @@ If you've found an issue or you have feature request - <a href="https://github.c
 [![npm](https://img.shields.io/npm/dt/sb-mig.svg)](ttps://img.shields.io/npm/dt/sb-mig.svg)
 [![GitHub issues](https://img.shields.io/github/issues/sb-mig/sb-mig.svg?style=flat-square&v=1)](https://github.com/sb-mig/sb-mig/issues?q=is%3Aopen+is%3Aissue)
 
+# 2.x.x version released!
+- completely rewritten to [Oclif](https://github.com/oclif/oclif) framework written in Typescript (with as little changes to usage as possible, check [migration guide](https://github.com/sb-mig/sb-mig/blob/oclif-research/MIGRATION-GUIDE.md))
+- support for Oclif plugin system
+- created [sb-mig](https://github.com/sb-mig) organization for better grouping related stuff
+- created npm `@sb-mig` scope aswell, for the same reason
+
+
+
 ## Contents
 
 - [How to install and configure](#how-to-install-and-configure)
