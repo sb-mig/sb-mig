@@ -1,3 +1,14 @@
+# [2.0.0-beta.12](https://github.com/sb-mig/sb-mig/compare/v2.0.0-beta.11...v2.0.0-beta.12) (2020-04-24)
+
+
+### docs
+
+* add information about release ([a5a2998](https://github.com/sb-mig/sb-mig/commit/a5a2998647fecece3ef0561cdd1f451bc2957d13))
+* add plugins command to contents ([02a8c3a](https://github.com/sb-mig/sb-mig/commit/02a8c3a1ebb01eb856da0fb9de3d4ec40920c2b8))
+* update readme ([376d5db](https://github.com/sb-mig/sb-mig/commit/376d5db7e5ddd5da3cc47eb4330baaf558462911))
+
+
+
 # [2.0.0-beta.11](https://github.com/sb-mig/sb-mig/compare/v2.0.0-beta.10...v2.0.0-beta.11) (2020-04-23)
 
 
