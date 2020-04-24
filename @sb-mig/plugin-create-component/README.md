@@ -19,7 +19,7 @@ $ npm install -g @sb-mig/plugin-create-component
 $ sb-mig COMMAND
 running command...
 $ sb-mig (-v|--version|version)
-@sb-mig/plugin-create-component/0.0.5 darwin-x64 node-v12.16.2
+@sb-mig/plugin-create-component/0.0.6 darwin-x64 node-v12.16.2
 $ sb-mig --help [COMMAND]
 USAGE
   $ sb-mig COMMAND
@@ -48,5 +48,5 @@ EXAMPLE
   git@github.com:sb-mig/storyblok-components-boilerplate-component.git for @storyblok-components
 ```
 
-_See code: [src/commands/create-component.ts](https://github.com/sb-mig/plugin-create-component/blob/v0.0.5/src/commands/create-component.ts)_
+_See code: [src/commands/create-component.ts](https://github.com/sb-mig/plugin-create-component/blob/v0.0.6/src/commands/create-component.ts)_
 <!-- commandsstop -->

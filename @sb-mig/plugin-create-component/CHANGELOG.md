@@ -1,3 +1,12 @@
+## [0.0.6](https://github.com/sb-mig/plugin-create-component/compare/v0.0.5...v0.0.6) (2020-04-24)
+
+
+### docs
+
+* update readme badges ([ce46f59](https://github.com/sb-mig/plugin-create-component/commit/ce46f5917b78a2fb875cc67c7f9b7cfd59672802))
+
+
+
 ## [0.0.5](https://github.com/sb-mig/plugin-create-component/compare/v0.0.4...v0.0.5) (2020-04-24)
 
 
