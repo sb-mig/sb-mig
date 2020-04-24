@@ -84,6 +84,22 @@ v2.0.0
 sb-mig sync components --all --ext --presets
 ```
 
+## Syncing Datasources
+
+v1.3.11
+
+```
+sb-mig --sync-datasources icon
+```
+
+v2.0.0
+
+```
+sb-mig sync datasources icon
+```
+
+---
+
 ## Other commands
 
 v1.3.11
@@ -99,11 +115,15 @@ sb-mig debug
 ```
 
 ### backing up stuff
+
 All pull / backup commands are inside `sb-mig backup`. Run
+
 ```
 sb-mig backup
 ```
+
 to get help about that command. It will output:
+
 ```
 Command for backing up anything related to Storyblok
 
@@ -125,4 +145,3 @@ OPTIONS
 ```
 
 Worth mentioning: Commands here, will probably change once again their structure, after deciding on more generic aproach.
-
