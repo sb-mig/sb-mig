@@ -1,3 +1,12 @@
+# [2.0.0-beta.14](https://github.com/sb-mig/sb-mig/compare/v2.0.0-beta.13...v2.0.0-beta.14) (2020-04-24)
+
+
+### docs
+
+* modify contents links in readme ([27b637e](https://github.com/sb-mig/sb-mig/commit/27b637ec07792ba06bf6aeff10180deec3f1794b))
+
+
+
 # [2.0.0-beta.13](https://github.com/sb-mig/sb-mig/compare/v2.0.0-beta.12...v2.0.0-beta.13) (2020-04-24)
 
 

@@ -95,16 +95,15 @@ COMMANDS
 # Commands
 
 <!-- commands -->
-
-- [`sb-mig backup`](#sb-mig-backup)
-- [`sb-mig debug`](#sb-mig-debug)
-- [`sb-mig help [COMMAND]`](#sb-mig-help-command)
-- [`sb-mig plugins`](#sb-mig-plugins)
-- [`sb-mig plugins:install PLUGIN...`](#sb-mig-pluginsinstall-plugin)
-- [`sb-mig plugins:link PLUGIN`](#sb-mig-pluginslink-plugin)
-- [`sb-mig plugins:uninstall PLUGIN...`](#sb-mig-pluginsuninstall-plugin)
-- [`sb-mig plugins:update`](#sb-mig-pluginsupdate)
-- [`sb-mig sync TYPE [LIST]`](#sb-mig-sync-type-list)
+* [`sb-mig backup`](#sb-mig-backup)
+* [`sb-mig debug`](#sb-mig-debug)
+* [`sb-mig help [COMMAND]`](#sb-mig-help-command)
+* [`sb-mig plugins`](#sb-mig-plugins)
+* [`sb-mig plugins:install PLUGIN...`](#sb-mig-pluginsinstall-plugin)
+* [`sb-mig plugins:link PLUGIN`](#sb-mig-pluginslink-plugin)
+* [`sb-mig plugins:uninstall PLUGIN...`](#sb-mig-pluginsuninstall-plugin)
+* [`sb-mig plugins:update`](#sb-mig-pluginsupdate)
+* [`sb-mig sync TYPE [LIST]`](#sb-mig-sync-type-list)
 
 ## `sb-mig backup`
 
@@ -128,7 +127,7 @@ OPTIONS
   -x, --oneDatasource=oneDatasource              Backup one datasource by name.
 ```
 
-_See code: [src/commands/backup.ts](https://github.com/sb-mig/sb-mig/blob/v2.0.0-beta.13/src/commands/backup.ts)_
+_See code: [src/commands/backup.ts](https://github.com/sb-mig/sb-mig/blob/v2.0.0-beta.14/src/commands/backup.ts)_
 
 ## `sb-mig debug`
 
@@ -142,7 +141,7 @@ OPTIONS
   -h, --help  show CLI help
 ```
 
-_See code: [src/commands/debug.ts](https://github.com/sb-mig/sb-mig/blob/v2.0.0-beta.13/src/commands/debug.ts)_
+_See code: [src/commands/debug.ts](https://github.com/sb-mig/sb-mig/blob/v2.0.0-beta.14/src/commands/debug.ts)_
 
 ## `sb-mig help [COMMAND]`
 
@@ -199,15 +198,15 @@ DESCRIPTION
 
   Installation of a user-installed plugin will override a core plugin.
 
-  e.g. If you have a core plugin that has a 'hello' command, installing a user-installed plugin with a 'hello' command
-  will override the core plugin implementation. This is useful if a user needs to update core plugin functionality in
+  e.g. If you have a core plugin that has a 'hello' command, installing a user-installed plugin with a 'hello' command 
+  will override the core plugin implementation. This is useful if a user needs to update core plugin functionality in 
   the CLI without the need to patch and update the whole CLI.
 
 ALIASES
   $ sb-mig plugins:add
 
 EXAMPLES
-  $ sb-mig plugins:install myplugin
+  $ sb-mig plugins:install myplugin 
   $ sb-mig plugins:install https://github.com/someuser/someplugin
   $ sb-mig plugins:install someuser/someplugin
 ```
@@ -232,7 +231,7 @@ OPTIONS
 DESCRIPTION
   Installation of a linked plugin will override a user-installed or core plugin.
 
-  e.g. If you have a user-installed or core plugin that has a 'hello' command, installing a linked plugin with a 'hello'
+  e.g. If you have a user-installed or core plugin that has a 'hello' command, installing a linked plugin with a 'hello' 
   command will override the user-installed or core plugin implementation. This is useful for development work.
 
 EXAMPLE
@@ -297,8 +296,7 @@ OPTIONS
   -p, --presets  Synchronize components with presets.
 ```
 
-_See code: [src/commands/sync.ts](https://github.com/sb-mig/sb-mig/blob/v2.0.0-beta.13/src/commands/sync.ts)_
-
+_See code: [src/commands/sync.ts](https://github.com/sb-mig/sb-mig/blob/v2.0.0-beta.14/src/commands/sync.ts)_
 <!-- commandsstop -->
 
 # Schema documentation:
