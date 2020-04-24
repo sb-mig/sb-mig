@@ -1,3 +1,8 @@
+## [2.0.1](https://github.com/sb-mig/sb-mig/compare/v2.0.0-beta.14...v2.0.1) (2020-04-24)
+
+
+
+
 # [2.0.0](https://github.com/sb-mig/sb-mig/compare/v2.0.0-beta.14...v2.0.0) (2020-04-24)
 
 
