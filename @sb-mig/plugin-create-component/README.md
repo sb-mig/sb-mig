@@ -16,27 +16,27 @@ Plugin for sb-mig to create component in monorepos compliant with sb-mig
 <!-- usage -->
 ```sh-session
 $ npm install -g plugin-create-component
-$ oclif-example COMMAND
+$ sb-mig COMMAND
 running command...
-$ oclif-example (-v|--version|version)
+$ sb-mig (-v|--version|version)
 plugin-create-component/0.0.3 darwin-x64 node-v12.16.2
-$ oclif-example --help [COMMAND]
+$ sb-mig --help [COMMAND]
 USAGE
-  $ oclif-example COMMAND
+  $ sb-mig COMMAND
 ...
 ```
 <!-- usagestop -->
 # Commands
 <!-- commands -->
-* [`oclif-example create-component [BOILERPLATE-REPO]`](#oclif-example-create-component-boilerplate-repo)
+* [`sb-mig create-component [BOILERPLATE-REPO]`](#sb-mig-create-component-boilerplate-repo)
 
-## `oclif-example create-component [BOILERPLATE-REPO]`
+## `sb-mig create-component [BOILERPLATE-REPO]`
 
 Create package inside sb-mig compliant components monorepo.
 
 ```
 USAGE
-  $ oclif-example create-component [BOILERPLATE-REPO]
+  $ sb-mig create-component [BOILERPLATE-REPO]
 
 OPTIONS
   -f, --force
