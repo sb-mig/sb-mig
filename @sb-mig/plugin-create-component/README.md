@@ -19,7 +19,7 @@ $ npm install -g plugin-create-component
 $ oclif-example COMMAND
 running command...
 $ oclif-example (-v|--version|version)
-plugin-create-component/0.0.1 darwin-x64 node-v12.16.2
+plugin-create-component/0.0.3 darwin-x64 node-v12.16.2
 $ oclif-example --help [COMMAND]
 USAGE
   $ oclif-example COMMAND
@@ -28,25 +28,25 @@ USAGE
 <!-- usagestop -->
 # Commands
 <!-- commands -->
-* [`oclif-example hello [FILE]`](#oclif-example-hello-file)
+* [`oclif-example create-component [BOILERPLATE-REPO]`](#oclif-example-create-component-boilerplate-repo)
 
-## `oclif-example hello [FILE]`
+## `oclif-example create-component [BOILERPLATE-REPO]`
 
-describe the command here
+Create package inside sb-mig compliant components monorepo.
 
 ```
 USAGE
-  $ oclif-example hello [FILE]
+  $ oclif-example create-component [BOILERPLATE-REPO]
 
 OPTIONS
   -f, --force
-  -h, --help       show CLI help
-  -n, --name=name  name to print
+  -h, --help   show CLI help
 
 EXAMPLE
-  $ oclif-example hello
-  hello world from ./src/hello.ts!
+  $ sb-mig create-component
+
+  git@github.com:sb-mig/storyblok-components-boilerplate-component.git for @storyblok-components
 ```
 
-_See code: [src/commands/hello.ts](https://github.com/sb-mig/plugin-create-component/blob/v0.0.1/src/commands/hello.ts)_
+_See code: [src/commands/create-component.ts](https://github.com/sb-mig/plugin-create-component/blob/v0.0.3/src/commands/create-component.ts)_
 <!-- commandsstop -->
