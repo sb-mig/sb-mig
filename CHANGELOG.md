@@ -1,3 +1,13 @@
+# [2.0.0-beta.13](https://github.com/sb-mig/sb-mig/compare/v2.0.0-beta.12...v2.0.0-beta.13) (2020-04-24)
+
+
+### docs
+
+* add migration guide for backing up ([3f77d11](https://github.com/sb-mig/sb-mig/commit/3f77d1110ee2d474f3bd5b0a25c181a9deb92356))
+* add migration guide for datasources ([5003aaf](https://github.com/sb-mig/sb-mig/commit/5003aaf5c47c879a8c4bb0b3f6ee401e0599e7b4))
+
+
+
 # [2.0.0-beta.12](https://github.com/sb-mig/sb-mig/compare/v2.0.0-beta.11...v2.0.0-beta.12) (2020-04-24)
 
 
