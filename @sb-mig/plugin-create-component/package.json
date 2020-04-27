@@ -7,9 +7,15 @@
   "dependencies": {
     "@oclif/command": "^1",
     "@oclif/config": "^1",
+    "@types/figlet": "^1.2.0",
+    "@types/rimraf": "^3.0.0",
+    "chalk": "^4.0.0",
     "execa": "^4.0.0",
+    "figlet": "^1.4.0",
     "ora": "^4.0.4",
-    "tslib": "^1"
+    "rimraf": "^3.0.2",
+    "tslib": "^1",
+    "yarn-or-npm": "^3.0.1"
   },
   "devDependencies": {
     "@oclif/dev-cli": "^1",
