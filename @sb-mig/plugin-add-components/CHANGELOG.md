@@ -1,3 +1,17 @@
+## [0.1.2](https://github.com/sb-mig/plugin-add-components/compare/v0.0.6...v0.1.2) (2020-04-27)
+
+
+### feat
+
+* add functionality to add, install and copy components ([989f016](https://github.com/sb-mig/plugin-add-components/commit/989f01615bf8239b6de72e5e8d651c53e504b123))
+
+### fix
+
+* all tslint errors ([b0b65d8](https://github.com/sb-mig/plugin-add-components/commit/b0b65d866858afb15ca13b1f39cb9d463501f10a))
+* one more tslint error ([09f2139](https://github.com/sb-mig/plugin-add-components/commit/09f2139c1e74d6c7a354f892370ae3c0b45e5dc9))
+
+
+
 ## [0.1.1](https://github.com/sb-mig/plugin-add-components/compare/v0.0.6...v0.1.1) (2020-04-27)
 
 

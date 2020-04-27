@@ -19,7 +19,7 @@ $ npm install -g @sb-mig/plugin-add-components
 $ sb-mig COMMAND
 running command...
 $ sb-mig (-v|--version|version)
-@sb-mig/plugin-add-components/0.1.1 darwin-x64 node-v12.16.2
+@sb-mig/plugin-add-components/0.1.2 darwin-x64 node-v12.16.2
 $ sb-mig --help [COMMAND]
 USAGE
   $ sb-mig COMMAND
@@ -54,5 +54,5 @@ EXAMPLES
   $ sb-mig add components @storyblok-components/simple-text-block @storyblok-components/advanced-carousel --copy
 ```
 
-_See code: [src/commands/add.ts](https://github.com/sb-mig/plugin-add-components/blob/v0.1.1/src/commands/add.ts)_
+_See code: [src/commands/add.ts](https://github.com/sb-mig/plugin-add-components/blob/v0.1.2/src/commands/add.ts)_
 <!-- commandsstop -->
