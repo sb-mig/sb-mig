@@ -19,7 +19,7 @@ $ npm install -g @sb-mig/plugin-add-components
 $ sb-mig COMMAND
 running command...
 $ sb-mig (-v|--version|version)
-@sb-mig/plugin-add-components/0.0.6 darwin-x64 node-v12.16.2
+@sb-mig/plugin-add-components/0.1.0 darwin-x64 node-v12.16.2
 $ sb-mig --help [COMMAND]
 USAGE
   $ sb-mig COMMAND
@@ -28,25 +28,31 @@ USAGE
 <!-- usagestop -->
 # Commands
 <!-- commands -->
-* [`sb-mig hello [FILE]`](#sb-mig-hello-file)
+* [`sb-mig add TYPE [LIST]`](#sb-mig-add-type-list)
 
-## `sb-mig hello [FILE]`
+## `sb-mig add TYPE [LIST]`
 
-describe the command here
+Add and install components from repository.
 
 ```
 USAGE
-  $ sb-mig hello [FILE]
+  $ sb-mig add TYPE [LIST]
+
+ARGUMENTS
+  TYPE  (components) What to add and install to project.
+
+  LIST  Space separated list of component names with scope. Example: @storyblok-components/card
+        @storyblok-components/product-card @storyblok-components/row @storyblok-componenst/layout
 
 OPTIONS
-  -f, --force
-  -h, --help       show CLI help
-  -n, --name=name  name to print
+  -c, --copy  Copy downloaded files into your folder structure (outside node_modules).
+  -h, --help  show CLI help
 
-EXAMPLE
-  $ oclif-example hello
-  hello world from ./src/hello.ts!
+EXAMPLES
+  $ sb-mig add components @storyblok-components/simple-text-block
+  $ sb-mig add components @storyblok-components/simple-text-block --copy
+  $ sb-mig add components @storyblok-components/simple-text-block @storyblok-components/advanced-carousel --copy
 ```
 
-_See code: [src/commands/hello.ts](https://github.com/sb-mig/plugin-add-components/blob/v0.0.6/src/commands/hello.ts)_
+_See code: [src/commands/add.ts](https://github.com/sb-mig/plugin-add-components/blob/v0.1.0/src/commands/add.ts)_
 <!-- commandsstop -->

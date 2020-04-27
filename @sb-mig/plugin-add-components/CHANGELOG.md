@@ -1,3 +1,12 @@
+# [0.1.0](https://github.com/sb-mig/plugin-add-components/compare/v0.0.6...v0.1.0) (2020-04-27)
+
+
+### feat
+
+* add functionality to add, install and copy components ([989f016](https://github.com/sb-mig/plugin-add-components/commit/989f01615bf8239b6de72e5e8d651c53e504b123))
+
+
+
 ## [0.0.6](https://github.com/sb-mig/plugin-add-components/compare/v0.0.5...v0.0.6) (2020-04-24)
 
 

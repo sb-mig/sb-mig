@@ -23,7 +23,7 @@ export const updateComponentsJs = (components: any, copy: boolean) => {
         let newValue = data.replace(/\/\/ --- sb-mig scoped component imports ---/gim, componentsImport);
         newValue = newValue.replace(/\/\/ --- sb-mig scoped component list ---/gim, componentList);
 
-        fs.writeFile(`${srcDirectory}/components/components.js`, newValue, 'utf-8', function (err, data) {
+        fs.writeFile(`${srcDirectory}/components/components.js`, newValue, 'utf-8',  (err: any)  => {
             if (err) throw err;
             console.log('Done!');
         })

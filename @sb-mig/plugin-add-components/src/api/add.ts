@@ -1,3 +1,4 @@
+// @ts-ignore
 import * as yarnOrNpm from 'yarn-or-npm';
 import * as execa from 'execa';
 
@@ -12,6 +13,7 @@ export const installComponentCommand = (component: any) => {
 }
 
 export const installProvidedComponents = async (components: string[]) => {
+    // @ts-ignore
     return Promise.allSettled(
         components.map(component => {
             return execa.command(installComponentCommand(component))

@@ -40,7 +40,7 @@ export default class Add extends Command {
       console.log(installedComponents);
 
       spinner = ora(`Updating components.js file...\n`).start()
-      const data = updateComponentsJs(installedComponents);
+      const data = updateComponentsJs(installedComponents, false);
       spinner.stop()
     }
 
