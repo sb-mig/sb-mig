@@ -1,3 +1,12 @@
+## [0.0.8](https://github.com/sb-mig/plugin-create-component/compare/v0.0.7...v0.0.8) (2020-04-27)
+
+
+### feat
+
+* create component with default and custom repo url ([5185afe](https://github.com/sb-mig/plugin-create-component/commit/5185afee7086a96fda063ad871bcb244362cc163))
+
+
+
 ## [0.0.7](https://github.com/sb-mig/plugin-create-component/compare/v0.0.6...v0.0.7) (2020-04-24)
 
 

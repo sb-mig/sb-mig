@@ -19,7 +19,7 @@ $ npm install -g @sb-mig/plugin-create-component
 $ sb-mig COMMAND
 running command...
 $ sb-mig (-v|--version|version)
-@sb-mig/plugin-create-component/0.0.7 darwin-x64 node-v12.16.2
+@sb-mig/plugin-create-component/0.0.8 darwin-x64 node-v12.16.2
 $ sb-mig --help [COMMAND]
 USAGE
   $ sb-mig COMMAND
@@ -28,25 +28,24 @@ USAGE
 <!-- usagestop -->
 # Commands
 <!-- commands -->
-* [`sb-mig create-component [BOILERPLATE-REPO]`](#sb-mig-create-component-boilerplate-repo)
+* [`sb-mig create [COMPONENT-NAME]`](#sb-mig-create-component-name)
 
-## `sb-mig create-component [BOILERPLATE-REPO]`
+## `sb-mig create [COMPONENT-NAME]`
 
 Create package inside sb-mig compliant components monorepo.
 
 ```
 USAGE
-  $ sb-mig create-component [BOILERPLATE-REPO]
+  $ sb-mig create [COMPONENT-NAME]
 
 OPTIONS
   -f, --force
-  -h, --help   show CLI help
+  -h, --help       show CLI help
+  -r, --repo=repo  Custom repository url
 
 EXAMPLE
-  $ sb-mig create-component
-
-  git@github.com:sb-mig/storyblok-components-boilerplate-component.git for @storyblok-components
+  $ sb-mig create component-name
 ```
 
-_See code: [src/commands/create-component.ts](https://github.com/sb-mig/plugin-create-component/blob/v0.0.7/src/commands/create-component.ts)_
+_See code: [src/commands/create.ts](https://github.com/sb-mig/plugin-create-component/blob/v0.0.8/src/commands/create.ts)_
 <!-- commandsstop -->
