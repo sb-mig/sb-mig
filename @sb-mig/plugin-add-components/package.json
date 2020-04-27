@@ -1,16 +1,21 @@
 {
   "name": "@sb-mig/plugin-add-components",
   "private": false,
-  "description": "Plugin for sb-mig to add components to your project/",
+  "description": "Plugin for sb-mig to add components to your project",
   "version": "0.0.6",
   "author": "Marcin Krawczyk marckraw@icloud.com",
   "bugs": "https://github.com/sb-mig/plugin-add-components/issues",
   "dependencies": {
     "@oclif/command": "^1",
     "@oclif/config": "^1",
+    "camelcase": "^6.0.0",
+    "chalk": "^4.0.0",
     "execa": "^4.0.0",
+    "figlet": "^1.4.0",
+    "ncp": "^2.0.0",
     "ora": "^4.0.4",
-    "tslib": "^1"
+    "tslib": "^1",
+    "yarn-or-npm": "^3.0.1"
   },
   "devDependencies": {
     "@oclif/dev-cli": "^1",
