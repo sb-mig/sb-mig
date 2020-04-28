@@ -24,6 +24,7 @@ If you've found an issue or you have feature request - <a href="https://github.c
   - [`sb-mig help [COMMAND]`](#sb-mig-help-command)
   - [`sb-mig plugins`](#sb-mig-plugins)
   - [`sb-mig sync TYPE [LIST]`](#sb-mig-sync-type-list)
+- [Plugins](#plugins)
 - [Schema documentation:](#schema-documentation)
   - [Basics](#basics)
   - [Syncing components](#syncing-components)
@@ -95,15 +96,16 @@ COMMANDS
 # Commands
 
 <!-- commands -->
-* [`sb-mig backup`](#sb-mig-backup)
-* [`sb-mig debug`](#sb-mig-debug)
-* [`sb-mig help [COMMAND]`](#sb-mig-help-command)
-* [`sb-mig plugins`](#sb-mig-plugins)
-* [`sb-mig plugins:install PLUGIN...`](#sb-mig-pluginsinstall-plugin)
-* [`sb-mig plugins:link PLUGIN`](#sb-mig-pluginslink-plugin)
-* [`sb-mig plugins:uninstall PLUGIN...`](#sb-mig-pluginsuninstall-plugin)
-* [`sb-mig plugins:update`](#sb-mig-pluginsupdate)
-* [`sb-mig sync TYPE [LIST]`](#sb-mig-sync-type-list)
+
+- [`sb-mig backup`](#sb-mig-backup)
+- [`sb-mig debug`](#sb-mig-debug)
+- [`sb-mig help [COMMAND]`](#sb-mig-help-command)
+- [`sb-mig plugins`](#sb-mig-plugins)
+- [`sb-mig plugins:install PLUGIN...`](#sb-mig-pluginsinstall-plugin)
+- [`sb-mig plugins:link PLUGIN`](#sb-mig-pluginslink-plugin)
+- [`sb-mig plugins:uninstall PLUGIN...`](#sb-mig-pluginsuninstall-plugin)
+- [`sb-mig plugins:update`](#sb-mig-pluginsupdate)
+- [`sb-mig sync TYPE [LIST]`](#sb-mig-sync-type-list)
 
 ## `sb-mig backup`
 
@@ -198,15 +200,15 @@ DESCRIPTION
 
   Installation of a user-installed plugin will override a core plugin.
 
-  e.g. If you have a core plugin that has a 'hello' command, installing a user-installed plugin with a 'hello' command 
-  will override the core plugin implementation. This is useful if a user needs to update core plugin functionality in 
+  e.g. If you have a core plugin that has a 'hello' command, installing a user-installed plugin with a 'hello' command
+  will override the core plugin implementation. This is useful if a user needs to update core plugin functionality in
   the CLI without the need to patch and update the whole CLI.
 
 ALIASES
   $ sb-mig plugins:add
 
 EXAMPLES
-  $ sb-mig plugins:install myplugin 
+  $ sb-mig plugins:install myplugin
   $ sb-mig plugins:install https://github.com/someuser/someplugin
   $ sb-mig plugins:install someuser/someplugin
 ```
@@ -231,7 +233,7 @@ OPTIONS
 DESCRIPTION
   Installation of a linked plugin will override a user-installed or core plugin.
 
-  e.g. If you have a user-installed or core plugin that has a 'hello' command, installing a linked plugin with a 'hello' 
+  e.g. If you have a user-installed or core plugin that has a 'hello' command, installing a linked plugin with a 'hello'
   command will override the user-installed or core plugin implementation. This is useful for development work.
 
 EXAMPLE
@@ -297,7 +299,17 @@ OPTIONS
 ```
 
 _See code: [src/commands/sync.ts](https://github.com/sb-mig/sb-mig/blob/v2.0.1/src/commands/sync.ts)_
+
 <!-- commandsstop -->
+
+# Plugins
+`sb-mig` core features are part of this repository. But `sb-mig` is build in a way that you can easily add your own command as a plugin. Here will be the list of plugins, which are already supported by `sb-mig`. For installation instructions see: [TBD](#)
+
+- [plugin-add-components](https://github.com/sb-mig/plugin-add-components) - with this plugin, you can easily install storyblok react components to your project ( compliant with `components.js` file syntax: [TBD](#) )
+- [plugin-create-component](https://github.com/sb-mig/plugin-create-component) - with this plugin, you can easily add working dummy component with all needed syntax to monorepos with storyblok components, like this unofficial one [storyblok-components/components](https://github.com/storyblok-components/components) which is deployed to `@storyblok-components` scope of public npm
+- [plugin-generate-project](https://github.com/sb-mig/plugin-generate-project) - **[IN PROGRESS]** with this plugin, you need only one command, to generate and bootstrap whole new Storyblok project with provided list of available components. It is also created storyblok space for you, and after command is done, you are ready to develop, edit and use installed components. ()
+
+To build your own plugin, head over to this instruction: [TBD](#)
 
 # Schema documentation:
 
