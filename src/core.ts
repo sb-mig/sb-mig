@@ -1,6 +1,7 @@
 import Command from '@oclif/command'
 import storyblokConfig, { IStoryblokConfig } from './config/config';
 import { findComponents, findComponentsWithExt, findDatasources } from './utils/discover'
+import { getAllComponents } from './api/components'
 
 export default abstract class extends Command {
     getStoryblokConfig(): IStoryblokConfig {
@@ -17,5 +18,14 @@ export default abstract class extends Command {
 
     findDatasources() {
         return findDatasources()
+    }
+
+    api() {
+        return {
+            findComponents,
+            findComponentsWithExt,
+            findDatasources,
+            getAllComponents
+        }
     }
 }
