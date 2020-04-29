@@ -1,3 +1,12 @@
+## [2.0.2](https://github.com/sb-mig/sb-mig/compare/v2.0.1...v2.0.2) (2020-04-29)
+
+
+### chore
+
+* add warn if cli is outdated ([be9fe3e](https://github.com/sb-mig/sb-mig/commit/be9fe3e163d763c2ed17a2bb1cf6f79e7750d3df))
+
+
+
 ## [2.0.1](https://github.com/sb-mig/sb-mig/compare/v2.0.0-beta.14...v2.0.1) (2020-04-24)
 
 
