@@ -12,6 +12,7 @@
     "@oclif/config": "^1",
     "@oclif/plugin-help": "^2",
     "@oclif/plugin-plugins": "^1.7.9",
+    "@oclif/plugin-warn-if-update-available": "^1.7.0",
     "camelcase": "^5.3.1",
     "dotenv": "^8.2.0",
     "execa": "^4.0.0",
@@ -65,8 +66,13 @@
     "scope": "sb-mig",
     "plugins": [
       "@oclif/plugin-help",
-      "@oclif/plugin-plugins"
-    ]
+      "@oclif/plugin-plugins",
+      "@oclif/plugin-warn-if-update-available"
+    ],
+    "warn-if-update-available": {
+      "timeoutInDays": 3,
+      "message": "<%= config.name %> update available from <%= chalk.greenBright(config.version) %> to <%= chalk.greenBright(latest) %>."
+    }
   },
   "repository": {
     "type": "git",
