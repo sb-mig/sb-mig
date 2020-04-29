@@ -13,6 +13,7 @@
     "@oclif/plugin-help": "^2",
     "@oclif/plugin-plugins": "^1.7.9",
     "@oclif/plugin-warn-if-update-available": "^1.7.0",
+    "@types/ncp": "^2.0.3",
     "camelcase": "^5.3.1",
     "dotenv": "^8.2.0",
     "execa": "^4.0.0",
@@ -21,7 +22,7 @@
     "ncp": "^2.0.0",
     "ora": "^4.0.3",
     "rimraf": "^3.0.2",
-    "storyblok-js-client": "^2.2.0",
+    "storyblok-js-client": "^2.4.0",
     "tslib": "^1"
   },
   "devDependencies": {

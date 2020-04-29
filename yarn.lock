@@ -315,6 +315,13 @@
   resolved "https://registry.yarnpkg.com/@types/mocha/-/mocha-5.2.7.tgz#315d570ccb56c53452ff8638738df60726d5b6ea"
   integrity sha512-NYrtPht0wGzhwe9+/idPaBB+TqkY9AhTvOLMkThm0IoEfLaiVQZwBwyJ5puCkO3AUCWrmcoePjp2mbFocKy4SQ==
 
+"@types/ncp@^2.0.3":
+  version "2.0.3"
+  resolved "https://registry.yarnpkg.com/@types/ncp/-/ncp-2.0.3.tgz#68429472698a68f2c85a984932e9d8014d5f2ed0"
+  integrity sha512-eZatZMWhPHUHY/1hUUqwGrWzBAE9deYR3L0QJMicpVkBUOrQslhWblw5Ye+rKuzvFG/UQ3jDolMcjhC2WKUQ5w==
+  dependencies:
+    "@types/node" "*"
+
 "@types/node@*":
   version "13.13.1"
   resolved "https://registry.yarnpkg.com/@types/node/-/node-13.13.1.tgz#1ba94c5a177a1692518bfc7b41aec0aa1a14354e"
@@ -3315,10 +3322,10 @@ stdout-stderr@^0.1.9:
     debug "^4.1.1"
     strip-ansi "^6.0.0"
 
-storyblok-js-client@^2.2.0:
-  version "2.2.0"
-  resolved "https://registry.yarnpkg.com/storyblok-js-client/-/storyblok-js-client-2.2.0.tgz#e4d617f7de77390439c49f4bc8029c38d93dcf60"
-  integrity sha512-1bc/WPd8t+0awVdvVuyUECxL+cfN1d8+q1poSECS0/ZrSEYG272a9t3atoIjmStiosA52fnmpC39bC8hS28m1g==
+storyblok-js-client@^2.4.0:
+  version "2.4.0"
+  resolved "https://registry.yarnpkg.com/storyblok-js-client/-/storyblok-js-client-2.4.0.tgz#ca19e856ed21a9d08580479ace747624969c51c8"
+  integrity sha512-Y1vJz87zxhuXk+RpnI35Q0PqKOJ3xDoRjndqdWBnAKJIA5aF3iV3K4SMx7uq+lCWevNW0g7U5X/QR8k5G6tljw==
   dependencies:
     "@babel/runtime-corejs3" "^7.4.5"
     axios "^0.19.0"
