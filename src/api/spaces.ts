@@ -1,8 +1,8 @@
-const Logger = require("../utils/loggerumd")
-const { sbApi } = require("./config")
+import Logger from '../utils/logger'
+import { sbApi } from './apiConfig'
 
 // CREATE
-const createSpace = spaceName => {
+export const createSpace = (spaceName: string) => {
   Logger.warning(`Trying to create space ${spaceName}...`)
   return sbApi
     .post(`spaces/`, {
@@ -21,11 +21,7 @@ const createSpace = spaceName => {
 }
 
 // GET
-const getSpace = spaceId => {
+export const getSpace = (spaceId: string) => {
   return sbApi.get(`spaces/${spaceId}`).then(res => res)
 }
 
-module.exports = {
-  createSpace,
-  getSpace
-}
