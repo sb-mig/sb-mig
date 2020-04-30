@@ -1,16 +1,5 @@
 ## [2.1.1](https://github.com/sb-mig/sb-mig/compare/v2.0.1...v2.1.1) (2020-04-30)
 
-
-### chore
-
-* add warn if cli is outdated ([be9fe3e](https://github.com/sb-mig/sb-mig/commit/be9fe3e163d763c2ed17a2bb1cf6f79e7750d3df))
-
-### feat
-
-* add helper and api method to base class ([7bcae6c](https://github.com/sb-mig/sb-mig/commit/7bcae6c7b038e3d7706f27a9e38597d84c412ff8))
-* expose some methods from api and from utils files in custom base class ([e698076](https://github.com/sb-mig/sb-mig/commit/e69807660d99ea024d41f45214e417c53bca7971))
-* Rewrite api to typescript, update storyblok-js-client, create core custom base class ([12a737f](https://github.com/sb-mig/sb-mig/commit/12a737fd84eaf14d2bb0e2466259306aadd41af2))
-
 ### hotfix
 
 * copy types from storyblok and modify, causing problems ([a70466b](https://github.com/sb-mig/sb-mig/commit/a70466bc090fb0c5604d37009f767a4f943c5d71))
