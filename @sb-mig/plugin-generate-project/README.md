@@ -15,28 +15,28 @@ Plugin for sb-mig to generate Storyblok project with command line
 # Usage
 <!-- usage -->
 ```sh-session
-$ npm install -g plugin-generate-project
-$ oclif-example COMMAND
+$ npm install -g @sb-mig/plugin-generate-project
+$ sb-mig COMMAND
 running command...
-$ oclif-example (-v|--version|version)
-plugin-generate-project/0.0.1 darwin-x64 node-v12.16.1
-$ oclif-example --help [COMMAND]
+$ sb-mig (-v|--version|version)
+@sb-mig/plugin-generate-project/0.0.1 darwin-x64 node-v12.16.2
+$ sb-mig --help [COMMAND]
 USAGE
-  $ oclif-example COMMAND
+  $ sb-mig COMMAND
 ...
 ```
 <!-- usagestop -->
 # Commands
 <!-- commands -->
-* [`oclif-example hello [FILE]`](#oclif-example-hello-file)
+* [`sb-mig generate [FILE]`](#sb-mig-generate-file)
 
-## `oclif-example hello [FILE]`
+## `sb-mig generate [FILE]`
 
-describe the command here
+Generate whole project with sb-mig generate and sb-mig add components
 
 ```
 USAGE
-  $ oclif-example hello [FILE]
+  $ sb-mig generate [FILE]
 
 OPTIONS
   -f, --force
@@ -44,9 +44,8 @@ OPTIONS
   -n, --name=name  name to print
 
 EXAMPLE
-  $ oclif-example hello
-  hello world from ./src/hello.ts!
+  $ sb-mig generate ?
 ```
 
-_See code: [src/commands/hello.ts](https://github.com/sb-mig/plugin-generate-project/blob/v0.0.1/src/commands/hello.ts)_
+_See code: [src/commands/generate.ts](https://github.com/sb-mig/plugin-generate-project/blob/v0.0.1/src/commands/generate.ts)_
 <!-- commandsstop -->
