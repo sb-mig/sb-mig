@@ -5,7 +5,7 @@ import { getPreset } from './presets'
 export const getComponentPresets = (componentName: string) => {
     Logger.log(`Trying to get all '${componentName}' presets.`)
 
-    return getAllComponents().then(async res => {
+    return getAllComponents().then(async (res) => {
         const componentPresets = res.components.filter(
             (component: any) => component.name === componentName
         )

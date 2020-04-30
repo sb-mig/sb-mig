@@ -12,7 +12,7 @@ export const getAllDatasources = () => {
     return sbApi
         .get(`spaces/${spaceId}/datasources/`)
         .then(({ data }) => data)
-        .catch(err => {
+        .catch((err) => {
             if (err.response.status === 404) {
                 Logger.error(
                     `There is no datasources in your Storyblok ${spaceId} space.`
@@ -28,21 +28,21 @@ export const getDatasource = (datasourceName: string) => {
     Logger.log(`Trying to get '${datasourceName}' datasource.`)
 
     return getAllDatasources()
-        .then(res => {
+        .then((res) => {
             if (res) {
                 return res.datasources.filter(
                     (datasource: any) => datasource.name === datasourceName
                 )
             }
         })
-        .then(res => {
+        .then((res) => {
             if (Array.isArray(res) && res.length === 0) {
                 Logger.warning(`There is no datasource named '${datasourceName}'`)
                 return false
             }
             return res
         })
-        .catch(err => Logger.error(err))
+        .catch((err) => Logger.error(err))
 }
 
 export const getDatasourceEntries = async (datasourceName: string) => {
@@ -54,7 +54,7 @@ export const getDatasourceEntries = async (datasourceName: string) => {
         return sbApi
             .get(`spaces/${spaceId}/datasource_entries/?datasource_id=${data[0].id}`)
             .then(async ({ data }) => data)
-            .catch(err => Logger.error(err))
+            .catch((err) => Logger.error(err))
     }
 }
 
@@ -70,10 +70,10 @@ export const createDatasource = (datasource: any) =>
             data,
             datasource_entries: datasource.datasource_entries
         }))
-        .catch(err => Logger.error(err))
+        .catch((err) => Logger.error(err))
 
 
-export const createDatasourceEntry = (datasourceEntry: any, datasourceId: any) => {
+export const createDatasourceEntry = (datasourceEntry: any, datasourceId: string) => {
     return sbApi
         .post(`spaces/${spaceId}/datasource_entries/`, {
             datasource_entry: {
@@ -85,12 +85,12 @@ export const createDatasourceEntry = (datasourceEntry: any, datasourceId: any) =
         .then(({ data }) => {
             return data
         })
-        .catch(err => Logger.error(err))
+        .catch((err) => Logger.error(err))
 }
 
 export const updateDatasourceEntry = (
     datasourceEntry: any,
-    datasourceId: any,
+    datasourceId: string,
     datasourceToBeUpdated: any
 ) => {
     return sbApi
@@ -126,7 +126,7 @@ export const updateDatasource = (datasource: any, temp: any) =>
         .catch(err => Logger.error(err))
 
 export const createDatasourceEntries = (
-    datasourceId: any,
+    datasourceId: string,
     datasource_entries: any,
     remoteDatasourceEntries: any
 ) => {
