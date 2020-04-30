@@ -1,8 +1,9 @@
-import { Command, flags } from '@oclif/command'
-import * as ora from 'ora';
+import { flags } from '@oclif/command'
+import * as ora from 'ora'
+import Command from 'sb-mig/lib/core'
 
-import { createComponent } from '../api/create';
-import Logger from '../utils/Logger';
+import { createComponent } from '../api/create'
+import Logger from '../utils/Logger'
 
 export default class CreateComponent extends Command {
   static description = 'Create package inside sb-mig compliant components monorepo.'
