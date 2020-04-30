@@ -1,7 +1,7 @@
 {
   "name": "@sb-mig/plugin-create-component",
   "description": "Plugin for sb-mig to create component in monorepos compliant with sb-mig",
-  "version": "0.0.8",
+  "version": "0.0.9",
   "author": "Marcin Krawczyk marckraw@icloud.com",
   "bugs": "https://github.com/sb-mig/plugin-create-component/issues",
   "dependencies": {

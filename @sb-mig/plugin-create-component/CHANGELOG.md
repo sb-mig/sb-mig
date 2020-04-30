@@ -1,3 +1,12 @@
+## [0.0.9](https://github.com/sb-mig/plugin-create-component/compare/v0.0.8...v0.0.9) (2020-04-30)
+
+
+### feat
+
+* Add custom base class from sb-mig with api methods and helper functions ([f3f60d0](https://github.com/sb-mig/plugin-create-component/commit/f3f60d0e78f3b3e44f4d12ddecfba5d8a883fa92))
+
+
+
 ## [0.0.8](https://github.com/sb-mig/plugin-create-component/compare/v0.0.7...v0.0.8) (2020-04-27)
 
 
