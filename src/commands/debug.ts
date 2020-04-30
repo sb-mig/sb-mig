@@ -15,5 +15,6 @@ export default class Debug extends Command {
     const { args, flags } = this.parse(Debug)
 
     const config = this.storyblokConfig();
+    console.log(config);
   }
 }
