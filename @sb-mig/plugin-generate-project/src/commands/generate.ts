@@ -1,12 +1,11 @@
-import {Command, flags} from '@oclif/command'
+import {flags} from '@oclif/command'
+import Command from 'sb-mig/lib/core'
 
 export default class Hello extends Command {
-  static description = 'describe the command here'
+  static description = 'Generate whole project with sb-mig generate and sb-mig add components'
 
   static examples = [
-    `$ oclif-example hello
-hello world from ./src/hello.ts!
-`,
+    `$ sb-mig generate ?`,
   ]
 
   static flags = {

@@ -1,5 +1,5 @@
 {
-  "name": "plugin-generate-project",
+  "name": "@sb-mig/plugin-generate-project",
   "description": "Plugin for sb-mig to generate Storyblok project with command line",
   "version": "0.0.1",
   "author": "Marcin Krawczyk marckraw@icloud.com",
@@ -7,6 +7,8 @@
   "dependencies": {
     "@oclif/command": "^1",
     "@oclif/config": "^1",
+    "@sb-mig/plugin-add-components": "^0.1.2",
+    "sb-mig": "^2.1.1",
     "tslib": "^1"
   },
   "devDependencies": {
@@ -37,17 +39,25 @@
   ],
   "homepage": "https://github.com/sb-mig/plugin-generate-project",
   "keywords": [
-    "oclif-plugin"
+    "generate-project",
+    "sb-mig",
+    "storyblok",
+    "plugin",
+    "generate"
   ],
   "license": "MIT",
   "oclif": {
     "commands": "./lib/commands",
-    "bin": "oclif-example",
+    "bin": "sb-mig",
     "devPlugins": [
-      "@oclif/plugin-help"
+      "@oclif/plugin-help",
+      "@sb-mig/plugin-add-components"
     ]
   },
-  "repository": "sb-mig/plugin-generate-project",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sb-mig/plugin-generate-project.git"
+  },
   "scripts": {
     "postpack": "rm -f oclif.manifest.json",
     "posttest": "eslint . --ext .ts --config .eslintrc",
