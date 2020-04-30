@@ -19,7 +19,7 @@ $ npm install -g @sb-mig/plugin-generate-project
 $ sb-mig COMMAND
 running command...
 $ sb-mig (-v|--version|version)
-@sb-mig/plugin-generate-project/0.0.2 darwin-x64 node-v12.16.2
+@sb-mig/plugin-generate-project/0.1.0 darwin-x64 node-v12.16.2
 $ sb-mig --help [COMMAND]
 USAGE
   $ sb-mig COMMAND
@@ -28,24 +28,24 @@ USAGE
 <!-- usagestop -->
 # Commands
 <!-- commands -->
-* [`sb-mig generate [FILE]`](#sb-mig-generate-file)
+* [`sb-mig generate [PROJECT-NAME]`](#sb-mig-generate-project-name)
 
-## `sb-mig generate [FILE]`
+## `sb-mig generate [PROJECT-NAME]`
 
 Generate whole project with sb-mig generate and sb-mig add components
 
 ```
 USAGE
-  $ sb-mig generate [FILE]
+  $ sb-mig generate [PROJECT-NAME]
 
 OPTIONS
-  -f, --force
-  -h, --help       show CLI help
-  -n, --name=name  name to print
+  -a, --add   List of components to add to project
+  -c, --copy  Copy downloaded files into your folder structure (outside node_modules).
+  -h, --help  show CLI help
 
 EXAMPLE
-  $ sb-mig generate ?
+  $ sb-mig generate project-name --add @ef-sbc/web-ui-accordion @ef-sbc/web-ui-section
 ```
 
-_See code: [src/commands/generate.ts](https://github.com/sb-mig/plugin-generate-project/blob/v0.0.2/src/commands/generate.ts)_
+_See code: [src/commands/generate.ts](https://github.com/sb-mig/plugin-generate-project/blob/v0.1.0/src/commands/generate.ts)_
 <!-- commandsstop -->
