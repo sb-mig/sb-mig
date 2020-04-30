@@ -3,10 +3,10 @@ plugin-generate-project
 
 Plugin for sb-mig to generate Storyblok project with command line
 
-[![oclif](https://img.shields.io/badge/cli-oclif-brightgreen.svg)](https://oclif.io)
-[![Version](https://img.shields.io/npm/v/plugin-generate-project.svg)](https://npmjs.org/package/plugin-generate-project)
-[![Downloads/week](https://img.shields.io/npm/dw/plugin-generate-project.svg)](https://npmjs.org/package/plugin-generate-project)
-[![License](https://img.shields.io/npm/l/plugin-generate-project.svg)](https://github.com/sb-mig/plugin-generate-project/blob/master/package.json)
+[![npm](https://img.shields.io/npm/v/@sb-mig/plugin-generate-project.svg)](https://www.npmjs.com/package/@sb-mig/plugin-generate-project)
+[![npm](https://img.shields.io/npm/dt/@sb-mig/plugin-generate-project.svg)](ttps://img.shields.io/npm/dt/@sb-mig/plugin-generate-project.svg)
+[![GitHub issues](https://img.shields.io/github/issues/sb-mig/plugin-generate-project.svg?style=flat-square&v=1)](https://github.com/sb-mig/plugin-generate-project/issues?q=is%3Aopen+is%3Aissue)
+[![License](https://img.shields.io/npm/l/@sb-mig/plugin-generate-project.svg)](https://github.com/sb-mig/plugin-generate-project/blob/master/package.json)
 
 <!-- toc -->
 * [Usage](#usage)
