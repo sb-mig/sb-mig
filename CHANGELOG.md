@@ -1,3 +1,12 @@
+## [2.1.2](https://github.com/sb-mig/sb-mig/compare/v2.1.1...v2.1.2) (2020-04-30)
+
+
+### fix
+
+* debug not displaying values ([6a26c0f](https://github.com/sb-mig/sb-mig/commit/6a26c0f94b9ef40d9c4f4e9958a1906f587d65f7))
+
+
+
 ## [2.1.1](https://github.com/sb-mig/sb-mig/compare/v2.0.1...v2.1.1) (2020-04-30)
 
 ### hotfix
