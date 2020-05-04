@@ -1,3 +1,12 @@
+## [0.1.3](https://github.com/sb-mig/plugin-add-components/compare/v0.1.2...v0.1.3) (2020-05-04)
+
+
+### fix
+
+* make sure, that no depedencies was removed from node_modules ([4ddd91b](https://github.com/sb-mig/plugin-add-components/commit/4ddd91b54012add53da0d450f333c481a6d52143))
+
+
+
 ## [0.1.2](https://github.com/sb-mig/plugin-add-components/compare/v0.0.6...v0.1.2) (2020-04-27)
 
 
