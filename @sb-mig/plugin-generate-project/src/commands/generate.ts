@@ -32,6 +32,7 @@ export default class Hello extends Command {
     console.log(`Using ${boilerplateUrl} boilerplate...`)
 
     const components = argv.splice(1, argv.length);
+    const projectName = argv[0];
 
     let spinner = ora(`Cloning repo...\n`).start()
     const clonedRepo = await cloneRepo(boilerplateUrl);
@@ -46,7 +47,7 @@ export default class Hello extends Command {
       data: {
         space
       }
-    } = await createSpace(this.api().spaces.createSpace, 'new-space-4')
+    } = await createSpace(this.api().spaces.createSpace, projectName)
     spinner.stop()
 
     removeAndModifyFiles(space)
