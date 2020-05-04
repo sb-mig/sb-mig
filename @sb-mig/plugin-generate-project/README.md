@@ -19,7 +19,7 @@ $ npm install -g @sb-mig/plugin-generate-project
 $ sb-mig COMMAND
 running command...
 $ sb-mig (-v|--version|version)
-@sb-mig/plugin-generate-project/0.1.0 darwin-x64 node-v12.16.2
+@sb-mig/plugin-generate-project/0.1.1 darwin-x64 node-v12.16.2
 $ sb-mig --help [COMMAND]
 USAGE
   $ sb-mig COMMAND
@@ -47,5 +47,5 @@ EXAMPLE
   $ sb-mig generate project-name --add @ef-sbc/web-ui-accordion @ef-sbc/web-ui-section
 ```
 
-_See code: [src/commands/generate.ts](https://github.com/sb-mig/plugin-generate-project/blob/v0.1.0/src/commands/generate.ts)_
+_See code: [src/commands/generate.ts](https://github.com/sb-mig/plugin-generate-project/blob/v0.1.1/src/commands/generate.ts)_
 <!-- commandsstop -->
