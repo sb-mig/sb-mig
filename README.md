@@ -17,6 +17,7 @@ If you've found an issue or you have feature request - <a href="https://github.c
 ## Contents
 
 - [How to install and configure](#how-to-install-and-configure)
+- [Generate whole starter project](#generate-whole-starter-project)
 - [Usage](#usage)
 - [Commands](#commands)
   - [`sb-mig backup`](#sb-mig-backup)
@@ -73,6 +74,61 @@ module.exports = {
 };
 ```
 
+## Generate whole starter project
+
+1. Create folder with custom name and get inside
+2. Create `storyblok.config.js` file if u want to use custom gatsby storyblok starter, or custom npm component scope
+
+```
+module.exports = {
+  ...
+  boilerplateUrl: "git@github.com:your-custom-gatsby-storyblok-boilerplate.git",
+  componentsDirectories: ["src", "storyblok","node_modules/@custom-scope","node_modules/@storyblok-components"],
+  ...
+}
+
+```
+
+3. Create `.env` file only with your storyblok oauth token (which you can get from your storyblok account - this is needed for script to have access to creating space api)
+
+```
+STORYBLOK_OAUTH_TOKEN=1234567890qwertyuiop
+```
+
+4. Install `generate-project` `sb-mig` plugin.
+```
+sb-mig plugins:install generate-project
+```
+
+5. Run
+
+```
+sb-mig generate "My Greatest Project"
+```
+
+It will generate basic boilerplate.
+
+If u want to specify components you would like to add you can do that by adding parameter to the command, and list of components (list of all available components: **TBD**):
+
+```
+sb-mig generate "My Greatest Project" --add @custom-scope/ui-text-block @storyblok-components/ui-surface
+```
+
+6. You can also pass `--copy` flag, which will copy component files from `node_modules` to your local, and add it properly to `components.js` file.
+```
+sb-mig generate "My Greatest Project" --add @custom-scope/ui-text-block @storyblok-components/ui-surface --copy
+```
+
+7. Wait for magic to happen.
+8. Run sync command to sync all components to storyblok.
+
+```
+sb-mig sync components --all --ext
+```
+
+7. `npm start`
+8. Enjoy your new project.
+
 # Usage
 
 ```sh-session
@@ -95,15 +151,16 @@ COMMANDS
 # Commands
 
 <!-- commands -->
-* [`sb-mig backup`](#sb-mig-backup)
-* [`sb-mig debug`](#sb-mig-debug)
-* [`sb-mig help [COMMAND]`](#sb-mig-help-command)
-* [`sb-mig plugins`](#sb-mig-plugins)
-* [`sb-mig plugins:install PLUGIN...`](#sb-mig-pluginsinstall-plugin)
-* [`sb-mig plugins:link PLUGIN`](#sb-mig-pluginslink-plugin)
-* [`sb-mig plugins:uninstall PLUGIN...`](#sb-mig-pluginsuninstall-plugin)
-* [`sb-mig plugins:update`](#sb-mig-pluginsupdate)
-* [`sb-mig sync TYPE [LIST]`](#sb-mig-sync-type-list)
+
+- [`sb-mig backup`](#sb-mig-backup)
+- [`sb-mig debug`](#sb-mig-debug)
+- [`sb-mig help [COMMAND]`](#sb-mig-help-command)
+- [`sb-mig plugins`](#sb-mig-plugins)
+- [`sb-mig plugins:install PLUGIN...`](#sb-mig-pluginsinstall-plugin)
+- [`sb-mig plugins:link PLUGIN`](#sb-mig-pluginslink-plugin)
+- [`sb-mig plugins:uninstall PLUGIN...`](#sb-mig-pluginsuninstall-plugin)
+- [`sb-mig plugins:update`](#sb-mig-pluginsupdate)
+- [`sb-mig sync TYPE [LIST]`](#sb-mig-sync-type-list)
 
 ## `sb-mig backup`
 
@@ -198,15 +255,15 @@ DESCRIPTION
 
   Installation of a user-installed plugin will override a core plugin.
 
-  e.g. If you have a core plugin that has a 'hello' command, installing a user-installed plugin with a 'hello' command 
-  will override the core plugin implementation. This is useful if a user needs to update core plugin functionality in 
+  e.g. If you have a core plugin that has a 'hello' command, installing a user-installed plugin with a 'hello' command
+  will override the core plugin implementation. This is useful if a user needs to update core plugin functionality in
   the CLI without the need to patch and update the whole CLI.
 
 ALIASES
   $ sb-mig plugins:add
 
 EXAMPLES
-  $ sb-mig plugins:install myplugin 
+  $ sb-mig plugins:install myplugin
   $ sb-mig plugins:install https://github.com/someuser/someplugin
   $ sb-mig plugins:install someuser/someplugin
 ```
@@ -231,7 +288,7 @@ OPTIONS
 DESCRIPTION
   Installation of a linked plugin will override a user-installed or core plugin.
 
-  e.g. If you have a user-installed or core plugin that has a 'hello' command, installing a linked plugin with a 'hello' 
+  e.g. If you have a user-installed or core plugin that has a 'hello' command, installing a linked plugin with a 'hello'
   command will override the user-installed or core plugin implementation. This is useful for development work.
 
 EXAMPLE
@@ -297,6 +354,7 @@ OPTIONS
 ```
 
 _See code: [src/commands/sync.ts](https://github.com/sb-mig/sb-mig/blob/v2.1.2/src/commands/sync.ts)_
+
 <!-- commandsstop -->
 
 # Schema documentation:
