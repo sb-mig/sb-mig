@@ -1,7 +1,7 @@
 import { Command, flags } from '@oclif/command'
 import * as ora from 'ora';
 
-import { installProvidedComponents } from '../api/add';
+import { installProvidedComponents, installAllDependencies } from '../api/add';
 import {updateComponentsJs} from '../api/update';
 import { copyComponents } from '../api/copy';
 
@@ -60,5 +60,9 @@ export default class Add extends Command {
       const data = updateComponentsJs(installedComponents, true);
       spinner.stop()
     }
+
+    let spinner = ora(`Installing all dependencies...\n`).start()
+    await installAllDependencies()
+    spinner.stop()
   }
 }

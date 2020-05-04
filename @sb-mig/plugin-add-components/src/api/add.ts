@@ -12,6 +12,14 @@ export const installComponentCommand = (component: any) => {
     }
 }
 
+export const installAllDependencies = () => {
+    if (yarnOrNpm() == 'yarn') {
+        return execa.command(`yarn`)
+    } else {
+        return execa.command(`npm install`)
+    }
+}
+
 export const installProvidedComponents = async (components: string[]) => {
     // @ts-ignore
     return Promise.allSettled(
