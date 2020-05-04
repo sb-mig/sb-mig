@@ -108,7 +108,7 @@ sb-mig generate "My Greatest Project"
 
 It will generate basic boilerplate.
 
-If u want to specify components you would like to add you can do that by adding parameter to the command, and list of components (list of all available components: **TBD**):
+If u want to specify components you would like to add you can do that by adding parameter to the command, and list of components (list of all public available components in @storyblok-components scope: [npm list](https://www.npmjs.com/settings/storyblok-components/packages)):
 
 ```
 sb-mig generate "My Greatest Project" --add @custom-scope/ui-text-block @storyblok-components/ui-surface
