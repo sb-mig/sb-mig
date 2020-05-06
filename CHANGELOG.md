@@ -1,3 +1,13 @@
+## [2.1.3](https://github.com/sb-mig/sb-mig/compare/v2.1.2...v2.1.3) (2020-05-06)
+
+
+### docs
+
+* add generate project section to readme ([7537994](https://github.com/sb-mig/sb-mig/commit/7537994f9123dfe7641799ce65b09720f7f26e14))
+* add link to npm list of @storyblok-components ([b0bd4ab](https://github.com/sb-mig/sb-mig/commit/b0bd4ab643caebb7245cdb83b001ed91752b13a0))
+
+
+
 ## [2.1.2](https://github.com/sb-mig/sb-mig/compare/v2.1.1...v2.1.2) (2020-04-30)
 
 
