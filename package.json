@@ -1,6 +1,6 @@
 {
   "name": "sb-mig",
-  "version": "2.0.1",
+  "version": "2.1.3",
   "description": "CLI to rule the world. (and handle stuff related to Storyblok CMS)",
   "author": "Marcin Krawczyk <marckraw@icloud.com>",
   "bin": {
@@ -12,6 +12,8 @@
     "@oclif/config": "^1",
     "@oclif/plugin-help": "^2",
     "@oclif/plugin-plugins": "^1.7.9",
+    "@oclif/plugin-warn-if-update-available": "^1.7.0",
+    "@types/ncp": "^2.0.3",
     "camelcase": "^5.3.1",
     "dotenv": "^8.2.0",
     "execa": "^4.0.0",
@@ -20,7 +22,7 @@
     "ncp": "^2.0.0",
     "ora": "^4.0.3",
     "rimraf": "^3.0.2",
-    "storyblok-js-client": "^2.2.0",
+    "storyblok-js-client": "^2.4.0",
     "tslib": "^1"
   },
   "devDependencies": {
@@ -65,8 +67,13 @@
     "scope": "sb-mig",
     "plugins": [
       "@oclif/plugin-help",
-      "@oclif/plugin-plugins"
-    ]
+      "@oclif/plugin-plugins",
+      "@oclif/plugin-warn-if-update-available"
+    ],
+    "warn-if-update-available": {
+      "timeoutInDays": 3,
+      "message": "<%= config.name %> update available from <%= chalk.greenBright(config.version) %> to <%= chalk.greenBright(latest) %>."
+    }
   },
   "repository": {
     "type": "git",

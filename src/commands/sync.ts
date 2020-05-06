@@ -1,7 +1,8 @@
-import { Command, flags } from '@oclif/command'
-import { componentDirectory, schemaFileExt, componentsDirectories} from "../config/config";
-import Logger from "../utils/logger";
-import * as migrate from '../api/migrate';
+import { flags } from '@oclif/command'
+import Command from '../core'
+import storyblokConfig from "../config/config"
+import Logger from "../utils/logger"
+import { syncAllComponents, syncComponents } from '../api/migrate'
 
 export default class Sync extends Command {
   static description = 'Synchronize components, datasources with Storyblok space.'
@@ -25,21 +26,21 @@ export default class Sync extends Command {
     const components = argv.splice(1, argv.length);
 
     if (args.type === "components" && flags.all && flags.ext) {
-      Logger.log(`Syncing all components with ${schemaFileExt} extension...`)
-      migrate.syncAllComponents(schemaFileExt, !!flags.presets)
+      Logger.log(`Syncing all components with ${storyblokConfig.schemaFileExt} extension...`)
+      syncAllComponents(storyblokConfig.schemaFileExt, !!flags.presets)
     }
 
     if (args.type === "components" && flags.all && !flags.ext) {
       Logger.log(
-        `Syncing all components from ${componentDirectory} directory...`
+        `Syncing all components from ${storyblokConfig.componentDirectory} directory...`
       )
 
-      migrate.syncAllComponents(!!flags.ext, !!flags.presets)
+      syncAllComponents(!!flags.ext, !!flags.presets)
     }
 
     if (args.type === "components" && !flags.all && flags.ext) {
       Logger.log(
-        `Syncing provided components with ${schemaFileExt} extension, inside [${componentsDirectories.join(
+        `Syncing provided components with ${storyblokConfig.schemaFileExt} extension, inside [${storyblokConfig.componentsDirectories.join(
           ", "
         )}] directories ...`
       )
@@ -49,7 +50,7 @@ export default class Sync extends Command {
           `You have to provide some components separated with empty space. For exmaple: 'row column card'`
         )
       } else {
-        migrate.syncComponents(components, schemaFileExt, !!flags.presets)
+        syncComponents(components, storyblokConfig.schemaFileExt, !!flags.presets)
       }
     }
 
@@ -61,7 +62,7 @@ export default class Sync extends Command {
           `You have to provide some components separated with empty space. For exmaple: 'row column card'`
         )
       } else {
-        migrate.syncComponents(components, !!flags.ext, !!flags.presets)
+        syncComponents(components, !!flags.ext, !!flags.presets)
       }
     }
 

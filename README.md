@@ -17,6 +17,7 @@ If you've found an issue or you have feature request - <a href="https://github.c
 ## Contents
 
 - [How to install and configure](#how-to-install-and-configure)
+- [Generate whole starter project](#generate-whole-starter-project)
 - [Usage](#usage)
 - [Commands](#commands)
   - [`sb-mig backup`](#sb-mig-backup)
@@ -74,6 +75,61 @@ module.exports = {
 };
 ```
 
+## Generate whole starter project
+
+1. Create folder with custom name and get inside
+2. Create `storyblok.config.js` file if u want to use custom gatsby storyblok starter, or custom npm component scope
+
+```
+module.exports = {
+  ...
+  boilerplateUrl: "git@github.com:your-custom-gatsby-storyblok-boilerplate.git",
+  componentsDirectories: ["src", "storyblok","node_modules/@custom-scope","node_modules/@storyblok-components"],
+  ...
+}
+
+```
+
+3. Create `.env` file only with your storyblok oauth token (which you can get from your storyblok account - this is needed for script to have access to creating space api)
+
+```
+STORYBLOK_OAUTH_TOKEN=1234567890qwertyuiop
+```
+
+4. Install `generate-project` `sb-mig` plugin.
+```
+sb-mig plugins:install generate-project
+```
+
+5. Run
+
+```
+sb-mig generate "My Greatest Project"
+```
+
+It will generate basic boilerplate.
+
+If u want to specify components you would like to add you can do that by adding parameter to the command, and list of components (list of all public available components in @storyblok-components scope: [npm list](https://www.npmjs.com/settings/storyblok-components/packages)):
+
+```
+sb-mig generate "My Greatest Project" --add @custom-scope/ui-text-block @storyblok-components/ui-surface
+```
+
+6. You can also pass `--copy` flag, which will copy component files from `node_modules` to your local, and add it properly to `components.js` file.
+```
+sb-mig generate "My Greatest Project" --add @custom-scope/ui-text-block @storyblok-components/ui-surface --copy
+```
+
+7. Wait for magic to happen.
+8. Run sync command to sync all components to storyblok.
+
+```
+sb-mig sync components --all --ext
+```
+
+7. `npm start`
+8. Enjoy your new project.
+
 # Usage
 
 ```sh-session
@@ -129,7 +185,7 @@ OPTIONS
   -x, --oneDatasource=oneDatasource              Backup one datasource by name.
 ```
 
-_See code: [src/commands/backup.ts](https://github.com/sb-mig/sb-mig/blob/v2.0.1/src/commands/backup.ts)_
+_See code: [src/commands/backup.ts](https://github.com/sb-mig/sb-mig/blob/v2.1.3/src/commands/backup.ts)_
 
 ## `sb-mig debug`
 
@@ -143,7 +199,7 @@ OPTIONS
   -h, --help  show CLI help
 ```
 
-_See code: [src/commands/debug.ts](https://github.com/sb-mig/sb-mig/blob/v2.0.1/src/commands/debug.ts)_
+_See code: [src/commands/debug.ts](https://github.com/sb-mig/sb-mig/blob/v2.1.3/src/commands/debug.ts)_
 
 ## `sb-mig help [COMMAND]`
 
@@ -298,8 +354,7 @@ OPTIONS
   -p, --presets  Synchronize components with presets.
 ```
 
-_See code: [src/commands/sync.ts](https://github.com/sb-mig/sb-mig/blob/v2.0.1/src/commands/sync.ts)_
-
+_See code: [src/commands/sync.ts](https://github.com/sb-mig/sb-mig/blob/v2.1.3/src/commands/sync.ts)_
 <!-- commandsstop -->
 
 # Plugins
