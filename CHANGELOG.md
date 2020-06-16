@@ -1,3 +1,12 @@
+## [2.1.6](https://github.com/sb-mig/sb-mig/compare/v2.1.5...v2.1.6) (2020-06-16)
+
+
+### packages
+
+* update oclif command ([a5e5569](https://github.com/sb-mig/sb-mig/commit/a5e5569903449cad567fa0d63451f704a7520c5c))
+
+
+
 ## [2.1.5](https://github.com/sb-mig/sb-mig/compare/v2.1.4...v2.1.5) (2020-06-16)
 
 
