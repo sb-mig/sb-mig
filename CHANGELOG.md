@@ -1,3 +1,12 @@
+## [2.1.5](https://github.com/sb-mig/sb-mig/compare/v2.1.4...v2.1.5) (2020-06-16)
+
+
+### packages
+
+* update ora ([2e3ecb7](https://github.com/sb-mig/sb-mig/commit/2e3ecb752031207fcc2c7a2d80d5dcd1af55945a))
+
+
+
 ## [2.1.4](https://github.com/sb-mig/sb-mig/compare/v2.1.3...v2.1.4) (2020-06-16)
 
 
