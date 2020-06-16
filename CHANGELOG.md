@@ -1,3 +1,16 @@
+## [2.1.4](https://github.com/sb-mig/sb-mig/compare/v2.1.3...v2.1.4) (2020-06-16)
+
+
+### docs
+
+* Add plugins section with available plugins ([f59460d](https://github.com/sb-mig/sb-mig/commit/f59460d3f908429283699a5d15323236866edd9f))
+
+### packages
+
+* update oclif plugins plugin ([21c41a9](https://github.com/sb-mig/sb-mig/commit/21c41a962ca066dae69fc72fe519d63d586cd162))
+
+
+
 ## [2.1.3](https://github.com/sb-mig/sb-mig/compare/v2.1.2...v2.1.3) (2020-05-06)
 
 
