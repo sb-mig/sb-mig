@@ -1,3 +1,12 @@
+## [0.0.10](https://github.com/sb-mig/plugin-create-component/compare/v0.0.9...v0.0.10) (2020-06-16)
+
+
+### fix
+
+* add familly name scope to oclif plugins ([ee8dd2e](https://github.com/sb-mig/plugin-create-component/commit/ee8dd2ee1384d00acd2b625815a1396063ef0948))
+
+
+
 ## [0.0.9](https://github.com/sb-mig/plugin-create-component/compare/v0.0.8...v0.0.9) (2020-04-30)
 
 
