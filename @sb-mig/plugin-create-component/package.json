@@ -55,6 +55,7 @@
   "license": "MIT",
   "oclif": {
     "commands": "./lib/commands",
+    "scope": "sb-mig",
     "bin": "sb-mig",
     "devPlugins": [
       "@oclif/plugin-help"
