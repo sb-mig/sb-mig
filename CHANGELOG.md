@@ -1,3 +1,12 @@
+## [2.1.7](https://github.com/sb-mig/sb-mig/compare/v2.1.6...v2.1.7) (2020-06-16)
+
+
+### fix
+
+* fix deploy with actions ([db50669](https://github.com/sb-mig/sb-mig/commit/db50669b6e6ec01f919c596cf7fcfbb06ba46512))
+
+
+
 ## [2.1.6](https://github.com/sb-mig/sb-mig/compare/v2.1.5...v2.1.6) (2020-06-16)
 
 
