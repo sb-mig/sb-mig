@@ -11,7 +11,7 @@
     "@oclif/command": "^1",
     "@oclif/config": "^1",
     "@oclif/plugin-help": "^2",
-    "@oclif/plugin-plugins": "^1.7.9",
+    "@oclif/plugin-plugins": "^1.7.10",
     "@oclif/plugin-warn-if-update-available": "^1.7.0",
     "@types/ncp": "^2.0.3",
     "camelcase": "^5.3.1",
