@@ -10,7 +10,7 @@ export default class Hello extends Command {
   static description = 'Generate whole project with sb-mig generate and sb-mig add components'
 
   static examples = [
-    `$ sb-mig generate project-name --add @ef-sbc/web-ui-accordion @ef-sbc/web-ui-section`,
+    `$ sb-mig generate project-name --add @storyblok-components/ui-accordion @storyblok-components/ui-section`,
   ]
 
   static strict = false;
