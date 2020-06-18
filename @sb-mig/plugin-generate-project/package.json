@@ -2,7 +2,7 @@
   "name": "@sb-mig/plugin-generate-project",
   "private": false,
   "description": "Plugin for sb-mig to generate Storyblok project with command line",
-  "version": "0.1.2",
+  "version": "0.1.4",
   "author": "Marcin Krawczyk marckraw@icloud.com",
   "bugs": "https://github.com/sb-mig/plugin-generate-project/issues",
   "dependencies": {
