@@ -34,7 +34,7 @@ export default class Add extends Command {
     if (args.type === "components" && !flags.copy) {
 
       let spinner = ora(`Installing provided components...\n`).start()
-      const installedComponents = await installProvidedComponents(components);
+      const installedComponents = installProvidedComponents(components);
       spinner.stop()
 
       console.log(installedComponents);

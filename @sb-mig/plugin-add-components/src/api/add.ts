@@ -20,36 +20,46 @@ export const installAllDependencies = () => {
     }
 }
 
-export const installProvidedComponents = async (components: string[]) => {
-    // @ts-ignore
-    return Promise.allSettled(
-        components.map(component => {
-            return execa.command(installComponentCommand(component))
-        })
-    ).then((res: any) => {
-        return res.map((singleRes: any) => {
-            if (singleRes.status === 'fulfilled') {
-                Logger.success(`${singleRes.value.command} end successful!`)
+export const installProvidedComponents = (components: string[]) => {
+    const successComponents = components.map(component => {
+        Logger.log(`Adding ${component}... `)
+        let result;
+        try {
+            result = execa.commandSync(installComponentCommand(component))
+        } catch (error) {
+            Logger.error(`${error?.command} rejected.`);
+            Logger.error(`Reason: ${error.stderr}`)
+            return {
+                command: result?.command,
+                failed: true
+            };
+        }
 
-                const firstPart = singleRes.value.command.split("/")[0]
-                const secondPart = singleRes.value.command.split("/")[1]
+        if (!result.failed) {
+            Logger.success(`${result.command} end successful!`)
+        }
 
-                return {
-                    scope: firstPart.split(" ")[firstPart.split(" ").length - 1],
-                    name: secondPart.split(" ")[0]
-                }
-            }
-            if (singleRes.status === 'rejected') {
-                Logger.error(`${singleRes.reason.command} rejected.`);
-            }
-        })
-    }).then((res: any) => {
-        console.log("Everything cool!");
-        return res;
-    }).catch((error: Error) => {
-        Logger.error("Error happened inside Catch allSettled from add.ts");
-        console.log(error);
-        return 'sadness'
+        return result
+    }).filter(result => {
+        if (!result.failed) {
+            return result
+        }
     })
+        .map(result => {
+            const firstPart = result?.command?.split("/")[0]
+            const secondPart = result?.command?.split("/")[1]
+
+            return {
+                scope: firstPart?.split(" ")[firstPart?.split(" ").length - 1],
+                name: secondPart?.split(" ")[0]
+            }
+        })
+
+    console.log("\n")
+    Logger.success("Successfully installed components: ")
+    console.log(successComponents);
+
+    return successComponents
 }
+
 
