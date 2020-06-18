@@ -8,7 +8,7 @@
   "dependencies": {
     "@oclif/command": "^1",
     "@oclif/config": "^1",
-    "@sb-mig/plugin-add-components": "^0.1.2",
+    "@sb-mig/plugin-add-components": "^0.1.4",
     "@types/rimraf": "^3.0.0",
     "execa": "^4.0.0",
     "ncp": "^2.0.0",

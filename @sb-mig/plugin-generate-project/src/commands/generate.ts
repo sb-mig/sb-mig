@@ -56,7 +56,7 @@ export default class Hello extends Command {
     if (flags.add && !flags.copy) {
 
       let spinner = ora(`Installing provided components...\n`).start()
-      const installedComponents = await installProvidedComponents(components);
+      const installedComponents = installProvidedComponents(components);
       spinner.stop()
 
       spinner = ora(`Updating components.js file...\n`).start()
