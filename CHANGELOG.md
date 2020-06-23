@@ -1,3 +1,12 @@
+## [2.1.8](https://github.com/sb-mig/sb-mig/compare/v2.1.7...v2.1.8) (2020-06-23)
+
+
+### fix
+
+* follow symlinks while syncing components ([4169096](https://github.com/sb-mig/sb-mig/commit/41690960b2f6025cd50217e5887ef8f936a06268))
+
+
+
 ## [2.1.7](https://github.com/sb-mig/sb-mig/compare/v2.1.6...v2.1.7) (2020-06-16)
 
 
