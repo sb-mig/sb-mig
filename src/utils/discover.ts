@@ -27,7 +27,10 @@ export const findComponentsWithExt = (ext: string) => {
                     `${directory}/{${storyblokConfig.componentsDirectories.join(",")}}`,
                     `**`,
                     `[^_]*.${ext}`
-                )
+                ),
+                {
+                    follow: true
+                }
             )
             .map(file => require(path.resolve(directory, file)))
     )
