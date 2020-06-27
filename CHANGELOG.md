@@ -1,3 +1,12 @@
+## [2.1.9](https://github.com/sb-mig/sb-mig/compare/v2.1.8...v2.1.9) (2020-06-27)
+
+
+### fix
+
+* change default storyblok-boilerplate repository ([8986df8](https://github.com/sb-mig/sb-mig/commit/8986df8a00112a4645df0dfd29ba8356b771f912))
+
+
+
 ## [2.1.8](https://github.com/sb-mig/sb-mig/compare/v2.1.7...v2.1.8) (2020-06-23)
 
 
