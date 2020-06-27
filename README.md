@@ -361,7 +361,7 @@ _See code: [src/commands/sync.ts](https://github.com/sb-mig/sb-mig/blob/v2.1.9/s
 
 - [plugin-add-components](https://github.com/sb-mig/plugin-add-components) - with this plugin, you can easily install storyblok react components to your project ( compliant with `components.js` file syntax: [TBD](#) )
 - [plugin-create-component](https://github.com/sb-mig/plugin-create-component) - with this plugin, you can easily add working dummy component with all needed syntax to monorepos with storyblok components, like this unofficial one [storyblok-components/components](https://github.com/storyblok-components/components) which is deployed to `@storyblok-components` scope of public npm
-- [plugin-generate-project](https://github.com/sb-mig/plugin-generate-project) - **[IN PROGRESS]** with this plugin, you need only one command, to generate and bootstrap whole new Storyblok project with provided list of available components. It is also created storyblok space for you, and after command is done, you are ready to develop, edit and use installed components. ()
+- [plugin-generate-project](https://github.com/sb-mig/plugin-generate-project) - with this plugin, you need only one command, to generate and bootstrap whole new Storyblok project with provided list of available components. It is also created storyblok space for you, and after command is done, you are ready to develop, edit and use installed components. ()
 
 To build your own plugin, head over to this instruction: [TBD](#)
 
