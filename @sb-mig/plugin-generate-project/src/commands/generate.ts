@@ -19,6 +19,7 @@ export default class Hello extends Command {
     help: flags.help({ char: 'h' }),
     add: flags.boolean({ char: 'a', description: 'List of components to add to project' }),
     copy: flags.boolean({ char: 'c', description: "Copy downloaded files into your folder structure (outside node_modules)." }),
+    nospace: flags.boolean({ char: 'n', description: "Do not create a space for project. (for example when you have one already)" }),
   }
 
   static args = [{ name: 'project-name' }]
@@ -42,16 +43,18 @@ export default class Hello extends Command {
     }
     spinner.stop()
 
-    spinner = ora(`Creating space...\n`).start()
-    const {
-      data: {
-        space
-      }
-    } = await createSpace(this.api().spaces.createSpace, projectName)
-    spinner.stop()
+    if (!flags.nospace) {
+      spinner = ora(`Creating space...\n`).start()
+      const {
+        data: {
+          space
+        }
+      } = await createSpace(this.api().spaces.createSpace, projectName)
+      spinner.stop()
 
-    removeAndModifyFiles(space)
-    console.log(`Space has been created.`)
+      removeAndModifyFiles(space)
+      console.log(`Space has been created.`)
+    }
 
     if (flags.add && !flags.copy) {
 
