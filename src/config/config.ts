@@ -30,7 +30,7 @@ try {
 const defaultConfig: IStoryblokConfig = {
     reactComponentsDirectory: "src/components",
     npmScopeForComponents: "@storyblok-components",
-    boilerplateUrl: "git@github.com:marckraw/gatsby-storyblok-boilerplate.git",
+    boilerplateUrl: "git@github.com:storyblok-components/gatsby-storyblok-boilerplate.git",
     sbmigWorkingDirectory: "sbmig",
     componentDirectory: "storyblok",
     datasourcesDirectory: "storyblok",
