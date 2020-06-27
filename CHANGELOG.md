@@ -1,3 +1,12 @@
+## [2.1.10](https://github.com/sb-mig/sb-mig/compare/v2.1.9...v2.1.10) (2020-06-27)
+
+
+### docs
+
+* remove in progress label from plugin-generate-project ([27303a4](https://github.com/sb-mig/sb-mig/commit/27303a40f6a5074986084349a3f95ac50205e257))
+
+
+
 ## [2.1.9](https://github.com/sb-mig/sb-mig/compare/v2.1.8...v2.1.9) (2020-06-27)
 
 
