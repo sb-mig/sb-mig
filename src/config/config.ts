@@ -41,7 +41,7 @@ const defaultConfig: IStoryblokConfig = {
     storyblokApiUrl: "https://api.storyblok.com/v1",
     oauthToken: process.env.STORYBLOK_OAUTH_TOKEN,
     spaceId: process.env.STORYBLOK_SPACE_ID,
-    accessToken: process.env.GATSBY_STORYBLOK_ACCESS_TOKEN
+    accessToken: process.env.GATSBY_STORYBLOK_ACCESS_TOKEN || process.env.NEXT_STORYBLOK_ACCESS_TOKEN
 }
 
 export default {
