@@ -4,6 +4,7 @@ import * as dotenv from 'dotenv'
 dotenv.config()
 
 export interface IStoryblokConfig {
+    componentsMatchFile: string,
     reactComponentsDirectory: string;
     npmScopeForComponents: string;
     boilerplateUrl: string;
@@ -28,6 +29,7 @@ try {
 }
 
 const defaultConfig: IStoryblokConfig = {
+    componentsMatchFile: "src/components/components.js",
     reactComponentsDirectory: "src/components",
     npmScopeForComponents: "@storyblok-components",
     boilerplateUrl: "git@github.com:storyblok-components/gatsby-storyblok-boilerplate.git",
