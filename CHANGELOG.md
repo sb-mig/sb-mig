@@ -1,3 +1,12 @@
+## [2.1.12](https://github.com/sb-mig/sb-mig/compare/v2.1.11...v2.1.12) (2020-06-29)
+
+
+### config
+
+* allow also nextjs env schema for preview token ([d0a56b6](https://github.com/sb-mig/sb-mig/commit/d0a56b6e4f0e3bc95c4f6a4e0d66642410760a0e))
+
+
+
 ## [2.1.11](https://github.com/sb-mig/sb-mig/compare/v2.1.10...v2.1.11) (2020-06-29)
 
 
