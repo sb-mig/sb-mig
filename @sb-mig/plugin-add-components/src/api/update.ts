@@ -2,8 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as camelcase from 'camelcase';
 
-export const updateComponentsJs = (components: any, copy: boolean) => {
-    const srcDirectory = path.resolve(process.cwd(), 'src');
+export const updateComponentsJs = (components: any, copy: boolean, componentsMatchFile: string) => {
 
     let componentsImport = `// --- sb-mig scoped component imports ---\n`
     components.map((component: any, index: number) => {
@@ -17,13 +16,13 @@ export const updateComponentsJs = (components: any, copy: boolean) => {
         componentList = `${componentList}Scoped${camelcase(component.name, { pascalCase: true })}.ComponentList,${index !== components.length - 1 ? `\n` : ''}`
     })
 
-    fs.readFile(`${srcDirectory}/components/components.js`, 'utf-8', function (err, data) {
+    fs.readFile(`${componentsMatchFile}`, 'utf-8', function (err, data) {
         if (err) throw err;
 
         let newValue = data.replace(/\/\/ --- sb-mig scoped component imports ---/gim, componentsImport);
         newValue = newValue.replace(/\/\/ --- sb-mig scoped component list ---/gim, componentList);
 
-        fs.writeFile(`${srcDirectory}/components/components.js`, newValue, 'utf-8',  (err: any)  => {
+        fs.writeFile(`${componentsMatchFile}`, newValue, 'utf-8',  (err: any)  => {
             if (err) throw err;
             console.log('Done!');
         })

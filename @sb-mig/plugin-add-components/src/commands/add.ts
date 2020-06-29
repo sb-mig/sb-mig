@@ -1,8 +1,9 @@
-import { Command, flags } from '@oclif/command'
+import { flags } from '@oclif/command'
+import Command from 'sb-mig/lib/core'
 import * as ora from 'ora';
 
 import { installProvidedComponents, installAllDependencies } from '../api/add';
-import {updateComponentsJs} from '../api/update';
+import { updateComponentsJs } from '../api/update';
 import { copyComponents } from '../api/copy';
 
 export default class Add extends Command {
@@ -40,7 +41,7 @@ export default class Add extends Command {
       console.log(installedComponents);
 
       spinner = ora(`Updating components.js file...\n`).start()
-      const data = updateComponentsJs(installedComponents, false);
+      const data = updateComponentsJs(installedComponents, false, this.storyblokConfig().componentsMatchFile);
       spinner.stop()
     }
 
@@ -57,7 +58,7 @@ export default class Add extends Command {
       spinner.stop()
 
       spinner = ora(`Updating components.js file...\n`).start()
-      const data = updateComponentsJs(installedComponents, true);
+      const data = updateComponentsJs(installedComponents, true, this.storyblokConfig().componentsMatchFile);
       spinner.stop()
     }
 
