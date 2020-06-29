@@ -1,3 +1,12 @@
+## [2.1.11](https://github.com/sb-mig/sb-mig/compare/v2.1.10...v2.1.11) (2020-06-29)
+
+
+### config
+
+* add config variable for path of matching component between react and storyblok ([217bd13](https://github.com/sb-mig/sb-mig/commit/217bd13f9c07ff5c01bf8aa83b0ae08f97ef29bc))
+
+
+
 ## [2.1.10](https://github.com/sb-mig/sb-mig/compare/v2.1.9...v2.1.10) (2020-06-27)
 
 
