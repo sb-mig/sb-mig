@@ -1,3 +1,16 @@
+# [0.2.0](https://github.com/sb-mig/plugin-add-components/compare/v0.1.4...v0.2.0) (2020-06-29)
+
+
+### feat
+
+* add possibility to define place where main matching component file lives ([19c3881](https://github.com/sb-mig/plugin-add-components/commit/19c388173a93e39d77583f003b4aa208ff8f4a1e))
+
+### fix
+
+* update sb-mig core ([36f721d](https://github.com/sb-mig/plugin-add-components/commit/36f721d065e5e8130ee36d2bc4ebe2417390e8cc))
+
+
+
 ## [0.1.4](https://github.com/sb-mig/plugin-add-components/compare/v0.1.3...v0.1.4) (2020-06-18)
 
 
