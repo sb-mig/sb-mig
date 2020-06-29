@@ -2583,10 +2583,10 @@ safe-regex@^1.1.0:
   resolved "https://registry.yarnpkg.com/safer-buffer/-/safer-buffer-2.1.2.tgz#44fa161b0187b9549dd84bb91802f9bd8385cd6a"
   integrity sha512-YZo3K82SD7Riyi0E1EQPojLz7kpepnSQI9IyPbHHg1XXXevb5dJI7tpyN2ADxGcQbHG7vcyRHk0cbwqcQriUtg==
 
-sb-mig@^2.1.1:
-  version "2.1.7"
-  resolved "https://registry.yarnpkg.com/sb-mig/-/sb-mig-2.1.7.tgz#d30f2003cabf6aafbec1a4c0e4444982cb202d20"
-  integrity sha512-x8BeaOJ7Aw9LasXQLFhFIPhYA0pDmVhRpVfAA+4CP9GfYIfF1ymGEN0b77ffCOP+z91RduJ79fQOY/UpiYZqHw==
+sb-mig@^2.1.11:
+  version "2.1.11"
+  resolved "https://registry.yarnpkg.com/sb-mig/-/sb-mig-2.1.11.tgz#a37d238626c624a403be8dca7134bcc1fdb9f386"
+  integrity sha512-vIw1B1hxeUSPnK/DSKdO3OEBUm5J/FqpXi3VrEBunyuVN6uq1N45EDSfQTAdDeA5HGodfSteAvCcYP8CihDHvA==
   dependencies:
     "@oclif/command" "^1.6.1"
     "@oclif/config" "^1"
