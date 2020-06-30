@@ -1,5 +1,5 @@
 import Logger from '../utils/logger'
-import { findComponentsWithExt, findComponents } from '../utils/discover'
+import { findComponentsWithExt, findComponents, findComponentsByPackageName } from '../utils/discover'
 import storyblokConfig from '../config/config'
 import { getAllComponentsGroups, createComponentsGroup, getAllComponents } from './components'
 import { updateComponent, createComponent } from './mutateComponents'
@@ -40,10 +40,15 @@ const _resolveGroups = async (
     }
 };
 
-export const syncComponents = async (specifiedComponents: any, ext: string | false, presets: boolean) => {
+export const syncComponents = async (specifiedComponents: any, ext: string | false, presets: boolean, packageName: boolean) => {
+    if(packageName) {
+        specifiedComponents = findComponentsByPackageName(ext, specifiedComponents);
+    }
+
     Logger.log(
         `Trying to sync specified components from '${componentDirectory}'`
     );
+
     let localComponents;
     if (ext) {
         localComponents = findComponentsWithExt(ext);
@@ -137,5 +142,5 @@ export const syncAllComponents = (ext: string | false, presets: boolean) => {
         specifiedComponents = findComponents(componentDirectory).map((component: any) => component.name);
     }
 
-    syncComponents(specifiedComponents, ext, presets);
+    syncComponents(specifiedComponents, ext, presets, false);
 };

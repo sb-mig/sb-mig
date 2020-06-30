@@ -11,6 +11,7 @@ export default class Sync extends Command {
     help: flags.help({ char: 'h' }),
     all: flags.boolean({ char: 'a', description: "Synchronize all components." }),
     ext: flags.boolean({ char: 'e', description: "Synchronize with file extension. Default extension: '.sb.js'" }),
+    packageName: flags.boolean({ char: 'n', description: "Synchronize based on installed package name." }),
     presets: flags.boolean({ char: 'p', description: "Synchronize components with presets." }),
   }
 
@@ -50,7 +51,7 @@ export default class Sync extends Command {
           `You have to provide some components separated with empty space. For exmaple: 'row column card'`
         )
       } else {
-        syncComponents(components, storyblokConfig.schemaFileExt, !!flags.presets)
+        syncComponents(components, storyblokConfig.schemaFileExt, !!flags.presets, flags.packageName)
       }
     }
 
@@ -62,7 +63,7 @@ export default class Sync extends Command {
           `You have to provide some components separated with empty space. For exmaple: 'row column card'`
         )
       } else {
-        syncComponents(components, !!flags.ext, !!flags.presets)
+        syncComponents(components, !!flags.ext, !!flags.presets, flags.packageName)
       }
     }
 
