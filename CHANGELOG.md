@@ -1,3 +1,12 @@
+## [2.2.1](https://github.com/sb-mig/sb-mig/compare/v2.2.0...v2.2.1) (2020-06-30)
+
+
+### fix
+
+* fix tslint flat() not working in production ([87600cf](https://github.com/sb-mig/sb-mig/commit/87600cf3437c4dfc88e0db18cf24bb1e320079ce))
+
+
+
 # [2.2.0](https://github.com/sb-mig/sb-mig/compare/v2.1.12...v2.2.0) (2020-06-30)
 
 
