@@ -14,7 +14,10 @@ export default class Debug extends Command {
   async run() {
     const { args, flags } = this.parse(Debug)
 
-    const config = this.storyblokConfig();
-    console.log(config);
+    const config = this.storyblokConfig()
+    const componentsConfig = this.storyblokComponentsConfig()
+
+    console.log(config, '\n')
+    console.log(componentsConfig)
   }
 }
