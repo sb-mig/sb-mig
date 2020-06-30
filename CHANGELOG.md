@@ -1,3 +1,12 @@
+# [2.2.0](https://github.com/sb-mig/sb-mig/compare/v2.1.12...v2.2.0) (2020-06-30)
+
+
+### feat
+
+* syncing is now possible with package name. Example: sb-mig sync components @storyblok-components/simple-text-block --ext --packageName ([bfa8c49](https://github.com/sb-mig/sb-mig/commit/bfa8c490c0e87248a3c7d09e94d2c0a5547ac511))
+
+
+
 ## [2.1.12](https://github.com/sb-mig/sb-mig/compare/v2.1.11...v2.1.12) (2020-06-29)
 
 
