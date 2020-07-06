@@ -32,34 +32,70 @@ export default class Add extends Command {
 
     const components = argv.splice(1, argv.length);
 
+
     if (args.type === "components" && !flags.copy) {
+      console.log("All scoped components already in a project: ");
+      console.log(this.storyblokComponentsConfig().getAllData())
 
       let spinner = ora(`Installing provided components...\n`).start()
       const installedComponents = installProvidedComponents(components);
       spinner.stop()
 
+      console.log("These are successfully installed components: ");
       console.log(installedComponents);
 
-      spinner = ora(`Updating components.js file...\n`).start()
-      const data = updateComponentsJs(installedComponents, false, this.storyblokConfig().componentsMatchFile);
+      spinner = ora(`Adding tracking information to tracking file...\n`).start()
+      const installedComponentsTrackingData = this.storyblokComponentsConfig()
+        .addComponentsToComponentsConfigFile(installedComponents, flags.copy);
       spinner.stop()
+
+      this.storyblokComponentsConfig().setAllData(installedComponentsTrackingData)
+
+      spinner = ora(`Updating components.js file...\n`).start()
+      updateComponentsJs(
+        installedComponents,
+        false,
+        this.storyblokComponentsConfig(),
+        this.storyblokConfig()
+      );
+      spinner.stop()
+
+      this.storyblokComponentsConfig().updateComponentsConfigFile()
     }
 
     if (args.type === "components" && flags.copy) {
 
+      console.log("All scoped components already in a project: ");
+      console.log(this.storyblokComponentsConfig().getAllData())
+
       let spinner = ora(`Installing provided components...\n`).start()
-      const installedComponents = await installProvidedComponents(components);
+      const installedComponents = installProvidedComponents(components);
       spinner.stop()
 
+      console.log("These are successfully installed components: ");
       console.log(installedComponents);
 
       spinner = ora(`Copying components files to local system...\n`).start()
-      const dataAgain = await copyComponents(components);
+      const dataAgain = copyComponents(components, this.storyblokComponentsConfig(), this.storyblokConfig());
       spinner.stop()
 
-      spinner = ora(`Updating components.js file...\n`).start()
-      const data = updateComponentsJs(installedComponents, true, this.storyblokConfig().componentsMatchFile);
+      spinner = ora(`Adding tracking information to tracking file...\n`).start()
+      const installedComponentsTrackingData = this.storyblokComponentsConfig()
+        .addComponentsToComponentsConfigFile(installedComponents, flags.copy);
       spinner.stop()
+
+      this.storyblokComponentsConfig().setAllData(installedComponentsTrackingData)
+
+      spinner = ora(`Updating components.js file...\n`).start()
+      updateComponentsJs(
+        installedComponents,
+        true,
+        this.storyblokComponentsConfig(),
+        this.storyblokConfig()
+      );
+      spinner.stop()
+
+      this.storyblokComponentsConfig().updateComponentsConfigFile()
     }
 
     let spinner = ora(`Installing all dependencies...\n`).start()

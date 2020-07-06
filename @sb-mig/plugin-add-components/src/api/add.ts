@@ -57,7 +57,6 @@ export const installProvidedComponents = (components: string[]) => {
 
     console.log("\n")
     Logger.success("Successfully installed components: ")
-    console.log(successComponents);
 
     return successComponents
 }

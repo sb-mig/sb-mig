@@ -1,28 +1,38 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as camelcase from 'camelcase';
+import { StoryblokComponentsConfig } from 'sb-mig/lib/config/StoryblokComponentsConfig';
+import { IStoryblokConfig } from 'sb-mig/lib/config/config';
 
-export const updateComponentsJs = (components: any, copy: boolean, componentsMatchFile: string) => {
+import { updateIsLinkedInComponentFile, isComponentAlreadyImported } from './tracking'
+
+export const updateComponentsJs = (
+    installedComponents: any,
+    copy: boolean,
+    storyblokComponentsConfig: StoryblokComponentsConfig,
+    storyblokConfig: IStoryblokConfig
+) => {
+    const storyblokMatchFile = path.resolve(process.cwd(), storyblokConfig.componentsMatchFile)
 
     let componentsImport = `// --- sb-mig scoped component imports ---\n`
-    components.map((component: any, index: number) => {
-        componentsImport = `${componentsImport}import * as Scoped${
-            camelcase(component.name, { pascalCase: true })
-            } from "${copy ? '.' : component.scope}/${component.name}";${index !== components.length - 1 ? `\n` : ''}`
-    })
-
     let componentList = `// --- sb-mig scoped component list ---\n`
-    components.map((component: any, index: number) => {
-        componentList = `${componentList}Scoped${camelcase(component.name, { pascalCase: true })}.ComponentList,${index !== components.length - 1 ? `\n` : ''}`
+    installedComponents.map((component: any, index: number) => {
+        if (!isComponentAlreadyImported(`${component.scope}/${component.name}`, storyblokComponentsConfig)) {
+            updateIsLinkedInComponentFile(`${component.scope}/${component.name}`, true, storyblokComponentsConfig)
+            componentsImport = `${componentsImport}import * as Scoped${
+                camelcase(component.name, { pascalCase: true })
+                } from "${copy ? '.' : component.scope}/${component.name}";${index !== installedComponents.length - 1 ? `\n` : ''}`
+            componentList = `${componentList}Scoped${camelcase(component.name, { pascalCase: true })}.ComponentList,${index !== installedComponents.length - 1 ? `\n` : ''}`
+        }
     })
 
-    fs.readFile(`${componentsMatchFile}`, 'utf-8', function (err, data) {
+    fs.readFile(storyblokMatchFile, 'utf-8', function (err, data) {
         if (err) throw err;
 
-        let newValue = data.replace(/\/\/ --- sb-mig scoped component imports ---/gim, componentsImport);
-        newValue = newValue.replace(/\/\/ --- sb-mig scoped component list ---/gim, componentList);
+        let newValue = data.replace(/\/\/ --- sb-mig scoped component imports ---\n/gim, componentsImport);
+        newValue = newValue.replace(/\/\/ --- sb-mig scoped component list ---\n/gim, componentList);
 
-        fs.writeFile(`${componentsMatchFile}`, newValue, 'utf-8',  (err: any)  => {
+        fs.writeFile(storyblokMatchFile, newValue, 'utf-8', (err: any) => {
             if (err) throw err;
             console.log('Done!');
         })

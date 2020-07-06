@@ -1,15 +1,24 @@
 // @ts-ignore
 import * as yarnOrNpm from 'yarn-or-npm';
 import * as execa from 'execa';
+import { StoryblokComponentsConfig } from 'sb-mig/lib/config/StoryblokComponentsConfig';
+import { IStoryblokConfig } from 'sb-mig/lib/config/config';
+import {updateLocation} from './tracking';
 
 import { copyFolder } from '../utils/files';
 
 import Logger from '../utils/Logger';
 
-export const copyComponents = (components: string[]) => {
+
+export const copyComponents = (
+    components: string[],
+    storyblokComponentsConfig: StoryblokComponentsConfig,
+    storyblokConfig: IStoryblokConfig
+) => {
     // @ts-ignore
     Promise.allSettled(
         components.map(component => {
+            updateLocation(component, 'local', storyblokComponentsConfig)
             const componentName = component.split("@")[1]?.split('/')[1];
             return copyFolder(`./node_modules/${component}/src/`, `./src/components/${componentName}`)
         })
