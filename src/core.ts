@@ -1,5 +1,6 @@
 import Command from '@oclif/command'
 import storyblokConfig, { IStoryblokConfig } from './config/config'
+import sbComponentsConfig, { StoryblokComponentsConfig } from './config/StoryblokComponentsConfig'
 import {
     getCurrentDirectoryBase,
     isDirectoryExists,
@@ -36,6 +37,10 @@ import { createSpace, getSpace } from './api/spaces'
 export default abstract class extends Command {
     storyblokConfig(): IStoryblokConfig {
         return storyblokConfig
+    }
+
+    storyblokComponentsConfig(): StoryblokComponentsConfig {
+        return sbComponentsConfig
     }
 
     files() {

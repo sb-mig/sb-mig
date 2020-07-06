@@ -1,3 +1,31 @@
+## [2.3.2](https://github.com/sb-mig/sb-mig/compare/v2.3.1...v2.3.2) (2020-07-06)
+
+
+### fix
+
+* not available file ([41abf19](https://github.com/sb-mig/sb-mig/commit/41abf194366ff6e644b989d45a81e9e2d51c6303))
+
+
+
+## [2.3.1](https://github.com/sb-mig/sb-mig/compare/v2.3.0...v2.3.1) (2020-07-06)
+
+
+### fix
+
+* storyblok components config export default constructur ([9fd77b2](https://github.com/sb-mig/sb-mig/commit/9fd77b2603e54805dc3f0f7cb20e03fa94416758))
+
+
+
+# [2.3.0](https://github.com/sb-mig/sb-mig/compare/v2.2.1...v2.3.0) (2020-07-06)
+
+
+### feat
+
+* add a components tracking storyblok.components.config.js file ([23ddd5d](https://github.com/sb-mig/sb-mig/commit/23ddd5d3be4d8cfc9f34803f8b4f8b1d47fd259d))
+* remove old tracking solution, add storyblok.components.lock.js file and class for handling all stuff regards tracking components ([a8885c2](https://github.com/sb-mig/sb-mig/commit/a8885c27d61d44452bc6918cd2c7f14249682c23))
+
+
+
 ## [2.2.1](https://github.com/sb-mig/sb-mig/compare/v2.2.0...v2.2.1) (2020-06-30)
 
 
