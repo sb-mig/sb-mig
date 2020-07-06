@@ -105,5 +105,5 @@ export class StoryblokComponentsConfig {
     }
 }
 
-export default new StoryblokComponentsConfig(require(path.resolve(process.cwd(), 'storyblok.components.lock')))
+export default new StoryblokComponentsConfig(require(path.resolve(process.cwd(), 'storyblok.components.lock')) || {})
 
