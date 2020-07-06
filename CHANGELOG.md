@@ -1,3 +1,12 @@
+## [2.3.1](https://github.com/sb-mig/sb-mig/compare/v2.3.0...v2.3.1) (2020-07-06)
+
+
+### fix
+
+* storyblok components config export default constructur ([9fd77b2](https://github.com/sb-mig/sb-mig/commit/9fd77b2603e54805dc3f0f7cb20e03fa94416758))
+
+
+
 # [2.3.0](https://github.com/sb-mig/sb-mig/compare/v2.2.1...v2.3.0) (2020-07-06)
 
 
