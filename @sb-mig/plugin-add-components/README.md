@@ -19,7 +19,7 @@ $ npm install -g @sb-mig/plugin-add-components
 $ sb-mig COMMAND
 running command...
 $ sb-mig (-v|--version|version)
-@sb-mig/plugin-add-components/0.2.0 darwin-x64 node-v12.18.1
+@sb-mig/plugin-add-components/0.3.0 darwin-x64 node-v12.18.1
 $ sb-mig --help [COMMAND]
 USAGE
   $ sb-mig COMMAND
@@ -28,31 +28,5 @@ USAGE
 <!-- usagestop -->
 # Commands
 <!-- commands -->
-* [`sb-mig add TYPE [LIST]`](#sb-mig-add-type-list)
 
-## `sb-mig add TYPE [LIST]`
-
-Add and install components from repository.
-
-```
-USAGE
-  $ sb-mig add TYPE [LIST]
-
-ARGUMENTS
-  TYPE  (components) What to add and install to project.
-
-  LIST  Space separated list of component names with scope. Example: @storyblok-components/card
-        @storyblok-components/product-card @storyblok-components/row @storyblok-componenst/layout
-
-OPTIONS
-  -c, --copy  Copy downloaded files into your folder structure (outside node_modules).
-  -h, --help  show CLI help
-
-EXAMPLES
-  $ sb-mig add components @storyblok-components/simple-text-block
-  $ sb-mig add components @storyblok-components/simple-text-block --copy
-  $ sb-mig add components @storyblok-components/simple-text-block @storyblok-components/advanced-carousel --copy
-```
-
-_See code: [src/commands/add.ts](https://github.com/sb-mig/plugin-add-components/blob/v0.2.0/src/commands/add.ts)_
 <!-- commandsstop -->

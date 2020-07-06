@@ -1,3 +1,12 @@
+# [0.3.0](https://github.com/sb-mig/plugin-add-components/compare/v0.2.0...v0.3.0) (2020-07-06)
+
+
+### feat
+
+* add tracking components functionality to add components ([e24e2aa](https://github.com/sb-mig/plugin-add-components/commit/e24e2aa222b91b4b33699b996bcfc10d12d62451))
+
+
+
 # [0.2.0](https://github.com/sb-mig/plugin-add-components/compare/v0.1.4...v0.2.0) (2020-06-29)
 
 
