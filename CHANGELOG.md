@@ -1,3 +1,12 @@
+## [2.3.3](https://github.com/sb-mig/sb-mig/compare/v2.3.2...v2.3.3) (2020-07-06)
+
+
+### fix
+
+* remove test build on pr - deprecated a lot ([05f8951](https://github.com/sb-mig/sb-mig/commit/05f8951cc5d28faa6a9d148310937ae0f490bba5))
+
+
+
 ## [2.3.2](https://github.com/sb-mig/sb-mig/compare/v2.3.1...v2.3.2) (2020-07-06)
 
 
