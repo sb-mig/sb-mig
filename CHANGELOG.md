@@ -1,3 +1,12 @@
+## [2.3.2](https://github.com/sb-mig/sb-mig/compare/v2.3.1...v2.3.2) (2020-07-06)
+
+
+### fix
+
+* not available file ([41abf19](https://github.com/sb-mig/sb-mig/commit/41abf194366ff6e644b989d45a81e9e2d51c6303))
+
+
+
 ## [2.3.1](https://github.com/sb-mig/sb-mig/compare/v2.3.0...v2.3.1) (2020-07-06)
 
 
