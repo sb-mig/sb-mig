@@ -152,53 +152,12 @@ COMMANDS
 # Commands
 
 <!-- commands -->
-* [`sb-mig backup`](#sb-mig-backup)
-* [`sb-mig debug`](#sb-mig-debug)
 * [`sb-mig help [COMMAND]`](#sb-mig-help-command)
 * [`sb-mig plugins`](#sb-mig-plugins)
 * [`sb-mig plugins:install PLUGIN...`](#sb-mig-pluginsinstall-plugin)
 * [`sb-mig plugins:link PLUGIN`](#sb-mig-pluginslink-plugin)
 * [`sb-mig plugins:uninstall PLUGIN...`](#sb-mig-pluginsuninstall-plugin)
 * [`sb-mig plugins:update`](#sb-mig-pluginsupdate)
-* [`sb-mig sync TYPE [LIST]`](#sb-mig-sync-type-list)
-
-## `sb-mig backup`
-
-Command for backing up anything related to Storyblok
-
-```
-USAGE
-  $ sb-mig backup
-
-OPTIONS
-  -a, --allComponents                            Backup all components.
-  -d, --allDatasources                           Backup all datasources.
-  -e, --datasourceEntries=datasourceEntries      Backup one datasource entries by datasource name.
-  -f, --oneComponentsGroup=oneComponentsGroup    Backup one components group by name.
-  -g, --allComponentsGroups                      Backup all components groups.
-  -h, --help                                     show CLI help
-  -i, --onePreset=onePreset                      Backup one preset by id.
-  -l, --allPresets                               Backup all presets.
-  -o, --oneComponent=oneComponent                Backup one component by name.
-  -p, --oneComponentPresets=oneComponentPresets  Backup all presets for one component
-  -x, --oneDatasource=oneDatasource              Backup one datasource by name.
-```
-
-_See code: [src/commands/backup.ts](https://github.com/sb-mig/sb-mig/blob/v2.2.1/src/commands/backup.ts)_
-
-## `sb-mig debug`
-
-Output extra debugging
-
-```
-USAGE
-  $ sb-mig debug
-
-OPTIONS
-  -h, --help  show CLI help
-```
-
-_See code: [src/commands/debug.ts](https://github.com/sb-mig/sb-mig/blob/v2.2.1/src/commands/debug.ts)_
 
 ## `sb-mig help [COMMAND]`
 
@@ -333,28 +292,6 @@ OPTIONS
 ```
 
 _See code: [@oclif/plugin-plugins](https://github.com/oclif/plugin-plugins/blob/v1.7.10/src/commands/plugins/update.ts)_
-
-## `sb-mig sync TYPE [LIST]`
-
-Synchronize components, datasources with Storyblok space.
-
-```
-USAGE
-  $ sb-mig sync TYPE [LIST]
-
-ARGUMENTS
-  TYPE  (components|datasources) What to synchronize
-  LIST  Space separated list of component names. Example: card product-card row layout
-
-OPTIONS
-  -a, --all          Synchronize all components.
-  -e, --ext          Synchronize with file extension. Default extension: '.sb.js'
-  -h, --help         show CLI help
-  -n, --packageName  Synchronize based on installed package name.
-  -p, --presets      Synchronize components with presets.
-```
-
-_See code: [src/commands/sync.ts](https://github.com/sb-mig/sb-mig/blob/v2.2.1/src/commands/sync.ts)_
 <!-- commandsstop -->
 
 # Plugins
