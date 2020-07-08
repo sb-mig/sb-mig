@@ -105,5 +105,12 @@ export class StoryblokComponentsConfig {
     }
 }
 
-export default new StoryblokComponentsConfig(require(path.resolve(process.cwd(), 'storyblok.components.lock.js')) || {})
+let fileContent;
+try {
+    fileContent = require(path.resolve(process.cwd(), 'storyblok.components.lock.js'));
+} catch (err) {
+    fileContent = {}
+}
+
+export default new StoryblokComponentsConfig(fileContent)
 
