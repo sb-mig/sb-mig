@@ -1,3 +1,16 @@
+## [2.3.4](https://github.com/sb-mig/sb-mig/compare/v2.3.3...v2.3.4) (2020-07-08)
+
+
+### development
+
+* add build command for developing locally ([0d02096](https://github.com/sb-mig/sb-mig/commit/0d02096d7c7b431bc19e43de579112e4761a8a0a))
+
+### fix
+
+* StoryblokComponentsConfig class fail, when there is no lock file ([f0e4428](https://github.com/sb-mig/sb-mig/commit/f0e442888e75ada5761b933089b91c069f6921fc))
+
+
+
 ## [2.3.3](https://github.com/sb-mig/sb-mig/compare/v2.3.2...v2.3.3) (2020-07-06)
 
 
