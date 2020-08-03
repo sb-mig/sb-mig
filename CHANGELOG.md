@@ -1,3 +1,12 @@
+## [2.3.5](https://github.com/sb-mig/sb-mig/compare/v2.3.4...v2.3.5) (2020-08-03)
+
+
+### fix
+
+* change filenames in backup module to support Windows filenames ([09dd077](https://github.com/sb-mig/sb-mig/commit/09dd0778840f8f18f2e03cab826beaf73c1eacb3))
+
+
+
 ## [2.3.4](https://github.com/sb-mig/sb-mig/compare/v2.3.3...v2.3.4) (2020-07-08)
 
 
