@@ -60,7 +60,7 @@ export default class Backup extends Command {
       return getComponent(flags.oneComponent).then(async (res: any) => {
         if (res) {
           const datestamp = new Date();
-          const filename = `component-${generateDatestamp(datestamp)}`
+          const filename = `component-${flags.oneComponent}-${generateDatestamp(datestamp)}`
           await createDir(`${storyblokConfig.sbmigWorkingDirectory}/components/`)
           await createJsonFile(
             JSON.stringify(res),
@@ -98,7 +98,7 @@ export default class Backup extends Command {
       return getComponentsGroup(flags.oneComponentsGroup).then(async (res: any) => {
         if (res) {
           const datestamp = new Date();
-          const filename = `components_group-${generateDatestamp(datestamp)}`
+          const filename = `components_group-${flags.oneComponentsGroup}-${generateDatestamp(datestamp)}`
           await createDir(`${storyblokConfig.sbmigWorkingDirectory}/component_groups/`)
           await createJsonFile(
             JSON.stringify(res),
@@ -136,7 +136,7 @@ export default class Backup extends Command {
       return getDatasource(flags.oneDatasource).then(async (res: any) => {
         if (res) {
           const datestamp = new Date();
-          const filename = `datasource-${generateDatestamp(datestamp)}`
+          const filename = `datasource-${flags.oneDatasource}-${generateDatestamp(datestamp)}`
           await createDir(`${storyblokConfig.sbmigWorkingDirectory}/datasources/`)
           await createJsonFile(
             JSON.stringify(res),
@@ -157,7 +157,7 @@ export default class Backup extends Command {
       return getDatasourceEntries(flags.datasourceEntries).then(async (res: any) => {
         if (res) {
           const datestamp = new Date();
-          const filename = `datasource-entries-${generateDatestamp(datestamp)}`
+          const filename = `datasource-entries-${flags.datasourceEntries}-${generateDatestamp(datestamp)}`
           await createDir(`${storyblokConfig.sbmigWorkingDirectory}/datasources/`)
           await createJsonFile(
             JSON.stringify(res),
@@ -178,7 +178,7 @@ export default class Backup extends Command {
       return getComponentPresets(flags.oneComponentPresets).then(async (res: any) => {
         if (res) {
           const datestamp = new Date();
-          const filename = `component-${generateDatestamp(datestamp)}`
+          const filename = `component-${flags.oneComponentPresets}-${generateDatestamp(datestamp)}`
           await createDir(`${storyblokConfig.sbmigWorkingDirectory}/component-presets/`)
           await createJsonFile(
             JSON.stringify(res),
@@ -216,7 +216,7 @@ export default class Backup extends Command {
       return getPreset(flags.onePreset).then(async (res: any) => {
         if (res) {
           const datestamp = new Date();
-          const filename = `preset-${generateDatestamp(datestamp)}`
+          const filename = `preset-${flags.onePreset}-${generateDatestamp(datestamp)}`
           await createDir(`${storyblokConfig.sbmigWorkingDirectory}/presets/`)
           await createJsonFile(
             JSON.stringify(res),
