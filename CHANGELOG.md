@@ -1,3 +1,8 @@
+## [2.3.6](https://github.com/sb-mig/sb-mig/compare/v2.3.5...v2.3.6) (2020-09-08)
+
+
+
+
 ## [2.3.5](https://github.com/sb-mig/sb-mig/compare/v2.3.4...v2.3.5) (2020-08-03)
 
 
