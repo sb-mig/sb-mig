@@ -3,6 +3,14 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## 2.4.0-beta.2 (2020-10-07)
+
+**Note:** Version bump only for package sb-mig
+
+
+
+
+
 ## 2.4.0-beta.1 (2020-10-07)
 
 * fix(not needed files): remove not needed storyblok.config.js file ([47ba3b6](https://github.com/sb-mig/sb-mig/commit/47ba3b6))

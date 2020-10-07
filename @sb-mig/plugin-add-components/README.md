@@ -19,7 +19,7 @@ $ npm install -g @sb-mig/plugin-add-components
 $ sb-mig COMMAND
 running command...
 $ sb-mig (-v|--version|version)
-@sb-mig/plugin-add-components/0.3.1 darwin-x64 node-v12.18.1
+@sb-mig/plugin-add-components/0.4.0 linux-x64 node-v12.18.4
 $ sb-mig --help [COMMAND]
 USAGE
   $ sb-mig COMMAND
@@ -45,7 +45,7 @@ ARGUMENTS
         @storyblok-components/product-card @storyblok-components/row @storyblok-componenst/layout
 
 OPTIONS
-  -c, --copy  Copy downloaded files into your folder structure (outside node_modules).
+  -c, --copy  Copy downloaded files into your folder structure (outside node_modules)
   -h, --help  show CLI help
 
 EXAMPLES
@@ -54,5 +54,5 @@ EXAMPLES
   $ sb-mig add components @storyblok-components/simple-text-block @storyblok-components/advanced-carousel --copy
 ```
 
-_See code: [src/commands/add.ts](https://github.com/sb-mig/plugin-add-components/blob/v0.3.1/src/commands/add.ts)_
+_See code: [src/commands/add.ts](https://github.com/sb-mig/plugin-add-components/blob/v0.4.0/src/commands/add.ts)_
 <!-- commandsstop -->

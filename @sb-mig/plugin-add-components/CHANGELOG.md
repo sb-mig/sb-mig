@@ -1,3 +1,80 @@
+# Change Log
+
+All notable changes to this project will be documented in this file.
+See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
+
+## 0.4.0 (2020-10-07)
+
+* fix: all tslint errors ([e44b434](https://github.com/sb-mig/plugin-add-components/commit/e44b434))
+* fix: make package public ([c94caad](https://github.com/sb-mig/plugin-add-components/commit/c94caad))
+* fix: make sure, that no depedencies was removed from node_modules ([b27a03b](https://github.com/sb-mig/plugin-add-components/commit/b27a03b))
+* fix: one more tslint error ([596679c](https://github.com/sb-mig/plugin-add-components/commit/596679c))
+* fix: update sb-mig core ([52488ab](https://github.com/sb-mig/plugin-add-components/commit/52488ab))
+* fix(plugin-add-components): add another script to plugin-add-components package.json ([2c5dda4](https://github.com/sb-mig/plugin-add-components/commit/2c5dda4))
+* build(deps): bump bl from 4.0.2 to 4.0.3 ([7982231](https://github.com/sb-mig/plugin-add-components/commit/7982231))
+* build(deps): bump lodash from 4.17.15 to 4.17.19 ([00e22ff](https://github.com/sb-mig/plugin-add-components/commit/00e22ff))
+* 0.0.2 ([0453096](https://github.com/sb-mig/plugin-add-components/commit/0453096))
+* 0.0.3 ([515768c](https://github.com/sb-mig/plugin-add-components/commit/515768c))
+* Fix installing issue caused by asynchronous installing components strategy ([3dcf7e2](https://github.com/sb-mig/plugin-add-components/commit/3dcf7e2))
+* Initiall ([0a68948](https://github.com/sb-mig/plugin-add-components/commit/0a68948))
+* v0.0.4 ([75d92e7](https://github.com/sb-mig/plugin-add-components/commit/75d92e7))
+* v0.0.5 ([99d34c5](https://github.com/sb-mig/plugin-add-components/commit/99d34c5))
+* v0.0.6 ([805b2ef](https://github.com/sb-mig/plugin-add-components/commit/805b2ef))
+* v0.1.2 ([433b725](https://github.com/sb-mig/plugin-add-components/commit/433b725))
+* v0.1.3 ([12e83be](https://github.com/sb-mig/plugin-add-components/commit/12e83be))
+* v0.1.4 ([57d94ed](https://github.com/sb-mig/plugin-add-components/commit/57d94ed))
+* v0.2.0 ([711230f](https://github.com/sb-mig/plugin-add-components/commit/711230f))
+* v0.3.1 ([1b336fd](https://github.com/sb-mig/plugin-add-components/commit/1b336fd))
+* add: tracking functionality ([992d775](https://github.com/sb-mig/plugin-add-components/commit/992d775))
+* feat: add conventional-changelogs ([31543aa](https://github.com/sb-mig/plugin-add-components/commit/31543aa))
+* feat: add functionality to add, install and copy components ([0b8405a](https://github.com/sb-mig/plugin-add-components/commit/0b8405a))
+* feat: add possibility to define place where main matching component file lives ([0d26411](https://github.com/sb-mig/plugin-add-components/commit/0d26411))
+* feat: add tracking components functionality to add components ([a7d862d](https://github.com/sb-mig/plugin-add-components/commit/a7d862d))
+* feat: update yarn.lock ([ee0b20f](https://github.com/sb-mig/plugin-add-components/commit/ee0b20f))
+* docs: fix badges ([c7a4c79](https://github.com/sb-mig/plugin-add-components/commit/c7a4c79))
+* docs: update badges ([583aed8](https://github.com/sb-mig/plugin-add-components/commit/583aed8))
+* docs: update readme and package.json ([08e2ab6](https://github.com/sb-mig/plugin-add-components/commit/08e2ab6))
+* packages: add ora and execa ([2540bc1](https://github.com/sb-mig/plugin-add-components/commit/2540bc1))
+
+
+
+
+
+# [0.4.0](https://github.com/sb-mig/plugin-add-components/compare/v2.3.6...v0.4.0) (2020-10-07)
+
+
+### add
+
+* tracking functionality ([992d775](https://github.com/sb-mig/plugin-add-components/commit/992d775f0b1d7c426464fd4e37d22e5970657034))
+
+### docs
+
+* fix badges ([c7a4c79](https://github.com/sb-mig/plugin-add-components/commit/c7a4c794443c8c88cede2800af099800ec98e4e1))
+* update badges ([583aed8](https://github.com/sb-mig/plugin-add-components/commit/583aed8976b90d6797b9a8cb2602c82c989b7b5b))
+* update readme and package.json ([08e2ab6](https://github.com/sb-mig/plugin-add-components/commit/08e2ab63ebcb36953e46a4436de82c9a123ee531))
+
+### feat
+
+* add conventional-changelogs ([31543aa](https://github.com/sb-mig/plugin-add-components/commit/31543aafe0d517bb3679d7fcdf4fd661fc620343))
+* add functionality to add, install and copy components ([0b8405a](https://github.com/sb-mig/plugin-add-components/commit/0b8405ab8a281e5bb3dbb56faaeb8c10a215f631))
+* add possibility to define place where main matching component file lives ([0d26411](https://github.com/sb-mig/plugin-add-components/commit/0d26411af4eab43dae836640883db9d70d342911))
+* add tracking components functionality to add components ([a7d862d](https://github.com/sb-mig/plugin-add-components/commit/a7d862d1fed856d740fb252fdf56f5d3ed1dface))
+* update yarn.lock ([ee0b20f](https://github.com/sb-mig/plugin-add-components/commit/ee0b20ff0538f8f2cf7859bfc42b2a62d950a909))
+
+### fix
+
+* all tslint errors ([e44b434](https://github.com/sb-mig/plugin-add-components/commit/e44b434f25b798b4a6ed3d546329e37025ba9c5e))
+* make package public ([c94caad](https://github.com/sb-mig/plugin-add-components/commit/c94caad22adf8379452c715be59bcf6e1144d597))
+* make sure, that no depedencies was removed from node_modules ([b27a03b](https://github.com/sb-mig/plugin-add-components/commit/b27a03bb33d38336a5a8bd15834ff5456c2d3b63))
+* one more tslint error ([596679c](https://github.com/sb-mig/plugin-add-components/commit/596679c63a5c5c9f0385d7e20391d8e5eb23543c))
+* update sb-mig core ([52488ab](https://github.com/sb-mig/plugin-add-components/commit/52488ab1fc48f75ef9cdf1ce80b1b512938cf5c3))
+
+### packages
+
+* add ora and execa ([2540bc1](https://github.com/sb-mig/plugin-add-components/commit/2540bc17850d034117725a498bdccacee15f2dab))
+
+
+
 ## [0.3.1](https://github.com/sb-mig/plugin-add-components/compare/v0.2.0...v0.3.1) (2020-07-06)
 
 
@@ -130,6 +207,3 @@
 
 * add conventional-changelogs ([52d5a12](https://github.com/sb-mig/plugin-add-components/commit/52d5a128dc4b46527475089926e67c3bda8c9b79))
 * update yarn.lock ([8d68ac0](https://github.com/sb-mig/plugin-add-components/commit/8d68ac0183495d8948882846f36b309dc79f8cfe))
-
-
-
