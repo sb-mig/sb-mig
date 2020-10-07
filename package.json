@@ -10,6 +10,7 @@
   "scripts": {
     "dev": "lerna exec --parallel yarn start:dev ",
     "build:plugins": "lerna exec --parallel yarn build",
+    "start": "cd @sb-mig/sb-mig && yarn build && cd ../ && yarn build:plugins",
     "postinstall": "node ./node_modules/husky/lib/installer/bin install"
   },
   "devDependencies": {

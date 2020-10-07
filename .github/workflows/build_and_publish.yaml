@@ -22,7 +22,7 @@ jobs:
       - name: Building packages
         run: |
           yarn
-          yarn build:plugins
+          yarn start
       - name: Prepare repository
         run: git reset --hard HEAD
       - name: Publishing on npm registry
