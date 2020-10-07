@@ -35,4 +35,4 @@ jobs:
           git config --global user.email 'marckraw@icloud.com'
           git log -n 1
           git status
-          npx lerna publish --conventional-commits --changelog-preset conventionalcommits -m 'chore(release): publish'
+          npx lerna publish --conventional-commits --changelog-preset conventionalcommits -m 'chore(release): publish' --yes
