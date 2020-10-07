@@ -1,4 +1,4 @@
-name: Build and Publish @esb-mig monorepo packages
+name: Build and Publish @sb-mig monorepo packages
 
 on:
   push:
@@ -23,7 +23,7 @@ jobs:
       - name: Building packages
         run: |
           yarn
-          yarn start
+          yarn build:plugins
       - name: Prepare repository
         run: git reset --hard HEAD
       - name: Publishing on npm registry
