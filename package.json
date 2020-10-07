@@ -9,7 +9,7 @@
   "version": "0.0.1",
   "scripts": {
     "dev": "lerna exec --parallel yarn start:dev ",
-    "build:plugins": "lerna exec --parallel yarn build",
+    "build:plugins": "lerna exec --parallel yarn build --ignore 'sb-mig'",
     "start": "cd @sb-mig/sb-mig && yarn build && cd ../ && yarn build:plugins",
     "postinstall": "node ./node_modules/husky/lib/installer/bin install"
   },
