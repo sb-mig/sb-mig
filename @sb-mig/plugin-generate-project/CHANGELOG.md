@@ -3,6 +3,15 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## <small>0.3.1 (2020-10-07)</small>
+
+* fix(files): revert needed files ([bb2d6e6](https://github.com/sb-mig/plugin-generate-project/commit/bb2d6e6))
+* fix(packages): update sb-mig deps in all plugins ([1f2d93d](https://github.com/sb-mig/plugin-generate-project/commit/1f2d93d))
+
+
+
+
+
 ## 0.3.0 (2020-10-07)
 
 * fix: example more generic ([002c54f](https://github.com/sb-mig/plugin-generate-project/commit/002c54f))

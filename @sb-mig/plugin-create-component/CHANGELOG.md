@@ -3,6 +3,15 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## <small>0.1.2 (2020-10-07)</small>
+
+* fix(files): revert needed files ([bb2d6e6](https://github.com/sb-mig/plugin-create-component/commit/bb2d6e6))
+* fix(packages): update sb-mig deps in all plugins ([1f2d93d](https://github.com/sb-mig/plugin-create-component/commit/1f2d93d))
+
+
+
+
+
 ## <small>0.1.1 (2020-10-07)</small>
 
 * Merge pull request #123 from sb-mig/dependabot/npm_and_yarn/sb-mig/plugin-create-component/lodash-4. ([bddae33](https://github.com/sb-mig/plugin-create-component/commit/bddae33)), closes [#123](https://github.com/sb-mig/plugin-create-component/issues/123)

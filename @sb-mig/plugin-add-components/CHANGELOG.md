@@ -3,6 +3,15 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## <small>0.4.1 (2020-10-07)</small>
+
+* fix(files): revert needed files ([bb2d6e6](https://github.com/sb-mig/plugin-add-components/commit/bb2d6e6))
+* fix(packages): update sb-mig deps in all plugins ([1f2d93d](https://github.com/sb-mig/plugin-add-components/commit/1f2d93d))
+
+
+
+
+
 ## 0.4.0 (2020-10-07)
 
 * fix: all tslint errors ([e44b434](https://github.com/sb-mig/plugin-add-components/commit/e44b434))
