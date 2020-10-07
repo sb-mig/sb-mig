@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## <small>0.1.1 (2020-10-07)</small>
+
+* Merge pull request #123 from sb-mig/dependabot/npm_and_yarn/sb-mig/plugin-create-component/lodash-4. ([bddae33](https://github.com/sb-mig/plugin-create-component/commit/bddae33)), closes [#123](https://github.com/sb-mig/plugin-create-component/issues/123)
+* Merge pull request #124 from sb-mig/dependabot/npm_and_yarn/sb-mig/plugin-create-component/bl-4.0.3 ([7276e9d](https://github.com/sb-mig/plugin-create-component/commit/7276e9d)), closes [#124](https://github.com/sb-mig/plugin-create-component/issues/124)
+* build(deps): bump bl in /@sb-mig/plugin-create-component ([b0f7f66](https://github.com/sb-mig/plugin-create-component/commit/b0f7f66))
+* build(deps): bump lodash in /@sb-mig/plugin-create-component ([5c90202](https://github.com/sb-mig/plugin-create-component/commit/5c90202))
+
+
+
+
+
 ## 0.1.0 (2020-10-07)
 
 * fix: add familly name scope to oclif plugins ([3e65961](https://github.com/sb-mig/plugin-create-component/commit/3e65961))
