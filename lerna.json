@@ -1,0 +1,6 @@
+{
+  "packages": ["@sb-mig/*"],
+  "version": "independent",
+  "npmClient": "yarn",
+  "useWorkspaces": true
+}
