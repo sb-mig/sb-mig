@@ -17,7 +17,7 @@ export default class Add extends Command {
 
   static flags = {
     help: flags.help({ char: 'h' }),
-    copy: flags.boolean({ char: 'c', description: "Copy downloaded files into your folder structure (outside node_modules)." }),
+    copy: flags.boolean({ char: 'c', description: "Copy downloaded files into your folder structure (outside node_modules)" }),
   }
 
   static strict = false;
