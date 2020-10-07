@@ -1,3 +1,99 @@
+# Change Log
+
+All notable changes to this project will be documented in this file.
+See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
+
+## 0.1.0 (2020-10-07)
+
+* fix: add familly name scope to oclif plugins ([3e65961](https://github.com/sb-mig/plugin-create-component/commit/3e65961))
+* fix(build and deploy): add build command to create-component and generate-project plugins ([c98ae88](https://github.com/sb-mig/plugin-create-component/commit/c98ae88))
+* 0.0.10 ([f045776](https://github.com/sb-mig/plugin-create-component/commit/f045776))
+* 0.0.3 ([b44fe72](https://github.com/sb-mig/plugin-create-component/commit/b44fe72))
+* Initoal commit ([98b75ef](https://github.com/sb-mig/plugin-create-component/commit/98b75ef))
+* v0.0.4 ([8996970](https://github.com/sb-mig/plugin-create-component/commit/8996970))
+* v0.0.5 ([8d3a989](https://github.com/sb-mig/plugin-create-component/commit/8d3a989))
+* v0.0.6 ([26ea439](https://github.com/sb-mig/plugin-create-component/commit/26ea439))
+* v0.0.7 ([26026dd](https://github.com/sb-mig/plugin-create-component/commit/26026dd))
+* v0.0.8 ([6201deb](https://github.com/sb-mig/plugin-create-component/commit/6201deb))
+* v0.0.9 ([bae00c2](https://github.com/sb-mig/plugin-create-component/commit/bae00c2))
+* feat: add conventional-changelog, change dummy helo command to create component command ([e0a24b7](https://github.com/sb-mig/plugin-create-component/commit/e0a24b7))
+* feat: Add custom base class from sb-mig with api methods and helper functions ([84bb563](https://github.com/sb-mig/plugin-create-component/commit/84bb563))
+* feat: create component with default and custom repo url ([d2a55c8](https://github.com/sb-mig/plugin-create-component/commit/d2a55c8))
+* docs: update badges ([85d0f6d](https://github.com/sb-mig/plugin-create-component/commit/85d0f6d))
+* docs: update readme ([ce4f1d0](https://github.com/sb-mig/plugin-create-component/commit/ce4f1d0))
+* docs: update readme badges ([b3c6176](https://github.com/sb-mig/plugin-create-component/commit/b3c6176))
+* packages: add ora and execa ([7b3c33e](https://github.com/sb-mig/plugin-create-component/commit/7b3c33e))
+* packages: update package.json ([8fe0483](https://github.com/sb-mig/plugin-create-component/commit/8fe0483))
+* chore: assing package to @sb-mig scope ([c82b674](https://github.com/sb-mig/plugin-create-component/commit/c82b674))
+* dependencies: update yarn.lock ([7ddb3af](https://github.com/sb-mig/plugin-create-component/commit/7ddb3af))
+
+
+
+
+
+# [0.1.0](https://github.com/sb-mig/plugin-create-component/compare/v2.3.6...v0.1.0) (2020-10-07)
+
+
+### add
+
+* tracking functionality ([992d775](https://github.com/sb-mig/plugin-create-component/commit/992d775f0b1d7c426464fd4e37d22e5970657034))
+
+### chore
+
+* assing package to @sb-mig scope ([c82b674](https://github.com/sb-mig/plugin-create-component/commit/c82b6749da0d8e7a52ef132c594e1a758e23d4fe))
+
+### dependencies
+
+* update yarn.lock ([7ddb3af](https://github.com/sb-mig/plugin-create-component/commit/7ddb3af3642e844636a7eb9383b60c45ffda78a6))
+
+### docs
+
+* fix badges ([c7a4c79](https://github.com/sb-mig/plugin-create-component/commit/c7a4c794443c8c88cede2800af099800ec98e4e1))
+* update badges ([85d0f6d](https://github.com/sb-mig/plugin-create-component/commit/85d0f6d45a3dd69eeb465849554ebd3122472032))
+* update badges ([583aed8](https://github.com/sb-mig/plugin-create-component/commit/583aed8976b90d6797b9a8cb2602c82c989b7b5b))
+* update readme ([ce4f1d0](https://github.com/sb-mig/plugin-create-component/commit/ce4f1d054072a5a30f21530b3e513f47328ce290))
+* update readme and package.json ([08e2ab6](https://github.com/sb-mig/plugin-create-component/commit/08e2ab63ebcb36953e46a4436de82c9a123ee531))
+* update readme badges ([b3c6176](https://github.com/sb-mig/plugin-create-component/commit/b3c6176a7eb5382ef42dd35cccba28e4cc8c4ee2))
+* update readme badges ([f3d71a3](https://github.com/sb-mig/plugin-create-component/commit/f3d71a3a6a9737ceeb4706c93ab91b0fca53c8e5))
+
+### feat
+
+* add --nospace flag, for not creating storyblok space when generating project ([1c63265](https://github.com/sb-mig/plugin-create-component/commit/1c63265ee7eaf2a3550a73bc2377198ef35c7f4c))
+* add conventional-changelog, change dummy helo command to create component command ([e0a24b7](https://github.com/sb-mig/plugin-create-component/commit/e0a24b72afe933e73e66ed8b0500ad93a6e7c441))
+* add conventional-changelogs ([31543aa](https://github.com/sb-mig/plugin-create-component/commit/31543aafe0d517bb3679d7fcdf4fd661fc620343))
+* Add custom base class from sb-mig with api methods and helper functions ([84bb563](https://github.com/sb-mig/plugin-create-component/commit/84bb56316b3168921c524cb2ec697db388106445))
+* add functionality to add, install and copy components ([0b8405a](https://github.com/sb-mig/plugin-create-component/commit/0b8405ab8a281e5bb3dbb56faaeb8c10a215f631))
+* add methods to clonerepo, removeand modify files ([97ae3ae](https://github.com/sb-mig/plugin-create-component/commit/97ae3ae10f1d8e0ab031a7bebbfd11ba8940fb74))
+* add possibility to define place where main matching component file lives ([0d26411](https://github.com/sb-mig/plugin-create-component/commit/0d26411af4eab43dae836640883db9d70d342911))
+* add tracking components functionality to add components ([a7d862d](https://github.com/sb-mig/plugin-create-component/commit/a7d862d1fed856d740fb252fdf56f5d3ed1dface))
+* create component with default and custom repo url ([d2a55c8](https://github.com/sb-mig/plugin-create-component/commit/d2a55c8c59050b23608e56a0b58c6fbc695823b9))
+* generate command now works, it is creating storyblok space and installing components using add-components methods ([4b868d8](https://github.com/sb-mig/plugin-create-component/commit/4b868d850ed150f6763ecc6471917b7aa6261372))
+* make it public package ([020260b](https://github.com/sb-mig/plugin-create-component/commit/020260b261e29188f8301e3e8f384c7bb3a26811))
+* rename command name, add dependencies, modify package.json ([d06d075](https://github.com/sb-mig/plugin-create-component/commit/d06d075fe5c17d0976e09e7e06feb6c4a59ffa76))
+* update yarn.lock ([ee0b20f](https://github.com/sb-mig/plugin-create-component/commit/ee0b20ff0538f8f2cf7859bfc42b2a62d950a909))
+
+### fix
+
+* add familly name scope to oclif plugins ([3e65961](https://github.com/sb-mig/plugin-create-component/commit/3e659610b2402c4a4675eb22fa5d2173df0f8771))
+* all tslint errors ([e44b434](https://github.com/sb-mig/plugin-create-component/commit/e44b434f25b798b4a6ed3d546329e37025ba9c5e))
+* example more generic ([002c54f](https://github.com/sb-mig/plugin-create-component/commit/002c54f5e52ecf0201b00ccc0a2fda37b13e7fd6))
+* make package public ([c94caad](https://github.com/sb-mig/plugin-create-component/commit/c94caad22adf8379452c715be59bcf6e1144d597))
+* make sure, that no depedencies was removed from node_modules ([b27a03b](https://github.com/sb-mig/plugin-create-component/commit/b27a03bb33d38336a5a8bd15834ff5456c2d3b63))
+* not passing project name to create space function ([876ae9f](https://github.com/sb-mig/plugin-create-component/commit/876ae9fb5f94424956d4c6b245a3db3b96b9c61f))
+* one more tslint error ([596679c](https://github.com/sb-mig/plugin-create-component/commit/596679c63a5c5c9f0385d7e20391d8e5eb23543c))
+* update sb-mig core ([1cdf83a](https://github.com/sb-mig/plugin-create-component/commit/1cdf83ad10b6f9445421ad8c770d8c0b31869fb1))
+* update sb-mig core ([c3ad86a](https://github.com/sb-mig/plugin-create-component/commit/c3ad86a4afbf5249e53582160868d61b32207cb2))
+* update sb-mig core ([52488ab](https://github.com/sb-mig/plugin-create-component/commit/52488ab1fc48f75ef9cdf1ce80b1b512938cf5c3))
+
+### packages
+
+* add needed packages ([01fd5a0](https://github.com/sb-mig/plugin-create-component/commit/01fd5a02d052a67cc5b85f515d74bb85aa8d308a))
+* add ora and execa ([7b3c33e](https://github.com/sb-mig/plugin-create-component/commit/7b3c33e6eb8633f0bc155307efc8642f0bbc9f39))
+* add ora and execa ([2540bc1](https://github.com/sb-mig/plugin-create-component/commit/2540bc17850d034117725a498bdccacee15f2dab))
+* update package.json ([8fe0483](https://github.com/sb-mig/plugin-create-component/commit/8fe0483b465f749f643eb7cd54d20cee078d35d1))
+
+
+
 ## [0.0.10](https://github.com/sb-mig/plugin-create-component/compare/v0.0.9...v0.0.10) (2020-06-16)
 
 
@@ -79,6 +175,3 @@
 ### feat
 
 * add conventional-changelog, change dummy helo command to create component command ([5b825da](https://github.com/sb-mig/plugin-create-component/commit/5b825da6617448ed5e25038ce43fb0238cbfe04f))
-
-
-
