@@ -22,6 +22,7 @@ jobs:
       - name: Building packages
         run: |
           yarn
+          npx lerna link
           yarn start
       - name: Prepare repository
         run: git reset --hard HEAD
