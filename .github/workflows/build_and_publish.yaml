@@ -1,0 +1,38 @@
+name: Build and Publish @esb-mig monorepo packages
+
+on:
+  push:
+    branches:
+      - master
+      - moving-to-monorepo
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Use Node.js 12.x
+        uses: actions/setup-node@v1
+        with:
+          node-version: 12.x
+          registry-url: https://registry.npmjs.org/
+      - name: Building packages
+        run: |
+          yarn
+          yarn start
+      - name: Prepare repository
+        run: git reset --hard HEAD
+      - name: Publishing on npm registry
+        env:
+          NODE_AUTH_TOKEN: ${{secrets.npm_token}}
+          NO_HUSKY: 1
+        run: |
+          git config --global user.name 'Marcin Krawczyk'
+          git config --global user.email 'marckraw@icloud.com'
+          git log -n 1
+          git status
+          npx lerna publish --conventional-commits --changelog-preset conventionalcommits -m 'chore(release): publish'
