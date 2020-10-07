@@ -1,6 +1,6 @@
 {
   "name": "sb-mig",
-  "version": "2.3.6",
+  "version": "2.3.6-beta.0",
   "description": "CLI to rule the world. (and handle stuff related to Storyblok CMS)",
   "author": "Marcin Krawczyk <marckraw@icloud.com>",
   "bin": {

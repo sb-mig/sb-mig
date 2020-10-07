@@ -1,3 +1,8 @@
+## [2.3.6-beta.0](https://github.com/sb-mig/sb-mig/compare/v2.3.6...v2.3.6-beta.0) (2020-10-07)
+
+
+
+
 ## [2.3.6](https://github.com/sb-mig/sb-mig/compare/v2.3.5...v2.3.6) (2020-09-08)
 
 
