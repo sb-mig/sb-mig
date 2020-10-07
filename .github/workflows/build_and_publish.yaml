@@ -20,10 +20,9 @@ jobs:
           node-version: 12.x
           registry-url: https://registry.npmjs.org/
       - name: Building packages
-        run: |
-          yarn
-          npx lerna link
-          yarn start
+        run: yarn
+        run: yarn start
+        run: npx lerna link
       - name: Prepare repository
         run: git reset --hard HEAD
       - name: Publishing on npm registry
