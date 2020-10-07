@@ -184,7 +184,7 @@ OPTIONS
   -x, --oneDatasource=oneDatasource              Backup one datasource by name.
 ```
 
-_See code: [src/commands/backup.ts](https://github.com/sb-mig/sb-mig/blob/v2.3.6-beta.0/src/commands/backup.ts)_
+_See code: [src/commands/backup.ts](https://github.com/sb-mig/sb-mig/blob/v2.4.0-beta.0/src/commands/backup.ts)_
 
 ## `sb-mig debug`
 
@@ -198,7 +198,7 @@ OPTIONS
   -h, --help  show CLI help
 ```
 
-_See code: [src/commands/debug.ts](https://github.com/sb-mig/sb-mig/blob/v2.3.6-beta.0/src/commands/debug.ts)_
+_See code: [src/commands/debug.ts](https://github.com/sb-mig/sb-mig/blob/v2.4.0-beta.0/src/commands/debug.ts)_
 
 ## `sb-mig help [COMMAND]`
 
@@ -232,7 +232,7 @@ EXAMPLE
   $ sb-mig plugins
 ```
 
-_See code: [@oclif/plugin-plugins](https://github.com/oclif/plugin-plugins/blob/v1.7.10/src/commands/plugins/index.ts)_
+_See code: [@oclif/plugin-plugins](https://github.com/oclif/plugin-plugins/blob/v1.9.0/src/commands/plugins/index.ts)_
 
 ## `sb-mig plugins:install PLUGIN...`
 
@@ -268,7 +268,7 @@ EXAMPLES
   $ sb-mig plugins:install someuser/someplugin
 ```
 
-_See code: [@oclif/plugin-plugins](https://github.com/oclif/plugin-plugins/blob/v1.7.10/src/commands/plugins/install.ts)_
+_See code: [@oclif/plugin-plugins](https://github.com/oclif/plugin-plugins/blob/v1.9.0/src/commands/plugins/install.ts)_
 
 ## `sb-mig plugins:link PLUGIN`
 
@@ -295,7 +295,7 @@ EXAMPLE
   $ sb-mig plugins:link myplugin
 ```
 
-_See code: [@oclif/plugin-plugins](https://github.com/oclif/plugin-plugins/blob/v1.7.10/src/commands/plugins/link.ts)_
+_See code: [@oclif/plugin-plugins](https://github.com/oclif/plugin-plugins/blob/v1.9.0/src/commands/plugins/link.ts)_
 
 ## `sb-mig plugins:uninstall PLUGIN...`
 
@@ -317,7 +317,7 @@ ALIASES
   $ sb-mig plugins:remove
 ```
 
-_See code: [@oclif/plugin-plugins](https://github.com/oclif/plugin-plugins/blob/v1.7.10/src/commands/plugins/uninstall.ts)_
+_See code: [@oclif/plugin-plugins](https://github.com/oclif/plugin-plugins/blob/v1.9.0/src/commands/plugins/uninstall.ts)_
 
 ## `sb-mig plugins:update`
 
@@ -332,7 +332,7 @@ OPTIONS
   -v, --verbose
 ```
 
-_See code: [@oclif/plugin-plugins](https://github.com/oclif/plugin-plugins/blob/v1.7.10/src/commands/plugins/update.ts)_
+_See code: [@oclif/plugin-plugins](https://github.com/oclif/plugin-plugins/blob/v1.9.0/src/commands/plugins/update.ts)_
 
 ## `sb-mig sync TYPE [LIST]`
 
@@ -354,7 +354,7 @@ OPTIONS
   -p, --presets      Synchronize components with presets.
 ```
 
-_See code: [src/commands/sync.ts](https://github.com/sb-mig/sb-mig/blob/v2.3.6-beta.0/src/commands/sync.ts)_
+_See code: [src/commands/sync.ts](https://github.com/sb-mig/sb-mig/blob/v2.4.0-beta.0/src/commands/sync.ts)_
 <!-- commandsstop -->
 
 # Plugins

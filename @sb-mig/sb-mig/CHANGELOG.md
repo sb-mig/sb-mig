@@ -1,3 +1,25 @@
+# Change Log
+
+All notable changes to this project will be documented in this file.
+See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
+
+## 2.4.0-beta.0 (2020-10-07)
+
+* feat(setup): move to monorepo part 1 ([d0a4069](https://github.com/sb-mig/sb-mig/commit/d0a4069))
+
+
+
+
+
+# [2.4.0-beta.0](https://github.com/sb-mig/sb-mig/compare/v2.3.4...v2.4.0-beta.0) (2020-10-07)
+
+
+### fix
+
+* change filenames in backup module to support Windows filenames ([09dd077](https://github.com/sb-mig/sb-mig/commit/09dd0778840f8f18f2e03cab826beaf73c1eacb3))
+
+
+
 ## [2.3.6-beta.0](https://github.com/sb-mig/sb-mig/compare/v2.3.6...v2.3.6-beta.0) (2020-10-07)
 
 
