@@ -3,6 +3,16 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## 2.4.0-beta.1 (2020-10-07)
+
+* fix(not needed files): remove not needed storyblok.config.js file ([47ba3b6](https://github.com/sb-mig/sb-mig/commit/47ba3b6))
+* chore(release): publish ([e152a63](https://github.com/sb-mig/sb-mig/commit/e152a63))
+* feat(setup): move to monorepo part 1 ([d0a4069](https://github.com/sb-mig/sb-mig/commit/d0a4069))
+
+
+
+
+
 ## 2.4.0-beta.0 (2020-10-07)
 
 * feat(setup): move to monorepo part 1 ([d0a4069](https://github.com/sb-mig/sb-mig/commit/d0a4069))
