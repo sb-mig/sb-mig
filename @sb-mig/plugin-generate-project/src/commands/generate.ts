@@ -63,7 +63,7 @@ export default class Hello extends Command {
       spinner.stop()
 
       spinner = ora(`Updating components.js file...\n`).start()
-      const data = updateComponentsJs(installedComponents, false);
+      const data = updateComponentsJs(installedComponents, false, this.storyblokComponentsConfig(), this.storyblokConfig());
       spinner.stop()
     }
 
@@ -73,11 +73,11 @@ export default class Hello extends Command {
       spinner.stop()
 
       spinner = ora(`Copying components files to local system...\n`).start()
-      const dataAgain = await copyComponents(components);
+      const dataAgain = await copyComponents(components, this.storyblokComponentsConfig(), this.storyblokConfig());
       spinner.stop()
 
       spinner = ora(`Updating components.js file...\n`).start()
-      const data = updateComponentsJs(installedComponents, true);
+      const data = updateComponentsJs(installedComponents, true, this.storyblokComponentsConfig(), this.storyblokConfig());
       spinner.stop()
     }
   }
