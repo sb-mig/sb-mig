@@ -9,8 +9,11 @@
   "version": "0.0.1",
   "scripts": {
     "dev": "lerna exec --parallel yarn start:dev ",
-    "build:plugins": "lerna exec --parallel yarn build --ignore 'sb-mig'",
-    "start": "cd @sb-mig/sb-mig && yarn build && cd ../ && yarn build:plugins",
+    "build:core": "cd @sb-mig/sb-mig && yarn build",
+    "build:add-components": "cd @sb-mig/plugin-add-components && yarn build",
+    "build:generate-project": "cd @sb-mig/plugin-generate-project && yarn build",
+    "build:create-component": "cd @sb-mig/plugin-create-component && yarn build",
+    "start": "yarn build:core && yarn build:add-components && yarn build:generate-project && yarn build:create-component",
     "postinstall": "node ./node_modules/husky/lib/installer/bin install"
   },
   "devDependencies": {
