@@ -3,6 +3,14 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## <small>0.3.2 (2020-10-13)</small>
+
+* fix(plugin-generate-project): updateJs command not having proper arguments ([1d58ccc](https://github.com/sb-mig/plugin-generate-project/commit/1d58ccc))
+
+
+
+
+
 ## <small>0.3.1 (2020-10-07)</small>
 
 * fix(files): revert needed files ([bb2d6e6](https://github.com/sb-mig/plugin-generate-project/commit/bb2d6e6))
