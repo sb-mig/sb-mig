@@ -45,7 +45,7 @@ sb-mig plugins:link .
 inside
 ```
 @sb-mig/plugin-add-components
-``
+```
 
 Now, if u run `sb-mig --help` anywhere, it will show also command from `plugin-add-components` plugin.
 
