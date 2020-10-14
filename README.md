@@ -56,4 +56,4 @@ So run
 ```
 yarn start
 ```
-to rebuild everything, or go to desired package, and rebuild only that package. Keep in min though, that some packages depends on another (like `plugin-generate-project` on `plugin-add-components`)
+to rebuild everything, or go to desired package, and rebuild only that package. Keep in mind though, that some packages depends on another (like `plugin-generate-project` on `plugin-add-components`)
