@@ -1,6 +1,7 @@
 import Logger from '../utils/logger'
 import { findComponentsWithExt, findComponents, findComponentsByPackageName } from '../utils/discover'
 import storyblokConfig from '../config/config'
+import { StoryblokComponentsConfig } from '../config/StoryblokComponentsConfig'
 import { getAllComponentsGroups, createComponentsGroup, getAllComponents } from './components'
 import { updateComponent, createComponent } from './mutateComponents'
 
@@ -40,9 +41,9 @@ const _resolveGroups = async (
     }
 };
 
-export const syncComponents = async (specifiedComponents: any, ext: string | false, presets: boolean, packageName: boolean) => {
+export const syncComponents = async (specifiedComponents: string[], ext: string | false, presets: boolean, packageName: boolean, local?: boolean) => {
     if(packageName) {
-        specifiedComponents = findComponentsByPackageName(ext, specifiedComponents);
+        specifiedComponents = findComponentsByPackageName(ext, specifiedComponents, local);
     }
 
     Logger.log(
@@ -143,4 +144,24 @@ export const syncAllComponents = (ext: string | false, presets: boolean) => {
     }
 
     syncComponents(specifiedComponents, ext, presets, false);
+};
+
+
+/**
+ * 
+ * This function will sync all components which are visible in lock file
+ * 
+ */
+export const syncAllLockComponents = (ext: string | false, presets: boolean, storyblokComponentsConfig: StoryblokComponentsConfig) => {
+    const allStoryblokComponents = storyblokComponentsConfig.getAllData()
+    const allStoryblokComponentsEntries = Object.entries(allStoryblokComponents)
+
+    const allLocalStoryblokComponents = allStoryblokComponentsEntries.filter((component) => component[1].location === 'local' && component[1].name !== undefined)
+    const allNodeModulesStoryblokComponents = allStoryblokComponentsEntries.filter((component) => component[1].location === 'node_modules' && component[1].name !== undefined)
+
+    const allLocalStoryblokComponentsNames = allLocalStoryblokComponents.map(component => component[1].name)
+    const allNodeModulesStoryblokComponentsNames = allNodeModulesStoryblokComponents.map(component => component[1].name)
+
+    syncComponents(allLocalStoryblokComponentsNames, 'sb.js', false, true, true);
+    syncComponents(allNodeModulesStoryblokComponentsNames, 'sb.js', false, true, false);
 };
