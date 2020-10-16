@@ -9,8 +9,10 @@ export interface IStoryblokComponentConfig {
     version: string
     modified: boolean
     location: string
+    locationPath: string
     scope: string
-    isLinkedInComponentFile: boolean
+    isLinkedInComponentFile: boolean,
+    isComponentStyleImported: boolean
 }
 
 export interface IStoryblokComponentsConfig {
@@ -31,7 +33,7 @@ export class StoryblokComponentsConfig {
     }
 
     writeComponentsConfigFile(data: IStoryblokComponentsConfig): boolean {
-        const content = `module.exports = ${JSON.stringify(data)}`
+        const content = `module.exports = ${JSON.stringify(data, undefined, 2)}`
 
         fs.writeFile(this.storyblokComponentsConfigUrl, content, { encoding: 'utf-8' })
             .then((result) => {
@@ -48,7 +50,7 @@ export class StoryblokComponentsConfig {
     }
 
     updateComponentsConfigFile(): boolean {
-        const content = `module.exports = ${JSON.stringify(this.data)}`
+        const content = `module.exports = ${JSON.stringify(this.data, undefined, 2)}`
 
         fs.writeFile(this.storyblokComponentsConfigUrl, content, { encoding: 'utf-8' })
             .then((result) => {
@@ -75,9 +77,10 @@ export class StoryblokComponentsConfig {
                             name: `${curr.scope}/${curr.name}`,
                             scope: curr.scope,
                             location: local ? "local" : "node_modules",
-                            version: "?",
-                            modified: false,
-                            isLinkedInComponentFile: false
+                            locationPath: local ? `src/components/${curr.name}` : `node_modules/${curr.scope}/${curr.name}`,
+                            isInstalled: false, // TODO: dunno if should be on initiall true or false or if it should even exist 
+                            isLinkedInComponentFile: false,
+                            isComponentStyleImported: false,
                         }
                     }
                 }
