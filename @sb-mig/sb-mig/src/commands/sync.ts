@@ -2,16 +2,15 @@ import { flags } from '@oclif/command'
 import Command from '../core'
 import storyblokConfig from "../config/config"
 import Logger from "../utils/logger"
-import { syncAllComponents, syncComponents, syncAllLockComponents } from '../api/migrate'
+import { sync2AllComponents, syncAllComponents, syncComponents, syncProvidedComponents } from '../api/migrate'
 
 export default class Sync extends Command {
   static description = 'Synchronize components, datasources with Storyblok space.'
 
   static examples = [
-    `$ sb-mig sync components --lock`,
+    `$ sb-mig sync components --all --ext`,
     `$ sb-mig sync components @storyblok-components/text-block --ext --packageName`,
     `$ sb-mig sync components @storyblok-components/text-block @storyblok-components/button --ext --packageName`,
-    `$ sb-mig sync components --all --ext`,
     `$ sb-mig sync components text-block button --ext`,
     `$ sb-mig sync components text-block button`,
   ]
@@ -36,17 +35,17 @@ export default class Sync extends Command {
     const { argv, args, flags } = this.parse(Sync)
     const components = argv.splice(1, argv.length);
 
-    if(args.type === "components" && flags.lock) {
-      Logger.log(`Syncing components base on storyblok.components.lock.js file...`)
-      syncAllLockComponents(storyblokConfig.schemaFileExt, !!flags.presets, this.storyblokComponentsConfig())
-    }
-
     if (args.type === "components" && flags.all && flags.ext) {
-      Logger.log(`Syncing all components with ${storyblokConfig.schemaFileExt} extension...`)
-      syncAllComponents(storyblokConfig.schemaFileExt, !!flags.presets)
+        Logger.log(
+          `Syncing all components with ${storyblokConfig.schemaFileExt} extension...`
+      );
+      
+      sync2AllComponents({ presets: flags.presets })
     }
 
     if (args.type === "components" && flags.all && !flags.ext) {
+      Logger.warning("### DEPRECATED method. Method of syncing files without .sb.js extension, will be removed in version 4.0.0 ###")
+      Logger.warning("Use sb-mig sync components --all --ext instead (you need to update your schema files to be named with .sb.js extension)")
       Logger.log(
         `Syncing all components from ${storyblokConfig.componentDirectory} directory...`
       )
@@ -55,22 +54,20 @@ export default class Sync extends Command {
     }
 
     if (args.type === "components" && !flags.all && flags.ext) {
-      Logger.log(
-        `Syncing provided components with ${storyblokConfig.schemaFileExt} extension, inside [${storyblokConfig.componentsDirectories.join(
-          ", "
-        )}] directories ...`
-      )
+      Logger.log(`Syncing provided components with ${storyblokConfig.schemaFileExt} extension...`)
 
       if (components.length === 0) {
         Logger.warning(
           `You have to provide some components separated with empty space. For exmaple: 'row column card'`
         )
       } else {
-        syncComponents(components, storyblokConfig.schemaFileExt, !!flags.presets, flags.packageName)
+        syncProvidedComponents({components, presets: !!flags.presets, packageName: flags.packageName})
       }
     }
 
     if (args.type === "components" && !flags.all && !flags.ext && !flags.lock) {
+      Logger.warning("### DEPRECATED method. Method of syncing files without .sb.js extension, will be removed in version 4.0.0 ###")
+      Logger.warning("Use sb-mig sync components --ext instead (you need to update your schema files to be named with .sb.js extension)")
       Logger.log("Syncing provided components...")
 
       if (components.length === 0) {
