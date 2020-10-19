@@ -78,7 +78,6 @@ export class StoryblokComponentsConfig {
                             scope: curr.scope,
                             location: local ? "local" : "node_modules",
                             locationPath: local ? `src/components/${curr.name}` : `node_modules/${curr.scope}/${curr.name}`,
-                            isInstalled: false, // TODO: dunno if should be on initiall true or false or if it should even exist 
                             isLinkedInComponentFile: false,
                             isComponentStyleImported: false,
                         }
