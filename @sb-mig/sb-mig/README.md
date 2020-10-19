@@ -184,7 +184,7 @@ OPTIONS
   -x, --oneDatasource=oneDatasource              Backup one datasource by name.
 ```
 
-_See code: [src/commands/backup.ts](https://github.com/sb-mig/sb-mig/blob/v2.5.1/src/commands/backup.ts)_
+_See code: [src/commands/backup.ts](https://github.com/sb-mig/sb-mig/blob/v2.6.0/src/commands/backup.ts)_
 
 ## `sb-mig debug`
 
@@ -198,7 +198,7 @@ OPTIONS
   -h, --help  show CLI help
 ```
 
-_See code: [src/commands/debug.ts](https://github.com/sb-mig/sb-mig/blob/v2.5.1/src/commands/debug.ts)_
+_See code: [src/commands/debug.ts](https://github.com/sb-mig/sb-mig/blob/v2.6.0/src/commands/debug.ts)_
 
 ## `sb-mig help [COMMAND]`
 
@@ -350,11 +350,19 @@ OPTIONS
   -a, --all          Synchronize all components.
   -e, --ext          Synchronize with file extension. Default extension: '.sb.js'
   -h, --help         show CLI help
+  -l, --lock         Synchronize based on storyblok.components.lock.js file
   -n, --packageName  Synchronize based on installed package name.
   -p, --presets      Synchronize components with presets.
+
+EXAMPLES
+  $ sb-mig sync components --all --ext
+  $ sb-mig sync components @storyblok-components/text-block --ext --packageName
+  $ sb-mig sync components @storyblok-components/text-block @storyblok-components/button --ext --packageName
+  $ sb-mig sync components text-block button --ext
+  $ sb-mig sync components text-block button
 ```
 
-_See code: [src/commands/sync.ts](https://github.com/sb-mig/sb-mig/blob/v2.5.1/src/commands/sync.ts)_
+_See code: [src/commands/sync.ts](https://github.com/sb-mig/sb-mig/blob/v2.6.0/src/commands/sync.ts)_
 <!-- commandsstop -->
 
 # Plugins
