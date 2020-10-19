@@ -41,7 +41,7 @@ export default class Backup extends Command {
           const filename = `all-components-${generateDatestamp(datestamp)}`
           await createDir(`${storyblokConfig.sbmigWorkingDirectory}/components/`);
           await createJsonFile(
-            JSON.stringify(res),
+            JSON.stringify(res, undefined, 2),
             `${storyblokConfig.sbmigWorkingDirectory}/components/${filename}.json`
           );
           Logger.success(`All components written to a file:  ${filename}`);
@@ -63,7 +63,7 @@ export default class Backup extends Command {
           const filename = `component-${flags.oneComponent}-${generateDatestamp(datestamp)}`
           await createDir(`${storyblokConfig.sbmigWorkingDirectory}/components/`)
           await createJsonFile(
-            JSON.stringify(res),
+            JSON.stringify(res, undefined, 2),
             `${storyblokConfig.sbmigWorkingDirectory}/components/${filename}.json`
           )
           Logger.success(
@@ -83,7 +83,7 @@ export default class Backup extends Command {
         const filename = `all-component_groups-${generateDatestamp(datestamp)}`
         await createDir(`${storyblokConfig.sbmigWorkingDirectory}/component_groups/`)
         await createJsonFile(
-          JSON.stringify(res),
+          JSON.stringify(res, undefined, 2),
           `${storyblokConfig.sbmigWorkingDirectory}/component_groups/${filename}.json`
         )
         Logger.success(`All groups written to a file:  ${filename}`)
@@ -101,7 +101,7 @@ export default class Backup extends Command {
           const filename = `components_group-${flags.oneComponentsGroup}-${generateDatestamp(datestamp)}`
           await createDir(`${storyblokConfig.sbmigWorkingDirectory}/component_groups/`)
           await createJsonFile(
-            JSON.stringify(res),
+            JSON.stringify(res, undefined, 2),
             `${storyblokConfig.sbmigWorkingDirectory}/component_groups/${filename}.json`
           )
           Logger.success(
@@ -121,7 +121,7 @@ export default class Backup extends Command {
         const filename = `all-datasources-${generateDatestamp(datestamp)}`
         await createDir(`${storyblokConfig.sbmigWorkingDirectory}/datasources/`)
         await createJsonFile(
-          JSON.stringify(res),
+          JSON.stringify(res, undefined, 2),
           `${storyblokConfig.sbmigWorkingDirectory}/datasources/${filename}.json`
         )
         Logger.success(`All datasources written to a file:  ${filename}`)
@@ -139,7 +139,7 @@ export default class Backup extends Command {
           const filename = `datasource-${flags.oneDatasource}-${generateDatestamp(datestamp)}`
           await createDir(`${storyblokConfig.sbmigWorkingDirectory}/datasources/`)
           await createJsonFile(
-            JSON.stringify(res),
+            JSON.stringify(res, undefined, 2),
             `${storyblokConfig.sbmigWorkingDirectory}/datasources/${filename}.json`
           )
           Logger.success(
@@ -160,7 +160,7 @@ export default class Backup extends Command {
           const filename = `datasource-entries-${flags.datasourceEntries}-${generateDatestamp(datestamp)}`
           await createDir(`${storyblokConfig.sbmigWorkingDirectory}/datasources/`)
           await createJsonFile(
-            JSON.stringify(res),
+            JSON.stringify(res, undefined, 2),
             `${storyblokConfig.sbmigWorkingDirectory}/datasources/${filename}.json`
           )
           Logger.success(
@@ -181,7 +181,7 @@ export default class Backup extends Command {
           const filename = `component-${flags.oneComponentPresets}-${generateDatestamp(datestamp)}`
           await createDir(`${storyblokConfig.sbmigWorkingDirectory}/component-presets/`)
           await createJsonFile(
-            JSON.stringify(res),
+            JSON.stringify(res, undefined, 2),
             `${storyblokConfig.sbmigWorkingDirectory}/component-presets/${filename}.json`
           )
           Logger.success(
@@ -201,7 +201,7 @@ export default class Backup extends Command {
         const filename = `all-presets-${generateDatestamp(datestamp)}`
         await createDir(`${storyblokConfig.sbmigWorkingDirectory}/presets/`)
         await createJsonFile(
-          JSON.stringify(res),
+          JSON.stringify(res, undefined, 2),
           `${storyblokConfig.sbmigWorkingDirectory}/presets/${filename}.json`
         )
         Logger.success(`All presets written to a file:  ${filename}`)
@@ -219,7 +219,7 @@ export default class Backup extends Command {
           const filename = `preset-${flags.onePreset}-${generateDatestamp(datestamp)}`
           await createDir(`${storyblokConfig.sbmigWorkingDirectory}/presets/`)
           await createJsonFile(
-            JSON.stringify(res),
+            JSON.stringify(res, undefined, 2),
             `${storyblokConfig.sbmigWorkingDirectory}/presets/${filename}.json`
           )
           Logger.success(
