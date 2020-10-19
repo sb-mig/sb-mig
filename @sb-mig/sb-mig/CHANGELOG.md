@@ -3,6 +3,19 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## 2.6.0 (2020-10-19)
+
+* feat(auto styles import): add match file config option ([775a081](https://github.com/sb-mig/sb-mig/commit/775a081))
+* feat(discover): rewrite whole discovering feature +++ ([f0d2b44](https://github.com/sb-mig/sb-mig/commit/f0d2b44))
+* feat(sync with lock file): syncing with lock file ([f3cdf0b](https://github.com/sb-mig/sb-mig/commit/f3cdf0b))
+* fix(core backup): add indentation to sb-mig backup components files ([36ea9a8](https://github.com/sb-mig/sb-mig/commit/36ea9a8))
+* fix(core config): remove not used npmScopeForComponents and reactComponentsDirectory ([2fd7627](https://github.com/sb-mig/sb-mig/commit/2fd7627))
+* fix(sb lock file): remove not needed duplicated file ([6c037db](https://github.com/sb-mig/sb-mig/commit/6c037db))
+
+
+
+
+
 ## <small>2.5.1 (2020-10-07)</small>
 
 * fix(not needed files): remove lib folder from github ([326de8c](https://github.com/sb-mig/sb-mig/commit/326de8c))
