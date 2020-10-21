@@ -21,30 +21,32 @@ export const installAllDependencies = () => {
 }
 
 export const installProvidedComponents = (components: string[]) => {
-    const successComponents = components.map(component => {
-        Logger.log(`Adding ${component}... `)
-        let result;
-        try {
-            result = execa.commandSync(installComponentCommand(component))
-        } catch (error) {
-            Logger.error(`${error?.command} rejected.`);
-            Logger.error(`Reason: ${error.stderr}`)
-            return {
-                command: result?.command,
-                failed: true
-            };
-        }
+    const successComponents = components
+        .map(component => {
+            Logger.log(`Adding ${component}... `)
+            let result;
+            try {
+                result = execa.commandSync(installComponentCommand(component))
+            } catch (error) {
+                Logger.error(`${error?.command} rejected.`);
+                Logger.error(`Reason: ${error.stderr}`)
+                return {
+                    command: result?.command,
+                    failed: true
+                };
+            }
 
-        if (!result.failed) {
-            Logger.success(`${result.command} end successful!`)
-        }
+            if (!result.failed) {
+                Logger.success(`${result.command} end successful!`)
+            }
 
-        return result
-    }).filter(result => {
-        if (!result.failed) {
             return result
-        }
-    })
+        })
+        .filter(result => {
+            if (!result.failed) {
+                return result
+            }
+        })
         .map(result => {
             const firstPart = result?.command?.split("/")[0]
             const secondPart = result?.command?.split("/")[1]
