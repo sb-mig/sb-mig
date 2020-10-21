@@ -1,0 +1,26 @@
+name: Build and Test @sb-mig monorepo packages
+
+on:
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Use Node.js 12.x
+        uses: actions/setup-node@v1
+      - name: Building deps
+        run: yarn
+      - name: Building packages
+        run: yarn start
+      - name: Linking packages
+        run: npx lerna link
+      - name: Prepare repository
+        run: git reset --hard HEAD
