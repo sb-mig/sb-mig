@@ -54,7 +54,7 @@ export default abstract class extends Command {
         }
     }
 
-    api() {
+    api(): unknown {
         return {
             discover: {
                 findComponents,
