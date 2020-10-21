@@ -165,7 +165,7 @@ export const findDatasources = () => {
                 path.join(
                     `${directory}/${storyblokConfig.datasourcesDirectory}`,
                     `**`,
-                    `[^_]*.datasource.js`
+                    `[^_]*.sb.datasource.js`
                 )
             )
             // eslint-disable-next-line global-require, import/no-dynamic-require

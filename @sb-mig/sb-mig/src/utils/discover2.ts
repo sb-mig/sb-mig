@@ -262,7 +262,7 @@ export const discoverMany = (request: DiscoverManyRequest): DiscoverResult => {
     let pattern;
     let listOfFiles = ['']
 
-    const filesPattern = `${request.fileNames.length === 1 ? request.fileNames[0] : `{${request.fileNames.join(",")}}`}.${storyblokConfig.schemaFileExt}`
+    const filesPattern = `${request.fileNames.length === 1 ? request.fileNames[0] : `{${request.fileNames.join(",")}}`}.${storyblokConfig.datasourceExt}`
 
     switch (request.scope) {
         case SCOPE.local:
@@ -300,6 +300,104 @@ export const discoverMany = (request: DiscoverManyRequest): DiscoverResult => {
             listOfFiles = glob.sync(pattern, { follow: true })
             break;
     
+        default:
+            break;
+    }
+
+    return listOfFiles
+};
+
+export const discoverManyDatasources = (request: DiscoverManyRequest): DiscoverResult => {
+    const rootDirectory = './'
+    const directory = path.resolve(process.cwd(), rootDirectory)
+    let pattern;
+    let listOfFiles = ['']
+
+    const filesPattern = `${request.fileNames.length === 1 ? request.fileNames[0] : `{${request.fileNames.join(",")}}`}.${storyblokConfig.datasourceExt}`
+
+
+    switch (request.scope) {
+        case SCOPE.local:
+            // ### MANY - LOCAL - fileName ###
+            const onlyLocalComponentsDirectories = storyblokConfig.componentsDirectories.filter(path => !path.includes("node_modules"))
+            pattern = path.join(
+                `${directory}/{${onlyLocalComponentsDirectories.join(",")}}`,
+                `**`,
+                filesPattern
+            )
+
+            listOfFiles = glob.sync(pattern, { follow: true})
+            break;
+        
+        case SCOPE.external:
+            // ### MANY - EXTERNAL - fileName ###
+            const onlyNodeModulesPackagesComponentsDirectories = storyblokConfig.componentsDirectories.filter(path => path.includes("node_modules"))
+            pattern = path.join(
+                `${directory}/{${onlyNodeModulesPackagesComponentsDirectories.join(",")}}`,
+                `**`,
+                filesPattern
+            )
+
+            listOfFiles = glob.sync(pattern, { follow: true})
+            break;
+
+        case SCOPE.all:
+            // ### MANY - ALL - fileName ###
+            pattern = path.join(
+                `${directory}/{${storyblokConfig.componentsDirectories.join(",")}}`,
+                `**`,
+                filesPattern
+            )
+
+            listOfFiles = glob.sync(pattern, { follow: true })
+            break;
+    
+        default:
+            break;
+    }
+
+    return listOfFiles
+};
+
+export const discoverDatasources = (request: DiscoverRequest): DiscoverResult => {
+    const rootDirectory = './'
+    const directory = path.resolve(process.cwd(), rootDirectory)
+    let pattern
+    let listOfFiles = ['']
+
+    switch (request.scope) {
+        case SCOPE.local:
+            // ### ALL - LOCAL - fileName ###
+            const onlyLocalComponentsDirectories = storyblokConfig.componentsDirectories.filter(path => !path.includes("node_modules"))
+            pattern = path.join(
+                `${directory}/{${onlyLocalComponentsDirectories.join(",")}}`,
+                `**`,
+                `[^_]*.${storyblokConfig.datasourceExt}` // all files with 'ext' extension, without files beggining with _
+            )
+
+            listOfFiles = glob.sync(pattern, { follow: true})
+            break;
+        case SCOPE.external:
+            // ### ALL - EXTERNAL - fileName ###
+            const onlyNodeModulesPackagesComponentsDirectories = storyblokConfig.componentsDirectories.filter(path => path.includes("node_modules"))
+            pattern = path.join(
+                `${directory}/{${onlyNodeModulesPackagesComponentsDirectories.join(",")}}`,
+                `**`,
+                `[^_]*.${storyblokConfig.datasourceExt}` // all files with 'ext' extension, without files beggining with _
+            )
+
+            listOfFiles = glob.sync(pattern, { follow: true})
+            break;
+        case SCOPE.all:
+            // ### ALL - LOCAL - fileName ###
+            pattern = path.join(
+                `${directory}/{${storyblokConfig.componentsDirectories.join(",")}}`,
+                `**`,
+                `[^_]*.${storyblokConfig.datasourceExt}` // all files with 'ext' extension, without files beggining with _
+            )
+
+            listOfFiles = glob.sync(pattern, { follow: true})
+            break;
         default:
             break;
     }
