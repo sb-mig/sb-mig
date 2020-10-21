@@ -3,6 +3,16 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## 2.7.0 (2020-10-21)
+
+* fix(hotfix): fix problems with nanmed imports from datasources to core ([a7cf988](https://github.com/sb-mig/sb-mig/commit/a7cf988))
+* fix(hotfix): object is of type unknown ([66dbb8f](https://github.com/sb-mig/sb-mig/commit/66dbb8f))
+* feat(sync datasources): add feature of syncing datasources ([88e61d9](https://github.com/sb-mig/sb-mig/commit/88e61d9))
+
+
+
+
+
 ## 2.6.0 (2020-10-19)
 
 * feat(auto styles import): add match file config option ([775a081](https://github.com/sb-mig/sb-mig/commit/775a081))
