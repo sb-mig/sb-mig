@@ -3,6 +3,7 @@ import Command from '../core'
 import storyblokConfig from "../config/config"
 import Logger from "../utils/logger"
 import { sync2AllComponents, syncAllComponents, syncComponents, syncProvidedComponents } from '../api/migrate'
+import { syncProvidedDatasources, syncAllDatasources } from '../api/datasources'
 
 export default class Sync extends Command {
   static description = 'Synchronize components, datasources with Storyblok space.'
@@ -79,9 +80,26 @@ export default class Sync extends Command {
       }
     }
 
-    if (args.type === "datasources") {
-      // TODO: implement syncing datasources
-      this.error("There is no implementation for synchronizing datasources, yet.")
+    if (args.type === "datasources" && flags.all && !flags.ext) {
+      this.error("Datasources are only synced while using --ext optioon. use sb-mig sync datasources --all --ext to sync all datasources with extension (default: .sb.datasources.js)")
+    }
+
+    if (args.type === "datasources" && !flags.all && !flags.ext) {
+      const datasources = components
+      this.error(`Datasources are only synced while using --ext optioon. use sb-mig sync datasources ${datasources.join(" ")} --ext to sync provided datasources with extension (default: .sb.datasources.js)`)
+    }
+
+    if (args.type === "datasources" && flags.all && flags.ext) {
+      Logger.log("Syncing all datasources with extension...")
+      
+      syncAllDatasources()
+    }
+
+    if (args.type === "datasources" && !flags.all && flags.ext) {
+      const datasources = components
+      Logger.log("Syncing provided datasources with extension...")
+      
+      syncProvidedDatasources({datasources})
     }
   }
 }

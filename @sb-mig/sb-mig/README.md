@@ -456,19 +456,20 @@ This command will look for any file named `row.sb.js` and `column.sb.js` inside 
 
 ## Syncing datasources
 
-**Beta feature:** You can also sync your `datasources`.
-Add `datasourcesDirectory` to `storyblok.config.js`. (default: 'storyblok')
+You can also sync your `datasources`.
+
+Add `datasourceExt: "your-own-extension",` to your `storyblok.config.js`. If u will not add it, will be used default one (`sb.datasource.js`)
 
 ```
 // storyblok.config.js
 module.exports = {
   ...
-  datasourcesDirectory: "datasources"
+  datasourcesDirectory: "mydatasource.ext.js"
   ...
 };
 ```
 
-Create file with `.datasource.js` extension inside it. Basic schema for datasources file:
+Create file with `.sb.datasource.js` (or your defined one) extension inside it. Basic schema for datasources file:
 
 ```
 module.exports = {
@@ -501,7 +502,7 @@ Single `datasource entry` consist of **precisely** 2 fields. But they can be nam
 Command for syncing datasources:
 
 ```
-sb-mig sync datasources icons
+sb-mig sync datasources icons --ext
 ```
 
 Example output from above command
@@ -518,13 +519,20 @@ Trying to get 'icons' datasource.
 Like with syncing component, you can also use syncing multiple datasources at once:
 
 ```
-sb-mig sync datasources icons logos
+sb-mig sync datasources icons logos --ext
 ```
 
 ```
 ✓ Datasource entries for 15558 datasource id has been successfully synced.
 ✓ Datasource entries for 15559 datasource id has been successfully synced.
 ```
+
+You can also sync all datasources, and that's the command we strongly recommend. It will sync all datasources also the one from node_modules, so potentially from `ef-sbc`. But will prefer syncing local ones, if there will be clash of datasources filenames (for example, you can have datasource from node_modules, but wanted to overwrite some fields, you will be able to do that.
+
+```
+sb-mig sync datasources --all --ext
+```
+
 
 ## Presets support
 
