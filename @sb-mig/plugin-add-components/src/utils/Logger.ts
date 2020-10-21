@@ -2,7 +2,7 @@ import * as chalk from 'chalk';
 import * as figlet from 'figlet';
 
 export default class Logger {
-  name: unknown;
+  name: any;
 
   constructor(name: any) {
     this.name = name

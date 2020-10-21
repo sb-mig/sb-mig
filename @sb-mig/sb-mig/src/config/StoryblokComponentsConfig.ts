@@ -155,7 +155,7 @@ export class StoryblokComponentsConfig {
 
     createCrumb({ to, token }: CreateCrumb) {
         const dataEntries = Object.entries(this.data);
-        let temp: unknown;
+        let temp: any;
         // console.log(dataEntries)
 
         switch (token) {
