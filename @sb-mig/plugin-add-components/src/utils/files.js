@@ -1,7 +1,6 @@
 const fs = require("fs")
 const ncp = require("ncp").ncp
 const path = require("path")
-const Logger = require("./Logger")
 
 const getCurrentDirectoryBase = () => path.basename(process.cwd())
 const isDirectoryExists = path => fs.existsSync(path)
@@ -43,7 +42,6 @@ const copyFile = async (src, dest) => {
 
   fs.copyFile(src, dest, err => {
     if (err) {
-      Logger.error(`There is no file to copy, named ${fileName}`)
       console.log(err)
       return false
     }

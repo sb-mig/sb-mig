@@ -496,6 +496,60 @@ export const discover = (request: DiscoverRequest): DiscoverResult => {
     return listOfFiles
 };
 
+export const discoverManyStyles = (request: DiscoverManyRequest): DiscoverResult => {
+    const rootDirectory = './'
+    const directory = path.resolve(process.cwd(), rootDirectory)
+    let pattern;
+    let listOfFiles = ['']
+
+    const filesPattern = `${request.fileNames.length === 1 ? request.fileNames[0] : `{${request.fileNames.join(",")}}`}.scss`
+
+    console.log("this is file pattern for scss files: ")
+    console.log(filesPattern)
+
+    switch (request.scope) {
+        case SCOPE.local:
+            // ### MANY - LOCAL - fileName ###
+            const onlyLocalComponentsDirectories = storyblokConfig.componentsDirectories.filter(path => !path.includes("node_modules"))
+            pattern = path.join(
+                `${directory}/{${onlyLocalComponentsDirectories.join(",")}}`,
+                `**`,
+                filesPattern
+            )
+
+            listOfFiles = glob.sync(pattern, { follow: true})
+            break;
+        
+        case SCOPE.external:
+            // ### MANY - EXTERNAL - fileName ###
+            const onlyNodeModulesPackagesComponentsDirectories = storyblokConfig.componentsDirectories.filter(path => path.includes("node_modules"))
+            pattern = path.join(
+                `${directory}/{${onlyNodeModulesPackagesComponentsDirectories.join(",")}}`,
+                `**`,
+                filesPattern
+            )
+
+            listOfFiles = glob.sync(pattern, { follow: true})
+            break;
+
+        case SCOPE.all:
+            // ### MANY - ALL - fileName ###
+            pattern = path.join(
+                `${directory}/{${storyblokConfig.componentsDirectories.join(",")}}`,
+                `**`,
+                filesPattern
+            )
+
+            listOfFiles = glob.sync(pattern, { follow: true })
+            break;
+    
+        default:
+            break;
+    }
+
+    return listOfFiles
+};
+
 export const getFilesContent = (data: {files: string[]}) => {
     return data.files.map((file) => require(file));
 }
