@@ -1,6 +1,5 @@
 import { flags } from '@oclif/command'
 import Command from 'sb-mig/lib/core'
-import * as ora from 'ora';
 
 import { installProvidedComponents } from '../api/add';
 import { copyComponents } from '../api/copy';
@@ -49,7 +48,6 @@ export default class Add extends Command {
 
       delete installedComponentsTrackingData['undefined']
   
-
       this.storyblokComponentsConfig().setAllData(installedComponentsTrackingData)
       this.storyblokComponentsConfig().updateStoryblokComponentsFile()
       this.storyblokComponentsConfig().updateStoryblokComponentStylesFile()
@@ -88,9 +86,5 @@ export default class Add extends Command {
 
       Logger.success("All done !")
     }
-
-    // let ora(`Installing all dependencies...\n`)
-    // await installAllDependencies()
-  
   }
 }
