@@ -1,6 +1,8 @@
 import * as path from "path";
 import * as dotenv from "dotenv";
 import { promises as fs } from "fs";
+import * as camelcase from "camelcase";
+import storyblokConfig from "./config";
 
 dotenv.config();
 
@@ -62,29 +64,6 @@ export class StoryblokComponentsConfig {
         this.data = data;
     }
 
-    writeComponentsConfigFile(data: IStoryblokComponentsConfig): boolean {
-        const content = `module.exports = ${JSON.stringify(
-            data,
-            undefined,
-            2
-        )}`;
-
-        fs.writeFile(this.storyblokComponentsConfigUrl, content, {
-            encoding: "utf-8",
-        })
-            .then((result) => {
-                console.log("so what is that ?");
-                console.log(result);
-                return result;
-            })
-            .catch((err: Error) => {
-                console.log("error, wtf ?");
-                console.log(err.message);
-            });
-
-        return true;
-    }
-
     updateComponentsConfigFile(): boolean {
         const content = `module.exports = ${JSON.stringify(
             this.data,
@@ -96,7 +75,7 @@ export class StoryblokComponentsConfig {
             encoding: "utf-8",
         })
             .then((result) => {
-                console.log("so what is that ?");
+                console.log("Done");
                 console.log(result);
                 return true;
             })
@@ -108,10 +87,10 @@ export class StoryblokComponentsConfig {
         return true;
     }
 
-    addComponentsToComponentsConfigFile(
-        installedComponents: IInstalledComponents[],
+    addComponentsToComponentsConfigFile({ installedComponents, local}: {
+        installedComponents: IInstalledComponents[], 
         local: boolean
-    ): IStoryblokComponentsConfig {
+    }): IStoryblokComponentsConfig { 
         return {
             ...this.data,
             ...installedComponents.reduce((prev: any, curr: any) => {
@@ -125,12 +104,34 @@ export class StoryblokComponentsConfig {
                             locationPath: local
                                 ? `src/components/${curr.name}`
                                 : `node_modules/${curr.scope}/${curr.name}`,
-                            isLinkedInComponentFile: false,
-                            isComponentStyleImported: false,
+                            links: {
+                                [storyblokConfig.storyblokComponentsListfile]: {
+                                    "// --- sb-mig scoped component imports ---": local
+                                        ? `import * as Scoped${camelcase(
+                                              curr.name,
+                                              { pascalCase: true }
+                                          )} from "./${curr.name}";`
+                                        : `import * as Scoped${camelcase(
+                                              curr.name,
+                                              { pascalCase: true }
+                                          )} from "${curr.scope}/${
+                                              curr.name
+                                          }";`,
+                                    "// --- sb-mig scoped component list ---": `Scoped${camelcase(
+                                        curr.name,
+                                        { pascalCase: true }
+                                    )}.ComponentList`,
+                                },
+                                [storyblokConfig.componentsStylesMatchFile]: {
+                                    "// --- sb-mig scoped component styles imports ---": local
+                                        ? `@import './${curr.name}/${curr.name}.scss';`
+                                        : `@import '${curr.scope}/${curr.name}/src/${curr.name}.scss';`,
+                                },
+                            },
                         },
                     };
                 }
-            }, {}),
+            }, {})
         };
     }
 
@@ -144,7 +145,6 @@ export class StoryblokComponentsConfig {
 
     setAllData(data: IStoryblokComponentsConfig) {
         this.data = {
-            ...this.data,
             ...data,
         };
     }
@@ -153,10 +153,15 @@ export class StoryblokComponentsConfig {
         this.data[singleComponentData.name] = singleComponentData;
     }
 
+    /**
+     *
+     * Based on storyblok.componnets.lock.js file,
+     * return proper content of specific files
+     * (storyblok-components.componentList.js and storyblok-componnets-styles.scss)
+     */
     createCrumb({ to, token }: CreateCrumb) {
         const dataEntries = Object.entries(this.data);
         let temp: any;
-        // console.log(dataEntries)
 
         switch (token) {
             case SWAP_TOKEN.componentImports:
@@ -219,6 +224,73 @@ export class StoryblokComponentsConfig {
         }
 
         return temp?.filter((element: string) => element);
+    }
+
+    /**
+     * This updates storyblok components file with imports and
+     * exports of componentList part of the component, based on
+     * storyblok.components.lock file links property
+     */
+    updateStoryblokComponentsFile() {
+        // one file
+        const crumb1 = this.createCrumb({
+            to: storyblokConfig.storyblokComponentsListfile,
+            token: SWAP_TOKEN.componentImports,
+        });
+        let crumb2 = this.createCrumb({
+            to: storyblokConfig.storyblokComponentsListfile,
+            token: SWAP_TOKEN.componentLists,
+        });
+
+        let content = `${crumb1.join("\n")}\n`;
+        content = `${content}\nexport default [
+            ${crumb2.shift()}
+            ${crumb2.map((partial: string) => `${partial},`).join("\n")}
+        ]\n`;
+
+        // update actual file
+        fs.writeFile(storyblokConfig.storyblokComponentsListfile, content, {
+            encoding: "utf-8",
+        })
+            .then((result) => {
+                console.log("Done");
+                console.log(result);
+                return true;
+            })
+            .catch((err: Error) => {
+                console.log("error, wtf ?");
+                console.log(err.message);
+                return false;
+            });
+    }
+
+    /**
+     * This updates storyblok components styles file with style imports
+     * based on storyblok.components.lock file links property
+     */
+    updateStoryblokComponentStylesFile() {
+        // one file
+        const crumb1 = this.createCrumb({
+            to: storyblokConfig.componentsStylesMatchFile,
+            token: SWAP_TOKEN.styleImports,
+        });
+
+        let content = `${crumb1.join("\n")}\n`;
+
+        // update actual file
+        fs.writeFile(storyblokConfig.componentsStylesMatchFile, content, {
+            encoding: "utf-8",
+        })
+            .then((result) => {
+                console.log("Done");
+                console.log(result);
+                return true;
+            })
+            .catch((err: Error) => {
+                console.log("error, wtf ?");
+                console.log(err.message);
+                return false;
+            });
     }
 }
 
