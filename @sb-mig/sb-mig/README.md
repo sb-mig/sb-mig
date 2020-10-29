@@ -527,7 +527,7 @@ sb-mig sync datasources icons logos --ext
 ✓ Datasource entries for 15559 datasource id has been successfully synced.
 ```
 
-You can also sync all datasources, and that's the command we strongly recommend. It will sync all datasources also the one from node_modules, so potentially from `ef-sbc`. But will prefer syncing local ones, if there will be clash of datasources filenames (for example, you can have datasource from node_modules, but wanted to overwrite some fields, you will be able to do that.
+You can also sync all datasources, and that's the command we strongly recommend. It will sync all datasources also the one from node_modules, so potentially from `storyblok-components`. But will prefer syncing local ones, if there will be clash of datasources filenames (for example, you can have datasource from node_modules, but wanted to overwrite some fields, you will be able to do that.
 
 ```
 sb-mig sync datasources --all --ext
