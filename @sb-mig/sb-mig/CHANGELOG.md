@@ -3,6 +3,21 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## 2.8.0 (2020-10-29)
+
+* fix(comments): remove not needed comments and console.logs ([865bbb8](https://github.com/sb-mig/sb-mig/commit/865bbb8))
+* fix(storyblokcomponentsconfig): remove not needed isInstalled prop from config ([33fac47](https://github.com/sb-mig/sb-mig/commit/33fac47))
+* fix(types safety): decide on not using unknown for now (lot of refactor needed) ([8138f90](https://github.com/sb-mig/sb-mig/commit/8138f90))
+* fix(wip): wIP ([2b7f718](https://github.com/sb-mig/sb-mig/commit/2b7f718))
+* feat(adding and tracking): adding components rewrite, change tracking method for importing files ([1f2bd05](https://github.com/sb-mig/sb-mig/commit/1f2bd05))
+* feat(import styles): add discoverManyStyles function ([4b189f1](https://github.com/sb-mig/sb-mig/commit/4b189f1))
+* Merge branch 'master' of github.com:sb-mig/sb-mig into improve-tracking-components-feature ([20cd491](https://github.com/sb-mig/sb-mig/commit/20cd491))
+* Merge branch 'master' of github.com:sb-mig/sb-mig into improve-tracking-components-feature ([65c2423](https://github.com/sb-mig/sb-mig/commit/65c2423))
+
+
+
+
+
 ## 2.7.0 (2020-10-21)
 
 * fix(hotfix): fix problems with nanmed imports from datasources to core ([a7cf988](https://github.com/sb-mig/sb-mig/commit/a7cf988))

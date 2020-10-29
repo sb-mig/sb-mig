@@ -3,6 +3,24 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## 0.5.0 (2020-10-29)
+
+* feat(adding and tracking): adding components rewrite, change tracking method for importing files ([1f2bd05](https://github.com/sb-mig/plugin-add-components/commit/1f2bd05))
+* feat(adding and tracking): change the way tracking works in general, and change generate command ([089ffc6](https://github.com/sb-mig/plugin-add-components/commit/089ffc6))
+* feat(import styles): add discoverManyStyles function ([4b189f1](https://github.com/sb-mig/plugin-add-components/commit/4b189f1))
+* fix(types safety): decide on not using unknown for now (lot of refactor needed) ([8138f90](https://github.com/sb-mig/plugin-add-components/commit/8138f90))
+* fix(wip): wIP ([2b7f718](https://github.com/sb-mig/plugin-add-components/commit/2b7f718))
+* Merge branch 'master' of github.com:sb-mig/sb-mig into improve-tracking-components-feature ([20cd491](https://github.com/sb-mig/plugin-add-components/commit/20cd491))
+* Merge branch 'master' of github.com:sb-mig/sb-mig into improve-tracking-components-feature ([65c2423](https://github.com/sb-mig/plugin-add-components/commit/65c2423))
+
+
+### BREAKING CHANGE
+
+* old lock file not compatible, specific file use for storyblok components styles, and components import and ComponentLists exports
+
+
+
+
 ## <small>0.4.3 (2020-10-21)</small>
 
 **Note:** Version bump only for package @sb-mig/plugin-add-components

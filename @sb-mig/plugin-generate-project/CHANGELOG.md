@@ -3,6 +3,21 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## 0.4.0 (2020-10-29)
+
+* feat(adding and tracking): change the way tracking works in general, and change generate command ([089ffc6](https://github.com/sb-mig/plugin-generate-project/commit/089ffc6))
+* Merge branch 'master' of github.com:sb-mig/sb-mig into improve-tracking-components-feature ([20cd491](https://github.com/sb-mig/plugin-generate-project/commit/20cd491))
+* Merge branch 'master' of github.com:sb-mig/sb-mig into improve-tracking-components-feature ([65c2423](https://github.com/sb-mig/plugin-generate-project/commit/65c2423))
+* fix(wip): wIP ([2b7f718](https://github.com/sb-mig/plugin-generate-project/commit/2b7f718))
+
+
+### BREAKING CHANGE
+
+* old lock file not compatible, specific file use for storyblok components styles, and components import and ComponentLists exports
+
+
+
+
 ## <small>0.3.4 (2020-10-21)</small>
 
 **Note:** Version bump only for package @sb-mig/plugin-generate-project
