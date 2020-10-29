@@ -504,9 +504,6 @@ export const discoverManyStyles = (request: DiscoverManyRequest): DiscoverResult
 
     const filesPattern = `${request.fileNames.length === 1 ? request.fileNames[0] : `{${request.fileNames.join(",")}}`}.scss`
 
-    console.log("this is file pattern for scss files: ")
-    console.log(filesPattern)
-
     switch (request.scope) {
         case SCOPE.local:
             // ### MANY - LOCAL - fileName ###
