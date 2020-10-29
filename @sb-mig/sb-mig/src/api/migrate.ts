@@ -221,7 +221,6 @@ export const syncProvidedComponents = ({components, presets, packageName}: SyncP
             type: LOOKUP_TYPE.fileName,
             fileNames: components
         });
-        console.log(allLocalSbComponentsSchemaFiles)
         // #2: discover all local .sb.js files
         const allExternalSbComponentsSchemaFiles = discoverMany({
             scope: SCOPE.local,
@@ -250,8 +249,6 @@ export const syncProvidedComponents = ({components, presets, packageName}: SyncP
             scope: SCOPE.external,
             packageNames: components
         });
-        console.log("allLocalSbComponentsSchemaFiles", allLocalSbComponentsSchemaFiles)
-        console.log("allExternalSbComponentsSchemaFiles", allExternalSbComponentsSchemaFiles)
         // #3: compare results, prefer local ones (so we have to create final external paths array and local array of things to sync from where)
         const { local, external } = compare({
             local: allLocalSbComponentsSchemaFiles,

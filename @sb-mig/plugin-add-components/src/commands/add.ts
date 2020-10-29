@@ -1,10 +1,9 @@
 import { flags } from '@oclif/command'
 import Command from 'sb-mig/lib/core'
-import * as ora from 'ora';
 
-import { installProvidedComponents, installAllDependencies } from '../api/add';
-import { updateComponentsJs } from '../api/update';
+import { installProvidedComponents } from '../api/add';
 import { copyComponents } from '../api/copy';
+import Logger from '../utils/Logger';
 
 export default class Add extends Command {
   static description = 'Add and install components from repository.'
@@ -34,72 +33,58 @@ export default class Add extends Command {
 
 
     if (args.type === "components" && !flags.copy) {
-      console.log("All scoped components already in a project: ");
+      
+      Logger.log("All scoped components already in a project: ");
       console.log(this.storyblokComponentsConfig().getAllData())
 
-      let spinner = ora(`Installing provided components...\n`).start()
+      Logger.log(`Installing provided components...\n`)
       const installedComponents = installProvidedComponents(components);
-      spinner.stop()
 
-      console.log("These are successfully installed components: ");
+      Logger.log("These are successfully installed components: ");
       console.log(installedComponents);
 
-      spinner = ora(`Adding tracking information to tracking file...\n`).start()
-      const installedComponentsTrackingData = this.storyblokComponentsConfig()
-        .addComponentsToComponentsConfigFile(installedComponents, flags.copy);
-      spinner.stop()
+      Logger.log(`Adding tracking information to tracking file...\n`)
+      const installedComponentsTrackingData = this.storyblokComponentsConfig().addComponentsToComponentsConfigFile({ installedComponents, local: flags.copy });
 
+      delete installedComponentsTrackingData['undefined']
+  
       this.storyblokComponentsConfig().setAllData(installedComponentsTrackingData)
-
-      spinner = ora(`Updating components.js file...\n`).start()
-      updateComponentsJs(
-        installedComponents,
-        false,
-        this.storyblokComponentsConfig(),
-        this.storyblokConfig()
-      );
-      spinner.stop()
-
+      this.storyblokComponentsConfig().updateStoryblokComponentsFile()
+      this.storyblokComponentsConfig().updateStoryblokComponentStylesFile()
       this.storyblokComponentsConfig().updateComponentsConfigFile()
+
+      Logger.success("All done !")
     }
 
     if (args.type === "components" && flags.copy) {
 
-      console.log("All scoped components already in a project: ");
+      Logger.log("All scoped components already in a project: ");
       console.log(this.storyblokComponentsConfig().getAllData())
 
-      let spinner = ora(`Installing provided components...\n`).start()
+      Logger.log(`Installing provided components...\n`)
       const installedComponents = installProvidedComponents(components);
-      spinner.stop()
 
       console.log("These are successfully installed components: ");
       console.log(installedComponents);
 
-      spinner = ora(`Copying components files to local system...\n`).start()
-      const dataAgain = copyComponents(components, this.storyblokComponentsConfig(), this.storyblokConfig());
-      spinner.stop()
+      const componentsToCopy = installedComponents.map(component => `${component.scope}/${component.name}`)
 
-      spinner = ora(`Adding tracking information to tracking file...\n`).start()
-      const installedComponentsTrackingData = this.storyblokComponentsConfig()
-        .addComponentsToComponentsConfigFile(installedComponents, flags.copy);
-      spinner.stop()
+      Logger.log(`Copying components files to local system...\n`)
+      await copyComponents({ components: componentsToCopy });
+
+      Logger.log(`Adding tracking information to tracking file...\n`)
+      const installedComponentsTrackingData = this.storyblokComponentsConfig().addComponentsToComponentsConfigFile({ installedComponents, local: flags.copy });
+
+      delete installedComponentsTrackingData['undefined']
+  
 
       this.storyblokComponentsConfig().setAllData(installedComponentsTrackingData)
-
-      spinner = ora(`Updating components.js file...\n`).start()
-      updateComponentsJs(
-        installedComponents,
-        true,
-        this.storyblokComponentsConfig(),
-        this.storyblokConfig()
-      );
-      spinner.stop()
-
+      this.storyblokComponentsConfig().updateStoryblokComponentsFile()
+      this.storyblokComponentsConfig().updateStoryblokComponentStylesFile()
       this.storyblokComponentsConfig().updateComponentsConfigFile()
-    }
 
-    let spinner = ora(`Installing all dependencies...\n`).start()
-    await installAllDependencies()
-    spinner.stop()
+
+      Logger.success("All done !")
+    }
   }
 }

@@ -34,7 +34,6 @@ export const findComponentsWithExt = (ext: string) => {
         .map((file) => require(path.resolve(directory, file)));
 
     const fileNames = files.map((file) => file.name);
-    console.log(fileNames);
 
     return files;
 };
