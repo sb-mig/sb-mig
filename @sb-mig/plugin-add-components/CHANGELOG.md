@@ -3,6 +3,14 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## <small>0.5.2 (2020-10-30)</small>
+
+**Note:** Version bump only for package @sb-mig/plugin-add-components
+
+
+
+
+
 ## <small>0.5.1 (2020-10-30)</small>
 
 * fix(auto styles import): auto import styles from sb components, to not import not existing styles ([4eb4870](https://github.com/sb-mig/plugin-add-components/commit/4eb4870))

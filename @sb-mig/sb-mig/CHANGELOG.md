@@ -3,6 +3,14 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## <small>2.8.2 (2020-10-30)</small>
+
+* fix(contents): add link to contents list ([e59d4b2](https://github.com/sb-mig/sb-mig/commit/e59d4b2))
+
+
+
+
+
 ## <small>2.8.1 (2020-10-30)</small>
 
 * docs(adding components and overwriting schemas): add very rough docs about adding and overwriting ([0c8ec2f](https://github.com/sb-mig/sb-mig/commit/0c8ec2f))
