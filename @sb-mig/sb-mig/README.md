@@ -18,6 +18,7 @@ If you've found an issue or you have feature request - <a href="https://github.c
 
 - [How to install and configure](#how-to-install-and-configure)
 - NEW [Adding Scoped Storyblok components](#adding-scoped-storyblok-components)
+- NEW [Overwriting schema files from scoped components](#overwriting-schema-files-from-scoped-components)
 - [Generate whole starter project](#generate-whole-starter-project)
 - [Usage](#usage)
 - [Commands](#commands)
