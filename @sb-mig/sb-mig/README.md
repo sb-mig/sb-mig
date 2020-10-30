@@ -329,7 +329,7 @@ OPTIONS
   -x, --oneDatasource=oneDatasource              Backup one datasource by name.
 ```
 
-_See code: [src/commands/backup.ts](https://github.com/sb-mig/sb-mig/blob/v2.8.0/src/commands/backup.ts)_
+_See code: [src/commands/backup.ts](https://github.com/sb-mig/sb-mig/blob/v2.8.1/src/commands/backup.ts)_
 
 ## `sb-mig debug`
 
@@ -343,7 +343,7 @@ OPTIONS
   -h, --help  show CLI help
 ```
 
-_See code: [src/commands/debug.ts](https://github.com/sb-mig/sb-mig/blob/v2.8.0/src/commands/debug.ts)_
+_See code: [src/commands/debug.ts](https://github.com/sb-mig/sb-mig/blob/v2.8.1/src/commands/debug.ts)_
 
 ## `sb-mig help [COMMAND]`
 
@@ -507,7 +507,7 @@ EXAMPLES
   $ sb-mig sync components text-block button
 ```
 
-_See code: [src/commands/sync.ts](https://github.com/sb-mig/sb-mig/blob/v2.8.0/src/commands/sync.ts)_
+_See code: [src/commands/sync.ts](https://github.com/sb-mig/sb-mig/blob/v2.8.1/src/commands/sync.ts)_
 <!-- commandsstop -->
 
 # Plugins

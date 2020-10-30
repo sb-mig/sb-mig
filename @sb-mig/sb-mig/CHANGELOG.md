@@ -3,6 +3,16 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## <small>2.8.1 (2020-10-30)</small>
+
+* docs(adding components and overwriting schemas): add very rough docs about adding and overwriting ([0c8ec2f](https://github.com/sb-mig/sb-mig/commit/0c8ec2f))
+* fix(auto styles import): auto import styles from sb components, to not import not existing styles ([4eb4870](https://github.com/sb-mig/sb-mig/commit/4eb4870))
+* fix(docs): update readme ([915b380](https://github.com/sb-mig/sb-mig/commit/915b380))
+
+
+
+
+
 ## 2.8.0 (2020-10-29)
 
 * fix(comments): remove not needed comments and console.logs ([865bbb8](https://github.com/sb-mig/sb-mig/commit/865bbb8))

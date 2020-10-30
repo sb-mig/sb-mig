@@ -1,7 +1,7 @@
 {
   "name": "@sb-mig/plugin-create-component",
   "description": "Plugin for sb-mig to create component in monorepos compliant with sb-mig",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "author": "Marcin Krawczyk marckraw@icloud.com",
   "bugs": "https://github.com/sb-mig/plugin-create-component/issues",
   "dependencies": {
@@ -14,7 +14,7 @@
     "figlet": "^1.4.0",
     "ora": "^4.0.4",
     "rimraf": "^3.0.2",
-    "sb-mig": "^2.8.0",
+    "sb-mig": "^2.8.1",
     "tslib": "^1",
     "yarn-or-npm": "^3.0.1"
   },

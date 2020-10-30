@@ -3,6 +3,14 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## <small>0.1.6 (2020-10-30)</small>
+
+**Note:** Version bump only for package @sb-mig/plugin-create-component
+
+
+
+
+
 ## <small>0.1.5 (2020-10-29)</small>
 
 **Note:** Version bump only for package @sb-mig/plugin-create-component

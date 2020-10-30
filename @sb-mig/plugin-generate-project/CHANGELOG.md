@@ -3,6 +3,14 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## <small>0.4.1 (2020-10-30)</small>
+
+**Note:** Version bump only for package @sb-mig/plugin-generate-project
+
+
+
+
+
 ## 0.4.0 (2020-10-29)
 
 * feat(adding and tracking): change the way tracking works in general, and change generate command ([089ffc6](https://github.com/sb-mig/plugin-generate-project/commit/089ffc6))
