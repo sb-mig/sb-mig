@@ -33,7 +33,6 @@ export default class Add extends Command {
 
 
     if (args.type === "components" && !flags.copy) {
-      
       Logger.log("All scoped components already in a project: ");
       console.log(this.storyblokComponentsConfig().getAllData())
 
@@ -49,6 +48,7 @@ export default class Add extends Command {
       delete installedComponentsTrackingData['undefined']
   
       this.storyblokComponentsConfig().setAllData(installedComponentsTrackingData)
+      
       this.storyblokComponentsConfig().updateStoryblokComponentsFile()
       this.storyblokComponentsConfig().updateStoryblokComponentStylesFile()
       this.storyblokComponentsConfig().updateComponentsConfigFile()
@@ -57,7 +57,6 @@ export default class Add extends Command {
     }
 
     if (args.type === "components" && flags.copy) {
-
       Logger.log("All scoped components already in a project: ");
       console.log(this.storyblokComponentsConfig().getAllData())
 

@@ -17,6 +17,7 @@ If you've found an issue or you have feature request - <a href="https://github.c
 ## Contents
 
 - [How to install and configure](#how-to-install-and-configure)
+- NEW [Adding Scoped Storyblok components](#adding-scoped-storyblok-components)
 - [Generate whole starter project](#generate-whole-starter-project)
 - [Usage](#usage)
 - [Commands](#commands)
@@ -74,6 +75,150 @@ module.exports = {
   componentDirectory: 'storyblok',
 };
 ```
+
+## Adding scoped storyblok components
+** this feature is still experimental **
+
+For that feature to work you need to install [add-components-plugin](https://github.com/sb-mig/sb-mig/tree/master/%40sb-mig/plugin-add-components).
+
+To do that, run (from root of your project)
+```
+sb-mig plugins:install add-components
+```
+
+Now you have access to `sb-mig add components`.
+
+### Adding components and Lock file
+
+Let's say we want to add `@storyblok-components/text-block` and `@storyblok-components/heading` component. Lets run:
+```
+sb-mig add components @storyblok-components/text-block @storyblok-components/heading
+```
+
+This command, will install provided components from `npm` and will create special file called `storyblok.components.lock.js` in root of your project.
+This file is responsible for tracking where, and how your components end up being installed to your project, and is also tracking for any relations/links in your project. It is single source of truth for scoped components you installed with `sb-mig add components` command. 
+
+Example output of `storyblok.components.lock.js` file:
+
+```
+module.exports = {
+  "@storyblok-components/text-block": {
+    "name": "@storyblok-components/text-block",
+    "scope": "@storyblok-components",
+    "location": "node_modules",
+    "locationPath": "node_modules/@storyblok-components/text-block",
+    "links": {
+      "src/@storyblok-components/storyblok-components.componentList.js": {
+        "// --- sb-mig scoped component imports ---": "import * as ScopedTextBlock from '@storyblok-components/text-block';",
+        "// --- sb-mig scoped component list ---": "ScopedTextBlock.ComponentList"
+      },
+      "src/@storyblok-components/_storyblok-components.scss": {
+        "// --- sb-mig scoped component styles imports ---": "@import '@storyblok-components/text-block/src/text-block.scss';"
+      }
+    }
+  },
+  "@storyblok-components/heading": {
+    "name": "@storyblok-components/heading",
+    "scope": "@storyblok-components",
+    "location": "node_modules",
+    "locationPath": "node_modules/@storyblok-components/heading",
+    "links": {
+      "src/@storyblok-components/storyblok-components.componentList.js": {
+        "// --- sb-mig scoped component imports ---": "import * as ScopedHeading from '@storyblok-components/heading';",
+        "// --- sb-mig scoped component list ---": "ScopedHeading.ComponentList"
+      },
+      "src/@storyblok-components/_storyblok-components.scss": {
+        "// --- sb-mig scoped component styles imports ---": ""
+      }
+    }
+  }
+}
+```
+
+We can also install our components with `--copy` flag, which will copy all files of the component from `node_modules` to local file system, and will use them in needed imports.
+
+Command: 
+```
+sb-mig add components @storyblok-components/image --copy
+```
+
+Will add 
+```
+...
+"@storyblok-components/image": {
+    "name": "@storyblok-components/image",
+    "scope": "@storyblok-components",
+    "location": "local",
+    "locationPath": "src/@storyblok-components/image",
+    "links": {
+      "src/@storyblok-components/storyblok-components.componentList.js": {
+        "// --- sb-mig scoped component imports ---": "import * as ScopedImage from './image';",
+        "// --- sb-mig scoped component list ---": "ScopedImage.ComponentList"
+      },
+      "src/@storyblok-components/_storyblok-components.scss": {
+        "// --- sb-mig scoped component styles imports ---": ""
+      }
+    }
+  }
+...
+```
+
+to `storyblok.components.lock.js`
+
+As you can see, `location`, `locationPath` and also imports inside `links` are reffering now to local file system.
+
+After all this, you can easy schema part of components by running
+```
+sb-mig sync components --all --ext
+```
+
+This command will sync all your components, `local one`, those from `node_modules`. Command will always favor local schema components, that way you can also overwrites schema files, which will be shown in next section.
+
+## Overwriting schema files from scoped components
+So, you can install components with `sb-mig add components` command, but let's say you want to restrict something in schema of that components, or you want to change `description` of the component, or even a `component_group_name`. We have overwrites mechanism.
+
+Let's say you've installed `@storyblok-components/section` component which has following original schema:
+```
+module.exports = {
+  name: 'section',
+  schema: {
+    title: { 
+      type: 'text', 
+    },
+    content: {
+      type: 'bloks',
+      restrict_components: false,
+    },
+  },
+}
+```
+
+And your goal is to overwrite some of the schema properties: you want to give a proper description to it, you want to assign it to group, and you want to restrict that only `image` and `heading` component can be nested in it. Lets do that.
+
+1. We have to create schema file with the same name and extension, wherever in our project. So in that example, let's create `src/overwrites` folder and `section.sb.js` file.
+2. Now, we will import original schema file, and write our overwrites. Take a look at final overwrites for `section` component
+
+```
+const section = require("@storyblok-components/section)
+
+module.exports = {
+  ...section
+  name: 'section',
+  description: 'This is my awesome section component overwrites',
+  schema: {
+    ...section.schema,
+    content: {
+      restrict_components: true,
+      component_whitelist: [
+        'image',
+        'heading'
+      ],
+    },
+  },
+}
+```
+
+Now, if we run `sb-mig sync components --all --ext`, `sb-mig` will sync all components, and in the situation above, it will choose proper schema file (is always prefer local schema files over node_modules one).
 
 ## Generate whole starter project
 
@@ -527,7 +672,7 @@ sb-mig sync datasources icons logos --ext
 ✓ Datasource entries for 15559 datasource id has been successfully synced.
 ```
 
-You can also sync all datasources, and that's the command we strongly recommend. It will sync all datasources also the one from node_modules, so potentially from `ef-sbc`. But will prefer syncing local ones, if there will be clash of datasources filenames (for example, you can have datasource from node_modules, but wanted to overwrite some fields, you will be able to do that.
+You can also sync all datasources, and that's the command we strongly recommend. It will sync all datasources also the one from node_modules, so potentially from `storyblok-components`. But will prefer syncing local ones, if there will be clash of datasources filenames (for example, you can have datasource from node_modules, but wanted to overwrite some fields, you will be able to do that.
 
 ```
 sb-mig sync datasources --all --ext
