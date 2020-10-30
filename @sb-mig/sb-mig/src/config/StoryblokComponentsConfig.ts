@@ -3,6 +3,7 @@ import * as dotenv from "dotenv";
 import { promises as fs } from "fs";
 import * as camelcase from "camelcase";
 import storyblokConfig from "./config";
+import { discoverManyStyles, LOOKUP_TYPE, SCOPE } from "../utils/discover2";
 
 dotenv.config();
 
@@ -87,14 +88,24 @@ export class StoryblokComponentsConfig {
         return true;
     }
 
-    addComponentsToComponentsConfigFile({ installedComponents, local}: {
-        installedComponents: IInstalledComponents[], 
-        local: boolean
-    }): IStoryblokComponentsConfig { 
+    addComponentsToComponentsConfigFile({
+        installedComponents,
+        local,
+    }: {
+        installedComponents: IInstalledComponents[];
+        local: boolean;
+    }): IStoryblokComponentsConfig {
         return {
             ...this.data,
             ...installedComponents.reduce((prev: any, curr: any) => {
                 if (!this.getSingleData(`${curr.scope}/${curr.name}`)) {
+                    const stylesFileAvailable =
+                        discoverManyStyles({
+                            fileNames: [curr.name],
+                            scope: SCOPE.all,
+                            type: LOOKUP_TYPE.fileName,
+                        }).length > 0;
+
                     return {
                         ...prev,
                         [`${curr.scope}/${curr.name}`]: {
@@ -123,15 +134,17 @@ export class StoryblokComponentsConfig {
                                     )}.ComponentList`,
                                 },
                                 [storyblokConfig.componentsStylesMatchFile]: {
-                                    "// --- sb-mig scoped component styles imports ---": local
-                                        ? `@import './${curr.name}/${curr.name}.scss';`
-                                        : `@import '${curr.scope}/${curr.name}/src/${curr.name}.scss';`,
+                                    "// --- sb-mig scoped component styles imports ---": stylesFileAvailable
+                                        ? local
+                                            ? `@import './${curr.name}/${curr.name}.scss';`
+                                            : `@import '${curr.scope}/${curr.name}/src/${curr.name}.scss';`
+                                        : "",
                                 },
                             },
                         },
                     };
                 }
-            }, {})
+            }, {}),
         };
     }
 

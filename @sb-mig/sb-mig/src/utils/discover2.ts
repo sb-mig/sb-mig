@@ -1,5 +1,6 @@
 // component resolution file borrowed from great storyblok-migrate
 // https://github.com/maoberlehner/storyblok-migrate
+// edit: changed a lot in here, but inspiration still is valid :)
 
 import * as glob from "glob";
 import * as path from "path";
