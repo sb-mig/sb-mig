@@ -223,7 +223,7 @@ export const syncProvidedComponents = ({components, presets, packageName}: SyncP
         });
         // #2: discover all local .sb.js files
         const allExternalSbComponentsSchemaFiles = discoverMany({
-            scope: SCOPE.local,
+            scope: SCOPE.external,
             type: LOOKUP_TYPE.fileName,
             fileNames: components
         });
