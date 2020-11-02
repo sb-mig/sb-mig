@@ -3,6 +3,14 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## <small>2.8.4 (2020-11-02)</small>
+
+* fix(discover): not getting external files, only looking for local ones ([a2297a3](https://github.com/sb-mig/sb-mig/commit/a2297a3))
+
+
+
+
+
 ## <small>2.8.3 (2020-11-02)</small>
 
 * fix(sync): change filePattern to look for schema files (by mistake it was for datasources) ([818d8cc](https://github.com/sb-mig/sb-mig/commit/818d8cc))
