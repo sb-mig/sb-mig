@@ -263,7 +263,7 @@ export const discoverMany = (request: DiscoverManyRequest): DiscoverResult => {
     let pattern;
     let listOfFiles = ['']
 
-    const filesPattern = `${request.fileNames.length === 1 ? request.fileNames[0] : `{${request.fileNames.join(",")}}`}.${storyblokConfig.datasourceExt}`
+    const filesPattern = `${request.fileNames.length === 1 ? request.fileNames[0] : `{${request.fileNames.join(",")}}`}.${storyblokConfig.schemaFileExt}`
 
     switch (request.scope) {
         case SCOPE.local:
