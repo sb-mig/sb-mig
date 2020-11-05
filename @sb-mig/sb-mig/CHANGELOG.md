@@ -3,6 +3,15 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## <small>2.8.5 (2020-11-05)</small>
+
+* fix(storyblokcomponentsconfig): wrong locationPath ([f361a2b](https://github.com/sb-mig/sb-mig/commit/f361a2b))
+* fix(sync): not syncing node_modules, when there is only 1 scope node_modules folder in component dir ([7631160](https://github.com/sb-mig/sb-mig/commit/7631160))
+
+
+
+
+
 ## <small>2.8.4 (2020-11-02)</small>
 
 * fix(discover): not getting external files, only looking for local ones ([a2297a3](https://github.com/sb-mig/sb-mig/commit/a2297a3))
