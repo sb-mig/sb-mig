@@ -1,9 +1,9 @@
-import ora from 'ora';
 import { flags } from '@oclif/command'
 import Command from 'sb-mig/lib/core'
 import { installProvidedComponents } from '@sb-mig/plugin-add-components/lib/api/add';
 import { copyComponents } from '@sb-mig/plugin-add-components/lib/api/copy';
 import { cloneRepo, createSpace, removeAndModifyFiles } from '../api';
+const ora = require('ora');
 
 export default class Hello extends Command {
   static description = 'Generate whole project with sb-mig generate and sb-mig add components'
@@ -65,7 +65,7 @@ export default class Hello extends Command {
       const installedComponentsTrackingData = this.storyblokComponentsConfig().addComponentsToComponentsConfigFile({ installedComponents, local: flags.copy });
 
       delete installedComponentsTrackingData['undefined']
-  
+
       this.storyblokComponentsConfig().setAllData(installedComponentsTrackingData)
       this.storyblokComponentsConfig().updateStoryblokComponentsFile()
       this.storyblokComponentsConfig().updateStoryblokComponentStylesFile()
@@ -88,7 +88,7 @@ export default class Hello extends Command {
       const installedComponentsTrackingData = this.storyblokComponentsConfig().addComponentsToComponentsConfigFile({ installedComponents, local: flags.copy });
 
       delete installedComponentsTrackingData['undefined']
-  
+
 
       this.storyblokComponentsConfig().setAllData(installedComponentsTrackingData)
       this.storyblokComponentsConfig().updateStoryblokComponentsFile()
