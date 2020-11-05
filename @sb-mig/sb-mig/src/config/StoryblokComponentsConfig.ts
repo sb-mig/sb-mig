@@ -113,7 +113,7 @@ export class StoryblokComponentsConfig {
                             scope: curr.scope,
                             location: local ? "local" : "node_modules",
                             locationPath: local
-                                ? `src/components/${curr.name}`
+                                ? `${storyblokConfig.storyblokComponentsLocalDirectory}/${curr.name}`
                                 : `node_modules/${curr.scope}/${curr.name}`,
                             links: {
                                 [storyblokConfig.storyblokComponentsListfile]: {
