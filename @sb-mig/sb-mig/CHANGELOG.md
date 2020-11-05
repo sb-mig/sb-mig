@@ -3,6 +3,14 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## <small>2.8.6 (2020-11-05)</small>
+
+**Note:** Version bump only for package sb-mig
+
+
+
+
+
 ## <small>2.8.5 (2020-11-05)</small>
 
 * fix(storyblokcomponentsconfig): wrong locationPath ([f361a2b](https://github.com/sb-mig/sb-mig/commit/f361a2b))

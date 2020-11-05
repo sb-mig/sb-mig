@@ -3,6 +3,15 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## <small>0.1.11 (2020-11-05)</small>
+
+* Merge branch 'master' of github.com:sb-mig/sb-mig ([091bfc9](https://github.com/sb-mig/sb-mig/commit/091bfc9))
+* fix(changelogs commit hashes): fix commit hashes linking to wrong repo - in past it wasnt monorepo ([c6f4157](https://github.com/sb-mig/sb-mig/commit/c6f4157))
+
+
+
+
+
 ## <small>0.1.10 (2020-11-05)</small>
 
 **Note:** Version bump only for package @sb-mig/plugin-create-component
