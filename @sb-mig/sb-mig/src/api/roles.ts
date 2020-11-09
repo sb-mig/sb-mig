@@ -7,6 +7,8 @@ import {
     discoverManyDatasources,
     discoverDatasources,
     getFilesContent,
+    compare,
+    discoverRoles,
 } from "../utils/discover2";
 
 const { spaceId } = storyblokConfig;
@@ -47,7 +49,29 @@ export const getRole = async (roleName: string) => {
 }
 
 export const syncAllRoles = async () => {
-  const allRoles = await getAllRoles()
-  console.log("this is what is returned from getAllRoles: ", allRoles)
+  // #1: discover all external .roles.sb.js files
+  const allLocalSbComponentsSchemaFiles = discoverRoles({
+    scope: SCOPE.local,
+    type: LOOKUP_TYPE.fileName,
+});
+console.log("allLocalSbComponentsSchemaFiles", allLocalSbComponentsSchemaFiles)
+// #2: discover all local .roles.sb.js files
+const allExternalSbComponentsSchemaFiles = discoverRoles({
+    scope: SCOPE.external,
+    type: LOOKUP_TYPE.fileName,
+});
+console.log("allExternalSbComponentsSchemaFiles", allExternalSbComponentsSchemaFiles)
+// #3: compare results, prefare local ones (so we have to create final external paths array and local array of things to sync from where)
+const { local, external } = compare({
+    local: allLocalSbComponentsSchemaFiles,
+    external: allExternalSbComponentsSchemaFiles,
+});
+
+// #4: sync - do all stuff already done (groups resolving, and so on)
+// TODO:
+console.log({local, external})
+
+  // const allRoles = await getAllRoles()
+  // console.log("this is what is returned from getAllRoles: ", allRoles)
 }
 
