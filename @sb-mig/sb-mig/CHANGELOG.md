@@ -3,6 +3,18 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## 2.9.0 (2020-11-09)
+
+* docs(sync roles): add roadmap point for syncing roles ([1fc89af](https://github.com/sb-mig/sb-mig/commit/1fc89af))
+* feat(backup roles): add backup all and one role to backup command ([d285513](https://github.com/sb-mig/sb-mig/commit/d285513))
+* feat(discover roles): add normalizDiscover and discovering rols files in local and node_modules ([ff15daf](https://github.com/sb-mig/sb-mig/commit/ff15daf))
+* feat(roles): add config entries for roles.sb.js files ([20b4d65](https://github.com/sb-mig/sb-mig/commit/20b4d65))
+* feat(sync roles): finalize sync roles: sync provided roles, sync all roles, updating and creating ([2a2dda4](https://github.com/sb-mig/sb-mig/commit/2a2dda4))
+
+
+
+
+
 ## <small>2.8.6 (2020-11-05)</small>
 
 **Note:** Version bump only for package sb-mig

@@ -317,6 +317,7 @@ USAGE
   $ sb-mig backup
 
 OPTIONS
+  -R, --allRoles                                 Backup all roles and permissions.
   -a, --allComponents                            Backup all components.
   -d, --allDatasources                           Backup all datasources.
   -e, --datasourceEntries=datasourceEntries      Backup one datasource entries by datasource name.
@@ -327,10 +328,11 @@ OPTIONS
   -l, --allPresets                               Backup all presets.
   -o, --oneComponent=oneComponent                Backup one component by name.
   -p, --oneComponentPresets=oneComponentPresets  Backup all presets for one component
+  -r, --oneRole=oneRole                          Backup one role by name.
   -x, --oneDatasource=oneDatasource              Backup one datasource by name.
 ```
 
-_See code: [src/commands/backup.ts](https://github.com/sb-mig/sb-mig/blob/v2.8.6/src/commands/backup.ts)_
+_See code: [src/commands/backup.ts](https://github.com/sb-mig/sb-mig/blob/v2.9.0/src/commands/backup.ts)_
 
 ## `sb-mig debug`
 
@@ -344,7 +346,7 @@ OPTIONS
   -h, --help  show CLI help
 ```
 
-_See code: [src/commands/debug.ts](https://github.com/sb-mig/sb-mig/blob/v2.8.6/src/commands/debug.ts)_
+_See code: [src/commands/debug.ts](https://github.com/sb-mig/sb-mig/blob/v2.9.0/src/commands/debug.ts)_
 
 ## `sb-mig help [COMMAND]`
 
@@ -482,14 +484,14 @@ _See code: [@oclif/plugin-plugins](https://github.com/oclif/plugin-plugins/blob/
 
 ## `sb-mig sync TYPE [LIST]`
 
-Synchronize components, datasources with Storyblok space.
+Synchronize components, datasources or roles with Storyblok space.
 
 ```
 USAGE
   $ sb-mig sync TYPE [LIST]
 
 ARGUMENTS
-  TYPE  (components|datasources) What to synchronize
+  TYPE  (components|datasources|roles) What to synchronize
   LIST  Space separated list of component names. Example: card product-card row layout
 
 OPTIONS
@@ -506,9 +508,10 @@ EXAMPLES
   $ sb-mig sync components @storyblok-components/text-block @storyblok-components/button --ext --packageName
   $ sb-mig sync components text-block button --ext
   $ sb-mig sync components text-block button
+  $ sb-mig sync roles
 ```
 
-_See code: [src/commands/sync.ts](https://github.com/sb-mig/sb-mig/blob/v2.8.6/src/commands/sync.ts)_
+_See code: [src/commands/sync.ts](https://github.com/sb-mig/sb-mig/blob/v2.9.0/src/commands/sync.ts)_
 <!-- commandsstop -->
 
 # Plugins
