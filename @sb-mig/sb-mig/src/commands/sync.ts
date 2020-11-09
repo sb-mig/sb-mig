@@ -4,9 +4,10 @@ import storyblokConfig from "../config/config"
 import Logger from "../utils/logger"
 import { sync2AllComponents, syncAllComponents, syncComponents, syncProvidedComponents } from '../api/migrate'
 import { syncProvidedDatasources, syncAllDatasources } from '../api/datasources'
+import { syncAllRoles } from '../api/roles'
 
 export default class Sync extends Command {
-  static description = 'Synchronize components, datasources with Storyblok space.'
+  static description = 'Synchronize components, datasources or roles with Storyblok space.'
 
   static examples = [
     `$ sb-mig sync components --all --ext`,
@@ -14,6 +15,7 @@ export default class Sync extends Command {
     `$ sb-mig sync components @storyblok-components/text-block @storyblok-components/button --ext --packageName`,
     `$ sb-mig sync components text-block button --ext`,
     `$ sb-mig sync components text-block button`,
+    `$ sb-mig sync roles`,
   ]
 
   static flags = {
@@ -28,7 +30,7 @@ export default class Sync extends Command {
   static strict = false;
 
   static args = [
-    { name: 'type', description: "What to synchronize", options: ['components', 'datasources'], required: true },
+    { name: 'type', description: "What to synchronize", options: ['components', 'datasources', 'roles'], required: true },
     { name: "list", description: "Space separated list of component names. Example: card product-card row layout" }
   ]
 
@@ -36,11 +38,17 @@ export default class Sync extends Command {
     const { argv, args, flags } = this.parse(Sync)
     const components = argv.splice(1, argv.length);
 
+    if (args.type === "roles") {
+      Logger.log("Syncing roles...")
+
+      syncAllRoles()
+    }
+
     if (args.type === "components" && flags.all && flags.ext) {
         Logger.log(
           `Syncing all components with ${storyblokConfig.schemaFileExt} extension...`
       );
-      
+
       sync2AllComponents({ presets: flags.presets })
     }
 
@@ -91,14 +99,14 @@ export default class Sync extends Command {
 
     if (args.type === "datasources" && flags.all && flags.ext) {
       Logger.log("Syncing all datasources with extension...")
-      
+
       syncAllDatasources()
     }
 
     if (args.type === "datasources" && !flags.all && flags.ext) {
       const datasources = components
       Logger.log("Syncing provided datasources with extension...")
-      
+
       syncProvidedDatasources({datasources})
     }
   }

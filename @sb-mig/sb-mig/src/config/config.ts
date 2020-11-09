@@ -15,6 +15,7 @@ export interface IStoryblokConfig {
     componentsDirectories: string[];
     schemaFileExt: string;
     datasourceExt: string;
+    rolesExt: string;
     storyblokApiUrl: string;
     oauthToken: string | undefined;
     spaceId: string | undefined;
@@ -42,6 +43,7 @@ const defaultConfig: IStoryblokConfig = {
     componentsDirectories: ["src", "storyblok"],
     schemaFileExt: "sb.js",
     datasourceExt: "sb.datasource.js",
+    rolesExt: "sb.roles.js",
     storyblokApiUrl: "https://api.storyblok.com/v1",
     oauthToken: process.env.STORYBLOK_OAUTH_TOKEN,
     spaceId: process.env.STORYBLOK_SPACE_ID,
