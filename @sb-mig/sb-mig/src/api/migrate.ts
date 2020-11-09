@@ -233,16 +233,16 @@ export const syncProvidedComponents = ({components, presets, packageName}: SyncP
             external: allExternalSbComponentsSchemaFiles,
         });
         // #4: sync - do all stuff already done (groups resolving, and so on)
-        sync2Components({ 
+        sync2Components({
             presets,
-            specifiedComponents: [...local, ...external] 
+            specifiedComponents: [...local, ...external]
         });
     } else {
         // implement discovering and syncrhonizing with packageName
         // #1: discover all external .sb.js files
         const allLocalSbComponentsSchemaFiles = discoverManyByPackageName({
             scope: SCOPE.local,
-            packageNames: components 
+            packageNames: components
         })
         // #2: discover all local .sb.js files
         const allExternalSbComponentsSchemaFiles = discoverManyByPackageName({
@@ -255,9 +255,9 @@ export const syncProvidedComponents = ({components, presets, packageName}: SyncP
             external: allExternalSbComponentsSchemaFiles,
         });
         // #4: sync - do all stuff already done (groups resolving, and so on)
-        sync2Components({ 
+        sync2Components({
             presets,
-            specifiedComponents: [...local, ...external] 
+            specifiedComponents: [...local, ...external]
         });
 
     }
@@ -280,9 +280,9 @@ export const sync2AllComponents = ({ presets }: SyncAllComponents) => {
         external: allExternalSbComponentsSchemaFiles,
     });
     // #4: sync - do all stuff already done (groups resolving, and so on)
-    sync2Components({ 
+    sync2Components({
         presets,
-        specifiedComponents: [...local, ...external] 
+        specifiedComponents: [...local, ...external]
     });
 };
 

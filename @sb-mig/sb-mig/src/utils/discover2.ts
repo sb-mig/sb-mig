@@ -63,6 +63,17 @@ export interface CompareResult {
 
 type DiscoverResult = string[]
 
+// problem with glob sync is, that when there is only one folder to search for
+  // we have to omit { } and when a lot, we have to use {folder1, folder2}
+  // so this function will normalize it based on amount of folders provided
+  const normalizeDiscover = ({segments, }: {segments: string[]}) => {
+    if (segments.length === 1) {
+      return segments[0]
+    } else {
+      return `{${segments.join(",")}}`
+    }
+  }
+
 export const compare = (request: CompareRequest): CompareResult => {
     const splittedLocal = request.local.map(path => {
         return {
@@ -105,7 +116,7 @@ export const discoverManyByPackageName = (request: DiscoverManyByPackageNameRequ
             // ### MANY by PACKAGE - LOCAL - packageName
             const onlyLocalComponentsDirectories = storyblokConfig.componentsDirectories.filter(path => !path.includes("node_modules"))
             pattern = path.join(
-                `${directory}/{${onlyLocalComponentsDirectories.join(",")}}`,
+                `${directory}/${normalizeDiscover({segments: onlyLocalComponentsDirectories})}`,
                 `**`,
                 `package.json`
             )
@@ -127,7 +138,7 @@ export const discoverManyByPackageName = (request: DiscoverManyByPackageNameRequ
             // ### MANY by PACKAGE - EXTERNAL - packageName
             const onlyNodeModulesPackagesComponentsDirectories = storyblokConfig.componentsDirectories.filter(path => path.includes("node_modules"))
             pattern = path.join(
-                `${directory}/{${onlyNodeModulesPackagesComponentsDirectories.join(",")}}`,
+                `${directory}/${normalizeDiscover({segments: onlyNodeModulesPackagesComponentsDirectories})}`,
                 `**`,
                 `package.json`
             )
@@ -148,7 +159,7 @@ export const discoverManyByPackageName = (request: DiscoverManyByPackageNameRequ
         case SCOPE.all:
             // ### MANY by PACKAGE - ALL - packageName
             pattern = path.join(
-                `${directory}/{${storyblokConfig.componentsDirectories.join(",")}}`,
+                `${directory}/${normalizeDiscover({segments: storyblokConfig.componentsDirectories})}`,
                 `**`,
                 `package.json`
             )
@@ -187,7 +198,7 @@ export const discoverOneByPackageName = (request: DiscoverOneByPackageNameReques
             // ### ONE by PACKAGE - LOCAL - packageName
             const onlyLocalComponentsDirectories = storyblokConfig.componentsDirectories.filter(path => !path.includes("node_modules"))
             pattern = path.join(
-                `${directory}/{${onlyLocalComponentsDirectories.join(",")}}`,
+                `${directory}/${normalizeDiscover({segments: onlyLocalComponentsDirectories})}`,
                 `**`,
                 `package.json`
             )
@@ -209,7 +220,7 @@ export const discoverOneByPackageName = (request: DiscoverOneByPackageNameReques
             // ### ONE by PACKAGE - EXTERNAL - packageName
             const onlyNodeModulesPackagesComponentsDirectories = storyblokConfig.componentsDirectories.filter(path => path.includes("node_modules"))
             pattern = path.join(
-                `${directory}/{${onlyNodeModulesPackagesComponentsDirectories.join(",")}}`,
+                `${directory}/${normalizeDiscover({segments: onlyNodeModulesPackagesComponentsDirectories})}`,
                 `**`,
                 `package.json`
             )
@@ -230,7 +241,7 @@ export const discoverOneByPackageName = (request: DiscoverOneByPackageNameReques
         case SCOPE.all:
             // ### ONE by PACKAGE - ALL - packageName
             pattern = path.join(
-                `${directory}/{${storyblokConfig.componentsDirectories.join(",")}}`,
+                `${directory}/${normalizeDiscover({segments: storyblokConfig.componentsDirectories})}`,
                 `**`,
                 `package.json`
             )
@@ -263,16 +274,16 @@ export const discoverMany = (request: DiscoverManyRequest): DiscoverResult => {
     let pattern;
     let listOfFiles = ['']
 
-    const filesPattern = `${request.fileNames.length === 1 ? request.fileNames[0] : `{${request.fileNames.join(",")}}`}.${storyblokConfig.schemaFileExt}`
+
 
     switch (request.scope) {
         case SCOPE.local:
             // ### MANY - LOCAL - fileName ###
             const onlyLocalComponentsDirectories = storyblokConfig.componentsDirectories.filter(path => !path.includes("node_modules"))
             pattern = path.join(
-                `${directory}/{${onlyLocalComponentsDirectories.join(",")}}`,
+                `${directory}/${normalizeDiscover({segments: onlyLocalComponentsDirectories})}`,
                 `**`,
-                filesPattern
+                `${normalizeDiscover({segments: request.fileNames})}.${storyblokConfig.schemaFileExt}`
             )
 
             listOfFiles = glob.sync(pattern, { follow: true})
@@ -282,9 +293,9 @@ export const discoverMany = (request: DiscoverManyRequest): DiscoverResult => {
             // ### MANY - EXTERNAL - fileName ###
             const onlyNodeModulesPackagesComponentsDirectories = storyblokConfig.componentsDirectories.filter(path => path.includes("node_modules"))
             pattern = path.join(
-                `${directory}/{${onlyNodeModulesPackagesComponentsDirectories.join(",")}}`,
+                `${directory}/${normalizeDiscover({segments: onlyNodeModulesPackagesComponentsDirectories})}`,
                 `**`,
-                filesPattern
+                `${normalizeDiscover({segments: request.fileNames})}.${storyblokConfig.schemaFileExt}`
             )
 
             listOfFiles = glob.sync(pattern, { follow: true})
@@ -293,9 +304,9 @@ export const discoverMany = (request: DiscoverManyRequest): DiscoverResult => {
         case SCOPE.all:
             // ### MANY - ALL - fileName ###
             pattern = path.join(
-                `${directory}/{${storyblokConfig.componentsDirectories.join(",")}}`,
+                `${directory}/${normalizeDiscover({segments: storyblokConfig.componentsDirectories})}`,
                 `**`,
-                filesPattern
+                `${normalizeDiscover({segments: request.fileNames})}.${storyblokConfig.schemaFileExt}`
             )
 
             listOfFiles = glob.sync(pattern, { follow: true })
@@ -314,7 +325,7 @@ export const discoverManyDatasources = (request: DiscoverManyRequest): DiscoverR
     let pattern;
     let listOfFiles = ['']
 
-    const filesPattern = `${request.fileNames.length === 1 ? request.fileNames[0] : `{${request.fileNames.join(",")}}`}.${storyblokConfig.datasourceExt}`
+
 
 
     switch (request.scope) {
@@ -322,9 +333,9 @@ export const discoverManyDatasources = (request: DiscoverManyRequest): DiscoverR
             // ### MANY - LOCAL - fileName ###
             const onlyLocalComponentsDirectories = storyblokConfig.componentsDirectories.filter(path => !path.includes("node_modules"))
             pattern = path.join(
-                `${directory}/{${onlyLocalComponentsDirectories.join(",")}}`,
+                `${directory}/${normalizeDiscover({segments: onlyLocalComponentsDirectories})}`,
                 `**`,
-                filesPattern
+                `${normalizeDiscover({segments: request.fileNames})}.${storyblokConfig.datasourceExt}`
             )
 
             listOfFiles = glob.sync(pattern, { follow: true})
@@ -334,9 +345,9 @@ export const discoverManyDatasources = (request: DiscoverManyRequest): DiscoverR
             // ### MANY - EXTERNAL - fileName ###
             const onlyNodeModulesPackagesComponentsDirectories = storyblokConfig.componentsDirectories.filter(path => path.includes("node_modules"))
             pattern = path.join(
-                `${directory}/{${onlyNodeModulesPackagesComponentsDirectories.join(",")}}`,
+                `${directory}/${normalizeDiscover({segments: onlyNodeModulesPackagesComponentsDirectories})}`,
                 `**`,
-                filesPattern
+                `${normalizeDiscover({segments: request.fileNames})}.${storyblokConfig.datasourceExt}`
             )
 
             listOfFiles = glob.sync(pattern, { follow: true})
@@ -345,9 +356,9 @@ export const discoverManyDatasources = (request: DiscoverManyRequest): DiscoverR
         case SCOPE.all:
             // ### MANY - ALL - fileName ###
             pattern = path.join(
-                `${directory}/{${storyblokConfig.componentsDirectories.join(",")}}`,
+                `${directory}/${normalizeDiscover({segments: storyblokConfig.componentsDirectories})}`,
                 `**`,
-                filesPattern
+                `${normalizeDiscover({segments: request.fileNames})}.${storyblokConfig.datasourceExt}`
             )
 
             listOfFiles = glob.sync(pattern, { follow: true })
@@ -371,7 +382,7 @@ export const discoverDatasources = (request: DiscoverRequest): DiscoverResult =>
             // ### ALL - LOCAL - fileName ###
             const onlyLocalComponentsDirectories = storyblokConfig.componentsDirectories.filter(path => !path.includes("node_modules"))
             pattern = path.join(
-                `${directory}/{${onlyLocalComponentsDirectories.join(",")}}`,
+                `${directory}/${normalizeDiscover({segments: onlyLocalComponentsDirectories})}`,
                 `**`,
                 `[^_]*.${storyblokConfig.datasourceExt}` // all files with 'ext' extension, without files beggining with _
             )
@@ -382,7 +393,7 @@ export const discoverDatasources = (request: DiscoverRequest): DiscoverResult =>
             // ### ALL - EXTERNAL - fileName ###
             const onlyNodeModulesPackagesComponentsDirectories = storyblokConfig.componentsDirectories.filter(path => path.includes("node_modules"))
             pattern = path.join(
-                `${directory}/{${onlyNodeModulesPackagesComponentsDirectories.join(",")}}`,
+                `${directory}/${normalizeDiscover({segments: onlyNodeModulesPackagesComponentsDirectories})}`,
                 `**`,
                 `[^_]*.${storyblokConfig.datasourceExt}` // all files with 'ext' extension, without files beggining with _
             )
@@ -392,7 +403,7 @@ export const discoverDatasources = (request: DiscoverRequest): DiscoverResult =>
         case SCOPE.all:
             // ### ALL - LOCAL - fileName ###
             pattern = path.join(
-                `${directory}/{${storyblokConfig.componentsDirectories.join(",")}}`,
+                `${directory}/${normalizeDiscover({segments: storyblokConfig.componentsDirectories})}`,
                 `**`,
                 `[^_]*.${storyblokConfig.datasourceExt}` // all files with 'ext' extension, without files beggining with _
             )
@@ -417,7 +428,7 @@ export const discoverOne = (request: DiscoverOneRequest): DiscoverResult => {
             // ### ONE - LOCAL - fileName ###
             const onlyLocalComponentsDirectories = storyblokConfig.componentsDirectories.filter(path => !path.includes("node_modules"))
             pattern = path.join(
-                `${directory}/{${onlyLocalComponentsDirectories.join(",")}}`,
+                `${directory}/${normalizeDiscover({segments: onlyLocalComponentsDirectories})}`,
                 `**`,
                 `${request.fileName}.${storyblokConfig.schemaFileExt}` // all files with 'ext' extension, without files beggining with _
             )
@@ -428,7 +439,7 @@ export const discoverOne = (request: DiscoverOneRequest): DiscoverResult => {
             // ### ONE - EXTERNAL - fileName ###
             const onlyNodeModulesPackagesComponentsDirectories = storyblokConfig.componentsDirectories.filter(path => path.includes("node_modules"))
             pattern = path.join(
-                `${directory}/{${onlyNodeModulesPackagesComponentsDirectories.join(",")}}`,
+                `${directory}/${normalizeDiscover({segments: onlyNodeModulesPackagesComponentsDirectories})}`,
                 `**`,
                 `${request.fileName}.${storyblokConfig.schemaFileExt}` // all files with 'ext' extension, without files beggining with _
             )
@@ -438,7 +449,7 @@ export const discoverOne = (request: DiscoverOneRequest): DiscoverResult => {
         case SCOPE.all:
             // ### ONE - ALL - fileName ###
             pattern = path.join(
-                `${directory}/{${storyblokConfig.componentsDirectories.join(",")}}`,
+                `${directory}/${normalizeDiscover({segments: storyblokConfig.componentsDirectories})}`,
                 `**`,
                 `${request.fileName}.${storyblokConfig.schemaFileExt}`
             )
@@ -503,16 +514,16 @@ export const discoverManyStyles = (request: DiscoverManyRequest): DiscoverResult
     let pattern;
     let listOfFiles = ['']
 
-    const filesPattern = `${request.fileNames.length === 1 ? request.fileNames[0] : `{${request.fileNames.join(",")}}`}.scss`
+
 
     switch (request.scope) {
         case SCOPE.local:
             // ### MANY - LOCAL - fileName ###
             const onlyLocalComponentsDirectories = storyblokConfig.componentsDirectories.filter(path => !path.includes("node_modules"))
             pattern = path.join(
-                `${directory}/{${onlyLocalComponentsDirectories.join(",")}}`,
+                `${directory}/${normalizeDiscover({segments: onlyLocalComponentsDirectories})}`,
                 `**`,
-                filesPattern
+                `${normalizeDiscover({segments: request.fileNames})}.scss`
             )
 
             listOfFiles = glob.sync(pattern, { follow: true})
@@ -522,9 +533,9 @@ export const discoverManyStyles = (request: DiscoverManyRequest): DiscoverResult
             // ### MANY - EXTERNAL - fileName ###
             const onlyNodeModulesPackagesComponentsDirectories = storyblokConfig.componentsDirectories.filter(path => path.includes("node_modules"))
             pattern = path.join(
-                `${directory}/{${onlyNodeModulesPackagesComponentsDirectories.join(",")}}`,
+                `${directory}/${normalizeDiscover({segments: onlyNodeModulesPackagesComponentsDirectories})}`,
                 `**`,
-                filesPattern
+                `${normalizeDiscover({segments: request.fileNames})}.scss`
             )
 
             listOfFiles = glob.sync(pattern, { follow: true})
@@ -533,9 +544,9 @@ export const discoverManyStyles = (request: DiscoverManyRequest): DiscoverResult
         case SCOPE.all:
             // ### MANY - ALL - fileName ###
             pattern = path.join(
-                `${directory}/{${storyblokConfig.componentsDirectories.join(",")}}`,
+                `${directory}/${normalizeDiscover({segments: storyblokConfig.componentsDirectories})}`,
                 `**`,
-                filesPattern
+                `${normalizeDiscover({segments: request.fileNames})}.scss`
             )
 
             listOfFiles = glob.sync(pattern, { follow: true })
@@ -546,6 +557,98 @@ export const discoverManyStyles = (request: DiscoverManyRequest): DiscoverResult
     }
 
     return listOfFiles
+};
+
+export const discoverRoles = (request: DiscoverRequest): DiscoverResult => {
+  const rootDirectory = './'
+  const directory = path.resolve(process.cwd(), rootDirectory)
+  let pattern
+  let listOfFiles = ['']
+
+  switch (request.scope) {
+      case SCOPE.local:
+          // ### ALL - LOCAL - fileName ###
+          const onlyLocalComponentsDirectories = storyblokConfig.componentsDirectories.filter(path => !path.includes("node_modules"))
+          pattern = path.join(
+              `${directory}/${normalizeDiscover({segments: onlyLocalComponentsDirectories})}`,
+              `**`,
+              `[^_]*.${storyblokConfig.rolesExt}` // all files with 'ext' extension, without files beggining with _
+          )
+
+          listOfFiles = glob.sync(pattern, { follow: true})
+          break;
+      case SCOPE.external:
+          // ### ALL - EXTERNAL - fileName ###
+          const onlyNodeModulesPackagesComponentsDirectories = storyblokConfig.componentsDirectories.filter(path => path.includes("node_modules"))
+          pattern = path.join(
+              `${directory}/${normalizeDiscover({segments: onlyNodeModulesPackagesComponentsDirectories})}`,
+              `**`,
+              `[^_]*.${storyblokConfig.rolesExt}` // all files with 'ext' extension, without files beggining with _
+          )
+
+          listOfFiles = glob.sync(pattern, { follow: true})
+          break;
+      case SCOPE.all:
+          // ### ALL - LOCAL - fileName ###
+          pattern = path.join(
+              `${directory}/${normalizeDiscover({segments: storyblokConfig.componentsDirectories})}`,
+              `**`,
+              `[^_]*.${storyblokConfig.rolesExt}` // all files with 'ext' extension, without files beggining with _
+          )
+
+          listOfFiles = glob.sync(pattern, { follow: true})
+          break;
+      default:
+          break;
+  }
+
+  return listOfFiles
+};
+
+export const discoverManyRoles = (request: DiscoverManyRequest): DiscoverResult => {
+  const rootDirectory = './'
+  const directory = path.resolve(process.cwd(), rootDirectory)
+  let pattern
+  let listOfFiles = ['']
+
+  switch (request.scope) {
+      case SCOPE.local:
+          // ### ALL - LOCAL - fileName ###
+          const onlyLocalComponentsDirectories = storyblokConfig.componentsDirectories.filter(path => !path.includes("node_modules"))
+          pattern = path.join(
+              `${directory}/${normalizeDiscover({segments: onlyLocalComponentsDirectories})}`,
+              `**`,
+              `${normalizeDiscover({segments: request.fileNames})}.${storyblokConfig.rolesExt}`
+          )
+
+          listOfFiles = glob.sync(pattern, { follow: true})
+          break;
+      case SCOPE.external:
+          // ### ALL - EXTERNAL - fileName ###
+          const onlyNodeModulesPackagesComponentsDirectories = storyblokConfig.componentsDirectories.filter(path => path.includes("node_modules"))
+          pattern = path.join(
+              `${directory}/${normalizeDiscover({segments: onlyNodeModulesPackagesComponentsDirectories})}`,
+              `**`,
+              `${normalizeDiscover({segments: request.fileNames})}.${storyblokConfig.rolesExt}`
+          )
+
+          listOfFiles = glob.sync(pattern, { follow: true})
+          break;
+      case SCOPE.all:
+          // ### ALL - LOCAL - fileName ###
+          pattern = path.join(
+              `${directory}/${normalizeDiscover({segments: storyblokConfig.componentsDirectories})}`,
+              `**`,
+              `${normalizeDiscover({segments: request.fileNames})}.${storyblokConfig.rolesExt}`
+          )
+
+          listOfFiles = glob.sync(pattern, { follow: true})
+          break;
+      default:
+          break;
+  }
+
+  return listOfFiles
 };
 
 export const getFilesContent = (data: {files: string[]}) => {
