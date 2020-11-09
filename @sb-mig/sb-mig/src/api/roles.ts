@@ -15,12 +15,7 @@ const { spaceId } = storyblokConfig;
 export const getAllRoles = async () => {
   return sbApi
         .get(`spaces/${spaceId}/space_roles/`)
-        .then(({ data }) => {
-          // console.log("this is data from roles endpoint: ", data)
-          console.log("this is data for 2 role user");
-          console.log(data.space_roles[1])
-          return data
-        })
+        .then(({ data }) => data)
         .catch((err) => {
             if (err.response.status === 404) {
                 Logger.error(
@@ -33,8 +28,26 @@ export const getAllRoles = async () => {
         });
 }
 
+// GET
+export const getRole = async (roleName: string) => {
+  Logger.log(`Trying to get '${roleName}' role.`);
+
+    return getAllRoles()
+        .then((res) =>
+            res.space_roles.filter((role: any) => role.role === roleName)
+        )
+        .then((res) => {
+            if (Array.isArray(res) && res.length === 0) {
+                Logger.warning(`There is no role named '${roleName}'`);
+                return false;
+            }
+            return res;
+        })
+        .catch((err) => Logger.error(err));
+}
+
 export const syncAllRoles = async () => {
   const allRoles = await getAllRoles()
-  // console.log("this is what is returned from getAllRoles: ", allRoles)
+  console.log("this is what is returned from getAllRoles: ", allRoles)
 }
 

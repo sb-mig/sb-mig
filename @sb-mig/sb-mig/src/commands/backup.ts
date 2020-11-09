@@ -9,6 +9,7 @@ import { getAllPresets, getPreset } from '../api/presets';
 import Logger from "../utils/logger";
 import { createDir, createJsonFile } from "../utils/files";
 import { generateDatestamp } from '../utils/others'
+import { getAllRoles, getRole } from '../api/roles';
 
 export default class Backup extends Command {
   static description = "Command for backing up anything related to Storyblok";
@@ -24,7 +25,10 @@ export default class Backup extends Command {
     onePreset: flags.string({ char: 'i', description: "Backup one preset by id." }),
     allDatasources: flags.boolean({ char: 'd', description: "Backup all datasources." }),
     oneDatasource: flags.string({ char: 'x', description: "Backup one datasource by name." }),
-    datasourceEntries: flags.string({ char: 'e', description: "Backup one datasource entries by datasource name." })
+    datasourceEntries: flags.string({ char: 'e', description: "Backup one datasource entries by datasource name." }),
+    allRoles: flags.boolean({ char: 'R', description: "Backup all roles and permissions." }),
+    oneRole: flags.string({ char: 'r', description: "Backup one role by name." }),
+
   };
 
   static args = [];
@@ -32,6 +36,49 @@ export default class Backup extends Command {
 
   async run() {
     const { args, flags, argv } = this.parse(Backup);
+
+    // Backup one role as json file
+    if (flags.oneRole) {
+      console.log("oneRole argument: ", flags.oneRole)
+      return getRole(flags.oneRole).then(async (res: any) => {
+        if (res) {
+          const datestamp = new Date();
+          const filename = `role-${flags.oneRole}-${generateDatestamp(datestamp)}`
+          await createDir(`${storyblokConfig.sbmigWorkingDirectory}/roles/`)
+          await createJsonFile(
+            JSON.stringify(res, undefined, 2),
+            `${storyblokConfig.sbmigWorkingDirectory}/roles/${filename}.json`
+          )
+          Logger.success(
+            `Role for ${flags.oneRole} written to a file:  ${filename}`
+          )
+        }
+      })
+        .catch((err: any) => {
+          console.log(err);
+          this.error("error happened... :(");
+        });
+    }
+
+    // Backup all roles and permission as json file
+    if (flags.allRoles) {
+      return getAllRoles()
+        .then(async (res: any) => {
+          const datestamp = new Date();
+          const filename = `all-roles-${generateDatestamp(datestamp)}`
+          await createDir(`${storyblokConfig.sbmigWorkingDirectory}/roles/`);
+          await createJsonFile(
+            JSON.stringify(res, undefined, 2),
+            `${storyblokConfig.sbmigWorkingDirectory}/roles/${filename}.json`
+          );
+          Logger.success(`All roles written to a file:  ${filename}`);
+          return true;
+        })
+        .catch((err: any) => {
+          console.log(err);
+          this.error("error happened... :(");
+        });
+    }
 
     // Backup all components as json file
     if (flags.allComponents) {
@@ -52,8 +99,6 @@ export default class Backup extends Command {
           this.error("error happened... :(");
         });
     }
-
-
 
     // Backup one component as json file
     if (flags.oneComponent) {
