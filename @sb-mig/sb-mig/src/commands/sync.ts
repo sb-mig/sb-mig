@@ -4,7 +4,7 @@ import storyblokConfig from "../config/config"
 import Logger from "../utils/logger"
 import { sync2AllComponents, syncAllComponents, syncComponents, syncProvidedComponents } from '../api/migrate'
 import { syncProvidedDatasources, syncAllDatasources } from '../api/datasources'
-import { syncAllRoles } from '../api/roles'
+import { syncAllRoles, syncProvidedRoles} from '../api/roles'
 
 export default class Sync extends Command {
   static description = 'Synchronize components, datasources or roles with Storyblok space.'
@@ -38,10 +38,17 @@ export default class Sync extends Command {
     const { argv, args, flags } = this.parse(Sync)
     const components = argv.splice(1, argv.length);
 
-    if (args.type === "roles") {
-      Logger.log("Syncing roles...")
+    if (args.type === "roles" && flags.all && flags.ext) {
+      Logger.log("Syncing all roles...")
 
       syncAllRoles()
+    }
+
+    if (args.type === "roles" && !flags.all && flags.ext) {
+      const roles = components
+      Logger.log("Syncing provided roles...")
+
+      syncProvidedRoles({roles})
     }
 
     if (args.type === "components" && flags.all && flags.ext) {

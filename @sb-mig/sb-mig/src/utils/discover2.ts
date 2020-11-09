@@ -283,7 +283,7 @@ export const discoverMany = (request: DiscoverManyRequest): DiscoverResult => {
             pattern = path.join(
                 `${directory}/${normalizeDiscover({segments: onlyLocalComponentsDirectories})}`,
                 `**`,
-                normalizeDiscover({segments: request.fileNames})
+                `${normalizeDiscover({segments: request.fileNames})}.${storyblokConfig.schemaFileExt}`
             )
 
             listOfFiles = glob.sync(pattern, { follow: true})
@@ -295,7 +295,7 @@ export const discoverMany = (request: DiscoverManyRequest): DiscoverResult => {
             pattern = path.join(
                 `${directory}/${normalizeDiscover({segments: onlyNodeModulesPackagesComponentsDirectories})}`,
                 `**`,
-                normalizeDiscover({segments: request.fileNames})
+                `${normalizeDiscover({segments: request.fileNames})}.${storyblokConfig.schemaFileExt}`
             )
 
             listOfFiles = glob.sync(pattern, { follow: true})
@@ -306,7 +306,7 @@ export const discoverMany = (request: DiscoverManyRequest): DiscoverResult => {
             pattern = path.join(
                 `${directory}/${normalizeDiscover({segments: storyblokConfig.componentsDirectories})}`,
                 `**`,
-                normalizeDiscover({segments: request.fileNames})
+                `${normalizeDiscover({segments: request.fileNames})}.${storyblokConfig.schemaFileExt}`
             )
 
             listOfFiles = glob.sync(pattern, { follow: true })
@@ -335,7 +335,7 @@ export const discoverManyDatasources = (request: DiscoverManyRequest): DiscoverR
             pattern = path.join(
                 `${directory}/${normalizeDiscover({segments: onlyLocalComponentsDirectories})}`,
                 `**`,
-                normalizeDiscover({segments: request.fileNames})
+                `${normalizeDiscover({segments: request.fileNames})}.${storyblokConfig.datasourceExt}`
             )
 
             listOfFiles = glob.sync(pattern, { follow: true})
@@ -347,7 +347,7 @@ export const discoverManyDatasources = (request: DiscoverManyRequest): DiscoverR
             pattern = path.join(
                 `${directory}/${normalizeDiscover({segments: onlyNodeModulesPackagesComponentsDirectories})}`,
                 `**`,
-                normalizeDiscover({segments: request.fileNames})
+                `${normalizeDiscover({segments: request.fileNames})}.${storyblokConfig.datasourceExt}`
             )
 
             listOfFiles = glob.sync(pattern, { follow: true})
@@ -358,7 +358,7 @@ export const discoverManyDatasources = (request: DiscoverManyRequest): DiscoverR
             pattern = path.join(
                 `${directory}/${normalizeDiscover({segments: storyblokConfig.componentsDirectories})}`,
                 `**`,
-                normalizeDiscover({segments: request.fileNames})
+                `${normalizeDiscover({segments: request.fileNames})}.${storyblokConfig.datasourceExt}`
             )
 
             listOfFiles = glob.sync(pattern, { follow: true })
@@ -523,7 +523,7 @@ export const discoverManyStyles = (request: DiscoverManyRequest): DiscoverResult
             pattern = path.join(
                 `${directory}/${normalizeDiscover({segments: onlyLocalComponentsDirectories})}`,
                 `**`,
-                normalizeDiscover({segments: request.fileNames})
+                `${normalizeDiscover({segments: request.fileNames})}.scss`
             )
 
             listOfFiles = glob.sync(pattern, { follow: true})
@@ -535,7 +535,7 @@ export const discoverManyStyles = (request: DiscoverManyRequest): DiscoverResult
             pattern = path.join(
                 `${directory}/${normalizeDiscover({segments: onlyNodeModulesPackagesComponentsDirectories})}`,
                 `**`,
-                normalizeDiscover({segments: request.fileNames})
+                `${normalizeDiscover({segments: request.fileNames})}.scss`
             )
 
             listOfFiles = glob.sync(pattern, { follow: true})
@@ -546,7 +546,7 @@ export const discoverManyStyles = (request: DiscoverManyRequest): DiscoverResult
             pattern = path.join(
                 `${directory}/${normalizeDiscover({segments: storyblokConfig.componentsDirectories})}`,
                 `**`,
-                normalizeDiscover({segments: request.fileNames})
+                `${normalizeDiscover({segments: request.fileNames})}.scss`
             )
 
             listOfFiles = glob.sync(pattern, { follow: true })
@@ -585,12 +585,8 @@ export const discoverRoles = (request: DiscoverRequest): DiscoverResult => {
               `**`,
               `[^_]*.${storyblokConfig.rolesExt}` // all files with 'ext' extension, without files beggining with _
           )
-          console.log("external")
-
-          console.log("pattern, ", pattern)
 
           listOfFiles = glob.sync(pattern, { follow: true})
-          console.log("listofFiles: ", listOfFiles)
           break;
       case SCOPE.all:
           // ### ALL - LOCAL - fileName ###
@@ -598,6 +594,52 @@ export const discoverRoles = (request: DiscoverRequest): DiscoverResult => {
               `${directory}/${normalizeDiscover({segments: storyblokConfig.componentsDirectories})}`,
               `**`,
               `[^_]*.${storyblokConfig.rolesExt}` // all files with 'ext' extension, without files beggining with _
+          )
+
+          listOfFiles = glob.sync(pattern, { follow: true})
+          break;
+      default:
+          break;
+  }
+
+  return listOfFiles
+};
+
+export const discoverManyRoles = (request: DiscoverManyRequest): DiscoverResult => {
+  const rootDirectory = './'
+  const directory = path.resolve(process.cwd(), rootDirectory)
+  let pattern
+  let listOfFiles = ['']
+
+  switch (request.scope) {
+      case SCOPE.local:
+          // ### ALL - LOCAL - fileName ###
+          const onlyLocalComponentsDirectories = storyblokConfig.componentsDirectories.filter(path => !path.includes("node_modules"))
+          pattern = path.join(
+              `${directory}/${normalizeDiscover({segments: onlyLocalComponentsDirectories})}`,
+              `**`,
+              `${normalizeDiscover({segments: request.fileNames})}.${storyblokConfig.rolesExt}`
+          )
+
+          listOfFiles = glob.sync(pattern, { follow: true})
+          break;
+      case SCOPE.external:
+          // ### ALL - EXTERNAL - fileName ###
+          const onlyNodeModulesPackagesComponentsDirectories = storyblokConfig.componentsDirectories.filter(path => path.includes("node_modules"))
+          pattern = path.join(
+              `${directory}/${normalizeDiscover({segments: onlyNodeModulesPackagesComponentsDirectories})}`,
+              `**`,
+              `${normalizeDiscover({segments: request.fileNames})}.${storyblokConfig.rolesExt}`
+          )
+
+          listOfFiles = glob.sync(pattern, { follow: true})
+          break;
+      case SCOPE.all:
+          // ### ALL - LOCAL - fileName ###
+          pattern = path.join(
+              `${directory}/${normalizeDiscover({segments: storyblokConfig.componentsDirectories})}`,
+              `**`,
+              `${normalizeDiscover({segments: request.fileNames})}.${storyblokConfig.rolesExt}`
           )
 
           listOfFiles = glob.sync(pattern, { follow: true})
