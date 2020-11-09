@@ -774,6 +774,7 @@ or use it like that without linking:
 - [ ] Sync / Migrate content (stories)
 - [ ] Improve preset creation/update
 - ~~[ ] End-to-end solution to add / update components~~ // it will be responsibility of different plugin. Check [here](https://github.com/sb-mig/plugin-generate-project)
+- [x] Sync Roles
 - [x] Sync / Migrate datasources
 - [x] Sync components with extensions
 - [x] Sync presets
