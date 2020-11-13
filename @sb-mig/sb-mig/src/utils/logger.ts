@@ -14,7 +14,7 @@ export default class Logger {
     )
   }
 
-  static log(content: any) {
+  static log(...content: any) {
     console.log(content)
   }
 

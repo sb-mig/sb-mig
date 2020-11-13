@@ -651,6 +651,33 @@ export const discoverManyRoles = (request: DiscoverManyRequest): DiscoverResult 
   return listOfFiles
 };
 
+export const discoverStories = (request: DiscoverRequest): DiscoverResult => {
+  const rootDirectory = './'
+  const directory = path.resolve(process.cwd(), rootDirectory)
+  let pattern
+  let listOfFiles = ['']
+
+  switch (request.scope) {
+      case SCOPE.local:
+          // ### ALL - LOCAL - fileName ###
+          pattern = path.join(
+              `${directory}/sbmig/stories`,
+              `**`,
+              `[^_]*.json` // all files with 'ext' extension, without files beggining with _
+          )
+
+          console.log("pattern: ", pattern)
+
+          listOfFiles = glob.sync(pattern, { follow: true})
+          console.log("list of files: ", listOfFiles)
+          break;
+      default:
+          break;
+  }
+
+  return listOfFiles
+};
+
 export const getFilesContent = (data: {files: string[]}) => {
     return data.files.map((file) => require(file));
 }
