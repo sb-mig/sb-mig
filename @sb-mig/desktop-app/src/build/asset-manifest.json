@@ -1,0 +1,24 @@
+{
+  "files": {
+    "main.css": "./static/css/main.54ec2e86.chunk.css",
+    "main.js": "./static/js/main.c144a370.chunk.js",
+    "main.js.map": "./static/js/main.c144a370.chunk.js.map",
+    "runtime-main.js": "./static/js/runtime-main.1ee4225c.js",
+    "runtime-main.js.map": "./static/js/runtime-main.1ee4225c.js.map",
+    "static/js/2.4f64f293.chunk.js": "./static/js/2.4f64f293.chunk.js",
+    "static/js/2.4f64f293.chunk.js.map": "./static/js/2.4f64f293.chunk.js.map",
+    "static/js/3.ab1864b6.chunk.js": "./static/js/3.ab1864b6.chunk.js",
+    "static/js/3.ab1864b6.chunk.js.map": "./static/js/3.ab1864b6.chunk.js.map",
+    "index.html": "./index.html",
+    "static/css/main.54ec2e86.chunk.css.map": "./static/css/main.54ec2e86.chunk.css.map",
+    "static/js/2.4f64f293.chunk.js.LICENSE.txt": "./static/js/2.4f64f293.chunk.js.LICENSE.txt",
+    "static/media/main.scss": "./static/media/error-circle-validation.8d76902b.svg",
+    "static/media/browser-help.234e9357.png": "./static/media/browser-help.234e9357.png"
+  },
+  "entrypoints": [
+    "static/js/runtime-main.1ee4225c.js",
+    "static/js/2.4f64f293.chunk.js",
+    "static/css/main.54ec2e86.chunk.css",
+    "static/js/main.c144a370.chunk.js"
+  ]
+}

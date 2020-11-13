@@ -1,0 +1,70 @@
+{
+  "name": "@sb-mig/desktop-app",
+  "version": "0.0.1",
+  "description": "sb-mig desktop app",
+  "author": "Marcin Krawczyk <marckraw@icloud.com>",
+  "main": "public/electron.js",
+  "build": {
+    "appId": "com.marckraw.sb-mig",
+    "productName": "SB-MIG",
+    "files": [
+      "build/**/*",
+      "node_modules/**/*"
+    ],
+    "win": {
+      "target": "nsis"
+    }
+  },
+  "homepage": "./",
+  "scripts": {
+    "electron-start": "electron .",
+    "react-start": "react-scripts start",
+    "react-build": "react-scripts build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject",
+    "electron-build": "electron-builder",
+    "build-locally": "npm run react-build && npm run electron-build",
+    "build": "npm run react-build",
+    "start": "concurrently \"cross-env BROWSER=none npm run react-start\" \"wait-on http://localhost:3000 && electron .\""
+  },
+  "license": "ISC",
+  "dependencies": {
+    "@emotion/core": "^10.1.1",
+    "@testing-library/jest-dom": "^5.11.4",
+    "@testing-library/react": "^11.1.0",
+    "@testing-library/user-event": "^12.1.10",
+    "concurrently": "^5.3.0",
+    "cross-env": "^7.0.2",
+    "electron-is-dev": "^1.2.0",
+    "electron-root-path": "^1.0.16",
+    "electron-updater": "^4.3.5",
+    "node-sass": "^4.0.0",
+    "react": "^17.0.1",
+    "react-dom": "^17.0.1",
+    "react-scripts": "4.0.0",
+    "wait-on": "^5.2.0",
+    "web-vitals": "^0.2.4"
+  },
+  "devDependencies": {
+    "electron": "^10.1.5",
+    "electron-builder": "^22.9.1"
+  },
+  "eslintConfig": {
+    "extends": [
+      "react-app",
+      "react-app/jest"
+    ]
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  }
+}
