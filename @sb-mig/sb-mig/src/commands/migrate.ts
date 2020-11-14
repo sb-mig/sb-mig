@@ -13,7 +13,7 @@ import {
   syncAllDatasources,
 } from '../api/datasources'
 import {syncAllRoles, syncProvidedRoles} from '../api/roles'
-import {pullContent, pushContent} from '../api/stories'
+import {getAllStories, getStoryByName, pullContent, pushContent} from '../api/stories'
 
 export default class Migrate extends Command {
     static description = '## BETA ## Migrate content';
@@ -37,7 +37,7 @@ export default class Migrate extends Command {
     static strict = false;
 
     static args = [
-      {name: 'type', description: 'What to migrate', options: ['stories'], required: true},
+      {name: 'type', description: 'What to migrate', options: ['stories', 'assets'], required: true},
       {name: 'list', description: 'Space separated list of Stories names to migrate'},
     ]
 
@@ -47,9 +47,13 @@ export default class Migrate extends Command {
 
       if (flags.from && flags.to) {
         const stories = content
-        Logger.log('From which space: ', flags.from)
-        Logger.log('To which space: ', flags.to)
+        Logger.log('From which space: ', flags.from) // 97303
+        Logger.log('To which space: ', flags.to) // 97556
         Logger.log('Stories: ', stories)
+
+        const data = await getStoryByName({storyName: stories[0], spaceId: flags.from})
+        console.log("This is result: ")
+        console.log(data)
       }
 
       if (flags.pull) {

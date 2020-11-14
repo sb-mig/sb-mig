@@ -68,6 +68,7 @@ export const getAllStories = async () => {
   return sbApi
   .get(`spaces/${spaceId}/stories/`)
   .then(({data}) => {
+    Logger.log(data)
     return data
   })
   .catch(error => {
@@ -84,7 +85,7 @@ export const getAllStories = async () => {
 
 // GET
 export const getStory = async ({storyId}: { storyId: number }) => {
-  Logger.log('Trying to get all stories.')
+  Logger.log(`Trying to get single story if ${storyId} id.`)
 
   return sbApi
   .get(`spaces/${spaceId}/stories/${storyId}`)
@@ -100,6 +101,52 @@ export const getStory = async ({storyId}: { storyId: number }) => {
       Logger.error(error)
       return false
     }
+  })
+}
+
+// GET
+export const getStoryByName = async ({storyName, spaceId}: { storyName: string; spaceId: string }) => {
+  Logger.log(`Trying to get single story by ${storyName} name.`)
+
+  console.log('story name: ')
+  console.log(storyName)
+  console.log('in space: ', spaceId)
+
+  // const storyId = 123 // TODO: how to get storyId from storyname ?
+
+  return sbApi
+  // .get(`spaces/${spaceId}/stories/`)
+  .get(`spaces/${spaceId}/stories/`, {
+    starts_with: `${storyName.toLowerCase()}`,
+  })
+  .then(({data}) => {
+    return data
+  })
+  .catch(error => {
+    if (error.response.status === 404) {
+      Logger.error(
+        `There is no stories in your Storyblok ${spaceId} space.`
+      )
+    } else {
+      Logger.error(error)
+      return false
+    }
+  })
+}
+
+// POST
+export const createStory = async ({story, spaceId}: {story: any, spaceId: string}) => {
+  Logger.log('Trying to creates story...');
+  return sbApi.post(`spaces/${spaceId}/stories`, {
+    "story": {
+      "name": "Story Name",
+      "slug": "story-name",
+      "content": {
+        "component": "page",
+        "body": []
+      }
+    },
+    "publish": 1
   })
 }
 
