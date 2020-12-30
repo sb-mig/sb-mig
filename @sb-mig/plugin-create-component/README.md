@@ -19,7 +19,7 @@ $ npm install -g @sb-mig/plugin-create-component
 $ sb-mig COMMAND
 running command...
 $ sb-mig (-v|--version|version)
-@sb-mig/plugin-create-component/0.1.12 linux-x64 node-v12.19.0
+@sb-mig/plugin-create-component/0.1.13 linux-x64 node-v12.20.0
 $ sb-mig --help [COMMAND]
 USAGE
   $ sb-mig COMMAND
@@ -47,5 +47,5 @@ EXAMPLE
   $ sb-mig create component-name
 ```
 
-_See code: [src/commands/create.ts](https://github.com/sb-mig/sb-mig/blob/v0.1.12/src/commands/create.ts)_
+_See code: [src/commands/create.ts](https://github.com/sb-mig/sb-mig/blob/v0.1.13/src/commands/create.ts)_
 <!-- commandsstop -->
