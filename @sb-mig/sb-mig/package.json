@@ -1,6 +1,6 @@
 {
   "name": "sb-mig",
-  "version": "2.9.0",
+  "version": "2.9.1",
   "description": "CLI to rule the world. (and handle stuff related to Storyblok CMS)",
   "author": "Marcin Krawczyk <marckraw@icloud.com>",
   "bin": {
@@ -13,6 +13,7 @@
     "@oclif/plugin-help": "^2",
     "@oclif/plugin-plugins": "^1.7.10",
     "@oclif/plugin-warn-if-update-available": "^1.7.0",
+    "axios": "^0.21.1",
     "camelcase": "^5.3.1",
     "dotenv": "^8.2.0",
     "execa": "^4.0.0",
@@ -22,8 +23,7 @@
     "ora": "^4.0.4",
     "rimraf": "^3.0.2",
     "storyblok-js-client": "^3.3.1",
-    "tslib": "^1",
-    "axios": "^0.21.1"
+    "tslib": "^1"
   },
   "devDependencies": {
     "@oclif/dev-cli": "^1",

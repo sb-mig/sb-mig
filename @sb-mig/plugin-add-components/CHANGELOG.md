@@ -3,6 +3,14 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## <small>0.5.9 (2021-02-25)</small>
+
+**Note:** Version bump only for package @sb-mig/plugin-add-components
+
+
+
+
+
 ## <small>0.5.8 (2020-12-30)</small>
 
 * build(deps): bump ini in /@sb-mig/plugin-add-components ([a9594a7](https://github.com/sb-mig/sb-mig/commit/a9594a7))

@@ -313,6 +313,8 @@ COMMANDS
 Command for backing up anything related to Storyblok
 
 ```
+Command for backing up anything related to Storyblok
+
 USAGE
   $ sb-mig backup
 
@@ -332,13 +334,15 @@ OPTIONS
   -x, --oneDatasource=oneDatasource              Backup one datasource by name.
 ```
 
-_See code: [src/commands/backup.ts](https://github.com/sb-mig/sb-mig/blob/v2.9.0/src/commands/backup.ts)_
+_See code: [src/commands/backup.ts](https://github.com/sb-mig/sb-mig/blob/v2.9.1/src/commands/backup.ts)_
 
 ## `sb-mig debug`
 
 Output extra debugging
 
 ```
+Output extra debugging
+
 USAGE
   $ sb-mig debug
 
@@ -346,13 +350,15 @@ OPTIONS
   -h, --help  show CLI help
 ```
 
-_See code: [src/commands/debug.ts](https://github.com/sb-mig/sb-mig/blob/v2.9.0/src/commands/debug.ts)_
+_See code: [src/commands/debug.ts](https://github.com/sb-mig/sb-mig/blob/v2.9.1/src/commands/debug.ts)_
 
 ## `sb-mig help [COMMAND]`
 
 display help for sb-mig
 
 ```
+display help for <%= config.bin %>
+
 USAGE
   $ sb-mig help [COMMAND]
 
@@ -370,6 +376,8 @@ _See code: [@oclif/plugin-help](https://github.com/oclif/plugin-help/blob/v2.2.3
 list installed plugins
 
 ```
+list installed plugins
+
 USAGE
   $ sb-mig plugins
 
@@ -380,13 +388,21 @@ EXAMPLE
   $ sb-mig plugins
 ```
 
-_See code: [@oclif/plugin-plugins](https://github.com/oclif/plugin-plugins/blob/v1.9.0/src/commands/plugins/index.ts)_
+_See code: [@oclif/plugin-plugins](https://github.com/oclif/plugin-plugins/blob/v1.9.5/src/commands/plugins/index.ts)_
 
 ## `sb-mig plugins:install PLUGIN...`
 
 installs a plugin into the CLI
 
 ```
+installs a plugin into the CLI
+Can be installed from npm or a git url.
+
+Installation of a user-installed plugin will override a core plugin.
+
+e.g. If you have a core plugin that has a 'hello' command, installing a user-installed plugin with a 'hello' command will override the core plugin implementation. This is useful if a user needs to update core plugin functionality in the CLI without the need to patch and update the whole CLI.
+
+
 USAGE
   $ sb-mig plugins:install PLUGIN...
 
@@ -416,13 +432,19 @@ EXAMPLES
   $ sb-mig plugins:install someuser/someplugin
 ```
 
-_See code: [@oclif/plugin-plugins](https://github.com/oclif/plugin-plugins/blob/v1.9.0/src/commands/plugins/install.ts)_
+_See code: [@oclif/plugin-plugins](https://github.com/oclif/plugin-plugins/blob/v1.9.5/src/commands/plugins/install.ts)_
 
 ## `sb-mig plugins:link PLUGIN`
 
 links a plugin into the CLI for development
 
 ```
+links a plugin into the CLI for development
+Installation of a linked plugin will override a user-installed or core plugin.
+
+e.g. If you have a user-installed or core plugin that has a 'hello' command, installing a linked plugin with a 'hello' command will override the user-installed or core plugin implementation. This is useful for development work.
+
+
 USAGE
   $ sb-mig plugins:link PLUGIN
 
@@ -443,13 +465,15 @@ EXAMPLE
   $ sb-mig plugins:link myplugin
 ```
 
-_See code: [@oclif/plugin-plugins](https://github.com/oclif/plugin-plugins/blob/v1.9.0/src/commands/plugins/link.ts)_
+_See code: [@oclif/plugin-plugins](https://github.com/oclif/plugin-plugins/blob/v1.9.5/src/commands/plugins/link.ts)_
 
 ## `sb-mig plugins:uninstall PLUGIN...`
 
 removes a plugin from the CLI
 
 ```
+removes a plugin from the CLI
+
 USAGE
   $ sb-mig plugins:uninstall PLUGIN...
 
@@ -465,13 +489,15 @@ ALIASES
   $ sb-mig plugins:remove
 ```
 
-_See code: [@oclif/plugin-plugins](https://github.com/oclif/plugin-plugins/blob/v1.9.0/src/commands/plugins/uninstall.ts)_
+_See code: [@oclif/plugin-plugins](https://github.com/oclif/plugin-plugins/blob/v1.9.5/src/commands/plugins/uninstall.ts)_
 
 ## `sb-mig plugins:update`
 
 update installed plugins
 
 ```
+update installed plugins
+
 USAGE
   $ sb-mig plugins:update
 
@@ -480,13 +506,15 @@ OPTIONS
   -v, --verbose
 ```
 
-_See code: [@oclif/plugin-plugins](https://github.com/oclif/plugin-plugins/blob/v1.9.0/src/commands/plugins/update.ts)_
+_See code: [@oclif/plugin-plugins](https://github.com/oclif/plugin-plugins/blob/v1.9.5/src/commands/plugins/update.ts)_
 
 ## `sb-mig sync TYPE [LIST]`
 
 Synchronize components, datasources or roles with Storyblok space.
 
 ```
+Synchronize components, datasources or roles with Storyblok space.
+
 USAGE
   $ sb-mig sync TYPE [LIST]
 
@@ -511,7 +539,7 @@ EXAMPLES
   $ sb-mig sync roles
 ```
 
-_See code: [src/commands/sync.ts](https://github.com/sb-mig/sb-mig/blob/v2.9.0/src/commands/sync.ts)_
+_See code: [src/commands/sync.ts](https://github.com/sb-mig/sb-mig/blob/v2.9.1/src/commands/sync.ts)_
 <!-- commandsstop -->
 
 # Plugins

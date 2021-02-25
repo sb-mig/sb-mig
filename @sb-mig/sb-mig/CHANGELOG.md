@@ -3,6 +3,15 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## <small>2.9.1 (2021-02-25)</small>
+
+* fix(storyblok-js-client): fix axios peer dependency need from storyblok-js-client ([c104a8f](https://github.com/sb-mig/sb-mig/commit/c104a8f))
+* Update storyblok-js-client version ([ed91437](https://github.com/sb-mig/sb-mig/commit/ed91437))
+
+
+
+
+
 ## 2.9.0 (2020-11-09)
 
 * docs(sync roles): add roadmap point for syncing roles ([1fc89af](https://github.com/sb-mig/sb-mig/commit/1fc89af))

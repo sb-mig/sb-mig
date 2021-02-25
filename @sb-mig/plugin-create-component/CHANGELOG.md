@@ -3,6 +3,14 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## <small>0.1.14 (2021-02-25)</small>
+
+**Note:** Version bump only for package @sb-mig/plugin-create-component
+
+
+
+
+
 ## <small>0.1.13 (2020-12-30)</small>
 
 * build(deps): bump ini in /@sb-mig/plugin-create-component ([d49041b](https://github.com/sb-mig/sb-mig/commit/d49041b))

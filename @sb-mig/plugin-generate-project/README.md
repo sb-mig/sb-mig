@@ -19,7 +19,7 @@ $ npm install -g @sb-mig/plugin-generate-project
 $ sb-mig COMMAND
 running command...
 $ sb-mig (-v|--version|version)
-@sb-mig/plugin-generate-project/0.4.8 linux-x64 node-v12.20.0
+@sb-mig/plugin-generate-project/0.4.9 linux-x64 node-v12.20.2
 $ sb-mig --help [COMMAND]
 USAGE
   $ sb-mig COMMAND
@@ -35,6 +35,8 @@ USAGE
 Generate whole project with sb-mig generate and sb-mig add components
 
 ```
+Generate whole project with sb-mig generate and sb-mig add components
+
 USAGE
   $ sb-mig generate [PROJECT-NAME]
 
@@ -48,5 +50,5 @@ EXAMPLE
   $ sb-mig generate project-name --add @storyblok-components/ui-accordion @storyblok-components/ui-section
 ```
 
-_See code: [src/commands/generate.ts](https://github.com/sb-mig/sb-mig/blob/v0.4.8/src/commands/generate.ts)_
+_See code: [src/commands/generate.ts](https://github.com/sb-mig/sb-mig/blob/v0.4.9/src/commands/generate.ts)_
 <!-- commandsstop -->
