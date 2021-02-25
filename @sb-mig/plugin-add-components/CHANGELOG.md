@@ -3,6 +3,14 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## <small>0.5.10 (2021-02-25)</small>
+
+* fix(yarn.lock): remove not needed yarn locks, update axios deps ([bb78139](https://github.com/sb-mig/sb-mig/commit/bb78139))
+
+
+
+
+
 ## <small>0.5.9 (2021-02-25)</small>
 
 **Note:** Version bump only for package @sb-mig/plugin-add-components
