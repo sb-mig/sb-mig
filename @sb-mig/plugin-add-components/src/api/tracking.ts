@@ -1,13 +1,13 @@
-import storyblokComponentsConfig from "sb-mig/lib/config/StoryblokComponentsConfig";
+import storyblokComponentsConfig from 'sb-mig/lib/config/StoryblokComponentsConfig'
 
 export const isComponentAlreadyImported = ({
-    componentName,
+  componentName,
 }: {
     componentName: string;
 }) => {
-    return storyblokComponentsConfig.getSingleData(componentName)
-        .isLinkedInComponentFile;
-};
+  return storyblokComponentsConfig.getSingleData(componentName)
+  .isLinkedInComponentFile
+}
 
 interface UpdateIsLinkedInComponentFile {
     componentName: string;
@@ -15,14 +15,14 @@ interface UpdateIsLinkedInComponentFile {
 }
 
 export const updateIsLinkedInComponentFile = ({
-    componentName,
-    isLinkedInComponentFile,
+  componentName,
+  isLinkedInComponentFile,
 }: UpdateIsLinkedInComponentFile) => {
-    storyblokComponentsConfig.setSingleData({
-        ...storyblokComponentsConfig.getSingleData(componentName),
-        isLinkedInComponentFile,
-    });
-};
+  storyblokComponentsConfig.setSingleData({
+    ...storyblokComponentsConfig.getSingleData(componentName),
+    isLinkedInComponentFile,
+  })
+}
 
 interface UpdateIsModified {
     componentName: string;
@@ -30,23 +30,23 @@ interface UpdateIsModified {
 }
 
 export const updateIsModified = ({
-    componentName,
-    modified,
+  componentName,
+  modified,
 }: UpdateIsModified) => {
-    storyblokComponentsConfig.setSingleData({
-        ...storyblokComponentsConfig.getSingleData(componentName),
-        modified,
-    });
-};
+  storyblokComponentsConfig.setSingleData({
+    ...storyblokComponentsConfig.getSingleData(componentName),
+    modified,
+  })
+}
 
 interface UpdateLocation {
     componentName: string;
     location: string;
 }
 
-export const updateLocation = ({ componentName, location }: UpdateLocation) => {
-    storyblokComponentsConfig.setSingleData({
-        ...storyblokComponentsConfig.getSingleData(componentName),
-        location,
-    });
-};
+export const updateLocation = ({componentName, location}: UpdateLocation) => {
+  storyblokComponentsConfig.setSingleData({
+    ...storyblokComponentsConfig.getSingleData(componentName),
+    location,
+  })
+}
