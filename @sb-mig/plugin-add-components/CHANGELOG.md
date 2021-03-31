@@ -3,6 +3,15 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## <small>0.5.11 (2021-03-31)</small>
+
+* chore(eslint): eslint fixes for sb-mig add-components plugin ([b0508ef](https://github.com/sb-mig/sb-mig/commit/b0508ef))
+* chore(packages): update dependencies, such as typescript (3.9.9 -> 4.2.3), and some others ([b3b6f0b](https://github.com/sb-mig/sb-mig/commit/b3b6f0b))
+
+
+
+
+
 ## <small>0.5.10 (2021-02-25)</small>
 
 * fix(yarn.lock): remove not needed yarn locks, update axios deps ([bb78139](https://github.com/sb-mig/sb-mig/commit/bb78139))

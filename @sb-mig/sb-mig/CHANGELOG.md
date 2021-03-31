@@ -3,6 +3,15 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## <small>2.9.2 (2021-03-31)</small>
+
+* fix(eslint fixes): eslint whole sb-mig core, and fix some bugs with types ([25eb801](https://github.com/sb-mig/sb-mig/commit/25eb801))
+* chore(packages): update dependencies, such as typescript (3.9.9 -> 4.2.3), and some others ([b3b6f0b](https://github.com/sb-mig/sb-mig/commit/b3b6f0b))
+
+
+
+
+
 ## <small>2.9.1 (2021-02-25)</small>
 
 * fix(storyblok-js-client): fix axios peer dependency need from storyblok-js-client ([c104a8f](https://github.com/sb-mig/sb-mig/commit/c104a8f))

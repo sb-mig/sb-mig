@@ -3,6 +3,14 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## <small>0.1.16 (2021-03-31)</small>
+
+* chore(packages): update dependencies, such as typescript (3.9.9 -> 4.2.3), and some others ([b3b6f0b](https://github.com/sb-mig/sb-mig/commit/b3b6f0b))
+
+
+
+
+
 ## <small>0.1.15 (2021-02-25)</small>
 
 * fix(yarn.lock): remove not needed yarn locks, update axios deps ([bb78139](https://github.com/sb-mig/sb-mig/commit/bb78139))
