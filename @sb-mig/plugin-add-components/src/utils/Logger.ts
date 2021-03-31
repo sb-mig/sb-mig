@@ -1,5 +1,5 @@
-import * as chalk from 'chalk';
-import * as figlet from 'figlet';
+import * as chalk from 'chalk'
+import * as figlet from 'figlet'
 
 export default class Logger {
   name: any;
@@ -10,7 +10,7 @@ export default class Logger {
 
   static bigLog(content: any) {
     console.log(
-      chalk.yellow(figlet.textSync(content, { horizontalLayout: "full" }))
+      chalk.yellow(figlet.textSync(content, {horizontalLayout: 'full'}))
     )
   }
 
@@ -26,9 +26,9 @@ export default class Logger {
     console.log(chalk.yellow(`! ${content}`))
   }
 
-  static error(content: any, { verbose } = { verbose: false }) {
+  static error(content: any, {verbose} = {verbose: false}) {
     if (verbose) {
-      console.log(content);
+      console.log(content)
     } else {
       console.log(chalk.red(`✘ ${content}`))
     }
