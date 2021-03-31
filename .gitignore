@@ -13,3 +13,5 @@ sbmig
 storyblok
 dist
 lib
+.idea
+.DS_Store
