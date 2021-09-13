@@ -3,6 +3,16 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## <small>0.1.17 (2021-09-13)</small>
+
+* chore(deps): move and update typescript ([6dd1d56](https://github.com/sb-mig/sb-mig/commit/6dd1d56))
+* chore(deps): move common deps higher ([615200b](https://github.com/sb-mig/sb-mig/commit/615200b))
+* chore(deps): move more deps higher, and update some of them ([d68aa2b](https://github.com/sb-mig/sb-mig/commit/d68aa2b))
+
+
+
+
+
 ## <small>0.1.16 (2021-03-31)</small>
 
 * chore(packages): update dependencies, such as typescript (3.9.9 -> 4.2.3), and some others ([b3b6f0b](https://github.com/sb-mig/sb-mig/commit/b3b6f0b))

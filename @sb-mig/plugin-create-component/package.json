@@ -1,20 +1,19 @@
 {
   "name": "@sb-mig/plugin-create-component",
   "description": "Plugin for sb-mig to create component in monorepos compliant with sb-mig",
-  "version": "0.1.16",
+  "version": "0.1.17",
   "author": "Marcin Krawczyk marckraw@icloud.com",
   "bugs": "https://github.com/sb-mig/sb-mig/issues",
   "dependencies": {
     "@oclif/command": "^1",
     "@oclif/config": "^1",
     "rimraf": "^3.0.2",
-    "sb-mig": "^2.9.2",
+    "sb-mig": "^2.9.3",
     "yarn-or-npm": "^3.0.1"
   },
   "devDependencies": {
     "conventional-changelog-cli": "^2.0.31",
     "eslint-config-oclif": "^3.1"
-
   },
   "engines": {
     "node": ">=8.0.0"

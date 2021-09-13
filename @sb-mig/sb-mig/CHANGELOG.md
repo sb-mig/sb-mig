@@ -3,6 +3,16 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## <small>2.9.3 (2021-09-13)</small>
+
+* chore(deps): move and update typescript ([6dd1d56](https://github.com/sb-mig/sb-mig/commit/6dd1d56))
+* chore(deps): move common deps higher ([615200b](https://github.com/sb-mig/sb-mig/commit/615200b))
+* chore(deps): move more deps higher, and update some of them ([d68aa2b](https://github.com/sb-mig/sb-mig/commit/d68aa2b))
+
+
+
+
+
 ## <small>2.9.2 (2021-03-31)</small>
 
 * fix(eslint fixes): eslint whole sb-mig core, and fix some bugs with types ([25eb801](https://github.com/sb-mig/sb-mig/commit/25eb801))
