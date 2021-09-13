@@ -17,6 +17,15 @@
     "postinstall": "node ./node_modules/husky/lib/installer/bin install"
   },
   "devDependencies": {
+    "@types/ncp": "^2.0.3",
+    "@types/node": "^10",
+    "@types/chai": "^4",
+    "@types/mocha": "^5",
+    "@types/figlet": "^1.2.0",
+    "@types/rimraf": "^3.0.0",
+    "@oclif/dev-cli": "^1",
+    "@oclif/plugin-help": "^2",
+    "@oclif/test": "^1",
     "@commitlint/cli": "^8.3.5",
     "@commitlint/config-conventional": "^8.3.4",
     "commitizen": "^4.0.4",

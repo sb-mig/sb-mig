@@ -28,11 +28,6 @@
   "devDependencies": {
     "@oclif/dev-cli": "^1",
     "@oclif/test": "^1",
-    "@types/chai": "^4",
-    "@types/figlet": "^1.2.0",
-    "@types/mocha": "^5",
-    "@types/ncp": "^2.0.3",
-    "@types/node": "^10",
     "chai": "^4",
     "conventional-changelog-cli": "^2.0.31",
     "eslint": "^5.13",

@@ -7,8 +7,6 @@
   "dependencies": {
     "@oclif/command": "^1",
     "@oclif/config": "^1",
-    "@types/figlet": "^1.2.0",
-    "@types/rimraf": "^3.0.0",
     "chalk": "^4.0.0",
     "execa": "^4.0.0",
     "figlet": "^1.4.0",
@@ -19,12 +17,6 @@
     "yarn-or-npm": "^3.0.1"
   },
   "devDependencies": {
-    "@oclif/dev-cli": "^1",
-    "@oclif/plugin-help": "^2",
-    "@oclif/test": "^1",
-    "@types/chai": "^4",
-    "@types/mocha": "^5",
-    "@types/node": "^10",
     "chai": "^4",
     "conventional-changelog-cli": "^2.0.31",
     "eslint": "^5.13",
