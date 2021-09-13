@@ -26,7 +26,7 @@ let customConfig = {}
 
 try {
   customConfig = require(path.resolve(process.cwd(), 'storyblok.config'))
-} catch (error) {
+} catch (error: any) {
   // default config will be used
   if (error.code !== 'MODULE_NOT_FOUND') throw error
 }
