@@ -17,13 +17,40 @@
     "postinstall": "node ./node_modules/husky/lib/installer/bin install"
   },
   "devDependencies": {
+    "eslint": "^5.13",
+    "eslint-config-oclif-typescript": "^0.1",
     "@commitlint/cli": "^8.3.5",
     "@commitlint/config-conventional": "^8.3.4",
+    "@oclif/dev-cli": "^1",
+    "@oclif/plugin-help": "^2",
+    "@oclif/test": "^1",
+    "@types/chai": "^4.2.21",
+    "@types/figlet": "^1.5.4",
+    "@types/mocha": "^5",
+    "@types/ncp": "^2.0.5",
+    "@types/node": "^10",
+    "@types/rimraf": "^3.0.2",
+    "chai": "^4.3.4",
+    "nyc": "^14",
+    "globby": "^10",
     "commitizen": "^4.0.4",
     "husky": "^4.2.3",
     "lerna": "^4.0.0",
     "lint-staged": "^10.1.2",
-    "prettier": "^2.0.4"
+    "mocha": "^5",
+    "prettier": "^2.4.0",
+    "ts-node": "^8",
+    "typescript": "^4.4.3"
+  },
+  "dependencies": {
+    "@oclif/plugin-help": "^2",
+    "axios": "^0.21.4",
+    "chalk": "^4.1.2",
+    "execa": "^4.0.0",
+    "figlet": "^1.5.2",
+    "os": "^0.1.2",
+    "ora": "^4.0.4",
+    "tslib": "^1"
   },
   "config": {
     "commitizen": {

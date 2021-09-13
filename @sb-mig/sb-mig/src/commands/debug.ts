@@ -17,6 +17,8 @@ export default class Debug extends Command {
     const config = this.storyblokConfig()
     const componentsConfig = this.storyblokComponentsConfig().getAllData()
 
+    console.log('Thius are changes!')
+
     console.log('storyblok.config.js: ', config, '\n')
     console.log('storyblok.components.lock.js: ', componentsConfig)
   }

@@ -27,7 +27,7 @@ export const installProvidedComponents = (
     let result
     try {
       result = execa.commandSync(installComponentCommand(component))
-    } catch (error) {
+    } catch (error: any) {
       Logger.error(`${error?.command} rejected.`)
       Logger.error(`Reason: ${error.stderr}`)
       return {
