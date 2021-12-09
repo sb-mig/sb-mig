@@ -22,7 +22,7 @@
     "storyblok-js-client": "^4.1.5"
   },
   "devDependencies": {
-    "@oclif/dev-cli": "^1",
+    "@oclif/dev-cli": "^1.26.9",
     "@oclif/test": "^1",
     "conventional-changelog-cli": "^2.0.31",
     "eslint-config-oclif": "^4.0.0"

@@ -20,7 +20,7 @@
   "devDependencies": {
     "@commitlint/cli": "^15.0.0",
     "@commitlint/config-conventional": "^15.0.0",
-    "@oclif/dev-cli": "^1",
+    "@oclif/dev-cli": "^1.26.9",
     "@oclif/plugin-help": "^2",
     "@oclif/test": "^2.0.3",
     "@types/chai": "^4.2.21",
