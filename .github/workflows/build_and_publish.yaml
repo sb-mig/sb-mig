@@ -39,7 +39,9 @@ jobs:
 
       - name: Publishing on npm registry
         env:
+          GH_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_AUTH_TOKEN: ${{secrets.GITHUB_TOKEN}}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NO_HUSKY: 1
         run: |
           git config --global user.name 'Marcin Krawczyk'
