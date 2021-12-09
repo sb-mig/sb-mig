@@ -11,7 +11,7 @@
     "@oclif/command": "^1.8.0",
     "@oclif/plugin-plugins": "^1.7.10",
     "@oclif/plugin-warn-if-update-available": "^1.7.0",
-    "axios": "^0.21.4",
+    "axios": "^0.24.0",
     "camelcase": "^6.2.0",
     "dotenv": "^8.2.0",
     "glob": "^7.1.6",
