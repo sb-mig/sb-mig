@@ -3,6 +3,14 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## <small>0.1.22 (2021-12-09)</small>
+
+* chore(release): publish ([e10a128](https://github.com/sb-mig/sb-mig/commit/e10a128))
+
+
+
+
+
 ## <small>0.1.21 (2021-12-09)</small>
 
 **Note:** Version bump only for package @sb-mig/plugin-create-component
