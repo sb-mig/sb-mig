@@ -7,7 +7,7 @@ import Logger from '../utils/Logger'
 
 export default class CreateComponent extends Command {
     static description =
-        'Create package inside sb-mig compliant components monorepo';
+        'Create package inside sb-mig compliant components monorepo.';
 
     static examples = ['$ sb-mig create component-name'];
 
