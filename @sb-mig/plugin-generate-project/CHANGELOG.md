@@ -3,6 +3,14 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## <small>0.4.16 (2021-12-09)</small>
+
+**Note:** Version bump only for package @sb-mig/plugin-generate-project
+
+
+
+
+
 ## <small>0.4.15 (2021-12-09)</small>
 
 **Note:** Version bump only for package @sb-mig/plugin-generate-project
