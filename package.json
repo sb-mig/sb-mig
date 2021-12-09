@@ -8,17 +8,18 @@
   "private": true,
   "version": "0.0.1",
   "scripts": {
+    "lint-staged": "lint-staged",
     "dev": "lerna exec --parallel yarn start:dev ",
     "build:core": "cd @sb-mig/sb-mig && yarn build",
     "build:add-components": "cd @sb-mig/plugin-add-components && yarn build",
     "build:generate-project": "cd @sb-mig/plugin-generate-project && yarn build",
     "build:create-component": "cd @sb-mig/plugin-create-component && yarn build",
     "start": "yarn build:core && yarn build:add-components && yarn build:generate-project && yarn build:create-component && lerna link",
-    "postinstall": "node ./node_modules/husky/lib/installer/bin install"
+    "prepare": "husky install"
   },
   "devDependencies": {
-    "@commitlint/cli": "^8.3.5",
-    "@commitlint/config-conventional": "^8.3.4",
+    "@commitlint/cli": "^15.0.0",
+    "@commitlint/config-conventional": "^15.0.0",
     "@oclif/dev-cli": "^1",
     "@oclif/plugin-help": "^2",
     "@oclif/test": "^1",
@@ -33,9 +34,9 @@
     "eslint": "^5.13",
     "eslint-config-oclif-typescript": "^0.1",
     "globby": "^10",
-    "husky": "^4.2.3",
+    "husky": "^7.0.4",
     "lerna": "^4.0.0",
-    "lint-staged": "^10.1.2",
+    "lint-staged": "^12.1.2",
     "mocha": "^5",
     "nyc": "^14",
     "prettier": "^2.4.0",
@@ -55,21 +56,6 @@
   "config": {
     "commitizen": {
       "path": "./node_modules/cz-conventional-changelog"
-    }
-  },
-  "commitlint": {
-    "extends": [
-      "@commitlint/config-conventional"
-    ]
-  },
-  "lint-staged": {
-    "@sb-mig/**/!(*dist)/*.{js,jsx}": [
-      "npx prettier --write"
-    ]
-  },
-  "husky": {
-    "hooks": {
-      "prepare-commit-msg": "exec < /dev/tty && git cz --hook || true"
     }
   }
 }
