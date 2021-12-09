@@ -45,6 +45,10 @@
     "type": "git",
     "url": "git+https://github.com/sb-mig/sb-mig.git"
   },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/",
+    "access": "public"
+  },
   "scripts": {
     "postpack": "rm -f oclif.manifest.json",
     "posttest": "eslint . --ext .ts --config .eslintrc",
