@@ -9,7 +9,7 @@
   "bugs": "https://github.com/sb-mig/sb-mig/issues",
   "dependencies": {
     "@oclif/command": "^1.8.0",
-    "@oclif/plugin-help": "^5.1.10",
+    "@oclif/plugin-help": "^2",
     "@oclif/plugin-plugins": "^2.0.11",
     "@oclif/plugin-warn-if-update-available": "^2.0.2",
     "@oclif/test": "^2.0.3",

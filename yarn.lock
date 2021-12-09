@@ -1174,7 +1174,7 @@
     supports-color "^5.4.0"
     tslib "^1"
 
-"@oclif/command@1.8.10", "@oclif/command@^1", "@oclif/command@^1.8.0", "@oclif/command@^1.8.9":
+"@oclif/command@1.8.10":
   version "1.8.10"
   resolved "https://registry.yarnpkg.com/@oclif/command/-/command-1.8.10.tgz#417683d0d52a9acefe9e119a149544295bef2c8a"
   integrity sha512-GHL3Cdmabg2VAt5DL2GmRwmlROsN+Ma0JfxWlAhsKjxsa5vdWZ7BG82+A1NJQFgElm808z22Pldb7A4OJCq1pw==
@@ -1186,7 +1186,7 @@
     debug "^4.1.1"
     semver "^7.3.2"
 
-"@oclif/command@^1.5.13":
+"@oclif/command@^1", "@oclif/command@^1.5.13", "@oclif/command@^1.8.0", "@oclif/command@^1.8.9":
   version "1.8.11"
   resolved "https://registry.yarnpkg.com/@oclif/command/-/command-1.8.11.tgz#926919fe8ddb7ab778fef8a8f2951c975f35e0c2"
   integrity sha512-2fGLMvi6J5+oNxTaZfdWPMWY8oW15rYj0V8yLzmZBAEjfzjLqLIzJE9IlNccN1zwRqRHc1bcISSRDdxJ56IS/Q==
@@ -1210,7 +1210,7 @@
     is-wsl "^2.1.1"
     tslib "^2.0.0"
 
-"@oclif/core@1.0.10", "@oclif/core@^1.0.10", "@oclif/core@^1.0.8":
+"@oclif/core@1.0.10", "@oclif/core@^1.0.8":
   version "1.0.10"
   resolved "https://registry.yarnpkg.com/@oclif/core/-/core-1.0.10.tgz#5fd01d572e44d372b7279ee0f49b4860e14b6e4e"
   integrity sha512-L+IcNU3NoYxwz5hmHfcUlOJ3dpgHRsIj1kAmI9CKEJHq5gBVKlP44Ot179Jke1jKRKX2g9N42izbmlh0SNpkkw==
@@ -1307,13 +1307,6 @@
     strip-ansi "^5.0.0"
     widest-line "^2.0.1"
     wrap-ansi "^4.0.0"
-
-"@oclif/plugin-help@^5.1.10":
-  version "5.1.10"
-  resolved "https://registry.yarnpkg.com/@oclif/plugin-help/-/plugin-help-5.1.10.tgz#465aa0397da723c39536780f6f7c1ad9cbd1671e"
-  integrity sha512-ngurn/3kQVCw1Df5TJEURjxU+w7iA9z3Pskw8dJorfnd0Xibe/qlPg+VYV3hB7EhTbV82EVfZ5DhQYD5YvoxeA==
-  dependencies:
-    "@oclif/core" "^1.0.10"
 
 "@oclif/plugin-plugins@^2.0.11":
   version "2.0.11"

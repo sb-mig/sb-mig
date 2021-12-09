@@ -302,6 +302,7 @@ COMMANDS
 * [`sb-mig debug`](#sb-mig-debug)
 * [`sb-mig help [COMMAND]`](#sb-mig-help-command)
 * [`sb-mig plugins`](#sb-mig-plugins)
+* [`sb-mig plugins:inspect PLUGIN...`](#sb-mig-pluginsinspect-plugin)
 * [`sb-mig plugins:install PLUGIN...`](#sb-mig-pluginsinstall-plugin)
 * [`sb-mig plugins:link PLUGIN`](#sb-mig-pluginslink-plugin)
 * [`sb-mig plugins:uninstall PLUGIN...`](#sb-mig-pluginsuninstall-plugin)
@@ -334,14 +335,14 @@ OPTIONS
   -x, --oneDatasource=oneDatasource              Backup one datasource by name.
 ```
 
-_See code: [lib/commands/backup.js](https://github.com/sb-mig/sb-mig/blob/v2.9.3/lib/commands/backup.js)_
+_See code: [lib/commands/backup.js](https://github.com/sb-mig/sb-mig/blob/v2.9.11/lib/commands/backup.js)_
 
 ## `sb-mig debug`
 
-Output extra debugging
+Output extra debugging.
 
 ```
-Output extra debugging
+Output extra debugging.
 
 USAGE
   $ sb-mig debug
@@ -350,7 +351,7 @@ OPTIONS
   -h, --help  show CLI help
 ```
 
-_See code: [lib/commands/debug.js](https://github.com/sb-mig/sb-mig/blob/v2.9.3/lib/commands/debug.js)_
+_See code: [lib/commands/debug.js](https://github.com/sb-mig/sb-mig/blob/v2.9.11/lib/commands/debug.js)_
 
 ## `sb-mig help [COMMAND]`
 
@@ -373,29 +374,52 @@ _See code: [@oclif/plugin-help](https://github.com/oclif/plugin-help/blob/v2.2.3
 
 ## `sb-mig plugins`
 
-list installed plugins
+List installed plugins.
 
 ```
-list installed plugins
+List installed plugins.
 
 USAGE
   $ sb-mig plugins
 
 OPTIONS
-  --core  show core plugins
+  --core  Show core plugins.
 
 EXAMPLE
   $ sb-mig plugins
 ```
 
-_See code: [@oclif/plugin-plugins](https://github.com/oclif/plugin-plugins/blob/v1.9.5/src/commands/plugins/index.ts)_
+_See code: [@oclif/plugin-plugins](https://github.com/oclif/plugin-plugins/blob/v2.0.11/src/commands/plugins/index.ts)_
+
+## `sb-mig plugins:inspect PLUGIN...`
+
+Displays installation properties of a plugin.
+
+```
+Displays installation properties of a plugin.
+
+USAGE
+  $ sb-mig plugins:inspect PLUGIN...
+
+ARGUMENTS
+  PLUGIN  [default: .] Plugin to inspect.
+
+OPTIONS
+  -h, --help     Show CLI help.
+  -v, --verbose
+
+EXAMPLE
+  $ sb-mig plugins:inspect myplugin
+```
+
+_See code: [@oclif/plugin-plugins](https://github.com/oclif/plugin-plugins/blob/v2.0.11/src/commands/plugins/inspect.ts)_
 
 ## `sb-mig plugins:install PLUGIN...`
 
-installs a plugin into the CLI
+Installs a plugin into the CLI.
 
 ```
-installs a plugin into the CLI
+Installs a plugin into the CLI.
 Can be installed from npm or a git url.
 
 Installation of a user-installed plugin will override a core plugin.
@@ -407,11 +431,11 @@ USAGE
   $ sb-mig plugins:install PLUGIN...
 
 ARGUMENTS
-  PLUGIN  plugin to install
+  PLUGIN  Plugin to install.
 
 OPTIONS
-  -f, --force    yarn install with force flag
-  -h, --help     show CLI help
+  -f, --force    Run yarn install with force flag.
+  -h, --help     Show CLI help.
   -v, --verbose
 
 DESCRIPTION
@@ -432,14 +456,14 @@ EXAMPLES
   $ sb-mig plugins:install someuser/someplugin
 ```
 
-_See code: [@oclif/plugin-plugins](https://github.com/oclif/plugin-plugins/blob/v1.9.5/src/commands/plugins/install.ts)_
+_See code: [@oclif/plugin-plugins](https://github.com/oclif/plugin-plugins/blob/v2.0.11/src/commands/plugins/install.ts)_
 
 ## `sb-mig plugins:link PLUGIN`
 
-links a plugin into the CLI for development
+Links a plugin into the CLI for development.
 
 ```
-links a plugin into the CLI for development
+Links a plugin into the CLI for development.
 Installation of a linked plugin will override a user-installed or core plugin.
 
 e.g. If you have a user-installed or core plugin that has a 'hello' command, installing a linked plugin with a 'hello' command will override the user-installed or core plugin implementation. This is useful for development work.
@@ -452,7 +476,7 @@ ARGUMENTS
   PATH  [default: .] path to plugin
 
 OPTIONS
-  -h, --help     show CLI help
+  -h, --help     Show CLI help.
   -v, --verbose
 
 DESCRIPTION
@@ -465,14 +489,14 @@ EXAMPLE
   $ sb-mig plugins:link myplugin
 ```
 
-_See code: [@oclif/plugin-plugins](https://github.com/oclif/plugin-plugins/blob/v1.9.5/src/commands/plugins/link.ts)_
+_See code: [@oclif/plugin-plugins](https://github.com/oclif/plugin-plugins/blob/v2.0.11/src/commands/plugins/link.ts)_
 
 ## `sb-mig plugins:uninstall PLUGIN...`
 
-removes a plugin from the CLI
+Removes a plugin from the CLI.
 
 ```
-removes a plugin from the CLI
+Removes a plugin from the CLI.
 
 USAGE
   $ sb-mig plugins:uninstall PLUGIN...
@@ -481,7 +505,7 @@ ARGUMENTS
   PLUGIN  plugin to uninstall
 
 OPTIONS
-  -h, --help     show CLI help
+  -h, --help     Show CLI help.
   -v, --verbose
 
 ALIASES
@@ -489,24 +513,24 @@ ALIASES
   $ sb-mig plugins:remove
 ```
 
-_See code: [@oclif/plugin-plugins](https://github.com/oclif/plugin-plugins/blob/v1.9.5/src/commands/plugins/uninstall.ts)_
+_See code: [@oclif/plugin-plugins](https://github.com/oclif/plugin-plugins/blob/v2.0.11/src/commands/plugins/uninstall.ts)_
 
 ## `sb-mig plugins:update`
 
-update installed plugins
+Update installed plugins.
 
 ```
-update installed plugins
+Update installed plugins.
 
 USAGE
   $ sb-mig plugins:update
 
 OPTIONS
-  -h, --help     show CLI help
+  -h, --help     Show CLI help.
   -v, --verbose
 ```
 
-_See code: [@oclif/plugin-plugins](https://github.com/oclif/plugin-plugins/blob/v1.9.5/src/commands/plugins/update.ts)_
+_See code: [@oclif/plugin-plugins](https://github.com/oclif/plugin-plugins/blob/v2.0.11/src/commands/plugins/update.ts)_
 
 ## `sb-mig sync TYPE [LIST]`
 
@@ -539,7 +563,7 @@ EXAMPLES
   $ sb-mig sync roles
 ```
 
-_See code: [lib/commands/sync.js](https://github.com/sb-mig/sb-mig/blob/v2.9.3/lib/commands/sync.js)_
+_See code: [lib/commands/sync.js](https://github.com/sb-mig/sb-mig/blob/v2.9.11/lib/commands/sync.js)_
 <!-- commandsstop -->
 
 # Plugins
