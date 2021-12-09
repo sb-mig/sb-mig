@@ -13,7 +13,7 @@
   },
   "devDependencies": {
     "conventional-changelog-cli": "^2.0.31",
-    "eslint-config-oclif": "^4.0.0"
+    "eslint-config-oclif": "^3.1"
   },
   "engines": {
     "node": ">=16.0.0"
@@ -50,6 +50,6 @@
     "prepack": "rm -rf lib && tsc -b && oclif-dev manifest && oclif-dev readme",
     "build": "rm -rf lib && tsc -b",
     "test": "nyc --extension .ts mocha --forbid-only \"test/**/*.test.ts\"",
-    "version": "conventional-changelog -p angular -i CHANGELOG.md -s && oclif-dev readme && git add README.md && git add CHANGELOG.md"
+    "version": "conventional-changelog -p eslint -i CHANGELOG.md -s && oclif-dev readme && git add README.md && git add CHANGELOG.md"
   }
 }
