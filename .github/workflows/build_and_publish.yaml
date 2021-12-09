@@ -34,18 +34,14 @@ jobs:
       - name: Linking packages
         run: npx lerna link
 
-      - name: Prepare repository
-        run: git reset --hard HEAD
-
-      - name: Publishing on npm registry
+      - name: "Version and publish"
         env:
-          GH_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NODE_AUTH_TOKEN: ${{secrets.GITHUB_TOKEN}}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NO_HUSKY: 1
+          NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
         run: |
           git config --global user.name 'Marcin Krawczyk'
           git config --global user.email 'marckraw@icloud.com'
           git log -n 1
           git status
+
           npx lerna publish --conventional-commits --changelog-preset conventionalcommits -m 'chore(release): publish' --yes
