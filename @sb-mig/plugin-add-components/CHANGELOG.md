@@ -3,6 +3,15 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## <small>0.5.21 (2021-12-09)</small>
+
+* Merge branch 'master' of github.com:sb-mig/sb-mig ([c8fcc2b](https://github.com/sb-mig/sb-mig/commit/c8fcc2b))
+* fix(oclif dev manifest): fix ([8a214da](https://github.com/sb-mig/sb-mig/commit/8a214da))
+
+
+
+
+
 ## <small>0.5.20 (2021-12-09)</small>
 
 * Merge branch 'master' of github.com:sb-mig/sb-mig ([be436e2](https://github.com/sb-mig/sb-mig/commit/be436e2))
