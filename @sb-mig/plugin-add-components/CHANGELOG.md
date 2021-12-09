@@ -3,6 +3,14 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## <small>0.5.14 (2021-12-09)</small>
+
+**Note:** Version bump only for package @sb-mig/plugin-add-components
+
+
+
+
+
 ## <small>0.5.13 (2021-12-09)</small>
 
 * fix(oclif dev ?): meh ([2edf726](https://github.com/sb-mig/sb-mig/commit/2edf726))
