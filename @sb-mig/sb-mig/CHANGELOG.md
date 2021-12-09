@@ -3,6 +3,15 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## <small>2.9.13 (2021-12-09)</small>
+
+* Merge branch 'master' of github.com:sb-mig/sb-mig ([5df10d5](https://github.com/sb-mig/sb-mig/commit/5df10d5))
+* fix(oclif help): downgrade oclif-help - probably this was a problem ([380ab20](https://github.com/sb-mig/sb-mig/commit/380ab20))
+
+
+
+
+
 ## <small>2.9.12 (2021-12-09)</small>
 
 * Merge branch 'master' of github.com:sb-mig/sb-mig ([c8fcc2b](https://github.com/sb-mig/sb-mig/commit/c8fcc2b))
