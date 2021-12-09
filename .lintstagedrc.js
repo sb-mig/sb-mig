@@ -1,5 +1,6 @@
 module.exports = {
   "@sb-mig/**/!(*dist)/*.{js,jsx}": [
-    "npx prettier --write"
+    "npx prettier --write",
+    "eslint --fix"
   ]
 }
