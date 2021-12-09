@@ -3,6 +3,15 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## <small>0.1.25 (2021-12-09)</small>
+
+* Merge branch 'master' of github.com:sb-mig/sb-mig ([be436e2](https://github.com/sb-mig/sb-mig/commit/be436e2))
+* fix(trigger): trigger ([11863e4](https://github.com/sb-mig/sb-mig/commit/11863e4))
+
+
+
+
+
 ## <small>0.1.24 (2021-12-09)</small>
 
 * build(trigger): trigger ([e656c07](https://github.com/sb-mig/sb-mig/commit/e656c07))
