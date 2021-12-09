@@ -3,6 +3,16 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## <small>0.4.18 (2021-12-09)</small>
+
+* Merge pull request #162 from sb-mig/trigger-build ([8b2eb16](https://github.com/sb-mig/sb-mig/commit/8b2eb16)), closes [#162](https://github.com/sb-mig/sb-mig/issues/162)
+* fix(eslint and trigger): fix some eslint errors, and trigger build ([3b483d1](https://github.com/sb-mig/sb-mig/commit/3b483d1))
+* fix(publish): add publishConfig, and add node engine for 14 node to this version ([ef67074](https://github.com/sb-mig/sb-mig/commit/ef67074))
+
+
+
+
+
 ## <small>0.4.17 (2021-12-09)</small>
 
 * chore(release): publish ([e10a128](https://github.com/sb-mig/sb-mig/commit/e10a128))

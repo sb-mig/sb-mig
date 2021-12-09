@@ -2,16 +2,16 @@
   "name": "@sb-mig/plugin-generate-project",
   "private": false,
   "description": "Plugin for sb-mig to generate Storyblok project with command line",
-  "version": "0.4.17",
+  "version": "0.4.18",
   "author": "Marcin Krawczyk marckraw@icloud.com",
   "bugs": "https://github.com/sb-mig/sb-mig/issues",
   "dependencies": {
     "@oclif/command": "^1",
     "@oclif/config": "^1",
-    "@sb-mig/plugin-add-components": "^0.5.17",
+    "@sb-mig/plugin-add-components": "^0.5.18",
     "ncp": "^2.0.0",
     "rimraf": "^3.0.2",
-    "sb-mig": "^2.9.8",
+    "sb-mig": "^2.9.9",
     "yarn-or-npm": "^3.0.1"
   },
   "devDependencies": {

@@ -2,7 +2,7 @@
   "name": "@sb-mig/plugin-add-components",
   "private": false,
   "description": "Plugin for sb-mig to add components to your project",
-  "version": "0.5.17",
+  "version": "0.5.18",
   "author": "Marcin Krawczyk marckraw@icloud.com",
   "bugs": "https://github.com/sb-mig/sb-mig/issues",
   "dependencies": {
@@ -10,7 +10,7 @@
     "@oclif/config": "^1",
     "camelcase": "^6.0.0",
     "ncp": "^2.0.0",
-    "sb-mig": "^2.9.8",
+    "sb-mig": "^2.9.9",
     "yarn-or-npm": "^3.0.1"
   },
   "devDependencies": {
