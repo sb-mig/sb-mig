@@ -3,7 +3,7 @@ name: Build and Publish @sb-mig monorepo packages
 on:
   push:
     branches:
-      - test-publish-and-release
+      - master
 
 jobs:
   build:
