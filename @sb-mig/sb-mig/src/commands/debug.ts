@@ -3,7 +3,7 @@ import Command from '../core'
 
 // TODO: implement --verbose flag to be available in every command
 export default class Debug extends Command {
-    static description = 'Output extra debugging';
+    static description = 'Output extra debugging.';
 
     static flags = {
       help: flags.help({char: 'h'}),

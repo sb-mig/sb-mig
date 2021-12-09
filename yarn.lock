@@ -1233,7 +1233,7 @@
     widest-line "^3.1.0"
     wrap-ansi "^7.0.0"
 
-"@oclif/dev-cli@^1.26.9":
+"@oclif/dev-cli@1.26", "@oclif/dev-cli@^1.26.9":
   version "1.26.9"
   resolved "https://registry.yarnpkg.com/@oclif/dev-cli/-/dev-cli-1.26.9.tgz#e6d021a934d125e116a5c569821d6614b8171fe0"
   integrity sha512-/kHU558nkU9qXx08l9hTTE6oi5/Mtik9D7hmdc5+jeqGYTdCRv7Xx0iabsqC/fJVZLWbnjKSEbGqisBS280lCA==

@@ -6,7 +6,7 @@ import {copyComponents} from '../api/copy'
 import Logger from '../utils/Logger'
 
 export default class Add extends Command {
-    static description = 'Add and install components from repository.';
+    static description = 'Add and install components from repository';
 
     static examples = [
       '$ sb-mig add components @storyblok-components/simple-text-block',
