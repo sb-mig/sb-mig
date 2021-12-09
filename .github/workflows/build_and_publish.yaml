@@ -24,6 +24,7 @@ jobs:
         uses: actions/setup-node@v2
         with:
           node-version: ${{ matrix.node-version }}
+          registry-url: 'https://registry.npmjs.org'
 
       - name: Building deps
         run: yarn
@@ -43,5 +44,6 @@ jobs:
           git config --global user.email 'marckraw@icloud.com'
           git log -n 1
           git status
+          echo $NODE_AUTH_TOKEN
 
           npx lerna publish --conventional-commits --changelog-preset conventionalcommits -m 'chore(release): publish' --yes
