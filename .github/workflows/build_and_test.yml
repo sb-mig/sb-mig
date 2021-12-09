@@ -24,6 +24,7 @@ jobs:
         uses: actions/setup-node@v2
         with:
           node-version: ${{ matrix.node-version }}
+          registry-url: 'https://registry.npmjs.org'
 
       - name: Building deps
         run: yarn
@@ -34,5 +35,13 @@ jobs:
       - name: Linking packages
         run: npx lerna link
 
-      - name: Prepare repository
-        run: git reset --hard HEAD
+      - name: "Test publish"
+        env:
+          NO_HUSKY: 1
+          NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
+        run: |
+          git config --global user.name 'Marcin Krawczyk'
+          git config --global user.email 'marckraw@icloud.com'
+          git log -n 1
+          git status
+          echo $NODE_AUTH_TOKEN
