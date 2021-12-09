@@ -25,6 +25,15 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
 
+      - name: Setup npm
+        env:
+          NODE_AUTH_TOKEN: ${{secrets.GITHUB_TOKEN}}
+          GITHUB_REGISTRY: https://npm.pkg.github.com/
+        run: |
+          npm config set registry $GITHUB_REGISTRY
+          npm config set //npm.pkg.github.com/:_authToken=$NODE_AUTH_TOKEN
+          npm config set //npm.pkg.github.com/:always-auth true
+
       - name: Building deps
         run: yarn
 
@@ -39,7 +48,7 @@ jobs:
 
       - name: Publishing on npm registry
         env:
-          NODE_AUTH_TOKEN: ${{secrets.ALL_THE_THINGS}}
+          NODE_AUTH_TOKEN: ${{secrets.GITHUB_TOKEN}}
           NO_HUSKY: 1
         run: |
           git config --global user.name 'Marcin Krawczyk'
