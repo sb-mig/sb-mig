@@ -3,6 +3,20 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## <small>0.1.18 (2021-12-09)</small>
+
+* fix(oclif dev ?): meh ([2edf726](https://github.com/sb-mig/sb-mig/commit/2edf726))
+* fix(eslinbt): revert eslinrc conf ([bf2bbba](https://github.com/sb-mig/sb-mig/commit/bf2bbba))
+* fix(eslint removal): trying angular -i in changelog ([9c1c7a5](https://github.com/sb-mig/sb-mig/commit/9c1c7a5))
+* fix(eslint): eslint removal fix in version script ([6481558](https://github.com/sb-mig/sb-mig/commit/6481558))
+* fix(eslint): revert eslint updates ([1d3dea9](https://github.com/sb-mig/sb-mig/commit/1d3dea9))
+* fix(node engines): update engines to be > 16 ([415162c](https://github.com/sb-mig/sb-mig/commit/415162c))
+* chore(eslint): disable eslint stuff for now ([1be98ab](https://github.com/sb-mig/sb-mig/commit/1be98ab))
+
+
+
+
+
 ## <small>0.1.17 (2021-09-13)</small>
 
 * chore(deps): move and update typescript ([6dd1d56](https://github.com/sb-mig/sb-mig/commit/6dd1d56))

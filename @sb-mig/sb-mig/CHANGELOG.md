@@ -3,6 +3,26 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## <small>2.9.4 (2021-12-09)</small>
+
+* fix(oclif dev ?): meh ([2edf726](https://github.com/sb-mig/sb-mig/commit/2edf726))
+* fix(add eslint): to lint-staged files ([390f368](https://github.com/sb-mig/sb-mig/commit/390f368))
+* fix(axios deps): update axios to newest version ([ec32214](https://github.com/sb-mig/sb-mig/commit/ec32214))
+* fix(deps): update storyblok-js-client dep to newest ([3b78a3e](https://github.com/sb-mig/sb-mig/commit/3b78a3e))
+* fix(eslinbt): revert eslinrc conf ([bf2bbba](https://github.com/sb-mig/sb-mig/commit/bf2bbba))
+* fix(eslint removal): trying angular -i in changelog ([9c1c7a5](https://github.com/sb-mig/sb-mig/commit/9c1c7a5))
+* fix(eslint): eslint removal fix in version script ([6481558](https://github.com/sb-mig/sb-mig/commit/6481558))
+* fix(eslint): fix eslint errors ([380cbe4](https://github.com/sb-mig/sb-mig/commit/380cbe4))
+* fix(eslint): revert eslint updates ([1d3dea9](https://github.com/sb-mig/sb-mig/commit/1d3dea9))
+* fix(husky deps): update all husky deps, lint-staged, conventional commits all that ([dbc49dd](https://github.com/sb-mig/sb-mig/commit/dbc49dd))
+* fix(node engines): update engines to be > 16 ([415162c](https://github.com/sb-mig/sb-mig/commit/415162c))
+* fix(oclif-dev): update oclif dev cli deps ([199f47c](https://github.com/sb-mig/sb-mig/commit/199f47c))
+* chore(eslint): disable eslint stuff for now ([1be98ab](https://github.com/sb-mig/sb-mig/commit/1be98ab))
+
+
+
+
+
 ## <small>2.9.3 (2021-09-13)</small>
 
 * chore(deps): move and update typescript ([6dd1d56](https://github.com/sb-mig/sb-mig/commit/6dd1d56))

@@ -3,6 +3,18 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## <small>0.4.13 (2021-12-09)</small>
+
+* fix(eslinbt): revert eslinrc conf ([bf2bbba](https://github.com/sb-mig/sb-mig/commit/bf2bbba))
+* fix(eslint): revert eslint updates ([1d3dea9](https://github.com/sb-mig/sb-mig/commit/1d3dea9))
+* fix(node engines): update engines to be > 16 ([415162c](https://github.com/sb-mig/sb-mig/commit/415162c))
+* fix(oclif dev): probably the problem is with oclif-dev generation not conventional changelog ([568dc46](https://github.com/sb-mig/sb-mig/commit/568dc46))
+* chore(eslint): disable eslint stuff for now ([1be98ab](https://github.com/sb-mig/sb-mig/commit/1be98ab))
+
+
+
+
+
 ## <small>0.4.12 (2021-09-13)</small>
 
 * chore(deps): move and update typescript ([6dd1d56](https://github.com/sb-mig/sb-mig/commit/6dd1d56))
