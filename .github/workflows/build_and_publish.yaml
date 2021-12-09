@@ -10,23 +10,33 @@ jobs:
 
     runs-on: ubuntu-latest
 
+    strategy:
+      matrix:
+        node-version: [ 16.x ]
+
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout
+        uses: actions/checkout@v2
         with:
           fetch-depth: 0
-      - name: Use Node.js 12.x
-        uses: actions/setup-node@v1
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v2
         with:
-          node-version: 12.x
-          registry-url: https://registry.npmjs.org/
+          node-version: ${{ matrix.node-version }}
+
       - name: Building deps
         run: yarn
+
       - name: Building packages
         run: yarn start
+
       - name: Linking packages
         run: npx lerna link
+
       - name: Prepare repository
         run: git reset --hard HEAD
+
       - name: Publishing on npm registry
         env:
           NODE_AUTH_TOKEN: ${{secrets.npm_token}}

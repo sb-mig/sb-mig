@@ -1,25 +1,28 @@
-import {flags} from '@oclif/command'
-import Command from '../core'
+import { flags } from "@oclif/command";
+import Command from "../core";
 
 // TODO: implement --verbose flag to be available in every command
 export default class Debug extends Command {
-  static description = 'Output extra debugging'
+    static description = "Output extra debugging";
 
-  static flags = {
-    help: flags.help({char: 'h'}),
-  }
+    static flags = {
+        help: flags.help({ char: "h" }),
+    };
 
-  static args = []
+    static args = [];
 
-  async run() {
-    const {args, flags} = this.parse(Debug)
+    async run() {
+        // const {} = this.parse(Debug)
 
-    const config = this.storyblokConfig()
-    const componentsConfig = this.storyblokComponentsConfig().getAllData()
+        const config = this.storyblokConfig();
+        const componentsConfig = this.storyblokComponentsConfig().getAllData();
 
-    console.log('Thius are changes!')
+        // eslint-disable-next-line no-console
+        console.log("Thius are changes!");
 
-    console.log('storyblok.config.js: ', config, '\n')
-    console.log('storyblok.components.lock.js: ', componentsConfig)
-  }
+        // eslint-disable-next-line no-console
+        console.log("storyblok.config.js: ", config, "\n");
+        // eslint-disable-next-line no-console
+        console.log("storyblok.components.lock.js: ", componentsConfig);
+    }
 }
