@@ -69,7 +69,7 @@
     "build": "rm -rf lib && tsc -b",
     "prepack": "rm -rf lib && tsc -b && oclif-dev manifest && oclif-dev readme",
     "test": "nyc --extension .ts mocha --forbid-only \"test/**/*.test.ts\"",
-    "version": "conventional-changelog -p CHANGELOG.md -s && oclif-dev readme && git add README.md && git add CHANGELOG.md"
+    "version": "conventional-changelog -p angular -i CHANGELOG.md -s && oclif-dev readme && git add README.md && git add CHANGELOG.md"
   },
   "types": "lib/index.d.ts"
 }
