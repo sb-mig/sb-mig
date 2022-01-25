@@ -31,7 +31,8 @@
     "node": "^12.20.0 || ^14.13.1 || >=16.0.0"
   },
   "files": [
-    "./dist"
+    "./dist/index.js",
+    "./dist/api/components.js"
   ],
   "scripts": {
     "build": "rm -rf dist && tsc",
