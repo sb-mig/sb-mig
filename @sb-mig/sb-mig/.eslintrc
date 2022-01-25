@@ -1,8 +1,5 @@
 {
-  "extends": [
-    "oclif",
-    "oclif-typescript"
-  ],
+  "extends": [],
   "rules": {
     "no-console": 0
   }
