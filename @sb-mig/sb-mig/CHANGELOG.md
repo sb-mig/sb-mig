@@ -3,6 +3,14 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## <small>3.1.6 (2022-01-25)</small>
+
+* fix(files): finally published properly ([319e697](https://github.com/sb-mig/sb-mig/commit/319e697))
+
+
+
+
+
 ## <small>3.1.5 (2022-01-25)</small>
 
 * fix(files): add more files to prepend to npm ([2f434fb](https://github.com/sb-mig/sb-mig/commit/2f434fb))
