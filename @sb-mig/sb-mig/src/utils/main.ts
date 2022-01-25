@@ -22,9 +22,10 @@ export const getFileContent = (data: { file: string }): any => {
         .then((res) => {
             return res.default;
         })
-        .catch((error) => {
-            console.log("not good...");
-            console.log(error);
+        .catch(() => {
+            console.log(
+                "Cannot find requested file. (in terms of storyblok.config.js, using default values. "
+            );
         });
 };
 
