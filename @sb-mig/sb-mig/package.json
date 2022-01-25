@@ -1,12 +1,10 @@
 {
-  "name": "sb-mig-v3",
+  "name": "sb-mig",
   "version": "3.0.0",
   "description": "CLI to rule the world. (and handle stuff related to Storyblok CMS)",
   "author": "Marcin Krawczyk <marckraw@icloud.com>",
   "license": "MIT",
-  "bin": {
-    "sb-mig": "./dist/index.js"
-  },
+  "bin": "./dist/index.js",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/sb-mig/sb-mig.git"
