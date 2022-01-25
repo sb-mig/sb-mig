@@ -3,6 +3,14 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## <small>3.1.1 (2022-01-25)</small>
+
+* fix(import error): fall silently with importing storyblok.config.js ([3266091](https://github.com/sb-mig/sb-mig/commit/3266091))
+
+
+
+
+
 ## 3.1.0 (2022-01-25)
 
 * fix(upd): package.json ([257551d](https://github.com/sb-mig/sb-mig/commit/257551d))
