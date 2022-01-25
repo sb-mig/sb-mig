@@ -3,6 +3,15 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## 3.1.0 (2022-01-25)
+
+* fix(upd): package.json ([257551d](https://github.com/sb-mig/sb-mig/commit/257551d))
+* feat(sb-mig): rewrite all to Meow es modules, version 3.0.0 ([8a7556d](https://github.com/sb-mig/sb-mig/commit/8a7556d))
+
+
+
+
+
 ## <small>2.9.13 (2021-12-09)</small>
 
 * Merge branch 'master' of github.com:sb-mig/sb-mig ([5df10d5](https://github.com/sb-mig/sb-mig/commit/5df10d5))
