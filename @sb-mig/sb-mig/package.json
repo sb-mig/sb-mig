@@ -1,64 +1,10 @@
 {
   "name": "sb-mig",
-  "version": "2.9.13",
+  "version": "3.0.0",
   "description": "CLI to rule the world. (and handle stuff related to Storyblok CMS)",
   "author": "Marcin Krawczyk <marckraw@icloud.com>",
-  "bin": {
-    "sb-mig": "./bin/run"
-  },
-  "bugs": "https://github.com/sb-mig/sb-mig/issues",
-  "dependencies": {
-    "@oclif/command": "^1.8.0",
-    "@oclif/plugin-help": "^2",
-    "@oclif/plugin-plugins": "^2.0.11",
-    "@oclif/plugin-warn-if-update-available": "^2.0.2",
-    "@oclif/test": "^2.0.3",
-    "axios": "^0.24.0",
-    "camelcase": "^6.2.0",
-    "dotenv": "^8.2.0",
-    "glob": "^7.1.6",
-    "ncp": "^2.0.0",
-    "rimraf": "^3.0.2",
-    "storyblok-js-client": "^4.1.5"
-  },
-  "devDependencies": {
-    "@oclif/dev-cli": "^1.26.9",
-    "@oclif/test": "^1",
-    "conventional-changelog-cli": "^2.0.31",
-    "eslint-config-oclif": "^3.1"
-  },
-  "engines": {
-    "node": "^14.13.1 || >=16.0.0"
-  },
-  "files": [
-    "/bin",
-    "/lib",
-    "/npm-shrinkwrap.json",
-    "/oclif.manifest.json"
-  ],
-  "homepage": "https://sb-mig.com",
-  "keywords": [
-    "cli",
-    "storyblok",
-    "sb",
-    "migrate"
-  ],
   "license": "MIT",
-  "main": "lib/index.js",
-  "oclif": {
-    "commands": "./lib/commands",
-    "bin": "sb-mig",
-    "scope": "sb-mig",
-    "plugins": [
-      "@oclif/plugin-help",
-      "@oclif/plugin-plugins",
-      "@oclif/plugin-warn-if-update-available"
-    ],
-    "warn-if-update-available": {
-      "timeoutInDays": 3,
-      "message": "<%= config.name %> update available from <%= chalk.greenBright(config.version) %> to <%= chalk.greenBright(latest) %>."
-    }
-  },
+  "bin": "./dist/index.js",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/sb-mig/sb-mig.git"
@@ -67,13 +13,44 @@
     "registry": "https://registry.npmjs.org/",
     "access": "public"
   },
+  "bugs": "https://github.com/sb-mig/sb-mig/issues",
+  "homepage": "https://sb-mig.com",
+  "keywords": [
+    "cli",
+    "storyblok",
+    "sb",
+    "migrate"
+  ],
+  "type": "module",
+  "exports": "./dist/index.js",
+  "engines": {
+    "node": "^12.20.0 || ^14.13.1 || >=16.0.0"
+  },
+  "files": [
+    "./dist"
+  ],
   "scripts": {
-    "postpack": "rm -f oclif.manifest.json",
-    "posttest": "eslint . --ext .ts --config .eslintrc",
-    "build": "rm -rf lib && tsc -b",
-    "prepack": "rm -rf lib && tsc -b && npx oclif-dev manifest && npx oclif-dev readme",
-    "test": "nyc --extension .ts mocha --forbid-only \"test/**/*.test.ts\"",
+    "build": "rm -rf dist && tsc",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "yarn build && ./dist/index.js",
+    "debug": "yarn build && ./dist/index.js sync components accordion accordion-item",
     "version": "conventional-changelog -p eslint -i CHANGELOG.md -s"
   },
-  "types": "lib/index.d.ts"
+  "dependencies": {
+    "axios": "^0.25.0",
+    "chalk": "^5.0.0",
+    "dotenv": "^14.3.0",
+    "glob": "^7.2.0",
+    "meow": "^10.1.2",
+    "ncp": "^2.0.0",
+    "storyblok-js-client": "^4.2.0"
+  },
+  "devDependencies": {
+    "@sindresorhus/tsconfig": "^2.0.0",
+    "@types/glob": "^7.2.0",
+    "@types/node": "^17.0.12",
+    "@types/ncp": "^2.0.5",
+    "typescript": "^4.5.5",
+    "conventional-changelog-cli": "^2.0.31"
+  }
 }

@@ -1,77 +1,81 @@
-import Logger from '../utils/logger'
-import storyblokConfig from '../config/config'
-import {sbApi} from './apiConfig'
+import storyblokConfig from "../config/config.js";
+import { sbApi } from "./config.js";
 
-const {spaceId} = storyblokConfig
+const { spaceId } = storyblokConfig;
 
 // GET
 export const getAllComponents = () => {
-  Logger.log('Trying to get all components.')
+    console.log("Trying to get all components.");
 
-  return sbApi
-  .get(`spaces/${spaceId}/components/`)
-  .then((res: any) => res.data)
-  .catch((err: any) => Logger.error(err))
-}
+    return sbApi
+        .get(`spaces/${spaceId}/components/`)
+        .then((res: any) => res.data)
+        .catch((err: any) => console.error(err));
+};
 
-export const getComponent = (componentName: string) => {
-  Logger.log(`Trying to get '${componentName}' component.`)
+export const getComponent = (componentName: string | undefined) => {
+    console.log(`Trying to get '${componentName}' component.`);
 
-  return getAllComponents()
-  .then(res =>
-    res.components.filter((component: any) => component.name === componentName)
-  )
-  .then(res => {
-    if (Array.isArray(res) && res.length === 0) {
-      Logger.warning(`There is no component named '${componentName}'`)
-      return false
-    }
-    return res
-  })
-  .catch(err => Logger.error(err))
-}
+    return getAllComponents()
+        .then((res) =>
+            res.components.filter(
+                (component: any) => component.name === componentName
+            )
+        )
+        .then((res) => {
+            if (Array.isArray(res) && res.length === 0) {
+                console.info(`There is no component named '${componentName}'`);
+                return false;
+            }
+            return res;
+        })
+        .catch((err) => console.error(err));
+};
 
-export const getComponentsGroup = (groupName: string) => {
-  Logger.log(`Trying to get '${groupName}' group.`)
+export const getComponentsGroup = (groupName: string | undefined) => {
+    console.log(`Trying to get '${groupName}' group.`);
 
-  return getAllComponentsGroups()
-  .then(res => {
-    return res.component_groups.filter((group: any) => group.name === groupName)
-  })
-  .then(res => {
-    if (Array.isArray(res) && res.length === 0) {
-      Logger.warning(`There is no group named '${groupName}'`)
-      return false
-    }
-    return res
-  })
-  .catch(err => Logger.error(err))
-}
+    return getAllComponentsGroups()
+        .then((res) => {
+            return res.component_groups.filter(
+                (group: any) => group.name === groupName
+            );
+        })
+        .then((res) => {
+            if (Array.isArray(res) && res.length === 0) {
+                console.info(`There is no group named '${groupName}'`);
+                return false;
+            }
+            return res;
+        })
+        .catch((err) => console.error(err));
+};
 
 export const getAllComponentsGroups = async () => {
-  Logger.log('Trying to get all groups.')
+    console.log("Trying to get all groups.");
 
-  return sbApi
-  .get(`spaces/${spaceId}/component_groups/`)
-  .then(response => response.data)
-  .catch(err => Logger.error(err))
-}
+    return sbApi
+        .get(`spaces/${spaceId}/component_groups/`)
+        .then((response) => response.data)
+        .catch((err) => console.error(err));
+};
 
 export const createComponentsGroup = (groupName: string) => {
-  Logger.log(`Trying to create '${groupName}' group`)
-  return sbApi
-  .post(`spaces/${spaceId}/component_groups/`, {
-    component_group: {
-      name: groupName,
-    },
-  })
-  .then(res => {
-    Logger.warning(
-      `'${groupName}' created with uuid: ${res.data.component_group.uuid}`
-    )
-    return res.data
-  })
-  .catch(err => {
-    Logger.error('Error happened :()')
-  })
-}
+    console.log(`Trying to create '${groupName}' group`);
+    return sbApi
+        .post(`spaces/${spaceId}/component_groups/`, {
+            component_group: {
+                name: groupName,
+            },
+        })
+        .then((res) => {
+            console.info(
+                `'${groupName}' created with uuid: ${res.data.component_group.uuid}`
+            );
+            return res.data;
+        })
+        .catch((err: any) => {
+            console.log(err.message);
+            console.error("Error happened :()");
+        });
+};
