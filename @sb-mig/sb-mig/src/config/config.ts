@@ -7,7 +7,6 @@ dotenv.config();
 export interface IStoryblokConfig {
     storyblokComponentsLocalDirectory: string;
     sbmigWorkingDirectory: string;
-    datasourcesDirectory: string;
     componentsDirectories: string[];
     schemaFileExt: string;
     datasourceExt: string;
@@ -21,7 +20,6 @@ export interface IStoryblokConfig {
 const defaultConfig: IStoryblokConfig = {
     storyblokComponentsLocalDirectory: "src/@storyblok-components",
     sbmigWorkingDirectory: "sbmig",
-    datasourcesDirectory: "storyblok",
     componentsDirectories: ["src", "storyblok"],
     schemaFileExt: "sb.js",
     datasourceExt: "sb.datasource.js",

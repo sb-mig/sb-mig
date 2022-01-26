@@ -50,10 +50,12 @@ You can also provide your custom config. To do that u have to create `storyblok.
 ```
 // storyblok.config.js
 module.exports = {
+  storyblokComponentsLocalDirectory: "src/@storyblok-components",
   sbmigWorkingDirectory: "sbmig",
-  componentDirectory: "sbmig/storyblok",
   componentsDirectories: ["src", "storyblok"],
   schemaFileExt: "sb.js",
+  datasourceExt: "sb.datasource.js",
+  rolesExt: "sb.roles.js",
   storyblokApiUrl: "https://api.storyblok.com/v1",
   oauthToken: process.env.STORYBLOK_OAUTH_TOKEN,
   spaceId: process.env.STORYBLOK_SPACE_ID,
@@ -75,9 +77,6 @@ module.exports = {
 ```sh-session
 $ sb-mig --help
   CLI to rule the world. (and handle stuff related to Storyblok CMS)
-
-  VERSION
-      sb-mig/3.1.6
 
   USAGE
     $ sb-mig [command]
@@ -109,29 +108,31 @@ $ sb-mig --version
 
 ## `sb-mig backup`
 
+Command for backing up anything related to Storyblok
+
 ```
 $ sb-mig backup --help
 
-Command for backing up anything related to Storyblok
+
 
 CLI to rule the world. (and handle stuff related to Storyblok CMS)
 
   Usage
-      $ sb-mig-v3 backup [components|component-groups|roles|datasources|presets|component-presets] [space separated file names ] or --all
+      $ sb-mig-v3 backup [components|component-groups|roles|datasources|presets|component-presets] [space separated file names] or --all
   Description
       Command for backing up anything related to Storyblok
 
   COMMANDS
-      components - backup components
-      component-groups - backuo component-groups
-      roles - backup components
-      datasources - backup components
-      presets - backup presets
+      components        - backup components
+      component-groups  - backuo component-groups
+      roles             - backup components
+      datasources       - backup components
+      presets           - backup presets
       component-presets - backup component presets
 
   FLAGS
       --all  - Backup all
-      --one - Backup one
+      --one  - Backup one
 
   EXAMPLES
       $ sb-mig backup components --all
@@ -185,9 +186,9 @@ CLI to rule the world. (and handle stuff related to Storyblok CMS)
       Synchronize components or roles with Storyblok space.
 
   COMMANDS
-      components  - sync components
-      roles       - sync roles
-      datasources - sync datasources
+      components    - sync components
+      roles         - sync roles
+      datasources   - sync datasources
 
   FLAGS
       --all         - Sync all components
