@@ -5,13 +5,8 @@ import { getFileContent } from "../utils/main.js";
 dotenv.config();
 
 export interface IStoryblokConfig {
-    componentsMatchFile: string;
-    storyblokComponentsListfile: string;
     storyblokComponentsLocalDirectory: string;
-    componentsStylesMatchFile: string;
-    boilerplateUrl: string;
     sbmigWorkingDirectory: string;
-    componentDirectory: string;
     datasourcesDirectory: string;
     componentsDirectories: string[];
     schemaFileExt: string;
@@ -24,16 +19,8 @@ export interface IStoryblokConfig {
 }
 
 const defaultConfig: IStoryblokConfig = {
-    componentsMatchFile: "src/components/components.js",
-    storyblokComponentsListfile:
-        "src/components/storyblok-components.componentList.js",
     storyblokComponentsLocalDirectory: "src/@storyblok-components",
-    componentsStylesMatchFile:
-        "src/@storyblok-components/_storyblok-components.scss",
-    boilerplateUrl:
-        "git@github.com:storyblok-components/gatsby-storyblok-boilerplate.git",
     sbmigWorkingDirectory: "sbmig",
-    componentDirectory: "storyblok",
     datasourcesDirectory: "storyblok",
     componentsDirectories: ["src", "storyblok"],
     schemaFileExt: "sb.js",

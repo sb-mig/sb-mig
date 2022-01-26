@@ -66,7 +66,7 @@ You don't need to pass everything to the config file, just add what you need and
 ```
 // storyblok.config.js
 module.exports = {
-  componentDirectory: 'storyblok',
+  componentsDirectories: ["src", "storyblok", "@storyblok-components"],
 };
 ```
 
