@@ -95,14 +95,23 @@ $ sb-mig --help
 
 # Commands
 
+* [`sb-mig version`](#sb-mig-version)
 * [`sb-mig backup`](#sb-mig-backup)
 * [`sb-mig debug`](#sb-mig-debug)
+* [`sb-mig sync`](#sb-mig-sync)
+
+## `sb-mig version`
+```
+$ sb-mig --version
+
+3.1.7
+```
 
 ## `sb-mig backup`
 
-Command for backing up anything related to Storyblok
-
 ```
+$ sb-mig backup --help
+
 Command for backing up anything related to Storyblok
 
 CLI to rule the world. (and handle stuff related to Storyblok CMS)
@@ -131,31 +140,42 @@ CLI to rule the world. (and handle stuff related to Storyblok CMS)
       $ sb-mig backup roles admin normal-user
 ```
 
-_See code: [lib/commands/backup.js](https://github.com/sb-mig/sb-mig/blob/v2.9.11/lib/commands/backup.js)_
-
 ## `sb-mig debug`
 
 Output extra debugging.
 
 ```
-Output extra debugging.
+$ sb-mig debug
 
-USAGE
-  $ sb-mig debug
-
-OPTIONS
-  -h, --help  show CLI help
+storyblok.config.js:  {
+  componentsMatchFile: 'src/components/components.js',
+  storyblokComponentsListfile: 'src/components/storyblok-components.componentList.js',
+  storyblokComponentsLocalDirectory: 'src/@storyblok-components',
+  componentsStylesMatchFile: 'src/@storyblok-components/_storyblok-components.scss',
+  boilerplateUrl: 'git@github.com:storyblok-components/gatsby-storyblok-boilerplate.git',
+  sbmigWorkingDirectory: 'sbmig',
+  componentDirectory: 'storyblok',
+  datasourcesDirectory: 'storyblok',
+  componentsDirectories: [ 'src', 'storyblok' ],
+  schemaFileExt: 'sb.js',
+  datasourceExt: 'sb.datasource.js',
+  rolesExt: 'sb.roles.js',
+  storyblokApiUrl: 'https://api.storyblok.com/v1',
+  oauthToken: '',
+  spaceId: '',
+  accessToken: ''
+}
 ```
 
-_See code: [lib/commands/debug.js](https://github.com/sb-mig/sb-mig/blob/v2.9.11/lib/commands/debug.js)_
 
 
-
-## `sb-mig sync --help`
+## `sb-mig sync`
 
 Synchronize components, datasources or roles with Storyblok space.
 
 ```
+$ sb-mig sync --help
+
 CLI to rule the world. (and handle stuff related to Storyblok CMS)
 
   Usage
