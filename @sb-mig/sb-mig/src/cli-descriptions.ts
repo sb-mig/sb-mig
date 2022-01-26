@@ -1,9 +1,6 @@
 export const mainDescription = `
     CLI to rule the world. (and handle stuff related to Storyblok CMS)
     
-    VERSION
-        sb-mig/3.0.0@beta
-    
     USAGE
       $ sb-mig [command]
     
@@ -26,14 +23,14 @@ export const syncDescription = `
         Synchronize components or roles with Storyblok space.
         
     COMMANDS
-        components  - sync components
-        roles       - sync roles
-        datasources - sync datasources
+        components     - sync components
+        roles          - sync roles
+        datasources    - sync datasources
      
     FLAGS
-        --all         - Sync all components
-        --packageName - Sync based on package name, instead of file name (package can have multiple schema files to sync)
-        --presets     - Pass it, if u want to sync also with presets (will take longer) 
+        --all          - Sync all components
+        --packageName  - Sync based on package name, instead of file name (package can have multiple schema files to sync)
+        --presets      - Pass it, if u want to sync also with presets (will take longer) 
     
     EXAMPLES
         $ sb-mig sync components --all
@@ -49,16 +46,16 @@ export const backupDescription = `
         Command for backing up anything related to Storyblok
         
     COMMANDS
-        components - backup components
-        component-groups - backuo component-groups
-        roles - backup components
-        datasources - backup components
-        presets - backup presets
+        components        - backup components
+        component-groups  - backuo component-groups
+        roles             - backup components
+        datasources       - backup components
+        presets           - backup presets
         component-presets - backup component presets
      
     FLAGS
-        --all  - Backup all 
-        --one - Backup one 
+        --all   - Backup all 
+        --one   - Backup one 
     
     EXAMPLES
         $ sb-mig backup components --all
