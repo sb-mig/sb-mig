@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+### [3.1.9](https://github.com/sb-mig/sb-mig/compare/sb-mig@3.1.8...sb-mig@3.1.9) (2022-01-27)
+
+
+### Bug Fixes
+
+* **config:** now we can create storyblok.config in 2 extensions: .js or .mjs ([38d0478](https://github.com/sb-mig/sb-mig/commit/38d047839f2363793676e8ef3ef8ad030e60c308))
+* **props:** wrong passed props ([dbf7b26](https://github.com/sb-mig/sb-mig/commit/dbf7b26d6799ab13aa0d72b2be3b0feed3b63460))
+* **tslint:** value never used ([9839880](https://github.com/sb-mig/sb-mig/commit/9839880cd11b51cbca7f8e6c4c17aee5f9a04adb))
+
+
+
 ### [3.1.8](https://github.com/sb-mig/sb-mig/compare/sb-mig@3.1.7...sb-mig@3.1.8) (2022-01-26)
 
 
