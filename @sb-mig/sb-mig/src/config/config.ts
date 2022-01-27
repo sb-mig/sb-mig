@@ -1,6 +1,37 @@
 import path from "path";
 import dotenv from "dotenv";
-import { getFileContent } from "../utils/main.js";
+import Logger from "../utils/logger.js";
+
+const getStoryblokConfigContent = (data: {
+    filePath: string;
+    ext: string;
+}): any => {
+    return import(`${data.filePath}${data.ext}`)
+        .then((res) => {
+            Logger.success("Found storyblok.config.js!");
+            return res.default;
+        })
+        .catch(() => {
+            Logger.warning("Cannot find requested file with .js extension.");
+            Logger.log("Trying .mjs extension\n");
+
+            import(`${data.filePath}.mjs`)
+                .then((res) => {
+                    Logger.success("Found storyblok.config.mjs!");
+                    return res.default;
+                })
+                .catch(() => {
+                    Logger.error(
+                        "Cannot find requested file with .mjs extension."
+                    );
+                    Logger.log(
+                        "Create storyblok.config.js or storyblok.config.mjs in your project. If u want to have custom configuration"
+                    );
+
+                    Logger.log("Using default configruration.");
+                });
+        });
+};
 
 dotenv.config();
 
@@ -33,8 +64,10 @@ const defaultConfig: IStoryblokConfig = {
         "",
 };
 
-const customConfig: any = await getFileContent({
-    file: path.resolve(process.cwd(), "storyblok.config") + ".js",
+const filePath = path.resolve(process.cwd(), "storyblok.config");
+const customConfig = await getStoryblokConfigContent({
+    filePath,
+    ext: ".js",
 });
 
 export default {

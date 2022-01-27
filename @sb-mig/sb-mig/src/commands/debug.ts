@@ -1,15 +1,5 @@
 import config from "../config/config.js";
 
-export const debug = (props: any) => {
-    const {
-        input,
-        flags,
-        unnormalizedFlags,
-        pkg,
-        help,
-        showHelp,
-        showVersion,
-    } = props;
-
+export const debug = async () => {
     console.log("storyblok.config.js: ", config, "\n");
 };
