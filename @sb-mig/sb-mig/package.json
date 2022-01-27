@@ -35,6 +35,7 @@
   ],
   "scripts": {
     "build": "rm -rf dist && tsc",
+    "build:dev": "rm -rf dist && tsc && chmod +x ./dist/index.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "yarn build && ./dist/index.js",
     "debug": "yarn build && ./dist/index.js sync components accordion accordion-item",
