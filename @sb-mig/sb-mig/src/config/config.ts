@@ -15,7 +15,7 @@ const getStoryblokConfigContent = (data: {
             Logger.warning("Cannot find requested file with .js extension.");
             Logger.log("Trying .mjs extension\n");
 
-            import(`${data.filePath}.mjs`)
+            return import(`${data.filePath}.mjs`)
                 .then((res) => {
                     Logger.success("Found storyblok.config.mjs!");
                     return res.default;
