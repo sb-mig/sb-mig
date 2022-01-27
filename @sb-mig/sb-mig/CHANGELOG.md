@@ -3,6 +3,15 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+### [3.1.10](https://github.com/sb-mig/sb-mig/compare/sb-mig@3.1.9...sb-mig@3.1.10) (2022-01-27)
+
+
+### Bug Fixes
+
+* **config:** customConfig was not returned, so not appended to config ([26149de](https://github.com/sb-mig/sb-mig/commit/26149de07c43ca344903737f584ac7cf7eca1f63))
+
+
+
 ### [3.1.9](https://github.com/sb-mig/sb-mig/compare/sb-mig@3.1.8...sb-mig@3.1.9) (2022-01-27)
 
 
