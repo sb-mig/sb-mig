@@ -44,7 +44,7 @@ app.debug = () => ({
         importMeta: import.meta,
         booleanDefault: undefined,
     }),
-    action: (cli: any) => {
+    action: () => {
         debug();
     },
 });
