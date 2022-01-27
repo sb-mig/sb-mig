@@ -45,7 +45,7 @@ app.debug = () => ({
         booleanDefault: undefined,
     }),
     action: (cli: any) => {
-        debug(cli);
+        debug();
     },
 });
 
