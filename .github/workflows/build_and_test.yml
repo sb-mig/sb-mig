@@ -30,7 +30,7 @@ jobs:
         run: yarn
 
       - name: Building packages
-        run: yarn start
+        run: yarn build
 
       - name: "Test publish"
         env:
