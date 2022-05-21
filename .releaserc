@@ -5,10 +5,6 @@
             name: "beta",
             prerelease: true,
         },
-        {
-            name: "move-out-from-lerna-to-single-repo-semantic-release",
-            prerelease: true,
-        },
     ],
     "plugins": [
         "@semantic-release/commit-analyzer",
