@@ -1,3 +1,15 @@
+## [3.0.2](https://github.com/sb-mig/sb-mig/compare/v3.0.1...v3.0.2) (2022-05-21)
+
+
+
+
+## [3.0.2](https://github.com/sb-mig/sb-mig/compare/v3.0.1...v3.0.2) (2022-05-21)
+
+
+### Bug Fixes
+
+* **test:** this is finally breaking-change (hope so) ([bd85f04](https://github.com/sb-mig/sb-mig/commit/bd85f04199a1310f2476956192ce3de16ebc7ef1))
+
 ## [3.0.1](https://github.com/sb-mig/sb-mig/compare/v3.0.0...v3.0.1) (2022-05-21)
 
 
