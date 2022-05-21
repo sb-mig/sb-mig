@@ -1,3 +1,15 @@
+# [3.0.0-beta.2](https://github.com/sb-mig/sb-mig/compare/v3.0.0-beta.1...v3.0.0-beta.2) (2022-05-21)
+
+
+
+
+# [3.0.0-beta.2](https://github.com/sb-mig/sb-mig/compare/v3.0.0-beta.1...v3.0.0-beta.2) (2022-05-21)
+
+
+### Bug Fixes
+
+* **test:** some test changes ([abaa45b](https://github.com/sb-mig/sb-mig/commit/abaa45b048d5e32e8efc951490950cf1a148b8ad))
+
 # [3.0.0-beta.1](https://github.com/sb-mig/sb-mig/compare/v2.3.6...v3.0.0-beta.1) (2022-05-21)
 
 
