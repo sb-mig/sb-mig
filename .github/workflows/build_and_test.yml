@@ -1,4 +1,4 @@
-name: Build and Test @sb-mig monorepo packages
+name: Build and Test sb-mig
 
 on:
   pull_request:
@@ -31,9 +31,6 @@ jobs:
 
       - name: Building packages
         run: yarn start
-
-      - name: Linking packages
-        run: npx lerna link
 
       - name: "Test publish"
         env:
