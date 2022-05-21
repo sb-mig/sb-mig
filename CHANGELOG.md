@@ -1,3 +1,15 @@
+## [4.0.3](https://github.com/sb-mig/sb-mig/compare/v4.0.2...v4.0.3) (2022-05-21)
+
+
+
+
+## [4.0.3](https://github.com/sb-mig/sb-mig/compare/v4.0.2...v4.0.3) (2022-05-21)
+
+
+### Bug Fixes
+
+* **packages:** update storyblok-js-client ([3839b4b](https://github.com/sb-mig/sb-mig/commit/3839b4bc19ce2196135c3d6c52c6d14c229b5ac7))
+
 ## [4.0.2](https://github.com/sb-mig/sb-mig/compare/v4.0.1...v4.0.2) (2022-05-21)
 
 
