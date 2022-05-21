@@ -7,6 +7,12 @@ If you've found an issue or you have feature request - <a href="https://github.c
 [![npm](https://img.shields.io/npm/dt/sb-mig.svg)](ttps://img.shields.io/npm/dt/sb-mig.svg)
 [![GitHub issues](https://img.shields.io/github/issues/sb-mig/sb-mig.svg?style=flat-square&v=1)](https://github.com/sb-mig/sb-mig/issues?q=is%3Aopen+is%3Aissue)
 
+# 4.x.x version released!
+
+- Whole deployment now, is handled by [semantic-release](https://github.com/semantic-release/semantic-release). And is just normal repository, instead of Lerna monorepo which is not needed anymore, and it was recently unmaintained (now it was passed to `nrwl` to maintain (https://github.com/lerna/lerna/issues/3121) will see what will happen in future with it :)
+- Fromt the code perspective, there are no **breaking changes** between **3.x.x** and **4.x.x** but i'm going to fix some stuff now and add some more functionalities to it. So stay tuned!
+- This Readme, which is also kinda documentation, will also be updated. Cause in some places there is misleading information. The best documentation though is just `sb-mig --help` command.
+
 # 3.x.x version released!
 
 - completely rewritten to simple [Meow](https://github.com/sindresorhus/meow) lib with help of Typescript. Check [migration guide](https://github.com/sb-mig/sb-mig/blob/oclif-research/MIGRATION-GUIDE-v3.md)
