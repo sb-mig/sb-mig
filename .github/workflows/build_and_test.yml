@@ -32,9 +32,6 @@ jobs:
       - name: Building packages
         run: yarn start
 
-      - name: Linking packages
-        run: npx lerna link
-
       - name: "Test publish"
         env:
           NO_HUSKY: 1
