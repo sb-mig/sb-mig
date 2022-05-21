@@ -1,3 +1,15 @@
+# [3.0.0-beta.4](https://github.com/sb-mig/sb-mig/compare/v3.0.0-beta.3...v3.0.0-beta.4) (2022-05-21)
+
+
+
+
+# [3.0.0-beta.4](https://github.com/sb-mig/sb-mig/compare/v3.0.0-beta.3...v3.0.0-beta.4) (2022-05-21)
+
+
+### Bug Fixes
+
+* **workflow:** make workflow work also for master ([2a2a399](https://github.com/sb-mig/sb-mig/commit/2a2a3990d137f4ffee2312d5cabb006459236121))
+
 # [3.0.0-beta.3](https://github.com/sb-mig/sb-mig/compare/v3.0.0-beta.2...v3.0.0-beta.3) (2022-05-21)
 
 
