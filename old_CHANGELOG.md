@@ -1,6 +1,3 @@
-# [3.0.0-beta.1](https://github.com/sb-mig/sb-mig/compare/v2.3.6...v3.0.0-beta.1) (2022-05-21)
-
-
 ### [3.1.11](https://github.com/sb-mig/sb-mig/compare/sb-mig@3.1.10...sb-mig@3.1.11) (2022-05-21)
 
 
