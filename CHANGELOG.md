@@ -1,3 +1,15 @@
+# [3.0.0-beta.3](https://github.com/sb-mig/sb-mig/compare/v3.0.0-beta.2...v3.0.0-beta.3) (2022-05-21)
+
+
+
+
+# [3.0.0-beta.3](https://github.com/sb-mig/sb-mig/compare/v3.0.0-beta.2...v3.0.0-beta.3) (2022-05-21)
+
+
+### Features
+
+* **repo:** remove lerna monorepo, add semantic-release instead ([358659c](https://github.com/sb-mig/sb-mig/commit/358659c3fabe6c4e72a675a78ab5d0290b3a5935))
+
 # [3.0.0-beta.2](https://github.com/sb-mig/sb-mig/compare/v3.0.0-beta.1...v3.0.0-beta.2) (2022-05-21)
 
 
