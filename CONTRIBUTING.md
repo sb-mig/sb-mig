@@ -3,7 +3,7 @@
 First fork this project.  
 
 * git clone <your-forked-repo>
-* npm install
+* yarn
 
 * git checkout -b my-fix
 
