@@ -1,3 +1,11 @@
+## [4.0.4](https://github.com/sb-mig/sb-mig/compare/v4.0.3...v4.0.4) (2022-05-21)
+
+
+### Bug Fixes
+
+* **cli descriptions:** fix and clean, cli --help descriptions ([44ba57f](https://github.com/sb-mig/sb-mig/commit/44ba57f359e57e312ef78394aa905316dbe25b7e))
+* **npm scripts:** add watch npm script for buildiing and compiling ts ([131e915](https://github.com/sb-mig/sb-mig/commit/131e9158d58d664977a8057539f1a8114e35e743))
+
 ## [4.0.3](https://github.com/sb-mig/sb-mig/compare/v4.0.2...v4.0.3) (2022-05-21)
 
 
