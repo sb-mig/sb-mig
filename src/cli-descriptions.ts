@@ -1,6 +1,4 @@
 export const mainDescription = `
-    CLI to rule the world. (and handle stuff related to Storyblok CMS)
-    
     USAGE
       $ sb-mig [command]
     
@@ -11,13 +9,13 @@ export const mainDescription = `
         help    This screen
     
     Examples
-      $ sb-migv-3 sync
-      $ sb-mig-v3 debug  
+      $ sb-mig sync
+      $ sb-mig debug  
 `;
 
 export const syncDescription = `
     Usage
-        $ sb-mig-v3 sync [components|roles|datasources] [space separated file names] or --all --packageName
+        $ sb-mig sync [components|roles|datasources] [space separated file names] or --all --packageName
         
     Description
         Synchronize components or roles with Storyblok space.
@@ -34,20 +32,24 @@ export const syncDescription = `
     
     EXAMPLES
         $ sb-mig sync components --all
+        $ sb-mig sync components --all --presets
         $ sb-mig sync components accordion accordion-item
+        $ sb-mig sync components accordion accordion-item --presets
         $ sb-mig sync components @storyblok-components/accordion --packageName
-    
+        $ sb-mig sync components @storyblok-components/accordion --packageName --presets
+        $ sb-mig sync roles --all
+        $ sb-mig sync datasources --all
 `;
 
 export const backupDescription = `
     Usage
-        $ sb-mig-v3 backup [components|component-groups|roles|datasources|presets|component-presets] [space separated file names ] or --all
+        $ sb-mig backup [components|component-groups|roles|datasources|presets|component-presets] component-name --one or --all
     Description
         Command for backing up anything related to Storyblok
         
     COMMANDS
         components        - backup components
-        component-groups  - backuo component-groups
+        component-groups  - backup component-groups
         roles             - backup components
         datasources       - backup components
         presets           - backup presets
@@ -59,14 +61,14 @@ export const backupDescription = `
     
     EXAMPLES
         $ sb-mig backup components --all
-        $ sb-mig backup components accordion accordion-item carousel text-block
+        $ sb-mig backup components accordion --one  
         $ sb-mig backup datasources --all
-        $ sb-mig backup roles admin normal-user
+        $ sb-mig backup roles admin --one
 `;
 
 export const debugDescription = `
     Usage
-        $ sb-mig-v3 debug
+        $ sb-mig debug
     Description
         Output extra debugging information
 `;

@@ -49,6 +49,9 @@ export const backup = (props: CLIOptions) => {
 
                 getComponent(componentToBackup)
                     .then(async (res: any) => {
+                        console.log("############");
+                        console.log(res);
+                        console.log("############");
                         await createAndSaveToFile({
                             prefix: "component-",
                             folder: "components",
@@ -60,6 +63,7 @@ export const backup = (props: CLIOptions) => {
                         Logger.error("error happened... :(");
                     });
             }
+
             break;
         case BACKUP_COMMANDS.componentGroups:
             if (flags["all"]) {
