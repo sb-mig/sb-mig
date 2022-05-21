@@ -1,3 +1,15 @@
+# [3.0.0-beta.5](https://github.com/sb-mig/sb-mig/compare/v3.0.0-beta.4...v3.0.0-beta.5) (2022-05-21)
+
+
+
+
+# [3.0.0-beta.5](https://github.com/sb-mig/sb-mig/compare/v3.0.0-beta.4...v3.0.0-beta.5) (2022-05-21)
+
+
+### Bug Fixes
+
+* **workflow:** remove previous workflow for build from production ([6d7fed9](https://github.com/sb-mig/sb-mig/commit/6d7fed95ff56842c4dd3a9d693efedd73a9dbe9d))
+
 # [3.0.0-beta.4](https://github.com/sb-mig/sb-mig/compare/v3.0.0-beta.3...v3.0.0-beta.4) (2022-05-21)
 
 
