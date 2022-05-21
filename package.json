@@ -51,7 +51,7 @@
     "glob": "^8.0.3",
     "meow": "^10.1.2",
     "ncp": "^2.0.0",
-    "storyblok-js-client": "^4.2.0"
+    "storyblok-js-client": "^4.5.2"
   },
   "devDependencies": {
     "@commitlint/cli": "^17.0.0",
