@@ -1,3 +1,20 @@
+# [4.0.0](https://github.com/sb-mig/sb-mig/compare/v3.0.2...v4.0.0) (2022-05-21)
+
+
+
+
+# [4.0.0](https://github.com/sb-mig/sb-mig/compare/v3.0.2...v4.0.0) (2022-05-21)
+
+
+### Bug Fixes
+
+* **finally:** finally understand how semantic-release works ([cc7b1d1](https://github.com/sb-mig/sb-mig/commit/cc7b1d173c798d4f4a2aef95ffbb5cfdadd4f765))
+
+
+### BREAKING CHANGES
+
+* **finally:** it has to be without - !
+
 ## [3.0.2](https://github.com/sb-mig/sb-mig/compare/v3.0.1...v3.0.2) (2022-05-21)
 
 
