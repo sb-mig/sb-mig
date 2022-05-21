@@ -3,6 +3,15 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+### [3.1.11](https://github.com/sb-mig/sb-mig/compare/sb-mig@3.1.10...sb-mig@3.1.11) (2022-05-21)
+
+
+### Bug Fixes
+
+* **upd:** update dev deps and axios inside sb-mig ([b76a6ad](https://github.com/sb-mig/sb-mig/commit/b76a6ad3743fa33b19e609aa37c69fa45f05bc12))
+
+
+
 ### [3.1.10](https://github.com/sb-mig/sb-mig/compare/sb-mig@3.1.9...sb-mig@3.1.10) (2022-01-27)
 
 
