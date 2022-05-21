@@ -1,14 +1,12 @@
-name: Build and Test sb-mig
-
+name: Release Beta
 on:
-  pull_request:
+  push:
     branches:
-      - master
       - beta
-
+      - master
 jobs:
-  build:
-
+  release:
+    name: Release
     runs-on: ubuntu-latest
 
     strategy:
@@ -39,12 +37,11 @@ jobs:
         run: |
           yarn build
 
-      - name: "Test publish"
+      - name: Release
         env:
           NO_HUSKY: 1
+          GH_PACKAGES_TOKEN: ${{ secrets.GH_PACKAGES_TOKEN }}
           NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
-        run: |
-          git config --global user.name 'Marcin Krawczyk'
-          git config --global user.email 'marckraw@icloud.com'
-          git log -n 1
-          git status
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npx semantic-release

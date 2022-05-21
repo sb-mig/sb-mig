@@ -1,8 +1,3 @@
-# Change Log
-
-All notable changes to this project will be documented in this file.
-See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
-
 ### [3.1.11](https://github.com/sb-mig/sb-mig/compare/sb-mig@3.1.10...sb-mig@3.1.11) (2022-05-21)
 
 
