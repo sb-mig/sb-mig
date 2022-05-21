@@ -1,6 +1,6 @@
 {
   "name": "sb-mig",
-  "version": "3.1.11",
+  "version": "3.1.12",
   "description": "CLI to rule the world. (and handle stuff related to Storyblok CMS)",
   "author": "Marcin Krawczyk <marckraw@icloud.com>",
   "license": "MIT",
@@ -53,19 +53,19 @@
     "storyblok-js-client": "^4.2.0"
   },
   "devDependencies": {
+    "@commitlint/cli": "^17.0.0",
+    "@commitlint/config-conventional": "^17.0.0",
+    "@sindresorhus/tsconfig": "^2.0.0",
     "@types/glob": "^7.2.0",
     "@types/ncp": "^2.0.5",
     "@types/node": "^17.0.35",
-    "@commitlint/cli": "^17.0.0",
-    "@commitlint/config-conventional": "^17.0.0",
     "commitizen": "^4.0.4",
+    "conventional-changelog-cli": "^2.0.31",
     "eslint": "^8.16.0",
     "eslint-config-prettier": "^8.5.0",
     "husky": "^8.0.1",
     "lint-staged": "^12.4.1",
     "prettier": "^2.6.2",
-    "@sindresorhus/tsconfig": "^2.0.0",
-    "conventional-changelog-cli": "^2.0.31",
     "typescript": "^4.6.4"
   },
   "config": {
