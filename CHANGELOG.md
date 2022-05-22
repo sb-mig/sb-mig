@@ -1,3 +1,15 @@
+## [4.0.11](https://github.com/sb-mig/sb-mig/compare/v4.0.10...v4.0.11) (2022-05-22)
+
+
+
+
+## [4.0.11](https://github.com/sb-mig/sb-mig/compare/v4.0.10...v4.0.11) (2022-05-22)
+
+
+### Bug Fixes
+
+* **commitizen:** once again some updates for commitizen, added resolution for minimist ([d0aa816](https://github.com/sb-mig/sb-mig/commit/d0aa81651898080c5d7016b50a35dae2aef53919)), closes [/github.com/commitizen/cz-cli/issues/914#issuecomment-1094335756](https://github.com//github.com/commitizen/cz-cli/issues/914/issues/issuecomment-1094335756)
+
 ## [4.0.10](https://github.com/sb-mig/sb-mig/compare/v4.0.9...v4.0.10) (2022-05-22)
 
 
