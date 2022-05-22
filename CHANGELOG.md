@@ -1,3 +1,15 @@
+## [4.0.8](https://github.com/sb-mig/sb-mig/compare/v4.0.7...v4.0.8) (2022-05-22)
+
+
+
+
+## [4.0.8](https://github.com/sb-mig/sb-mig/compare/v4.0.7...v4.0.8) (2022-05-22)
+
+
+### Bug Fixes
+
+* **release:** add README.md to be included in bundle (and on npm page) ([243828f](https://github.com/sb-mig/sb-mig/commit/243828f23716a95a3437cbe079633ee222ca3423))
+
 ## [4.0.7](https://github.com/sb-mig/sb-mig/compare/v4.0.6...v4.0.7) (2022-05-22)
 
 
