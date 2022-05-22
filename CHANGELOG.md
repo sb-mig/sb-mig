@@ -1,3 +1,15 @@
+## [4.0.9](https://github.com/sb-mig/sb-mig/compare/v4.0.8...v4.0.9) (2022-05-22)
+
+
+
+
+## [4.0.9](https://github.com/sb-mig/sb-mig/compare/v4.0.8...v4.0.9) (2022-05-22)
+
+
+### Bug Fixes
+
+* **commitizen:** move from unmaintained commitizen repo, to fork of this repo ([15e584e](https://github.com/sb-mig/sb-mig/commit/15e584e66bd1516f16ee784081afe6ab7474ad02))
+
 ## [4.0.8](https://github.com/sb-mig/sb-mig/compare/v4.0.7...v4.0.8) (2022-05-22)
 
 
