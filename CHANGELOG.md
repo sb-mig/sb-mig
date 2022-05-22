@@ -1,3 +1,15 @@
+## [4.0.6](https://github.com/sb-mig/sb-mig/compare/v4.0.5...v4.0.6) (2022-05-22)
+
+
+
+
+## [4.0.6](https://github.com/sb-mig/sb-mig/compare/v4.0.5...v4.0.6) (2022-05-22)
+
+
+### Bug Fixes
+
+* **release:** change order of plugins in semantic-release ([3a1ddca](https://github.com/sb-mig/sb-mig/commit/3a1ddcac8cc7ea11d22910559762874d8f3d53c2))
+
 ## [4.0.5](https://github.com/sb-mig/sb-mig/compare/v4.0.4...v4.0.5) (2022-05-22)
 
 
