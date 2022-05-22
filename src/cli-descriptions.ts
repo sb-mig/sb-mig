@@ -3,13 +3,13 @@ export const mainDescription = `
       $ sb-mig [command]
     
     COMMANDS
-        sync Synchronize components, datasources or roles with Storyblok space.
+        sync    Synchronize components, datasources or roles with Storyblok space.
         backup  Command for backing up anything related to Storyblok
         debug   Output extra debugging information
         help    This screen
     
     Examples
-      $ sb-mig sync
+      $ sb-mig sync components --all
       $ sb-mig debug  
 `;
 

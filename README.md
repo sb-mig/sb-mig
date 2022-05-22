@@ -43,11 +43,19 @@ If you've found an issue or you have feature request - <a href="https://github.c
 npm install --global sb-mig
 ```
 
-You have to create a `.env` file with your variables:
+In your working directory (usually root of your repo where u have your app/webpage using Storyblok), you have to create a `.env` file with your variables:
 
 ```
 STORYBLOK_OAUTH_TOKEN=1234567890qwertyuiop
 STORYBLOK_SPACE_ID=12345
+
+# For nextjs
+# NEXT_PUBLIC_STORYBLOK_ACCESS_TOKEN=zxcvbnmasdfghjkl
+
+# For gatsby
+# GATSBY_STORYBLOK_ACCESS_TOKEN=zxcvbnmasdfghjkl
+
+# any other (you have to handle '.env' access in frontend yourself (for example with dotenv package)
 STORYBLOK_ACCESS_TOKEN=zxcvbnmasdfghjkl
 ```
 
@@ -94,13 +102,13 @@ $ sb-mig --help
       help    This screen
 
   Examples
-    $ sb-migv sync components --all
+    $ sb-mig sync components --all
     $ sb-mig debug
 ```
 
 # Commands
 
-* [`sb-mig version`](#sb-mig-version)
+* [`sb-mig --version`](#sb-mig-version)
 * [`sb-mig backup`](#sb-mig-backup)
 * [`sb-mig debug`](#sb-mig-debug)
 * [`sb-mig sync`](#sb-mig-sync)
@@ -109,7 +117,7 @@ $ sb-mig --help
 ```
 $ sb-mig --version
 
-3.1.7
+4.0.4
 ```
 
 ## `sb-mig backup`
@@ -124,7 +132,7 @@ $ sb-mig backup --help
 CLI to rule the world. (and handle stuff related to Storyblok CMS)
 
   Usage
-      $ sb-mig-v3 backup [components|component-groups|roles|datasources|presets|component-presets] [space separated file names] or --all
+      $ sb-mig backup [components|component-groups|roles|datasources|presets|component-presets] component-name --one or --all
   Description
       Command for backing up anything related to Storyblok
 
@@ -154,6 +162,7 @@ Output extra debugging.
 ```
 $ sb-mig debug
 
+✓ Found storyblok.config.js!
 storyblok.config.js:  {
   componentsMatchFile: 'src/components/components.js',
   storyblokComponentsListfile: 'src/components/storyblok-components.componentList.js',
@@ -203,8 +212,14 @@ CLI to rule the world. (and handle stuff related to Storyblok CMS)
 
   EXAMPLES
       $ sb-mig sync components --all
+      $ sb-mig sync components --all --presets
       $ sb-mig sync components accordion accordion-item
+      $ sb-mig sync components accordion accordion-item --presets
       $ sb-mig sync components @storyblok-components/accordion --packageName
+      $ sb-mig sync components @storyblok-components/accordion --packageName --presets
+      $ sb-mig sync roles --all
+      $ sb-mig sync datasources --all
+
 ```
 
 # Schema documentation:
@@ -273,7 +288,7 @@ There is also support for `sections` inside components:
 
 The main purpose of `sb-mig` is to sync your `.sb.js` component schema files with your `Storyblok` space.
 
-In v3.x.x There is 1 way to sync your schemas, which is to name all your schemas with `.sb.js` extension. You can have them in any place of your repositories, as long as this place is pointed in `storyblok.config.js` `componentDirectories` field, which is set to `componentsDirectories: ["src", "storyblok"],` by default:
+In v4.x.x There is 1 way to sync your schemas, which is to name all your schemas with `.sb.js` extension. You can have them in any place of your repositories, as long as this place is pointed in `storyblok.config.js` `componentDirectories` field, which is set to `componentsDirectories: ["src", "storyblok"],` by default:
 
 ```
 sb-mig sync components row column
@@ -404,7 +419,7 @@ export default {
 Now, sync your component
 
 ```
-sb-mig sync components --presets text-block
+sb-mig sync components text-block --presets
 ```
 
 output:
@@ -437,10 +452,27 @@ Install packages
 yarn
 ```
 
-Link package to easy test it with `sb-mig` command
+Run development command
+```bash
+yarn build:dev
+```
 
+It will watch a file change, and on every change, will rebuild typescript and build the whole lib/cli.
+
+The you can use 
+```
+node dist/index.js debug 
+```
+to access `sb-mig`
+
+For your conveniece, you can also, link it to proper `sb-mi` name:
 ```
 yarn link
+```
+
+And then you can use it like that:
+```
+sb-mig debug
 ```
 
 ## Roadmap
