@@ -1,3 +1,15 @@
+## [4.0.7](https://github.com/sb-mig/sb-mig/compare/v4.0.6...v4.0.7) (2022-05-22)
+
+
+
+
+## [4.0.7](https://github.com/sb-mig/sb-mig/compare/v4.0.6...v4.0.7) (2022-05-22)
+
+
+### Bug Fixes
+
+* **release:** add package.json as artefakt to push to git ([053aef2](https://github.com/sb-mig/sb-mig/commit/053aef2ed7a3a9a9a55dc740806f2de745e6f324))
+
 ## [4.0.6](https://github.com/sb-mig/sb-mig/compare/v4.0.5...v4.0.6) (2022-05-22)
 
 
