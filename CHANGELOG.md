@@ -1,3 +1,15 @@
+## [4.0.10](https://github.com/sb-mig/sb-mig/compare/v4.0.9...v4.0.10) (2022-05-22)
+
+
+
+
+## [4.0.10](https://github.com/sb-mig/sb-mig/compare/v4.0.9...v4.0.10) (2022-05-22)
+
+
+### Bug Fixes
+
+* **commitizen:** remove unused commitizen (i've replaced it in previous commit with maintined one) ([8750147](https://github.com/sb-mig/sb-mig/commit/87501473e4843183f5f5691b3b3e9337aabf14b8))
+
 ## [4.0.9](https://github.com/sb-mig/sb-mig/compare/v4.0.8...v4.0.9) (2022-05-22)
 
 
