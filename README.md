@@ -1,11 +1,15 @@
+
 <p align="center">
     <img width="250" height="250" src="./sb-mig-logo.png" alt="Logo" />
 </p>
 If you've found an issue or you have feature request - <a href="https://github.com/marckraw/sb-mig/issues/new">open an issue</a> or look if it was <a href="https://github.com/sb-mig/sb-mig/issues/">already created</a>.
+<br />
 
 [![npm](https://img.shields.io/npm/v/sb-mig.svg)](https://www.npmjs.com/package/sb-mig)
 [![npm](https://img.shields.io/npm/dt/sb-mig.svg)](ttps://img.shields.io/npm/dt/sb-mig.svg)
 [![GitHub issues](https://img.shields.io/github/issues/sb-mig/sb-mig.svg?style=flat-square&v=1)](https://github.com/sb-mig/sb-mig/issues?q=is%3Aopen+is%3Aissue)
+![npm](https://img.shields.io/npms-io/maintenance-score/sb-mig)
+
 
 # 4.x.x version released!
 
@@ -24,8 +28,6 @@ If you've found an issue or you have feature request - <a href="https://github.c
 ## Contents
 
 - [How to install and configure](#how-to-install-and-configure)
-- NEW [Adding Scoped Storyblok components](#adding-scoped-storyblok-components)
-- NEW [Overwriting schema files from scoped components](#overwriting-schema-files-from-scoped-components)
 - [Usage](#usage)
 - [Schema documentation:](#schema-documentation)
   - [Basics](#basics)
