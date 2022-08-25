@@ -64,12 +64,18 @@ export const syncComponents = async ({
     presets,
 }: SyncComponents) => {
     Logger.log("sync2Components: ");
+    console.log(specifiedComponents);
 
     const specifiedComponentsContent = await Promise.all(
-        specifiedComponents.map((component) =>
-            getFileContent({ file: component.path })
-        )
+        specifiedComponents.map((component) => {
+            console.log("###");
+            console.log(component);
+            return getFileContent({ file: component.path });
+        })
     );
+
+    console.log("this is specific components content");
+    console.log(specifiedComponentsContent);
 
     const groupsToCheck = _uniqueValuesFrom(
         specifiedComponentsContent

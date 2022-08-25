@@ -55,8 +55,8 @@
     "storyblok-js-client": "^4.5.2"
   },
   "devDependencies": {
-    "@commitlint/cli": "^17.0.0",
-    "@commitlint/config-conventional": "^17.0.0",
+    "@commitlint/cli": "^17.0.3",
+    "@commitlint/config-conventional": "^17.0.3",
     "@ryansonshine/commitizen": "^4.2.8",
     "@ryansonshine/cz-conventional-changelog": "^3.3.4",
     "@semantic-release/changelog": "^6.0.1",
@@ -67,16 +67,13 @@
     "@types/node": "^17.0.35",
     "chokidar-cli": "^3.0.0",
     "conventional-changelog-cli": "^2.0.31",
-    "eslint": "^8.16.0",
+    "eslint": "^8.22.0",
     "eslint-config-prettier": "^8.5.0",
     "husky": "^8.0.1",
     "lint-staged": "^12.4.1",
-    "prettier": "^2.6.2",
-    "semantic-release": "^19.0.2",
-    "typescript": "^4.6.4"
-  },
-  "resolutions": {
-    "minimist@1.2.5": "npm:1.2.6"
+    "prettier": "^2.7.1",
+    "semantic-release": "^19.0.4",
+    "typescript": "^4.7.4"
   },
   "config": {
     "commitizen": {
