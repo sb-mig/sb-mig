@@ -1,3 +1,15 @@
+## [4.0.12-beta.1](https://github.com/sb-mig/sb-mig/compare/v4.0.11...v4.0.12-beta.1) (2022-08-25)
+
+
+
+
+## [4.0.12-beta.1](https://github.com/sb-mig/sb-mig/compare/v4.0.11...v4.0.12-beta.1) (2022-08-25)
+
+
+### Bug Fixes
+
+* **debug:** add some amazing debug info about esm/commonjs ([25efc9b](https://github.com/sb-mig/sb-mig/commit/25efc9b3524d7b88b0ad1d91fa3e1a8cbc6d0f71))
+
 ## [4.0.11](https://github.com/sb-mig/sb-mig/compare/v4.0.10...v4.0.11) (2022-05-22)
 
 
