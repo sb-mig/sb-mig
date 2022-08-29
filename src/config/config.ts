@@ -54,8 +54,9 @@ const defaultConfig: IStoryblokConfig = {
     sbmigWorkingDirectory: "sbmig",
     componentsDirectories: ["src", "storyblok"],
     schemaFileExt: pkg.type === "module" ? "sb.js" : "sb.cjs",
-    datasourceExt: "sb.datasource.js",
-    rolesExt: "sb.roles.js",
+    datasourceExt:
+        pkg.type === "module" ? "sb.datasource.js" : "sb.datasource.cjs",
+    rolesExt: pkg.type === "module" ? "sb.roles.js" : "sb.roles.cjs",
     storyblokApiUrl: "https://api.storyblok.com/v1",
     oauthToken: process.env["STORYBLOK_OAUTH_TOKEN"] ?? "",
     spaceId: process.env["STORYBLOK_SPACE_ID"] ?? "",
