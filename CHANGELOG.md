@@ -1,3 +1,15 @@
+## [4.0.12-beta.2](https://github.com/sb-mig/sb-mig/compare/v4.0.12-beta.1...v4.0.12-beta.2) (2022-08-29)
+
+
+
+
+## [4.0.12-beta.2](https://github.com/sb-mig/sb-mig/compare/v4.0.12-beta.1...v4.0.12-beta.2) (2022-08-29)
+
+
+### Bug Fixes
+
+* **config:** using different default schema if using type: "module" ([162647b](https://github.com/sb-mig/sb-mig/commit/162647b0d7eaba61af3c4349420323614a11b366))
+
 ## [4.0.12-beta.1](https://github.com/sb-mig/sb-mig/compare/v4.0.11...v4.0.12-beta.1) (2022-08-25)
 
 
