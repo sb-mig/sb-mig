@@ -14,7 +14,7 @@ import {
     discover,
     discoverMany,
 } from "../utils/discover.js";
-import { getFileContent } from "../utils/main.js";
+import { getFileContent, getFileContentWithRequire } from "../utils/main.js";
 
 const _uniqueValuesFrom = (array: any[]) => [...new Set(array)];
 
@@ -64,13 +64,11 @@ export const syncComponents = async ({
     presets,
 }: SyncComponents) => {
     Logger.log("sync2Components: ");
-    console.log(specifiedComponents);
 
     const specifiedComponentsContent = await Promise.all(
         specifiedComponents.map((component) => {
-            console.log("###");
             console.log(component);
-            return getFileContent({ file: component.path });
+            return getFileContentWithRequire({ file: component.path });
         })
     );
 

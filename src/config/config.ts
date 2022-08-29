@@ -1,5 +1,6 @@
 import path from "path";
 import dotenv from "dotenv";
+import { pkg } from "../utils/pkg.js";
 import Logger from "../utils/logger.js";
 
 const getStoryblokConfigContent = (data: {
@@ -52,7 +53,7 @@ const defaultConfig: IStoryblokConfig = {
     storyblokComponentsLocalDirectory: "src/@storyblok-components",
     sbmigWorkingDirectory: "sbmig",
     componentsDirectories: ["src", "storyblok"],
-    schemaFileExt: "sb.js",
+    schemaFileExt: pkg.type === "module" ? "sb.js" : "sb.cjs",
     datasourceExt: "sb.datasource.js",
     rolesExt: "sb.roles.js",
     storyblokApiUrl: "https://api.storyblok.com/v1",

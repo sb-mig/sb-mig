@@ -1,8 +1,5 @@
-import { createRequire } from "module";
 import config from "../config/config.js";
-
-const require = createRequire(import.meta.url);
-const pkg = require(`${process.cwd()}/package.json`);
+import { pkg } from "../utils/pkg.js";
 
 export const debug = async () => {
     console.log("storyblok.config.js: ", config, "\n");
