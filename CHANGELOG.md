@@ -1,3 +1,15 @@
+## [4.0.12-beta.3](https://github.com/sb-mig/sb-mig/compare/v4.0.12-beta.2...v4.0.12-beta.3) (2022-08-29)
+
+
+
+
+## [4.0.12-beta.3](https://github.com/sb-mig/sb-mig/compare/v4.0.12-beta.2...v4.0.12-beta.3) (2022-08-29)
+
+
+### Bug Fixes
+
+* **config:** make previous change works also for datasources and roles ([93de6bf](https://github.com/sb-mig/sb-mig/commit/93de6bf1e3259c9aa2843e52dd9d85b016c21bdc))
+
 ## [4.0.12-beta.2](https://github.com/sb-mig/sb-mig/compare/v4.0.12-beta.1...v4.0.12-beta.2) (2022-08-29)
 
 
