@@ -41,6 +41,28 @@ export const syncDescription = `
         $ sb-mig sync datasources --all
 `;
 
+export const removeDescription = `
+    Usage
+        $ sb-mig remove [components|roles|datasources] [space separated file names] or --all 
+        
+    Description
+        Remove components or roles with Storyblok space.
+        
+    COMMANDS
+        components     - remove components
+        roles          - remove roles
+        datasources    - remove datasources
+     
+    FLAGS
+        --all          - Remove all components 
+    
+    EXAMPLES
+        $ sb-mig remove components --all
+        $ sb-mig remove components accordion accordion-item
+        $ sb-mig remove roles --all
+        $ sb-mig remove datasources --all
+`;
+
 export const backupDescription = `
     Usage
         $ sb-mig backup [components|component-groups|roles|datasources|presets|component-presets] component-name --one or --all

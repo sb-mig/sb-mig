@@ -3,6 +3,32 @@ import { sbApi } from "./config.js";
 
 const { spaceId } = storyblokConfig;
 
+// DELETE
+export const removeComponent = ({ component }: { component: any }) => {
+    const { id, name } = component;
+    console.log(`Removing '${name}' component.`);
+
+    return sbApi
+        .delete(`spaces/${spaceId}/components/${id}`)
+        .then((res: any) => res.data)
+        .catch((err: any) => console.error(err));
+};
+
+export const removeComponentGroup = ({
+    componentGroup,
+}: {
+    componentGroup: any;
+}) => {
+    const { id, name } = componentGroup;
+
+    console.log(`Removing '${name}' component.`);
+
+    return sbApi
+        .delete(`spaces/${spaceId}/component_groups/${id}`)
+        .then((res: any) => res.data)
+        .catch((err: any) => console.error(err));
+};
+
 // GET
 export const getAllComponents = () => {
     console.log("Trying to get all components.");

@@ -3,12 +3,14 @@ import meow from "meow";
 import { debug } from "./commands/debug.js";
 import { pipe, prop } from "./utils/main.js";
 import { sync } from "./commands/sync.js";
+import {remove} from "./commands/remove.js";
 import { backup } from "./commands/backup.js";
 import {
     backupDescription,
     debugDescription,
     mainDescription,
     syncDescription,
+    removeDescription
 } from "./cli-descriptions.js";
 
 const app = () => ({
@@ -26,6 +28,16 @@ app.sync = () => ({
     }),
     action: (cli: any) => {
         sync(cli);
+    },
+});
+
+app.remove = () => ({
+    cli: meow(removeDescription, {
+        importMeta: import.meta,
+        booleanDefault: undefined,
+    }),
+    action: (cli: any) => {
+        remove(cli);
     },
 });
 

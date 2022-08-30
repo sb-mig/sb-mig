@@ -1,7 +1,11 @@
 import Logger from "../utils/logger.js";
 import { unpackElements } from "../utils/main.js";
 import storyblokConfig from "../config/config.js";
-import { syncAllComponents, syncProvidedComponents } from "../api/migrate.js";
+import {
+    removeAllComponents,
+    syncAllComponents,
+    syncProvidedComponents,
+} from "../api/migrate.js";
 import { CLIOptions } from "../utils/interfaces.js";
 import { syncAllRoles, syncProvidedRoles } from "../api/roles.js";
 import {
@@ -24,7 +28,7 @@ export const sync = async (props: CLIOptions) => {
         case SYNC_COMMANDS.components:
             Logger.warning(`sync components... with command: ${command}`);
 
-            if (flags["all"]) {
+            if (flags["all"] && !flags["ssot"]) {
                 Logger.log(
                     `Syncing ALL components with ${storyblokConfig.schemaFileExt} extension...`
                 );
@@ -34,8 +38,8 @@ export const sync = async (props: CLIOptions) => {
                 syncAllComponents({ presets });
             }
 
-            if (!flags["all"]) {
-                Logger.warning("Synchronizing PROVIDED componensdt...");
+            if (!flags["all"] && !flags["ssot"]) {
+                Logger.warning("Synchronizing PROVIDED components...");
                 const componentsToSync = unpackElements(input);
 
                 syncProvidedComponents({
@@ -43,6 +47,16 @@ export const sync = async (props: CLIOptions) => {
                     presets: Boolean(flags.presets),
                     packageName: flags.packageName,
                 });
+            }
+
+            if (flags["ssot"] && flags["all"]) {
+                Logger.warning(
+                    "Synchronizing ALL components as Single Source of Truth..."
+                );
+                const presets = flags["presets"] || false;
+
+                await removeAllComponents();
+                syncAllComponents({ presets });
             }
 
             break;

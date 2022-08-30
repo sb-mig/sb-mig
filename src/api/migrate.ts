@@ -3,6 +3,8 @@ import {
     getAllComponentsGroups,
     createComponentsGroup,
     getAllComponents,
+    removeComponent,
+    removeComponentGroup,
 } from "./components.js";
 import { updateComponent, createComponent } from "./mutateComponents.js";
 import {
@@ -15,6 +17,7 @@ import {
     discoverMany,
 } from "../utils/discover.js";
 import { getFileContent, getFileContentWithRequire } from "../utils/main.js";
+import { sbApi } from "./config";
 
 const _uniqueValuesFrom = (array: any[]) => [...new Set(array)];
 
@@ -67,21 +70,15 @@ export const syncComponents = async ({
 
     const specifiedComponentsContent = await Promise.all(
         specifiedComponents.map((component) => {
-            console.log(component);
             return getFileContentWithRequire({ file: component.path });
         })
     );
-
-    console.log("this is specific components content");
-    console.log(specifiedComponentsContent);
 
     const groupsToCheck = _uniqueValuesFrom(
         specifiedComponentsContent
             .filter((component) => component.component_group_name)
             .map((component) => component.component_group_name)
     );
-
-    console.log(groupsToCheck);
 
     await _checkAndPrepareGroups(groupsToCheck);
 
@@ -220,4 +217,42 @@ export const syncAllComponents = ({ presets }: SyncAllComponents) => {
         presets,
         specifiedComponents: [...local, ...external],
     });
+};
+
+export const removeAllComponents = async () => {
+    const { components, component_groups } = await getAllComponents();
+
+    return Promise.all([
+        ...components.map(async (component: any) => {
+            await removeComponent({ component });
+        }),
+        ...component_groups.map(async (componentGroup: any) => {
+            await removeComponentGroup({ componentGroup });
+        }),
+    ]);
+};
+
+export const removeSpecifiedComponents = async ({
+    components,
+}: {
+    components: any;
+}) => {
+    const remoteComponents = await getAllComponents();
+    const componentsToRemove: any = [];
+
+    components.map((component: any) => {
+        const shouldBeRemoved = remoteComponents.components.find(
+            (remoteComponent: any) => component === remoteComponent.name
+        );
+        shouldBeRemoved && componentsToRemove.push(shouldBeRemoved);
+    });
+
+    return (
+        componentsToRemove.length > 0 &&
+        Promise.all(
+            componentsToRemove.map((component: any) => {
+                removeComponent({ component });
+            })
+        )
+    );
 };
