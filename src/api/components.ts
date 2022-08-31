@@ -21,7 +21,7 @@ export const removeComponentGroup = ({
 }) => {
     const { id, name } = componentGroup;
 
-    console.log(`Removing '${name}' component.`);
+    console.log(`Removing '${name}' component group.`);
 
     return sbApi
         .delete(`spaces/${spaceId}/component_groups/${id}`)

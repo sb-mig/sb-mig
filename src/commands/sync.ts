@@ -4,7 +4,9 @@ import storyblokConfig from "../config/config.js";
 import {
     removeAllComponents,
     syncAllComponents,
+    syncContent,
     syncProvidedComponents,
+    removeAllStories,
 } from "../api/migrate.js";
 import { CLIOptions } from "../utils/interfaces.js";
 import { syncAllRoles, syncProvidedRoles } from "../api/roles.js";
@@ -14,6 +16,7 @@ import {
 } from "../api/datasources.js";
 
 const SYNC_COMMANDS = {
+    story: "story",
     components: "components",
     roles: "roles",
     datasources: "datasources",
@@ -74,7 +77,6 @@ export const sync = async (props: CLIOptions) => {
                 syncProvidedRoles({ roles: rolesToSync });
             }
             break;
-
         case SYNC_COMMANDS.datasources:
             if (flags["all"]) {
                 Logger.log("Syncing all datasources with extension...");
@@ -87,6 +89,22 @@ export const sync = async (props: CLIOptions) => {
 
                 syncProvidedDatasources({ datasources: datasourcesToSync });
             }
+            break;
+        case SYNC_COMMANDS.story:
+            Logger.log(`Syncing story with command: ${command}`);
+
+            if (flags["from"] && flags["to"]) {
+                Logger.warning(
+                    `sync story... from space-id: ${flags.from} to space-id: ${flags.to} with command: ${command}`
+                );
+
+                console.log(
+                    await syncContent({ from: flags.from, to: flags.to })
+                );
+
+                // await removeAllStories({spaceId: flags.to})
+            }
+
             break;
         default:
             console.log(`no command like that: ${command}`);

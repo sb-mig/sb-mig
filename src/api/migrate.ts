@@ -16,8 +16,8 @@ import {
     discover,
     discoverMany,
 } from "../utils/discover.js";
-import { getFileContent, getFileContentWithRequire } from "../utils/main.js";
-import { sbApi } from "./config";
+import { getFileContentWithRequire } from "../utils/main.js";
+import { createStory, getAllStories, removeStory } from "./stories.js";
 
 const _uniqueValuesFrom = (array: any[]) => [...new Set(array)];
 
@@ -255,4 +255,37 @@ export const removeSpecifiedComponents = async ({
             })
         )
     );
+};
+
+export const syncContent = async ({
+    from,
+    to,
+}: {
+    from: number;
+    to: number;
+}) => {
+    const stories = await getAllStories({ spaceId: from });
+
+    const finalOutput = Promise.all(
+        stories.map(async (story: any) => {
+            await createStory({ spaceId: to, content: story.story });
+        })
+    );
+
+    return finalOutput;
+};
+
+export const removeAllStories = async ({ spaceId }: { spaceId: number }) => {
+    Logger.warning(
+        `Trying to remove all stories from space with spaceId: ${spaceId}`
+    );
+    const stories = await getAllStories({ spaceId });
+    const allResponses = Promise.all(
+        stories.map(
+            async (story: any) =>
+                await removeStory({ spaceId, storyId: story.story.id })
+        )
+    );
+
+    return allResponses;
 };
