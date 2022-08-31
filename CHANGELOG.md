@@ -1,3 +1,15 @@
+# [4.1.0-beta.1](https://github.com/sb-mig/sb-mig/compare/v4.0.12-beta.3...v4.1.0-beta.1) (2022-08-30)
+
+
+
+
+# [4.1.0-beta.1](https://github.com/sb-mig/sb-mig/compare/v4.0.12-beta.3...v4.1.0-beta.1) (2022-08-30)
+
+
+### Features
+
+* **remove components:** add remove cmd, and also sync components with code as single src of truth ([a1f7b05](https://github.com/sb-mig/sb-mig/commit/a1f7b05f0d8f716ba990035dc32dab8dd684b63f))
+
 ## [4.0.12-beta.3](https://github.com/sb-mig/sb-mig/compare/v4.0.12-beta.2...v4.0.12-beta.3) (2022-08-29)
 
 
