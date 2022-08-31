@@ -65,7 +65,7 @@ const defaultConfig: IStoryblokConfig = {
         process.env["GATSBY_STORYBLOK_ACCESS_TOKEN"] ||
         process.env["NEXT_PUBLIC_STORYBLOK_ACCESS_TOKEN"] ||
         "",
-    boilerplateSpaceId: 108084, // this is id of nextjs-web-ui-sb-boilerplate
+    boilerplateSpaceId: 172677, // this is id of Content seed for nextjs boilerplate space
 };
 
 const filePath = path.resolve(process.cwd(), "storyblok.config");

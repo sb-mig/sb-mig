@@ -1,3 +1,15 @@
+# [4.1.0-beta.2](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.1...v4.1.0-beta.2) (2022-08-31)
+
+
+
+
+# [4.1.0-beta.2](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.1...v4.1.0-beta.2) (2022-08-31)
+
+
+### Features
+
+* **migrating stories:** some experimental migrating from space to space, and removing all stories ([e8ab7d8](https://github.com/sb-mig/sb-mig/commit/e8ab7d8f359a0a743cd7b0e620c46ad0cbbbe998))
+
 # [4.1.0-beta.1](https://github.com/sb-mig/sb-mig/compare/v4.0.12-beta.3...v4.1.0-beta.1) (2022-08-30)
 
 

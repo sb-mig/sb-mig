@@ -93,16 +93,45 @@ export const sync = async (props: CLIOptions) => {
         case SYNC_COMMANDS.story:
             Logger.log(`Syncing story with command: ${command}`);
 
-            if (flags["from"] && flags["to"]) {
-                Logger.warning(
-                    `sync story... from space-id: ${flags.from} to space-id: ${flags.to} with command: ${command}`
-                );
+            if (flags["all"]) {
+                if (!flags["from"] && !flags["to"]) {
+                    Logger.warning(
+                        `sync story... from boilerplateSpaceId: ${storyblokConfig.boilerplateSpaceId} to working dir spaceid: ${storyblokConfig.spaceId} with command: ${command}`
+                    );
 
-                console.log(
-                    await syncContent({ from: flags.from, to: flags.to })
-                );
+                    await removeAllStories({
+                        spaceId: storyblokConfig.spaceId,
+                    });
+                    await syncContent({
+                        from: storyblokConfig.boilerplateSpaceId,
+                        to: storyblokConfig.spaceId,
+                    });
+                }
 
-                // await removeAllStories({spaceId: flags.to})
+                if (flags["from"] && !flags["to"]) {
+                    Logger.warning(
+                        `sync story... from: ${flags.from} to working dir spaceid: ${storyblokConfig.spaceId} with command: ${command}`
+                    );
+
+                    await removeAllStories({
+                        spaceId: storyblokConfig.spaceId,
+                    });
+                    await syncContent({
+                        from: flags.from,
+                        to: storyblokConfig.spaceId,
+                    });
+                }
+
+                if (flags["from"] && flags["to"]) {
+                    Logger.warning(
+                        `sync story... from space-id: ${flags.from} to space-id: ${flags.to} with command: ${command}`
+                    );
+
+                    await removeAllStories({
+                        spaceId: storyblokConfig.spaceId,
+                    });
+                    await syncContent({ from: flags.from, to: flags.to });
+                }
             }
 
             break;
