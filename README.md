@@ -10,6 +10,7 @@ If you've found an issue or you have feature request - <a href="https://github.c
 [![GitHub issues](https://img.shields.io/github/issues/sb-mig/sb-mig.svg?style=flat-square&v=1)](https://github.com/sb-mig/sb-mig/issues?q=is%3Aopen+is%3Aissue)
 ![npm](https://img.shields.io/npms-io/maintenance-score/sb-mig)
 
+https://docs.sb-mig.com/
 
 # 4.x.x version released!
 
