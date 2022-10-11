@@ -8,6 +8,25 @@
 
 ### Bug Fixes
 
+* **package.json:** bump version of package ([4eb7999](https://github.com/sb-mig/sb-mig/commit/4eb7999726af19d416322821005c941129b8c56f))
+* **plugins:** trigger build ([a030a42](https://github.com/sb-mig/sb-mig/commit/a030a42434c8969d07aeaaffe7350908e09ac74c))
+
+
+### Features
+
+* **migrating stories:** some experimental migrating from space to space, and removing all stories ([e8ab7d8](https://github.com/sb-mig/sb-mig/commit/e8ab7d8f359a0a743cd7b0e620c46ad0cbbbe998))
+* **plugins:** add backup and sync command for plugins (works, but still wip) ([34f671d](https://github.com/sb-mig/sb-mig/commit/34f671df7e1bff16f69e3d78d65810f411a0fa6b))
+
+# [4.1.0-beta.2](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.1...v4.1.0-beta.2) (2022-10-11)
+
+
+
+
+# [4.1.0-beta.2](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.1...v4.1.0-beta.2) (2022-10-11)
+
+
+### Bug Fixes
+
 * **plugins:** trigger build ([a030a42](https://github.com/sb-mig/sb-mig/commit/a030a42434c8969d07aeaaffe7350908e09ac74c))
 
 
