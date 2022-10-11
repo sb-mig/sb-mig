@@ -8,7 +8,7 @@ export const getAllPlugins = () => {
         .get(`field_types?per_page=100`)
         .then((res: any) => {
             console.log(
-                `Amount of field types: ${res.data.field_types.length}`
+                `Amount of field typess: ${res.data.field_types.length}`
             );
             return res.data;
         })
