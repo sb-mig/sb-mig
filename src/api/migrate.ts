@@ -18,6 +18,8 @@ import {
 } from "../utils/discover.js";
 import { getFileContentWithRequire } from "../utils/main.js";
 import { createStory, getAllStories, removeStory } from "./stories.js";
+import { createPlugin, getPlugin, updatePlugin } from "./plugins.js";
+import { readFile } from "../utils/files.js";
 
 const _uniqueValuesFrom = (array: any[]) => [...new Set(array)];
 
@@ -140,6 +142,10 @@ interface SyncProvidedComponents {
     presets: boolean;
     components: string[];
     packageName: boolean;
+}
+
+interface SyncProvidedPlugins {
+    plugins: string[];
 }
 
 export const syncProvidedComponents = ({
@@ -288,4 +294,25 @@ export const removeAllStories = async ({ spaceId }: { spaceId: number }) => {
     );
 
     return allResponses;
+};
+
+export const syncProvidedPlugins = async ({ plugins }: SyncProvidedPlugins) => {
+    const body = await readFile("dist/export.js");
+    if (plugins.length === 1) {
+        const pluginName = plugins[0];
+        let plugin: any = {};
+        plugin = await getPlugin(pluginName);
+        console.log("-----------");
+        console.log(plugin);
+        console.log("-----------");
+        if (plugin) {
+            console.log("plugin already exist");
+            // return await updatePlugin({plugin, body})
+            return;
+        } else {
+            console.log("plugin not existing");
+            const res = await createPlugin(pluginName as string);
+            return await updatePlugin({ plugin: res.field_type, body });
+        }
+    }
 };

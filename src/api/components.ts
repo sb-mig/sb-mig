@@ -39,6 +39,16 @@ export const getAllComponents = () => {
         .catch((err: any) => console.error(err));
 };
 
+// GET
+export const getAllPlugins = () => {
+    console.log("Trying to get all plugins.");
+
+    return sbApi
+        .get(`field_types`)
+        .then((res: any) => res.data)
+        .catch((err: any) => console.error(err));
+};
+
 export const getComponent = (componentName: string | undefined) => {
     console.log(`Trying to get '${componentName}' component.`);
 

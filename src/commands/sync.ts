@@ -7,6 +7,7 @@ import {
     syncContent,
     syncProvidedComponents,
     removeAllStories,
+    syncProvidedPlugins,
 } from "../api/migrate.js";
 import { CLIOptions } from "../utils/interfaces.js";
 import { syncAllRoles, syncProvidedRoles } from "../api/roles.js";
@@ -20,6 +21,7 @@ const SYNC_COMMANDS = {
     components: "components",
     roles: "roles",
     datasources: "datasources",
+    plugins: "plugins",
 };
 
 export const sync = async (props: CLIOptions) => {
@@ -132,6 +134,19 @@ export const sync = async (props: CLIOptions) => {
                     });
                     await syncContent({ from: flags.from, to: flags.to });
                 }
+            }
+
+            break;
+        case SYNC_COMMANDS.plugins:
+            Logger.warning(`sync plugins... with command: ${command}`);
+
+            if (!flags["all"]) {
+                Logger.warning("Synchronizing PROVIDED plugins...");
+                const pluginsToSync = unpackElements(input);
+
+                syncProvidedPlugins({
+                    plugins: pluginsToSync,
+                });
             }
 
             break;

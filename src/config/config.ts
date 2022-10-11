@@ -58,7 +58,7 @@ const defaultConfig: IStoryblokConfig = {
     datasourceExt:
         pkg.type === "module" ? "sb.datasource.js" : "sb.datasource.cjs",
     rolesExt: pkg.type === "module" ? "sb.roles.js" : "sb.roles.cjs",
-    storyblokApiUrl: "https://api.storyblok.com/v1",
+    storyblokApiUrl: "https://mapi.storyblok.com/v1", // should be mapi.storyblok.com ?
     oauthToken: process.env["STORYBLOK_OAUTH_TOKEN"] ?? "",
     spaceId: process.env["STORYBLOK_SPACE_ID"] ?? "",
     accessToken:

@@ -78,3 +78,13 @@ export const createAndSaveToFile = async ({
     );
     Logger.success(`All groups written to a file:  ${filename}`);
 };
+
+export const readFile = async (path: string) => {
+    const absolutePath = `${process.cwd()}/${path}`;
+    console.log("this is path");
+    console.log(absolutePath);
+
+    const result = await fs.promises.readFile(absolutePath);
+
+    return result.toString();
+};

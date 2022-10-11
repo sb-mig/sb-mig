@@ -12,6 +12,7 @@ import { getAllRoles, getRole } from "../api/roles.js";
 import { getComponentPresets } from "../api/componentPresets.js";
 import { getAllPresets, getPreset } from "../api/presets.js";
 import { CLIOptions } from "../utils/interfaces.js";
+import { getAllPlugins, getPlugin } from "../api/plugins.js";
 
 const BACKUP_COMMANDS = {
     components: "components",
@@ -20,6 +21,7 @@ const BACKUP_COMMANDS = {
     presets: "presets",
     componentPresets: "component-presets",
     roles: "roles",
+    plugins: "plugins",
 };
 
 export const backup = (props: CLIOptions) => {
@@ -49,14 +51,13 @@ export const backup = (props: CLIOptions) => {
 
                 getComponent(componentToBackup)
                     .then(async (res: any) => {
-                        console.log("############");
-                        console.log(res);
-                        console.log("############");
-                        await createAndSaveToFile({
-                            prefix: "component-",
-                            folder: "components",
-                            res,
-                        });
+                        if (res) {
+                            await createAndSaveToFile({
+                                prefix: "component-",
+                                folder: "components",
+                                res,
+                            });
+                        }
                     })
                     .catch((err: any) => {
                         console.log(err);
@@ -213,6 +214,42 @@ export const backup = (props: CLIOptions) => {
                         console.log(err);
                         Logger.error("error happened... :(");
                     });
+            }
+            break;
+        case BACKUP_COMMANDS.plugins:
+            if (flags["one"]) {
+                const pluginToBackup = unpackOne(input);
+
+                getPlugin(pluginToBackup)
+                    .then(async (res: any) => {
+                        if (res) {
+                            await createAndSaveToFile({
+                                prefix: `plugin-${pluginToBackup}-`,
+                                folder: "plugins",
+                                res,
+                            });
+                        }
+                    })
+                    .catch((err: any) => {
+                        console.log(err);
+                        Logger.error("error happened... :(");
+                    });
+            }
+
+            if (flags["all"]) {
+                getAllPlugins()
+                    .then(async (res: any) => {
+                        await createAndSaveToFile({
+                            prefix: "all-plugins-",
+                            folder: "plugins",
+                            res,
+                        });
+                    })
+                    .catch((err: any) => {
+                        console.log(err);
+                        Logger.error("error happened... :(");
+                    });
+                return;
             }
             break;
         default:
