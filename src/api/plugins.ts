@@ -51,8 +51,6 @@ interface UpdatePlugin {
 }
 
 export const updatePlugin = ({ plugin, body }: UpdatePlugin) => {
-    console.log("update plugin...");
-    console.log(plugin);
     return sbApi
         .put(`field_types/${plugin.id}`, {
             field_type: {
