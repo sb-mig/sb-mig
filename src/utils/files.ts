@@ -81,10 +81,13 @@ export const createAndSaveToFile = async ({
 
 export const readFile = async (path: string) => {
     const absolutePath = `${process.cwd()}/${path}`;
-    console.log("this is path");
-    console.log(absolutePath);
 
-    const result = await fs.promises.readFile(absolutePath);
-
-    return result.toString();
+    try {
+        const result = await fs.promises.readFile(absolutePath);
+        return result.toString();
+    } catch (e) {
+        console.log(e);
+        console.error("Error happened while reading file.");
+        return;
+    }
 };

@@ -300,19 +300,16 @@ export const syncProvidedPlugins = async ({ plugins }: SyncProvidedPlugins) => {
     const body = await readFile("dist/export.js");
     if (plugins.length === 1) {
         const pluginName = plugins[0];
-        let plugin: any = {};
-        plugin = await getPlugin(pluginName);
-        console.log("-----------");
-        console.log(plugin);
-        console.log("-----------");
+        const plugin = await getPlugin(pluginName);
         if (plugin) {
-            console.log("plugin already exist");
-            // return await updatePlugin({plugin, body})
-            return;
+            console.log("Plugin exist.");
+            console.log("Start updating plugin...");
+            return await updatePlugin({ plugin: plugin.field_type, body });
         } else {
-            console.log("plugin not existing");
-            const res = await createPlugin(pluginName as string);
-            return await updatePlugin({ plugin: res.field_type, body });
+            console.log("Start creating plugin...");
+            const { field_type } = await createPlugin(pluginName as string);
+            console.log("Start updating plugin...");
+            return await updatePlugin({ plugin: field_type, body });
         }
     }
 };
