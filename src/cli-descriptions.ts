@@ -15,7 +15,7 @@ export const mainDescription = `
 
 export const syncDescription = `
     Usage
-        $ sb-mig sync [components|roles|datasources] [space separated file names] or --all --packageName
+        $ sb-mig sync [components|roles|datasources|plugins] [space separated file names] or --all --packageName
         
     Description
         Synchronize components or roles with Storyblok space.
@@ -24,11 +24,12 @@ export const syncDescription = `
         components     - sync components
         roles          - sync roles
         datasources    - sync datasources
+        plugins        - sync plugins
      
     FLAGS
-        --all          - Sync all components
-        --packageName  - Sync based on package name, instead of file name (package can have multiple schema files to sync)
-        --presets      - Pass it, if u want to sync also with presets (will take longer) 
+        --all          - Sync all components, roles, datasources 
+        --packageName  - Sync based on package name, instead of file name (package can have multiple schema files to sync) *for components only
+        --presets      - Pass it, if u want to sync also with presets (will take longer) *for components only
     
     EXAMPLES
         $ sb-mig sync components --all
@@ -39,6 +40,7 @@ export const syncDescription = `
         $ sb-mig sync components @storyblok-components/accordion --packageName --presets
         $ sb-mig sync roles --all
         $ sb-mig sync datasources --all
+        $ sb-mig sync plugins my-awesome-plugin - (you have to be in catalog which has ./dist/export.js file with compiled plugin)
 `;
 
 export const removeDescription = `
@@ -76,6 +78,8 @@ export const backupDescription = `
         datasources       - backup components
         presets           - backup presets
         component-presets - backup component presets
+        plugins           - backup plugins
+
      
     FLAGS
         --all   - Backup all 
@@ -86,6 +90,8 @@ export const backupDescription = `
         $ sb-mig backup components accordion --one  
         $ sb-mig backup datasources --all
         $ sb-mig backup roles admin --one
+        $ sb-mig backup plugins --all
+        $ sb-mig backup plugins my-awesome-plugin --one
 `;
 
 export const debugDescription = `

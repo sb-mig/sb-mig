@@ -1,5 +1,6 @@
 // GET
 import { sbApi } from "./config.js";
+import Logger from "../utils/logger.js";
 
 export const getAllPlugins = () => {
     console.log("Trying to get all plugins.");
@@ -21,6 +22,9 @@ export const getPlugin = (pluginName: string | undefined) => {
             res.field_types.find((plugin: any) => plugin.name === pluginName)
         )
         .then((res) => {
+            if (!res) {
+                throw Error("Not Found - plugins does not exist");
+            }
             if (Array.isArray(res) && res.length === 0) {
                 console.info(`There is no plugin named '${pluginName}'`);
                 return false;
@@ -33,7 +37,10 @@ export const getPlugin = (pluginName: string | undefined) => {
                 .then((res) => res)
                 .catch((err) => console.error(err));
         })
-        .catch((err) => console.error(err));
+        .catch((err) => {
+            Logger.warning(err.message);
+            return false;
+        });
 };
 
 export const getPluginDetails = (plugin: any) => {
@@ -46,7 +53,10 @@ export const getPluginDetails = (plugin: any) => {
 };
 
 interface UpdatePlugin {
-    plugin: any;
+    plugin: {
+        id: number;
+        name: string;
+    };
     body?: string;
 }
 
@@ -59,7 +69,7 @@ export const updatePlugin = ({ plugin, body }: UpdatePlugin) => {
             },
         })
         .then((res) => {
-            console.info(`'${plugin.name}' updated!`);
+            Logger.success(`'${plugin.name}' plugin updated!`);
             return res.data;
         })
         .catch((err: any) => {
@@ -76,8 +86,7 @@ export const createPlugin = (pluginName: string) => {
             },
         })
         .then((res) => {
-            console.log("Created plugin");
-            console.log(res);
+            Logger.success(`'${pluginName}' plugin created!`);
             return res.data;
         })
         .catch((err: any) => {
