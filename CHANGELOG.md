@@ -1,3 +1,16 @@
+# [4.1.0-beta.3](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.2...v4.1.0-beta.3) (2022-10-18)
+
+
+
+
+# [4.1.0-beta.3](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.2...v4.1.0-beta.3) (2022-10-18)
+
+
+### Bug Fixes
+
+* **datestamp:** make datestamp better ([d8e425e](https://github.com/sb-mig/sb-mig/commit/d8e425e8473a22a0d56fc42f9fe89e1c05b2efe8))
+* **plugins:** make updating and publishing plugins work, add some nice logs ([2e92821](https://github.com/sb-mig/sb-mig/commit/2e92821d90d3948b41d1322d54add9bbc0211938))
+
 # [4.1.0-beta.2](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.1...v4.1.0-beta.2) (2022-10-11)
 
 
