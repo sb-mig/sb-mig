@@ -53,7 +53,7 @@ export const backup = (props: CLIOptions) => {
                     .then(async (res: any) => {
                         if (res) {
                             await createAndSaveToFile({
-                                prefix: "component-",
+                                prefix: `component-${componentToBackup}-`,
                                 folder: "components",
                                 res,
                             });
