@@ -1,3 +1,15 @@
+# [4.1.0-beta.5](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.4...v4.1.0-beta.5) (2022-11-14)
+
+
+
+
+# [4.1.0-beta.5](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.4...v4.1.0-beta.5) (2022-11-14)
+
+
+### Features
+
+* **plugins:** publish plugins with sync by default ([12ec9f0](https://github.com/sb-mig/sb-mig/commit/12ec9f0f3e5d7b429625328c76b9f146a62cad30))
+
 # [4.1.0-beta.4](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.3...v4.1.0-beta.4) (2022-10-18)
 
 
