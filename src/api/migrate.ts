@@ -303,7 +303,7 @@ export const syncProvidedPlugins = async ({ plugins }: SyncProvidedPlugins) => {
         const plugin = await getPlugin(pluginName);
         if (plugin) {
             console.log("Plugin exist.");
-            console.log("Start updating plugin...");
+            console.log("Start updating plugin....");
             return await updatePlugin({ plugin: plugin.field_type, body });
         } else {
             console.log("Start creating plugin...");
