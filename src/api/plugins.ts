@@ -63,6 +63,7 @@ interface UpdatePlugin {
 export const updatePlugin = ({ plugin, body }: UpdatePlugin) => {
     return sbApi
         .put(`field_types/${plugin.id}`, {
+            publish: true,
             field_type: {
                 body,
                 compiled_body: "",
@@ -81,6 +82,7 @@ export const updatePlugin = ({ plugin, body }: UpdatePlugin) => {
 export const createPlugin = (pluginName: string) => {
     return sbApi
         .post(`field_types`, {
+            publish: true,
             field_type: {
                 name: pluginName,
             },
