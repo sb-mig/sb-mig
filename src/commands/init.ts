@@ -1,14 +1,7 @@
 import Logger from "../utils/logger.js";
-import { unpackElements } from "../utils/main.js";
 import * as fs from "fs";
 import storyblokConfig from "../config/config.js";
 import { v4 as uuidv4 } from "uuid";
-
-import {
-    removeAllComponents,
-    syncAllComponents,
-    syncProvidedComponents,
-} from "../api/migrate.js";
 import { CLIOptions } from "../utils/interfaces.js";
 import { getSpace, updateSpace } from "../api/spaces.js";
 
@@ -25,18 +18,14 @@ export const init = async (props: CLIOptions) => {
         case INIT_COMMANDS.project:
             Logger.warning(`init project... with command: ${command}`);
 
-            const spaceId = flags["spaceid"];
-            const oauthToken = flags["oauthtoken"];
-
-            console.log({ spaceId, oauthToken });
-
+            const { oauthToken, spaceId } = storyblokConfig; // this would be good to build readFile from .env file, so i have util for Raycast plugin
             const spaceData = await getSpace({ spaceId });
 
             const STORYBLOK_SPACE_ID = spaceId;
+            const STORYBLOK_OAUTH_TOKEN = oauthToken;
             const NEXT_PUBLIC_STORYBLOK_ACCESS_TOKEN =
                 spaceData.space.first_token;
             const STORYBLOK_PREVIEW_SECRET = uuidv4();
-            const STORYBLOK_OAUTH_TOKEN = oauthToken;
 
             const envFileContent =
                 `STORYBLOK_SPACE_ID=${STORYBLOK_SPACE_ID}\n` +
@@ -49,7 +38,6 @@ export const init = async (props: CLIOptions) => {
                     ".env",
                     envFileContent
                 );
-                console.log(response);
             } catch (e) {
                 console.error("Something happened while writing to env file");
                 console.log(e);
