@@ -1,3 +1,15 @@
+# [4.1.0-beta.8](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.7...v4.1.0-beta.8) (2022-11-21)
+
+
+
+
+# [4.1.0-beta.8](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.7...v4.1.0-beta.8) (2022-11-21)
+
+
+### Bug Fixes
+
+* **init:** make init easier ([d8b6659](https://github.com/sb-mig/sb-mig/commit/d8b6659467b35e444da7e715828945a97cb6e083))
+
 # [4.1.0-beta.7](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.6...v4.1.0-beta.7) (2022-11-21)
 
 
