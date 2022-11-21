@@ -1,3 +1,15 @@
+# [4.1.0-beta.7](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.6...v4.1.0-beta.7) (2022-11-21)
+
+
+
+
+# [4.1.0-beta.7](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.6...v4.1.0-beta.7) (2022-11-21)
+
+
+### Features
+
+* **init:** add init command, add possibility to use differen pkg for modules and non modules ([e66efb8](https://github.com/sb-mig/sb-mig/commit/e66efb83836f02aea696b1aa1f6710d298bf617a))
+
 # [4.1.0-beta.6](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.5...v4.1.0-beta.6) (2022-11-14)
 
 
