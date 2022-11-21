@@ -1,6 +1,7 @@
 #! /usr/bin/env node
 import meow from "meow";
 import { debug } from "./commands/debug.js";
+import { init } from './commands/init.js'
 import { pipe, prop } from "./utils/main.js";
 import { sync } from "./commands/sync.js";
 import {remove} from "./commands/remove.js";
@@ -10,7 +11,7 @@ import {
     debugDescription,
     mainDescription,
     syncDescription,
-    removeDescription
+    removeDescription, initDescription
 } from "./cli-descriptions.js";
 
 const app = () => ({
@@ -58,6 +59,16 @@ app.debug = () => ({
     }),
     action: () => {
         debug();
+    },
+});
+
+app.init = () => ({
+    cli: meow(initDescription, {
+        importMeta: import.meta,
+        booleanDefault: undefined,
+    }),
+    action: (cli: any) => {
+        init(cli);
     },
 });
 

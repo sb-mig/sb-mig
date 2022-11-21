@@ -34,6 +34,13 @@
     "/dist",
     "README.md"
   ],
+  "typesVersions": {
+    "*": {
+      "Button": [
+        "./dist/components/Button/index.d.ts"
+      ]
+    }
+  },
   "scripts": {
     "lint-staged": "lint-staged",
     "build": "rm -rf dist && tsc && chmod +x ./dist/index.js",
@@ -46,13 +53,15 @@
     "prepare": "husky install"
   },
   "dependencies": {
+    "@types/uuid": "^8.3.4",
     "axios": "^0.27.2",
     "chalk": "^5.1.2",
     "dotenv": "^16.0.3",
     "glob": "^8.0.3",
     "meow": "^11.0.0",
     "ncp": "^2.0.0",
-    "storyblok-js-client": "^4.5.7"
+    "storyblok-js-client": "^4.5.7",
+    "uuid": "^9.0.0"
   },
   "devDependencies": {
     "@commitlint/cli": "^17.1.2",

@@ -100,3 +100,10 @@ export const debugDescription = `
     Description
         Output extra debugging information
 `;
+
+export const initDescription = `
+    Usage
+        $ sb-mig init
+    Description
+        Init and update your project
+`;

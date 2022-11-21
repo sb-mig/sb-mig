@@ -1,5 +1,10 @@
 import { createRequire } from "module";
 const require = createRequire(import.meta.url);
-const pkg = require(`${process.cwd()}/package.json`);
+
+// return require(`${process.cwd()}/package.json`);
+
+const pkg = (path: string) => {
+    return require(path);
+};
 
 export { pkg };
