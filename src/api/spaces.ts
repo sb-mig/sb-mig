@@ -1,10 +1,16 @@
-import storyblokConfig from "../config/config.js";
-import { sbApi } from "./config.js";
+// import storyblokConfig from "../config/config.js";
+// import { sbApi } from "./config.js";
 
-const { spaceId, boilerplateSpaceId } = storyblokConfig;
+// const { spaceId, boilerplateSpaceId } = storyblokConfig;
 
-export const getSpace = ({ spaceId }: { spaceId: number }) => {
-    return sbApi
+export const getSpace = ({
+    spaceId,
+    localSbApi,
+}: {
+    spaceId: number;
+    localSbApi: any;
+}) => {
+    return localSbApi
         .get(`spaces/${spaceId}`)
         .then((res: any) => res.data)
         .catch((err: any) => console.error(err));
@@ -13,11 +19,13 @@ export const getSpace = ({ spaceId }: { spaceId: number }) => {
 export const updateSpace = ({
     spaceId,
     params,
+    localSbApi,
 }: {
     spaceId: number;
     params: any;
+    localSbApi: any;
 }) => {
-    return sbApi
+    return localSbApi
         .put(`spaces/${spaceId}`, {
             ...params,
         })

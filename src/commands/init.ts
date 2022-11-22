@@ -4,6 +4,7 @@ import storyblokConfig from "../config/config.js";
 import { v4 as uuidv4 } from "uuid";
 import { CLIOptions } from "../utils/interfaces.js";
 import { getSpace, updateSpace } from "../api/spaces.js";
+import StoryblokClient from "storyblok-js-client";
 
 const INIT_COMMANDS = {
     project: "project",
@@ -18,11 +19,28 @@ export const init = async (props: CLIOptions) => {
         case INIT_COMMANDS.project:
             Logger.warning(`init project... with command: ${command}`);
 
-            const { oauthToken, spaceId } = storyblokConfig; // this would be good to build readFile from .env file, so i have util for Raycast plugin
-            const spaceData = await getSpace({ spaceId });
+            const { spaceId, oauthToken, gtmToken } = flags;
+            const { storyblokApiUrl } = storyblokConfig;
+
+            Logger.warning(
+                "Updating space and creating .env file with provided options"
+            );
+            console.log({
+                spaceId,
+                oauthToken,
+                gtmToken,
+            });
+
+            const localSbApi = new StoryblokClient(
+                { oauthToken },
+                storyblokApiUrl
+            );
+
+            const spaceData = await getSpace({ spaceId, localSbApi });
 
             const STORYBLOK_SPACE_ID = spaceId;
             const STORYBLOK_OAUTH_TOKEN = oauthToken;
+            const NEXT_PUBLIC_GTM_ID = gtmToken ?? "put-your-gtm-token-here";
             const NEXT_PUBLIC_STORYBLOK_ACCESS_TOKEN =
                 spaceData.space.first_token;
             const STORYBLOK_PREVIEW_SECRET = uuidv4();
@@ -31,13 +49,15 @@ export const init = async (props: CLIOptions) => {
                 `STORYBLOK_SPACE_ID=${STORYBLOK_SPACE_ID}\n` +
                 `NEXT_PUBLIC_STORYBLOK_ACCESS_TOKEN=${NEXT_PUBLIC_STORYBLOK_ACCESS_TOKEN}\n` +
                 `STORYBLOK_PREVIEW_SECRET=${STORYBLOK_PREVIEW_SECRET}\n` +
-                `STORYBLOK_OAUTH_TOKEN=${STORYBLOK_OAUTH_TOKEN}\n`;
+                `STORYBLOK_OAUTH_TOKEN=${STORYBLOK_OAUTH_TOKEN}\n` +
+                `NEXT_PUBLIC_GTM_ID=${NEXT_PUBLIC_GTM_ID}\n`;
 
             try {
                 const response = await fs.promises.writeFile(
                     ".env",
                     envFileContent
                 );
+                Logger.success("Successfully created .env file");
             } catch (e) {
                 console.error("Something happened while writing to env file");
                 console.log(e);
@@ -49,7 +69,9 @@ export const init = async (props: CLIOptions) => {
                     params: {
                         domain: `https://localhost:3000/api/preview/preview?secret=${STORYBLOK_PREVIEW_SECRET}&slug=`,
                     },
+                    localSbApi,
                 });
+                Logger.success("Successfully updated space domain");
             } catch (e) {
                 console.error("Something happened while updating space");
                 console.log(e);
