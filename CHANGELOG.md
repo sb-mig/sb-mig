@@ -1,3 +1,15 @@
+# [4.1.0-beta.9](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.8...v4.1.0-beta.9) (2022-11-22)
+
+
+
+
+# [4.1.0-beta.9](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.8...v4.1.0-beta.9) (2022-11-22)
+
+
+### Bug Fixes
+
+* **local sbapi:** use local sbapi to init project (to get advantage of oauth being passed via cli ([7d995b3](https://github.com/sb-mig/sb-mig/commit/7d995b3b76c74a767e26479cfeaf7c4954b3d8f6))
+
 # [4.1.0-beta.8](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.7...v4.1.0-beta.8) (2022-11-21)
 
 
