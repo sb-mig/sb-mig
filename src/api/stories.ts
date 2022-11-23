@@ -62,7 +62,10 @@ export const createStory = ({
             publish: 1,
         })
         .then((res: any) => res.data)
-        .catch((err: any) => console.error(err));
+        .catch((err: any) => {
+            console.log("eh");
+            console.log(err);
+        });
 };
 
 export const updateStory = () => {};

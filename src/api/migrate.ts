@@ -264,7 +264,9 @@ export const removeSpecifiedComponents = async ({
 };
 
 export const syncContent = async ({
+    // @ts-ignore
     from,
+    // @ts-ignore
     to,
 }: {
     from: number;
@@ -272,13 +274,60 @@ export const syncContent = async ({
 }) => {
     const stories = await getAllStories({ spaceId: from });
 
-    const finalOutput = Promise.all(
-        stories.map(async (story: any) => {
+    const rootLevelStories = stories.filter(({ story }) => !story.parent_id);
+
+    // here we create root level in source space
+    await Promise.all(
+        rootLevelStories.map(async (story: any) => {
             await createStory({ spaceId: to, content: story.story });
         })
     );
 
-    return finalOutput;
+    const nestedLevelStories = stories.filter(({ story }) => story.parent_id);
+    const nestedLevelMap = new Map();
+    nestedLevelStories.map(({ story }) => {
+        const finalSlugLength = story.full_slug.split("/").length;
+        nestedLevelMap.set(finalSlugLength, [
+            ...(nestedLevelMap.get(finalSlugLength) || []),
+            { story },
+        ]);
+    });
+
+    const nestedLevelArray = Array.from(nestedLevelMap);
+
+    const storiesFromTarget = await getAllStories({ spaceId: to });
+
+    // console.log(finalOrder)
+
+    // [
+    //     [
+    //         2,
+    //         [ [Object], [Object] ]
+    //     ],
+    //     [
+    //         3,
+    //         [ [Object] ]
+    //     ]
+    // ]
+
+    // const result = finalOrder.map(async ([_key, stories]) => {
+    //     const promised = await Promise.all(
+    //         stories.map((story: any) => {
+    //             console.log("///////////////////")
+    //             console.log(story)
+    //             console.log("///////////////////")
+    //             return createStory({ spaceId: to, content: story.story });
+    //         })
+    //     );
+    //     console.log("_____________ done _____________" + _key)
+    //     console.log(promised)
+    //     console.log("_____________")
+    // })
+
+    return {
+        // ...rootLevelStoriesOutput,
+        // ...result
+    };
 };
 
 export const removeAllStories = async ({ spaceId }: { spaceId: number }) => {

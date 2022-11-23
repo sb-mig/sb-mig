@@ -17,7 +17,7 @@ import {
 } from "../api/datasources.js";
 
 const SYNC_COMMANDS = {
-    story: "story",
+    content: "content",
     components: "components",
     roles: "roles",
     datasources: "datasources",
@@ -92,18 +92,19 @@ export const sync = async (props: CLIOptions) => {
                 syncProvidedDatasources({ datasources: datasourcesToSync });
             }
             break;
-        case SYNC_COMMANDS.story:
-            Logger.log(`Syncing story with command: ${command}`);
+        case SYNC_COMMANDS.content:
+            Logger.log(`Syncing content with command: ${command}`);
 
             if (flags["all"]) {
                 if (!flags["from"] && !flags["to"]) {
                     Logger.warning(
-                        `sync story... from boilerplateSpaceId: ${storyblokConfig.boilerplateSpaceId} to working dir spaceid: ${storyblokConfig.spaceId} with command: ${command}`
+                        `sync content... from boilerplateSpaceId: ${storyblokConfig.boilerplateSpaceId} to working dir spaceid: ${storyblokConfig.spaceId} with command: ${command}`
                     );
 
-                    await removeAllStories({
-                        spaceId: storyblokConfig.spaceId,
-                    });
+                    // await removeAllStories({
+                    //     spaceId: storyblokConfig.spaceId,
+                    // });
+
                     await syncContent({
                         from: storyblokConfig.boilerplateSpaceId,
                         to: storyblokConfig.spaceId,
@@ -112,7 +113,7 @@ export const sync = async (props: CLIOptions) => {
 
                 if (flags["from"] && !flags["to"]) {
                     Logger.warning(
-                        `sync story... from: ${flags.from} to working dir spaceid: ${storyblokConfig.spaceId} with command: ${command}`
+                        `sync content... from: ${flags.from} to working dir spaceid: ${storyblokConfig.spaceId} with command: ${command}`
                     );
 
                     await removeAllStories({
