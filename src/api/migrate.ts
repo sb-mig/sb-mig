@@ -17,7 +17,14 @@ import {
     discoverMany,
 } from "../utils/discover.js";
 import { getFileContentWithRequire } from "../utils/main.js";
-import { createStory, getAllStories, removeStory } from "./stories.js";
+import {
+    createStory,
+    getAllStories,
+    getFolders,
+    getStoriesByParentId,
+    getStoriesBySlug,
+    removeStory,
+} from "./stories.js";
 import { createPlugin, getPlugin, updatePlugin } from "./plugins.js";
 import { readFile } from "../utils/files.js";
 
@@ -272,9 +279,9 @@ export const syncContent = async ({
     from: number;
     to: number;
 }) => {
-    const stories = await getAllStories({ spaceId: from });
+    const allStories = await getAllStories({ spaceId: from });
 
-    const rootLevelStories = stories.filter(({ story }) => !story.parent_id);
+    const rootLevelStories = allStories.filter(({ story }) => !story.parent_id);
 
     // here we create root level in source space
     await Promise.all(
@@ -283,19 +290,46 @@ export const syncContent = async ({
         })
     );
 
-    const nestedLevelStories = stories.filter(({ story }) => story.parent_id);
-    const nestedLevelMap = new Map();
-    nestedLevelStories.map(({ story }) => {
-        const finalSlugLength = story.full_slug.split("/").length;
-        nestedLevelMap.set(finalSlugLength, [
-            ...(nestedLevelMap.get(finalSlugLength) || []),
-            { story },
-        ]);
+    const nestedStories = allStories.filter(({ story }) => story.parent_id);
+    console.log("________________ nestedStories ________________________");
+    console.log(nestedStories);
+    console.log("________________");
+
+    const storiesBySlug = await getStoriesBySlug({
+        spaceId: from,
+        slug: "folder_that_nest",
     });
+    console.log("############# filtered stories by slug #############");
+    console.log(storiesBySlug);
+    console.log("#############");
 
-    const nestedLevelArray = Array.from(nestedLevelMap);
+    const storiesByParentId = await getStoriesByParentId({
+        spaceId: from,
+        parentId: 223474173,
+    });
+    console.log(
+        ".................. filtered stories by slug .................."
+    );
+    console.log(storiesByParentId);
+    console.log("..................");
 
-    const storiesFromTarget = await getAllStories({ spaceId: to });
+    const foldersFromTo = await getFolders({ spaceId: to });
+    console.log("++++++++++++++++++ only folders ++++++++++++++++++");
+    console.log(foldersFromTo);
+    console.log("++++++++++++++++++");
+
+    // const nestedLevelMap = new Map();
+    // nestedLevelStories.map(({ story }) => {
+    //     const finalSlugLength = story.full_slug.split("/").length;
+    //     nestedLevelMap.set(finalSlugLength, [
+    //         ...(nestedLevelMap.get(finalSlugLength) || []),
+    //         { story },
+    //     ]);
+    // });
+
+    // const nestedLevelArray = Array.from(nestedLevelMap);
+
+    // const storiesFromTarget = await getAllStories({ spaceId: to });
 
     // console.log(finalOrder)
 

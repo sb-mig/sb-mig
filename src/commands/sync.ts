@@ -101,9 +101,9 @@ export const sync = async (props: CLIOptions) => {
                         `sync content... from boilerplateSpaceId: ${storyblokConfig.boilerplateSpaceId} to working dir spaceid: ${storyblokConfig.spaceId} with command: ${command}`
                     );
 
-                    // await removeAllStories({
-                    //     spaceId: storyblokConfig.spaceId,
-                    // });
+                    await removeAllStories({
+                        spaceId: storyblokConfig.spaceId,
+                    });
 
                     await syncContent({
                         from: storyblokConfig.boilerplateSpaceId,

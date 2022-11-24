@@ -35,6 +35,75 @@ export const getAllStories = async ({ spaceId }: { spaceId: number }) => {
     return allStories;
 };
 
+export const getStoriesBySlug = async ({
+    spaceId,
+    slug,
+}: {
+    spaceId: number;
+    slug: string;
+}) => {
+    console.log(`Trying to get Stories by slug: ${slug}`);
+
+    const allStoriesWithoutContent: any = await sbApi
+        .get(`spaces/${spaceId}/stories/`, {
+            with_slug: slug,
+        })
+        .then((res: any) => res.data.stories)
+        .catch((err: any) => console.error(err));
+
+    const allStories = await Promise.all(
+        allStoriesWithoutContent.map(
+            async (story: any) => await getStory({ spaceId, storyId: story.id })
+        )
+    );
+
+    return allStories;
+};
+
+export const getStoriesByParentId = async ({
+    spaceId,
+    parentId,
+}: {
+    spaceId: number;
+    parentId?: number | null;
+}) => {
+    console.log(`Trying to get Stories by parent id: ${parentId}`);
+
+    const allStoriesWithoutContent: any = await sbApi
+        .get(`spaces/${spaceId}/stories/`, {
+            with_parent: parentId,
+        })
+        .then((res: any) => res.data.stories)
+        .catch((err: any) => console.error(err));
+
+    const allStories = await Promise.all(
+        allStoriesWithoutContent.map(
+            async (story: any) => await getStory({ spaceId, storyId: story.id })
+        )
+    );
+
+    return allStories;
+};
+
+export const getFolders = async ({ spaceId }: { spaceId: number }) => {
+    console.log(`Trying to get all folders`);
+
+    const allStoriesWithoutContent: any = await sbApi
+        .get(`spaces/${spaceId}/stories/`, {
+            folder_only: true,
+        })
+        .then((res: any) => res.data.stories)
+        .catch((err: any) => console.error(err));
+
+    const allStories = await Promise.all(
+        allStoriesWithoutContent.map(
+            async (story: any) => await getStory({ spaceId, storyId: story.id })
+        )
+    );
+
+    return allStories;
+};
+
 export const getStory = ({
     spaceId,
     storyId,
