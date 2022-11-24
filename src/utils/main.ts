@@ -29,7 +29,13 @@ export const getFileContent = (data: { file: string }): any => {
 
 export const getFileContentWithRequire = (data: { file: string }) => {
     const require = createRequire(import.meta.url);
-    return require(data.file);
+    const fileContent = require(data.file);
+
+    if (fileContent.default) {
+        return fileContent.default;
+    }
+
+    return fileContent;
 };
 
 export const getFilesContentWithRequire = (data: { files: string[] }) => {
