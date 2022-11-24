@@ -1,3 +1,15 @@
+# [4.1.0-beta.10](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.9...v4.1.0-beta.10) (2022-11-24)
+
+
+
+
+# [4.1.0-beta.10](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.9...v4.1.0-beta.10) (2022-11-24)
+
+
+### Bug Fixes
+
+* **sync:** issue with not been able to sync schemas with default and named exports ([240d818](https://github.com/sb-mig/sb-mig/commit/240d8184b6d32c73b17cd6268cb53fb33bf42c0d))
+
 # [4.1.0-beta.9](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.8...v4.1.0-beta.9) (2022-11-22)
 
 
