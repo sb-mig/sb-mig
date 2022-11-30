@@ -1,3 +1,15 @@
+# [4.1.0-beta.12](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.11...v4.1.0-beta.12) (2022-11-30)
+
+
+
+
+# [4.1.0-beta.12](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.11...v4.1.0-beta.12) (2022-11-30)
+
+
+### Bug Fixes
+
+* **discover:** make discover command a bit more generic ([ef5636e](https://github.com/sb-mig/sb-mig/commit/ef5636eb65683083972773612de11fb73c7c9864))
+
 # [4.1.0-beta.11](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.10...v4.1.0-beta.11) (2022-11-30)
 
 
