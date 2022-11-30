@@ -6,8 +6,6 @@ export const defaultConfig = (
     path: string,
     env: any
 ): IStoryblokConfig => {
-    console.log({ pkg, path });
-
     const packagePath = `${path}/package.json`;
 
     return {
@@ -36,8 +34,6 @@ export const getStoryblokConfigContent = (data: {
     filePath: string;
     ext: string;
 }): any => {
-    console.log("getting data: ");
-    console.log(`${data.filePath}${data.ext}`);
     return import(`${data.filePath}${data.ext}`)
         .then((res) => {
             Logger.success("Found storyblok.config.js!");
