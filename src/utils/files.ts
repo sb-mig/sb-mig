@@ -21,6 +21,19 @@ export const createJsonFile = async (
     await fs.promises.writeFile(pathWithFilename, content, { flag: "w" });
 };
 
+export const createJSFile = async (
+    content: string,
+    pathWithFilename: string
+) => {
+    const finalContent = `
+export const componentList = ${content} as const;
+
+export type ComponentsUnion = typeof componentList[number];
+`;
+
+    await fs.promises.writeFile(pathWithFilename, finalContent, { flag: "w" });
+};
+
 export const copyFolder = async (src: string, dest: string) => {
     return new Promise((resolve, reject) => {
         ncp(src, dest, function (err) {
@@ -64,6 +77,11 @@ interface CreateAndSaveToFile {
     res: any;
 }
 
+interface CreateAndSaveComponentListToFile {
+    folder: string;
+    res: any;
+}
+
 export const createAndSaveToFile = async ({
     prefix,
     folder,
@@ -75,6 +93,21 @@ export const createAndSaveToFile = async ({
     await createJsonFile(
         JSON.stringify(res, undefined, 2),
         `${storyblokConfig.sbmigWorkingDirectory}/${folder}/${filename}.json`
+    );
+    Logger.success(`All groups written to a file:  ${filename}`);
+};
+
+export const createAndSaveComponentListToFile = async ({
+    folder,
+    res,
+}: CreateAndSaveComponentListToFile): Promise<void> => {
+    const datestamp = new Date();
+    const filename = `all-components__${generateDatestamp(datestamp)}`;
+    await createDir(`${storyblokConfig.sbmigWorkingDirectory}/${folder}/`);
+    0;
+    await createJSFile(
+        JSON.stringify(res, undefined, 2),
+        `${storyblokConfig.sbmigWorkingDirectory}/${folder}/${filename}.ts`
     );
     Logger.success(`All groups written to a file:  ${filename}`);
 };

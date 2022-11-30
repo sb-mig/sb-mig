@@ -4,6 +4,7 @@ import { debug } from "./commands/debug.js";
 import { init } from './commands/init.js'
 import { pipe, prop } from "./utils/main.js";
 import { sync } from "./commands/sync.js";
+import { discover } from "./commands/discover.js";
 import {remove} from "./commands/remove.js";
 import { backup } from "./commands/backup.js";
 import {
@@ -11,7 +12,7 @@ import {
     debugDescription,
     mainDescription,
     syncDescription,
-    removeDescription, initDescription
+    removeDescription, initDescription, discoverDescription
 } from "./cli-descriptions.js";
 
 const app = () => ({
@@ -29,6 +30,16 @@ app.sync = () => ({
     }),
     action: (cli: any) => {
         sync(cli);
+    },
+});
+
+app.discover = () => ({
+    cli: meow(discoverDescription, {
+        importMeta: import.meta,
+        booleanDefault: undefined,
+    }),
+    action: (cli: any) => {
+        discover(cli);
     },
 });
 

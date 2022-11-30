@@ -3,10 +3,11 @@ export const mainDescription = `
       $ sb-mig [command]
     
     COMMANDS
-        sync    Synchronize components, datasources or roles with Storyblok space.
-        backup  Command for backing up anything related to Storyblok
-        debug   Output extra debugging information
-        help    This screen
+        sync      Synchronize components, datasources or roles with Storyblok space.
+        discover  Discover components and write to file or stdout.
+        backup    Command for backing up anything related to Storyblok
+        debug     Output extra debugging information
+        help      This screen
     
     Examples
       $ sb-mig sync components --all
@@ -41,6 +42,25 @@ export const syncDescription = `
         $ sb-mig sync roles --all
         $ sb-mig sync datasources --all
         $ sb-mig sync plugins my-awesome-plugin - (you have to be in catalog which has ./dist/export.js file with compiled plugin)
+`;
+
+export const discoverDescription = `
+    Usage
+        $ sb-mig discover [components] --all --write
+        
+    Description
+        Discover all component and write to file or stdout
+        
+    COMMANDS
+        components     - discover components
+     
+    FLAGS
+        --all          - Discover all components
+        --write        - Write to file 
+    
+    EXAMPLES
+        $ sb-mig discover components --all
+        $ sb-mig discover components --all -- write
 `;
 
 export const removeDescription = `
