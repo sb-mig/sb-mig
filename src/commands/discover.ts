@@ -33,10 +33,15 @@ export const discover = async (props: CLIOptions) => {
                     ),
                 ];
 
-                await createAndSaveComponentListToFile({
-                    folder: "discoveries",
-                    res: content,
-                });
+                Logger.success("#### Discovered components  ####");
+                console.log(content);
+
+                if (flags["write"]) {
+                    await createAndSaveComponentListToFile({
+                        file: flags["file"] || undefined,
+                        res: content,
+                    });
+                }
             }
 
             break;

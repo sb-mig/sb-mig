@@ -25,7 +25,15 @@ export const createJSFile = async (
     content: string,
     pathWithFilename: string
 ) => {
-    const finalContent = `
+    const datestamp = new Date();
+    const finalContent = `/*
+
+Auto-generated file by sb-mig discovery
+on ${generateDatestamp(datestamp)}
+
+Do not edit manually (use yarn components:discover instead)
+
+*/
 export const componentList = ${content} as const;
 
 export type ComponentsUnion = typeof componentList[number];
@@ -78,7 +86,8 @@ interface CreateAndSaveToFile {
 }
 
 interface CreateAndSaveComponentListToFile {
-    folder: string;
+    file?: string;
+    folder?: string;
     res: any;
 }
 
@@ -98,18 +107,24 @@ export const createAndSaveToFile = async ({
 };
 
 export const createAndSaveComponentListToFile = async ({
+    file,
     folder,
     res,
 }: CreateAndSaveComponentListToFile): Promise<void> => {
     const datestamp = new Date();
-    const filename = `all-components__${generateDatestamp(datestamp)}`;
-    await createDir(`${storyblokConfig.sbmigWorkingDirectory}/${folder}/`);
-    0;
-    await createJSFile(
-        JSON.stringify(res, undefined, 2),
-        `${storyblokConfig.sbmigWorkingDirectory}/${folder}/${filename}.ts`
+    const filename = file ?? `all-components__${generateDatestamp(datestamp)}`;
+    await createDir(
+        folder
+            ? `${storyblokConfig.sbmigWorkingDirectory}/${folder}/`
+            : `${storyblokConfig.sbmigWorkingDirectory}/`
     );
-    Logger.success(`All groups written to a file:  ${filename}`);
+    await createJSFile(
+        JSON.stringify(res, null, 2),
+        folder
+            ? `${storyblokConfig.sbmigWorkingDirectory}/${folder}/${filename}.ts`
+            : `${storyblokConfig.sbmigWorkingDirectory}/${filename}.ts`
+    );
+    Logger.success(`All components written to a file:  ${filename}`);
 };
 
 export const readFile = async (path: string) => {
