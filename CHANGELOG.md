@@ -1,3 +1,15 @@
+# [4.1.0-beta.11](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.10...v4.1.0-beta.11) (2022-11-30)
+
+
+
+
+# [4.1.0-beta.11](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.10...v4.1.0-beta.11) (2022-11-30)
+
+
+### Features
+
+* **discover:** add discover command to discover components and save to ts file with type union ([c963bdf](https://github.com/sb-mig/sb-mig/commit/c963bdf475261735dc426fa8f345ce96b4d28f61))
+
 # [4.1.0-beta.10](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.9...v4.1.0-beta.10) (2022-11-24)
 
 
