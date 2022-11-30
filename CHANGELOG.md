@@ -1,3 +1,15 @@
+# [4.1.0-beta.13](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.12...v4.1.0-beta.13) (2022-11-30)
+
+
+
+
+# [4.1.0-beta.13](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.12...v4.1.0-beta.13) (2022-11-30)
+
+
+### Bug Fixes
+
+* **console.logs:** remove not needed console.logs ([f5b9854](https://github.com/sb-mig/sb-mig/commit/f5b98547e659cddaa7e07cca98caec4900aebeb1))
+
 # [4.1.0-beta.12](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.11...v4.1.0-beta.12) (2022-11-30)
 
 
