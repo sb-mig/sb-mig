@@ -1,3 +1,15 @@
+# [4.1.0-beta.14](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.13...v4.1.0-beta.14) (2022-12-01)
+
+
+
+
+# [4.1.0-beta.14](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.13...v4.1.0-beta.14) (2022-12-01)
+
+
+### Bug Fixes
+
+* **discover command:** improve removing sb extension from discovered files ([e3457b1](https://github.com/sb-mig/sb-mig/commit/e3457b1e04f039c6c65f4dede0dc3f37dd9be5a8))
+
 # [4.1.0-beta.13](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.12...v4.1.0-beta.13) (2022-11-30)
 
 
