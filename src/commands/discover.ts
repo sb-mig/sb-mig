@@ -26,10 +26,16 @@ export const discover = async (props: CLIOptions) => {
 
                 const content = [
                     ...allComponents.local.map((component: any) =>
-                        component.name.replaceAll(".sb.js", "")
+                        component.name
+                            .replaceAll(".sb.js", "")
+                            .replaceAll(".sb.cjs", "")
+                            .replaceAll(".sb.mjs", "")
                     ),
                     ...allComponents.external.map((component: any) =>
-                        component.name.replaceAll(".sb.js", "")
+                        component.name
+                            .replaceAll(".sb.js", "")
+                            .replaceAll(".sb.cjs", "")
+                            .replaceAll(".sb.mjs", "")
                     ),
                 ];
 
