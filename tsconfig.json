@@ -5,7 +5,12 @@
     "esModuleInterop": true,
     "moduleResolution": "node",
     "outDir": "dist",
-    "noUnusedLocals": false
+    "noUnusedLocals": false,
+    "lib": [
+      "DOM",
+      "DOM.Iterable",
+      "ESNext"
+    ],
   },
   "include": ["src"]
 }

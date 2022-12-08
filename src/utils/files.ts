@@ -23,13 +23,14 @@ export const createJsonFile = async (
 
 export const createJSFile = async (
     content: string,
-    pathWithFilename: string
+    pathWithFilename: string,
+    timestamp: boolean = false
 ) => {
     const datestamp = new Date();
     const finalContent = `/*
 
 Auto-generated file by sb-mig discovery
-on ${generateDatestamp(datestamp)}
+${timestamp ? `Generated on: ${generateDatestamp(datestamp)}` : ""}
 
 Do not edit manually (use yarn components:discover instead)
 
@@ -110,6 +111,7 @@ export const createAndSaveComponentListToFile = async ({
     file,
     folder,
     res,
+    timestamp = false,
 }: CreateAndSaveComponentListToFile): Promise<void> => {
     const datestamp = new Date();
     const filename = file ?? `all-components__${generateDatestamp(datestamp)}`;
@@ -122,7 +124,8 @@ export const createAndSaveComponentListToFile = async ({
         JSON.stringify(res, null, 2),
         folder
             ? `${storyblokConfig.sbmigWorkingDirectory}/${folder}/${filename}.ts`
-            : `${storyblokConfig.sbmigWorkingDirectory}/${filename}.ts`
+            : `${storyblokConfig.sbmigWorkingDirectory}/${filename}.ts`,
+        timestamp
     );
     Logger.success(`All components written to a file:  ${filename}`);
 };
