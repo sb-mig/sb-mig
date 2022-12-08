@@ -1,3 +1,15 @@
+# [4.1.0-beta.16](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.15...v4.1.0-beta.16) (2022-12-08)
+
+
+
+
+# [4.1.0-beta.16](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.15...v4.1.0-beta.16) (2022-12-08)
+
+
+### Bug Fixes
+
+* **release:** trigger ([5e2cfe8](https://github.com/sb-mig/sb-mig/commit/5e2cfe8578f6ba9ecb7888d1f9a31fb1698fbe28))
+
 # [4.1.0-beta.15](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.14...v4.1.0-beta.15) (2022-12-08)
 
 
