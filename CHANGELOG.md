@@ -1,3 +1,17 @@
+# [4.1.0-beta.15](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.14...v4.1.0-beta.15) (2022-12-08)
+
+
+
+
+# [4.1.0-beta.15](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.14...v4.1.0-beta.15) (2022-12-08)
+
+
+### Bug Fixes
+
+* **discover:** remove timestamp in file by default, now you can pass variable to say if u want it ([cfa36dd](https://github.com/sb-mig/sb-mig/commit/cfa36ddcb97347203099d2b576fddab1aab154cc))
+* **lintstaged:** add typescript check on lintstaged - prevent github actions fails because of ts ([8aee2c3](https://github.com/sb-mig/sb-mig/commit/8aee2c34830f26459f03965d4c37e9082746c774))
+* **typescript error:** fix missing types ([c3758f2](https://github.com/sb-mig/sb-mig/commit/c3758f255f30ef06ab020a48b4831f5099523c6a))
+
 # [4.1.0-beta.14](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.13...v4.1.0-beta.14) (2022-12-01)
 
 
