@@ -1,3 +1,15 @@
+# [4.1.0-beta.17](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.16...v4.1.0-beta.17) (2022-12-08)
+
+
+
+
+# [4.1.0-beta.17](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.16...v4.1.0-beta.17) (2022-12-08)
+
+
+### Bug Fixes
+
+* **discover:** change name of the exported type for components list ([cf73304](https://github.com/sb-mig/sb-mig/commit/cf733041df75f3efb23dca5015e8a429ee65e0fe))
+
 # [4.1.0-beta.16](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.15...v4.1.0-beta.16) (2022-12-08)
 
 
