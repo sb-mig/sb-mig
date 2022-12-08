@@ -90,7 +90,7 @@ interface CreateAndSaveComponentListToFile {
     file?: string;
     folder?: string;
     res: any;
-    timestamp: boolean;
+    timestamp?: boolean;
 }
 
 export const createAndSaveToFile = async ({
