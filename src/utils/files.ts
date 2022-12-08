@@ -37,7 +37,7 @@ Do not edit manually (use yarn components:discover instead)
 */
 export const componentList = ${content} as const;
 
-export type ComponentsUnion = typeof componentList[number];
+export type Components = typeof componentList[number];
 `;
 
     await fs.promises.writeFile(pathWithFilename, finalContent, { flag: "w" });
