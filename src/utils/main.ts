@@ -29,17 +29,6 @@ export const getFileContent = (data: { file: string }): any => {
         });
 };
 
-const _readFile = async (path: string) => {
-    try {
-        const result = await fs.promises.readFile(path);
-        return result.toString();
-    } catch (e) {
-        console.log(e);
-        console.error("Error happened while reading file.");
-        return;
-    }
-};
-
 export const getFileContentWithRequire = (data: { file: string }) => {
     const require = createRequire(import.meta.url);
     const fileContent = require(data.file);
