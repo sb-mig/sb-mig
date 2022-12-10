@@ -22,7 +22,7 @@ export const discover = async (props: CLIOptions) => {
                     `Syncing ALL components with ${storyblokConfig.schemaFileExt} extension...`
                 );
 
-                const allComponents = discoverAllComponents();
+                const allComponents = await discoverAllComponents();
 
                 const content = [
                     ...allComponents.local.map((component: any) =>

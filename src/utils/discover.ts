@@ -683,34 +683,68 @@ export const discoverOne = (request: DiscoverOneRequest): DiscoverResult => {
     return listOfFiles;
 };
 
-export const discover = (request: DiscoverRequest): DiscoverResult => {
+export const discover = async (
+    request: DiscoverRequest
+): Promise<DiscoverResult> => {
     const rootDirectory = "./";
     const directory = path.resolve(process.cwd(), rootDirectory);
     let pattern;
     let listOfFiles = [""];
 
-    const filesPattern = (componentDirectories: string[]): string => {
+    const filesPattern = (
+        componentDirectories: string[],
+        ext: string
+    ): string => {
         return componentDirectories.length === 1
             ? path.join(
                   `${directory}/${componentDirectories[0]}`,
                   "**",
-                  `[^_]*.${storyblokConfig.schemaFileExt}` // all files with 'ext' extension, without files beggining with _
+                  `[^_]*.${ext}` // all files with 'ext' extension, without files beggining with _
               )
             : path.join(
                   `${directory}/{${componentDirectories.join(",")}}`,
                   "**",
-                  `[^_]*.${storyblokConfig.schemaFileExt}` // all files with 'ext' extension, without files beggining with _
+                  `[^_]*.${ext}` // all files with 'ext' extension, without files beggining with _
               );
     };
 
     switch (request.scope) {
         case SCOPE.local:
             // ### ALL - LOCAL - fileName ###
+            let listOFSchemaTSFilesCompiled: string[] = [];
+
             const onlyLocalComponentsDirectories =
                 storyblokConfig.componentsDirectories.filter(
                     (path: string) => !path.includes("node_modules")
                 );
-            pattern = filesPattern(onlyLocalComponentsDirectories);
+
+            if (storyblokConfig.schemaType === SCHEMA.TS) {
+                pattern = filesPattern(onlyLocalComponentsDirectories, "sb.ts");
+
+                const listOfFilesToCompile = glob.sync(pattern, {
+                    follow: true,
+                });
+
+                await buildOnTheFly({ files: listOfFilesToCompile });
+
+                pattern = path.join(
+                    directory,
+                    ".next",
+                    "cache",
+                    "sb-mig",
+                    "**",
+                    `[^_]*.${storyblokConfig.schemaFileExt}`
+                );
+
+                listOFSchemaTSFilesCompiled = glob.sync(pattern, {
+                    follow: true,
+                });
+            }
+
+            pattern = filesPattern(
+                onlyLocalComponentsDirectories,
+                storyblokConfig.schemaFileExt
+            );
 
             listOfFiles = glob.sync(pattern, { follow: true });
             break;
@@ -721,14 +755,18 @@ export const discover = (request: DiscoverRequest): DiscoverResult => {
                     path.includes("node_modules")
                 );
             pattern = filesPattern(
-                onlyNodeModulesPackagesComponentsDirectories
+                onlyNodeModulesPackagesComponentsDirectories,
+                storyblokConfig.schemaFileExt
             );
 
             listOfFiles = glob.sync(pattern, { follow: true });
             break;
         case SCOPE.all:
             // ### ALL - LOCAL - fileName ###
-            pattern = filesPattern(storyblokConfig.componentsDirectories);
+            pattern = filesPattern(
+                storyblokConfig.componentsDirectories,
+                storyblokConfig.schemaFileExt
+            );
 
             listOfFiles = glob.sync(pattern, { follow: true });
             break;

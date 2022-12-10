@@ -203,14 +203,14 @@ export const syncProvidedComponents = async ({
     }
 };
 
-export const discoverAllComponents = () => {
+export const discoverAllComponents = async () => {
     // #1: discover all external .sb.js files
-    const allLocalSbComponentsSchemaFiles = discover({
+    const allLocalSbComponentsSchemaFiles = await discover({
         scope: SCOPE.local,
         type: LOOKUP_TYPE.fileName,
     });
     // #2: discover all local .sb.js files
-    const allExternalSbComponentsSchemaFiles = discover({
+    const allExternalSbComponentsSchemaFiles = await discover({
         scope: SCOPE.external,
         type: LOOKUP_TYPE.fileName,
     });
@@ -223,14 +223,14 @@ export const discoverAllComponents = () => {
     return { local, external };
 };
 
-export const syncAllComponents = ({ presets }: SyncAllComponents) => {
+export const syncAllComponents = async ({ presets }: SyncAllComponents) => {
     // #1: discover all external .sb.js files
-    const allLocalSbComponentsSchemaFiles = discover({
+    const allLocalSbComponentsSchemaFiles = await discover({
         scope: SCOPE.local,
         type: LOOKUP_TYPE.fileName,
     });
     // #2: discover all local .sb.js files
-    const allExternalSbComponentsSchemaFiles = discover({
+    const allExternalSbComponentsSchemaFiles = await discover({
         scope: SCOPE.external,
         type: LOOKUP_TYPE.fileName,
     });
