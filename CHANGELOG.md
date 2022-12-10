@@ -1,3 +1,15 @@
+# [4.1.0-beta.23](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.22...v4.1.0-beta.23) (2022-12-10)
+
+
+
+
+# [4.1.0-beta.23](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.22...v4.1.0-beta.23) (2022-12-10)
+
+
+### Bug Fixes
+
+* **sync:** sync all doesnt merge typescript schema with others discovered schema ([6d47da1](https://github.com/sb-mig/sb-mig/commit/6d47da174e768732959444e577b2b0e85a462471))
+
 # [4.1.0-beta.22](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.21...v4.1.0-beta.22) (2022-12-10)
 
 
