@@ -16,7 +16,7 @@ interface BuildOnTheFly {
 }
 export const buildOnTheFly = async ({ files }: BuildOnTheFly) => {
     if (storyblokConfig.flushCache) {
-        await remove(storyblokConfig.cacheDir);
+        await remove(`${storyblokConfig.cacheDir}/sb-mig`);
     }
 
     const projectDir = process.cwd();
