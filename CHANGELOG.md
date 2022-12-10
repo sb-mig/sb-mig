@@ -1,3 +1,23 @@
+# [4.1.0-beta.18](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.17...v4.1.0-beta.18) (2022-12-10)
+
+
+
+
+# [4.1.0-beta.18](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.17...v4.1.0-beta.18) (2022-12-10)
+
+
+### Bug Fixes
+
+* **actions:** update deprecated setup-node v2 and checkout v2 to v3 ([0e02c5b](https://github.com/sb-mig/sb-mig/commit/0e02c5bfb51af03a00b747b23b89132de72d5e47))
+* **config:** remove not needed schema file extension added by misatke ([d6ee632](https://github.com/sb-mig/sb-mig/commit/d6ee63292c699da6822e4af6400bb6a7b71fff22))
+* **console.logs:** remove not needed console.logs, add Logger.success for precompile ([59b0a5c](https://github.com/sb-mig/sb-mig/commit/59b0a5c489dc486cada3edc531918a2a605d2580))
+* **utils:** remove _readFile util not used ([077cfce](https://github.com/sb-mig/sb-mig/commit/077cfce1babc910e4cd0ddf5211ea2eae3d5e5f6))
+
+
+### Features
+
+* **syncing ts schema:** add working solution for syncing consumer ts schema for indyvidual files ([1458379](https://github.com/sb-mig/sb-mig/commit/1458379216bcb5cb559a0ca716bea324bbabeabe))
+
 # [4.1.0-beta.17](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.16...v4.1.0-beta.17) (2022-12-08)
 
 
