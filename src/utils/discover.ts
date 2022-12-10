@@ -5,8 +5,9 @@
 import glob from "glob";
 import path from "path";
 
-import storyblokConfig from "../config/config.js";
+import storyblokConfig, { SCHEMA } from "../config/config.js";
 import { getFileContentWithRequire } from "./main.js";
+import { buildOnTheFly } from "../rollup/build-on-the-fly.js";
 
 export enum SCOPE {
     local = "local",
@@ -389,7 +390,9 @@ export const discoverOneByPackageName = (
     return listOfFiles;
 };
 
-export const discoverMany = (request: DiscoverManyRequest): DiscoverResult => {
+export const discoverMany = async (
+    request: DiscoverManyRequest
+): Promise<DiscoverResult> => {
     const rootDirectory = "./";
     const directory = path.resolve(process.cwd(), rootDirectory);
     let pattern;
@@ -398,10 +401,50 @@ export const discoverMany = (request: DiscoverManyRequest): DiscoverResult => {
     switch (request.scope) {
         case SCOPE.local:
             // ### MANY - LOCAL - fileName ###
+            let listOFSchemaTSFilesCompiled: string[] = [];
+
             const onlyLocalComponentsDirectories =
                 storyblokConfig.componentsDirectories.filter(
                     (path: string) => !path.includes("node_modules")
                 );
+
+            if (storyblokConfig.schemaType === SCHEMA.TS) {
+                pattern = path.join(
+                    `${directory}/${normalizeDiscover({
+                        segments: onlyLocalComponentsDirectories,
+                    })}`,
+                    "**",
+                    `${normalizeDiscover({ segments: request.fileNames })}.sb.${
+                        storyblokConfig.schemaType
+                    }`
+                );
+
+                const listOfFilesToCompile = glob.sync(pattern, {
+                    follow: true,
+                });
+                console.log("List of files to compile: ", listOfFilesToCompile);
+                await buildOnTheFly({ files: listOfFilesToCompile });
+
+                pattern = path.join(
+                    directory,
+                    ".next",
+                    "cache",
+                    "sb-mig",
+                    "**",
+                    `${normalizeDiscover({ segments: request.fileNames })}.${
+                        storyblokConfig.schemaFileExt
+                    }`
+                );
+
+                listOFSchemaTSFilesCompiled = glob.sync(pattern, {
+                    follow: true,
+                });
+
+                console.log("@@@@@@@@@@@@@@@@@@@@@");
+                console.log(listOFSchemaTSFilesCompiled);
+                console.log("@@@@@@@@@@@@@@@@@@@@@");
+            }
+
             pattern = path.join(
                 `${directory}/${normalizeDiscover({
                     segments: onlyLocalComponentsDirectories,
@@ -413,6 +456,10 @@ export const discoverMany = (request: DiscoverManyRequest): DiscoverResult => {
             );
 
             listOfFiles = glob.sync(pattern, { follow: true });
+            listOfFiles = [...listOfFiles, ...listOFSchemaTSFilesCompiled];
+
+            console.log("This is FINAL list of files to SYNCHRONIZE");
+            console.log(listOfFiles);
             break;
 
         case SCOPE.external:
@@ -432,6 +479,8 @@ export const discoverMany = (request: DiscoverManyRequest): DiscoverResult => {
             );
 
             listOfFiles = glob.sync(pattern, { follow: true });
+            break;
+        case SCOPE.lock:
             break;
 
         case SCOPE.all:

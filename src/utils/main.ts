@@ -1,4 +1,5 @@
 import { createRequire } from "module";
+import fs from "fs";
 
 export const prop = (k: any) => (o: any) => o[k];
 
@@ -22,9 +23,21 @@ export const getFileContent = (data: { file: string }): any => {
         .then((res) => {
             return res.default;
         })
-        .catch(() => {
+        .catch((err) => {
+            console.log(err);
             console.log("Cannot find requested file.");
         });
+};
+
+const _readFile = async (path: string) => {
+    try {
+        const result = await fs.promises.readFile(path);
+        return result.toString();
+    } catch (e) {
+        console.log(e);
+        console.error("Error happened while reading file.");
+        return;
+    }
 };
 
 export const getFileContentWithRequire = (data: { file: string }) => {

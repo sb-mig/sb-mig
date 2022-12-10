@@ -5,11 +5,18 @@ import { pkg } from "../utils/pkg.js";
 
 dotenv.config();
 
+export const SCHEMA = {
+    TS: "ts",
+    JS: "js",
+} as const;
+
+type SchemaType = typeof SCHEMA[keyof typeof SCHEMA];
+
 export interface IStoryblokConfig {
     storyblokComponentsLocalDirectory: string;
     sbmigWorkingDirectory: string;
     componentsDirectories: string[];
-    schemaFileExt: string;
+    schemaFileExt: "sb.cjs" | "sb.js" | "sb.ts";
     datasourceExt: string;
     rolesExt: string;
     storyblokApiUrl: string;
@@ -17,6 +24,7 @@ export interface IStoryblokConfig {
     spaceId: string;
     accessToken: string;
     boilerplateSpaceId: number;
+    schemaType: SchemaType;
 }
 
 const filePath = path.resolve(process.cwd(), "storyblok.config");
