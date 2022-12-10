@@ -16,7 +16,7 @@ export interface IStoryblokConfig {
     storyblokComponentsLocalDirectory: string;
     sbmigWorkingDirectory: string;
     componentsDirectories: string[];
-    schemaFileExt: "sb.cjs" | "sb.js" | "sb.ts";
+    schemaFileExt: "sb.cjs" | "sb.js";
     datasourceExt: string;
     rolesExt: string;
     storyblokApiUrl: string;
