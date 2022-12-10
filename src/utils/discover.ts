@@ -747,6 +747,7 @@ export const discover = async (
             );
 
             listOfFiles = glob.sync(pattern, { follow: true });
+            listOfFiles = [...listOfFiles, ...listOFSchemaTSFilesCompiled];
             break;
         case SCOPE.external:
             // ### ALL - EXTERNAL - fileName ###
