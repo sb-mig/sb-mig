@@ -1,3 +1,15 @@
+# [4.1.0-beta.19](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.18...v4.1.0-beta.19) (2022-12-10)
+
+
+
+
+# [4.1.0-beta.19](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.18...v4.1.0-beta.19) (2022-12-10)
+
+
+### Bug Fixes
+
+* **cache:** fix fluishing cache by default - more cache improvements comming ([04d6dfd](https://github.com/sb-mig/sb-mig/commit/04d6dfd63a09404c0ad4b221786b01a53d8a31fc))
+
 # [4.1.0-beta.18](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.17...v4.1.0-beta.18) (2022-12-10)
 
 
