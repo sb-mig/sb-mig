@@ -1,3 +1,15 @@
+# [4.1.0-beta.21](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.20...v4.1.0-beta.21) (2022-12-10)
+
+
+
+
+# [4.1.0-beta.21](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.20...v4.1.0-beta.21) (2022-12-10)
+
+
+### Bug Fixes
+
+* **rollup:** add swc as transpiler to rollup-plugion-ts ([1a434bd](https://github.com/sb-mig/sb-mig/commit/1a434bd54eaf033f27102c30574406f6b4215f2b))
+
 # [4.1.0-beta.20](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.19...v4.1.0-beta.20) (2022-12-10)
 
 
