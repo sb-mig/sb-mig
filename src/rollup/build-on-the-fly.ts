@@ -1,5 +1,6 @@
 import ts from "rollup-plugin-ts";
 import { build } from "./setup-rollup.js";
+import Logger from "../utils/logger.js";
 
 const _extractComponentName = (filePath: string): string => {
     const sP = filePath.split("/");
@@ -44,4 +45,6 @@ export const buildOnTheFly = async ({ files }: BuildOnTheFly) => {
             await build({ inputOptions, outputOptionsList });
         })
     );
+
+    Logger.success("Precompile successfull!.");
 };

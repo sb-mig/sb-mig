@@ -422,7 +422,6 @@ export const discoverMany = async (
                 const listOfFilesToCompile = glob.sync(pattern, {
                     follow: true,
                 });
-                console.log("List of files to compile: ", listOfFilesToCompile);
                 await buildOnTheFly({ files: listOfFilesToCompile });
 
                 pattern = path.join(
@@ -439,10 +438,6 @@ export const discoverMany = async (
                 listOFSchemaTSFilesCompiled = glob.sync(pattern, {
                     follow: true,
                 });
-
-                console.log("@@@@@@@@@@@@@@@@@@@@@");
-                console.log(listOFSchemaTSFilesCompiled);
-                console.log("@@@@@@@@@@@@@@@@@@@@@");
             }
 
             pattern = path.join(
@@ -457,9 +452,6 @@ export const discoverMany = async (
 
             listOfFiles = glob.sync(pattern, { follow: true });
             listOfFiles = [...listOfFiles, ...listOFSchemaTSFilesCompiled];
-
-            console.log("This is FINAL list of files to SYNCHRONIZE");
-            console.log(listOfFiles);
             break;
 
         case SCOPE.external:
