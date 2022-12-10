@@ -1,5 +1,6 @@
 import Logger from "../utils/logger.js";
 import type { IStoryblokConfig } from "./config.js";
+import { SCHEMA } from "./config.js";
 
 export const defaultConfig = (
     pkg: any,
@@ -27,6 +28,7 @@ export const defaultConfig = (
             env["NEXT_PUBLIC_STORYBLOK_ACCESS_TOKEN"] ||
             "",
         boilerplateSpaceId: 172677, // this is id of Content seed for nextjs boilerplate space
+        schemaType: SCHEMA.JS,
     };
 };
 

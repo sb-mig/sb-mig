@@ -1,4 +1,5 @@
 import { createRequire } from "module";
+import fs from "fs";
 
 export const prop = (k: any) => (o: any) => o[k];
 
@@ -22,7 +23,8 @@ export const getFileContent = (data: { file: string }): any => {
         .then((res) => {
             return res.default;
         })
-        .catch(() => {
+        .catch((err) => {
+            console.log(err);
             console.log("Cannot find requested file.");
         });
 };

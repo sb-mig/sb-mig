@@ -148,20 +148,20 @@ interface SyncProvidedPlugins {
     plugins: string[];
 }
 
-export const syncProvidedComponents = ({
+export const syncProvidedComponents = async ({
     components,
     presets,
     packageName,
 }: SyncProvidedComponents) => {
     if (!packageName) {
         // #1: discover all external .sb.js files
-        const allLocalSbComponentsSchemaFiles = discoverMany({
+        const allLocalSbComponentsSchemaFiles = await discoverMany({
             scope: SCOPE.local,
             type: LOOKUP_TYPE.fileName,
             fileNames: components,
         });
         // #2: discover all local .sb.js files
-        const allExternalSbComponentsSchemaFiles = discoverMany({
+        const allExternalSbComponentsSchemaFiles = await discoverMany({
             scope: SCOPE.external,
             type: LOOKUP_TYPE.fileName,
             fileNames: components,
@@ -171,6 +171,8 @@ export const syncProvidedComponents = ({
             local: allLocalSbComponentsSchemaFiles,
             external: allExternalSbComponentsSchemaFiles,
         });
+
+        console.log({ local, external });
         // #4: sync - do all stuff already done (groups resolving, and so on)
         syncComponents({
             presets,
