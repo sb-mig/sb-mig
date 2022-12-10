@@ -29,6 +29,7 @@ export const buildOnTheFly = async ({ files }: BuildOnTheFly) => {
                 plugins: [
                     ts({
                         transpileOnly: true,
+                        transpiler: "swc",
                     }),
                 ],
             };
