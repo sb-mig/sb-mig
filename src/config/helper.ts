@@ -29,6 +29,8 @@ export const defaultConfig = (
             "",
         boilerplateSpaceId: 172677, // this is id of Content seed for nextjs boilerplate space
         schemaType: SCHEMA.JS,
+        flushCache: true,
+        cacheDir: ".next/cache",
     };
 };
 

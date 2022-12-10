@@ -396,7 +396,7 @@ export const discoverMany = async (
     const rootDirectory = "./";
     const directory = path.resolve(process.cwd(), rootDirectory);
     let pattern;
-    let listOfFiles = [""];
+    let listOfFiles: string[] = [""];
 
     switch (request.scope) {
         case SCOPE.local:

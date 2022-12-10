@@ -25,6 +25,8 @@ export interface IStoryblokConfig {
     accessToken: string;
     boilerplateSpaceId: number;
     schemaType: SchemaType;
+    flushCache: boolean;
+    cacheDir: string;
 }
 
 const filePath = path.resolve(process.cwd(), "storyblok.config");
