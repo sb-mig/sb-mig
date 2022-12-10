@@ -1,3 +1,15 @@
+# [4.1.0-beta.22](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.21...v4.1.0-beta.22) (2022-12-10)
+
+
+
+
+# [4.1.0-beta.22](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.21...v4.1.0-beta.22) (2022-12-10)
+
+
+### Bug Fixes
+
+* **sync:** sync all now also can sync consumer typescript schemas ([7185008](https://github.com/sb-mig/sb-mig/commit/718500875920cd281de292c73e31815755ec5ed3))
+
 # [4.1.0-beta.21](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.20...v4.1.0-beta.21) (2022-12-10)
 
 
