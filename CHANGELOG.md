@@ -1,3 +1,15 @@
+# [4.1.0-beta.26](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.25...v4.1.0-beta.26) (2022-12-29)
+
+
+
+
+# [4.1.0-beta.26](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.25...v4.1.0-beta.26) (2022-12-29)
+
+
+### Bug Fixes
+
+* **tests:** make sure that tests for windows run on windows and mac os on ubuntu / mac os ([01c1316](https://github.com/sb-mig/sb-mig/commit/01c13162957d286089f9be430b7d0ca0f896eded))
+
 # [4.1.0-beta.25](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.24...v4.1.0-beta.25) (2022-12-29)
 
 
