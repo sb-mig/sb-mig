@@ -1,3 +1,15 @@
+# [4.1.0-beta.27](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.26...v4.1.0-beta.27) (2022-12-29)
+
+
+
+
+# [4.1.0-beta.27](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.26...v4.1.0-beta.27) (2022-12-29)
+
+
+### Bug Fixes
+
+* **workflow:** change name of workflow for windows testing ([3f48694](https://github.com/sb-mig/sb-mig/commit/3f4869408b26a89138e0d4175d3804d81e9974c0))
+
 # [4.1.0-beta.26](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.25...v4.1.0-beta.26) (2022-12-29)
 
 
