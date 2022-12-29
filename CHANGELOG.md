@@ -1,3 +1,15 @@
+# [4.1.0-beta.25](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.24...v4.1.0-beta.25) (2022-12-29)
+
+
+
+
+# [4.1.0-beta.25](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.24...v4.1.0-beta.25) (2022-12-29)
+
+
+### Bug Fixes
+
+* **windows testing:** add github workflow for testing on windows ([dcb70c3](https://github.com/sb-mig/sb-mig/commit/dcb70c343670e295e467df8ffc942790d3450cd6))
+
 # [4.1.0-beta.24](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.23...v4.1.0-beta.24) (2022-12-29)
 
 
