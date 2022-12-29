@@ -43,6 +43,6 @@ describe("General Utils", () => {
 
         const stamp = generateDatestamp(new Date(date))
 
-        assert.equal(stamp, "2022-11-4_23-18-46");
+        assert.equal(stamp, "2022-11-4_22-18-46");
     });
 });
