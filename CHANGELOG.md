@@ -1,3 +1,23 @@
+# [4.1.0-beta.24](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.23...v4.1.0-beta.24) (2022-12-29)
+
+
+
+
+# [4.1.0-beta.24](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.23...v4.1.0-beta.24) (2022-12-29)
+
+
+### Bug Fixes
+
+* **datestamp test:** fix datestamp test to always return utc time ([1b6e519](https://github.com/sb-mig/sb-mig/commit/1b6e5193d5070118ef8998bfc6cf6f5608cd84e0))
+* **deps:** update deps ([0496eba](https://github.com/sb-mig/sb-mig/commit/0496ebaf47d1d730f0f99c96a413d4f02a46f8fe))
+* **tests before release:** add same command for tests, before release ([ac51411](https://github.com/sb-mig/sb-mig/commit/ac514116ead5f2059cb64f172f09c1140bdb173d))
+* **tests:** add some tests for discover, datestamp, unpacking elements ([0ca18d8](https://github.com/sb-mig/sb-mig/commit/0ca18d8aa88880c016958b96fde0499b2c4e54ee))
+
+
+### Features
+
+* **tests:** setup test runner which can handle native esm ([436b994](https://github.com/sb-mig/sb-mig/commit/436b9943f025c253dbe33cc14ed0e3f398d9f8a8))
+
 # [4.1.0-beta.23](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.22...v4.1.0-beta.23) (2022-12-10)
 
 
