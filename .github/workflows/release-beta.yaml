@@ -37,6 +37,15 @@ jobs:
         run: |
           yarn build
 
+      - name: Test
+        env:
+          GH_PACKAGES_TOKEN: ${{ secrets.GH_PACKAGES_TOKEN }}
+          NODE_AUTH_TOKEN: ${{secrets.GITHUB_TOKEN}}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          yarn test
+
       - name: Release
         env:
           NO_HUSKY: 1
