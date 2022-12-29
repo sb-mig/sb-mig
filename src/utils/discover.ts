@@ -68,7 +68,10 @@ type DiscoverResult = string[];
 // problem with glob sync is, that when there is only one folder to search for
 // we have to omit { } and when a lot, we have to use {folder1, folder2}
 // so this function will normalize it based on amount of folders provided
-const normalizeDiscover = ({ segments }: { segments: string[] }) => {
+export const normalizeDiscover = ({ segments }: { segments: string[] }) => {
+    if (segments.length === 0) {
+        return "";
+    }
     if (segments.length === 1) {
         return segments[0];
     }
