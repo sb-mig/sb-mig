@@ -1,4 +1,4 @@
-name: Build and Test sb-mig
+name: Build and Test sb-mig on WINDOWS
 
 on:
   pull_request:
