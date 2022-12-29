@@ -3,9 +3,10 @@ import { build } from "./setup-rollup.js";
 import Logger from "../utils/logger.js";
 import storyblokConfig from "../config/config.js";
 import { remove } from "fs-extra";
+import path from "path";
 
-const _extractComponentName = (filePath: string): string => {
-    const sP = filePath.split("/");
+export const _extractComponentName = (filePath: string): string => {
+    const sP = filePath.split(path.sep);
     const lastElement = sP[sP.length - 1] as string;
 
     return lastElement.replaceAll(".ts", "").replaceAll(".sb", "");
