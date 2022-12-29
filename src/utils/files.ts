@@ -108,6 +108,10 @@ export const createAndSaveToFile = async ({
     Logger.success(`All groups written to a file:  ${filename}`);
 };
 
+export const sum = (a: number, b: number) => {
+    return a + b;
+};
+
 export const createAndSaveComponentListToFile = async ({
     file,
     folder,
