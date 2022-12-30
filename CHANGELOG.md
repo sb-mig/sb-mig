@@ -1,3 +1,19 @@
+# [4.1.0-beta.30](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.29...v4.1.0-beta.30) (2022-12-30)
+
+
+### fix
+
+* add ts to deps ([c189dad](https://github.com/sb-mig/sb-mig/commit/c189dadb82ad75c0ca8f64222cf9b6f78bbc9958))
+
+
+
+# [4.1.0-beta.30](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.29...v4.1.0-beta.30) (2022-12-30)
+
+
+### Bug Fixes
+
+* add ts to deps ([c189dad](https://github.com/sb-mig/sb-mig/commit/c189dadb82ad75c0ca8f64222cf9b6f78bbc9958))
+
 # [4.1.0-beta.29](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.28...v4.1.0-beta.29) (2022-12-30)
 
 
