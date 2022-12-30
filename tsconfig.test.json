@@ -4,12 +4,13 @@
     "module": "es2022",
     "esModuleInterop": true,
     "moduleResolution": "node",
+    "outDir": "dist-tests",
     "noUnusedLocals": false,
     "lib": [
       "DOM",
       "DOM.Iterable",
       "ESNext"
-    ],
+    ]
   },
-  "include": ["__tests__"]
+  "include": ["src", "__tests__"]
 }

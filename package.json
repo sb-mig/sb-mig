@@ -41,7 +41,7 @@
     "build:dev": "chokidar 'src/**/*.{js,ts,cjs,mjs}' -c 'yarn build'",
     "build:test": "tsc -p tsconfig.test.json",
     "build:test:dev": "chokidar '__tests__/**/*.ts' -c 'yarn build:test'",
-    "test": "mocha ./__tests__ --require esm",
+    "test": "mocha ./dist-tests/__tests__ --require esm",
     "start": "yarn build && ./dist/index.js",
     "debug": "yarn build && ./dist/index.js sync components accordion accordion-item",
     "version": "conventional-changelog -p eslint -i CHANGELOG.md -s",
