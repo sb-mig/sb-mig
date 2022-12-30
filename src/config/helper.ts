@@ -38,6 +38,8 @@ export const getStoryblokConfigContent = (data: {
     filePath: string;
     ext: string;
 }): any => {
+    console.log("## Get this guy: ");
+    console.log(data);
     return import(`${data.filePath}${data.ext}`)
         .then((res) => {
             Logger.success("Found storyblok.config.js!");
