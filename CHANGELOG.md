@@ -1,3 +1,27 @@
+# [4.1.0-beta.28](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.27...v4.1.0-beta.28) (2022-12-30)
+
+
+### fix
+
+* add different dist folder with everything, for testing purposes ([cff6795](https://github.com/sb-mig/sb-mig/commit/cff6795aa3e3bb2898263e693fc4af13e09a5dad))
+* fix tests making impossible to yalc sb-mig ([4858e85](https://github.com/sb-mig/sb-mig/commit/4858e85bc22e0f8e9cb017b1e43ea15f8507cb6e))
+* remove axios, add more debug information about what version of important tools sb-mig uses ([5ae78c8](https://github.com/sb-mig/sb-mig/commit/5ae78c826c3d8a4c10a0f083071feebfeedec04a))
+* tests ([a396992](https://github.com/sb-mig/sb-mig/commit/a3969926c26c5569cc4c24d73d3b6e20462b77b4))
+* update to storyblok-js-client@5.x.x, ignore types from it though ([e56bb99](https://github.com/sb-mig/sb-mig/commit/e56bb99d3b57bf10a91b2605e0a5b2dd904affe0))
+
+
+
+# [4.1.0-beta.28](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.27...v4.1.0-beta.28) (2022-12-30)
+
+
+### Bug Fixes
+
+* add different dist folder with everything, for testing purposes ([cff6795](https://github.com/sb-mig/sb-mig/commit/cff6795aa3e3bb2898263e693fc4af13e09a5dad))
+* fix tests making impossible to yalc sb-mig ([4858e85](https://github.com/sb-mig/sb-mig/commit/4858e85bc22e0f8e9cb017b1e43ea15f8507cb6e))
+* remove axios, add more debug information about what version of important tools sb-mig uses ([5ae78c8](https://github.com/sb-mig/sb-mig/commit/5ae78c826c3d8a4c10a0f083071feebfeedec04a))
+* tests ([a396992](https://github.com/sb-mig/sb-mig/commit/a3969926c26c5569cc4c24d73d3b6e20462b77b4))
+* update to storyblok-js-client@5.x.x, ignore types from it though ([e56bb99](https://github.com/sb-mig/sb-mig/commit/e56bb99d3b57bf10a91b2605e0a5b2dd904affe0))
+
 # [4.1.0-beta.27](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.26...v4.1.0-beta.27) (2022-12-29)
 
 
