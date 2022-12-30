@@ -1,3 +1,19 @@
+# [4.1.0-beta.29](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.28...v4.1.0-beta.29) (2022-12-30)
+
+
+### fix
+
+* debugging windows ([d607443](https://github.com/sb-mig/sb-mig/commit/d607443112cdb6637a16285603ccd55e83207e09))
+
+
+
+# [4.1.0-beta.29](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.28...v4.1.0-beta.29) (2022-12-30)
+
+
+### Bug Fixes
+
+* debugging windows ([d607443](https://github.com/sb-mig/sb-mig/commit/d607443112cdb6637a16285603ccd55e83207e09))
+
 # [4.1.0-beta.28](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.27...v4.1.0-beta.28) (2022-12-30)
 
 
