@@ -76,8 +76,8 @@ export const createDatasource = (datasource: any) =>
                 name: datasource.name,
                 slug: datasource.slug,
             },
-        })
-        .then(({ data }) => ({
+        } as any)
+        .then(({ data }: any) => ({
             data,
             datasource_entries: datasource.datasource_entries,
         }))
@@ -94,8 +94,8 @@ export const createDatasourceEntry = (
                 value: Object.values(datasourceEntry)[1],
                 datasource_id: datasourceId,
             },
-        })
-        .then(({ data }) => {
+        } as any)
+        .then(({ data }: any) => {
             return data;
         })
         .catch((err) => Logger.error(err));
@@ -116,9 +116,9 @@ export const updateDatasourceEntry = (
                     datasource_id: datasourceId,
                     id: datasourceToBeUpdated.id,
                 },
-            }
+            } as any
         )
-        .then(({ data }) => {
+        .then(({ data }: any) => {
             return data;
         })
         .catch((err) => Logger.error(err));
@@ -132,8 +132,8 @@ export const updateDatasource = (datasource: any, temp: any) =>
                 name: datasource.name,
                 slug: datasource.slug,
             },
-        })
-        .then(({ data }) => {
+        } as any)
+        .then(({ data }: any) => {
             return {
                 data,
                 datasource_entries: datasource.datasource_entries,
