@@ -4,7 +4,6 @@
     "module": "es2022",
     "esModuleInterop": true,
     "moduleResolution": "node",
-    "outDir": "dist",
     "noUnusedLocals": false,
     "lib": [
       "DOM",
@@ -12,5 +11,5 @@
       "ESNext"
     ],
   },
-  "include": ["src"]
+  "include": ["__tests__"]
 }

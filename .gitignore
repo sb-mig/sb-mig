@@ -14,3 +14,5 @@ dist
 lib
 .idea
 .DS_Store
+__tests__/*.js
+__tests__/*.d.ts
