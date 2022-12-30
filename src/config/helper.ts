@@ -38,9 +38,12 @@ export const getStoryblokConfigContent = (data: {
     filePath: string;
     ext: string;
 }): any => {
-    console.log("## Get this guy: ");
-    console.log(data);
-    return import(`${data.filePath}${data.ext}`)
+    let prefix = "";
+
+    if (process.platform === "win32") {
+        prefix = "file://";
+    }
+    return import(`${prefix}${data.filePath}${data.ext}`)
         .then((res) => {
             Logger.success("Found storyblok.config.js!");
             return res.default;
@@ -49,7 +52,7 @@ export const getStoryblokConfigContent = (data: {
             Logger.warning("Cannot find requested file with .js extension.");
             Logger.log("Trying .mjs extension\n");
 
-            return import(`${data.filePath}.mjs`)
+            return import(`${prefix}${data.filePath}.mjs`)
                 .then((res) => {
                     Logger.success("Found storyblok.config.mjs!");
                     console.log("res", res);
