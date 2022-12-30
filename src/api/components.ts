@@ -9,7 +9,7 @@ export const removeComponent = ({ component }: { component: any }) => {
     console.log(`Removing '${name}' component.`);
 
     return sbApi
-        .delete(`spaces/${spaceId}/components/${id}`)
+        .delete(`spaces/${spaceId}/components/${id}`, {})
         .then((res: any) => res.data)
         .catch((err: any) => console.error(err));
 };
@@ -24,7 +24,7 @@ export const removeComponentGroup = ({
     console.log(`Removing '${name}' component group.`);
 
     return sbApi
-        .delete(`spaces/${spaceId}/component_groups/${id}`)
+        .delete(`spaces/${spaceId}/component_groups/${id}`, {})
         .then((res: any) => res.data)
         .catch((err: any) => console.error(err));
 };
@@ -103,8 +103,8 @@ export const createComponentsGroup = (groupName: string) => {
             component_group: {
                 name: groupName,
             },
-        })
-        .then((res) => {
+        } as any)
+        .then((res: any) => {
             console.info(
                 `'${groupName}' created with uuid: ${res.data.component_group.uuid}`
             );

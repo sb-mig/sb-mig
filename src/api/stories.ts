@@ -12,7 +12,7 @@ export const removeStory = ({
     storyId: number;
 }) => {
     return sbApi
-        .delete(`spaces/${spaceId}/stories/${storyId}`)
+        .delete(`spaces/${spaceId}/stories/${storyId}`, {})
         .then((res: any) => res.data)
         .catch((err: any) => console.error(err));
 };

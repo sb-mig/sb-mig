@@ -68,8 +68,8 @@ export const updatePlugin = ({ plugin, body }: UpdatePlugin) => {
                 body,
                 compiled_body: "",
             },
-        })
-        .then((res) => {
+        } as any)
+        .then((res: any) => {
             Logger.success(`'${plugin.name}' plugin updated!`);
             return res.data;
         })
@@ -86,8 +86,8 @@ export const createPlugin = (pluginName: string) => {
             field_type: {
                 name: pluginName,
             },
-        })
-        .then((res) => {
+        } as any)
+        .then((res: any) => {
             Logger.success(`'${pluginName}' plugin created!`);
             return res.data;
         })

@@ -18,7 +18,7 @@ export const createRole = (role: any) => {
     sbApi
         .post(`spaces/${spaceId}/space_roles/`, {
             space_role: role,
-        })
+        } as any)
         .then(() => {
             Logger.success(`Role '${role.role}' has been created.`);
         })
@@ -35,7 +35,7 @@ export const updateRole = (role: any) => {
     sbApi
         .put(`spaces/${spaceId}/space_roles/${role.id}`, {
             space_role: role,
-        })
+        } as any)
         .then(() => {
             Logger.success(`Role '${role.role}' has been updated.`);
         })

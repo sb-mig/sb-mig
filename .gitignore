@@ -2,6 +2,7 @@
 *-error.log
 /.nyc_output
 /dist
+/dist-tests
 /package-lock.json
 /tmp
 .env
@@ -14,3 +15,5 @@ dist
 lib
 .idea
 .DS_Store
+__tests__/*.js
+__tests__/*.d.ts

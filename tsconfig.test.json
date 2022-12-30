@@ -4,13 +4,13 @@
     "module": "esnext",
     "esModuleInterop": true,
     "moduleResolution": "node",
-    "outDir": "dist",
+    "outDir": "dist-tests",
     "noUnusedLocals": false,
     "lib": [
       "DOM",
       "DOM.Iterable",
       "ESNext"
-    ],
+    ]
   },
-  "include": ["src"]
+  "include": ["src", "__tests__"]
 }

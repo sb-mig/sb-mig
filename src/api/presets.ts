@@ -38,7 +38,7 @@ export const createPreset = (p: any) => {
     sbApi
         .post(`spaces/${spaceId}/presets/`, {
             preset: p.preset,
-        })
+        } as any)
         .then(() => {
             Logger.warning(`Preset: '${p.preset.name}' has been created.`);
         })
@@ -54,7 +54,7 @@ export const updatePreset = (p: any) => {
     sbApi
         .put(`spaces/${spaceId}/presets/${p.preset.id}`, {
             preset: p.preset,
-        })
+        } as any)
         .then(() => {
             Logger.warning(
                 `Preset: '${p.preset.name}' with '${p.preset.id}' id has been updated.`
