@@ -1,3 +1,19 @@
+# [4.1.0-beta.31](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.30...v4.1.0-beta.31) (2022-12-30)
+
+
+### fix
+
+* for windows dynamic import ([cc89f3c](https://github.com/sb-mig/sb-mig/commit/cc89f3c66cc6996b195ad6dae3ee78dbae9c13ae))
+
+
+
+# [4.1.0-beta.31](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.30...v4.1.0-beta.31) (2022-12-30)
+
+
+### Bug Fixes
+
+* for windows dynamic import ([cc89f3c](https://github.com/sb-mig/sb-mig/commit/cc89f3c66cc6996b195ad6dae3ee78dbae9c13ae))
+
 # [4.1.0-beta.30](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.29...v4.1.0-beta.30) (2022-12-30)
 
 
