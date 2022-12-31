@@ -75,6 +75,8 @@ export const createDatasource = (datasource: any) =>
             datasource: {
                 name: datasource.name,
                 slug: datasource.slug,
+                dimensions: [...datasource.dimensions],
+                dimensions_attributes: [...datasource.dimensions],
             },
         } as any)
         .then(({ data }: any) => ({
@@ -124,13 +126,35 @@ export const updateDatasourceEntry = (
         .catch((err) => Logger.error(err));
 };
 
-export const updateDatasource = (datasource: any, temp: any) =>
-    sbApi
-        .put(`spaces/${spaceId}/datasources/${temp.id}`, {
+export const updateDatasource = (
+    datasource: any,
+    datasourceToBeUpdated: any
+) => {
+    const dimensionsToCreate = datasource.dimensions.filter(
+        (dimension: { name: string; entry_value: string }) => {
+            const isDimensionInRemoteDatasource =
+                datasourceToBeUpdated.dimensions.find(
+                    (d: { name: string; entry_value: string }) =>
+                        dimension.name === d.name
+                );
+            return !isDimensionInRemoteDatasource;
+        }
+    );
+
+    return sbApi
+        .put(`spaces/${spaceId}/datasources/${datasourceToBeUpdated.id}`, {
             datasource: {
-                id: temp.id,
+                id: datasourceToBeUpdated.id,
                 name: datasource.name,
                 slug: datasource.slug,
+                dimensions: [
+                    ...datasourceToBeUpdated.dimensions,
+                    ...dimensionsToCreate,
+                ],
+                dimensions_attributes: [
+                    ...datasourceToBeUpdated.dimensions,
+                    ...dimensionsToCreate,
+                ],
             },
         } as any)
         .then(({ data }: any) => {
@@ -140,6 +164,7 @@ export const updateDatasource = (datasource: any, temp: any) =>
             };
         })
         .catch((err) => Logger.error(err));
+};
 
 export const createDatasourceEntries = (
     datasourceId: string,
@@ -180,7 +205,8 @@ interface SyncDatasources {
 export const syncDatasources = async ({
     providedDatasources,
 }: SyncDatasources) => {
-    Logger.log(`Trying to sync provided datasources: ${providedDatasources}`);
+    Logger.log(`Trying to sync provided datasources: `);
+    console.log(providedDatasources);
 
     const providedDatasourcesContent = getFilesContentWithRequire({
         files: providedDatasources,
