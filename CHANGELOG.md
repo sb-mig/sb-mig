@@ -1,3 +1,15 @@
+# [4.1.0-beta.32](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.31...v4.1.0-beta.32) (2022-12-31)
+
+
+
+
+# [4.1.0-beta.32](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.31...v4.1.0-beta.32) (2022-12-31)
+
+
+### Bug Fixes
+
+* **datasources:** add support to syncing also dimensions set up in datasource ([3b3b62d](https://github.com/sb-mig/sb-mig/commit/3b3b62d3d93448be9096aaea7e87dd0c331b8f43))
+
 # [4.1.0-beta.31](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.30...v4.1.0-beta.31) (2022-12-30)
 
 
