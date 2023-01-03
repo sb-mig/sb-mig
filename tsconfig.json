@@ -4,13 +4,14 @@
     "module": "esnext",
     "esModuleInterop": true,
     "moduleResolution": "node",
+    "target": "ES2017",
     "outDir": "dist",
     "noUnusedLocals": false,
     "lib": [
       "DOM",
       "DOM.Iterable",
       "ESNext"
-    ],
+    ]
   },
   "include": ["src"]
 }

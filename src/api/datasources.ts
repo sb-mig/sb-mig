@@ -61,10 +61,13 @@ export const getDatasourceEntries = async (datasourceName: string) => {
 
     if (data) {
         return sbApi
-            .get(
-                `spaces/${spaceId}/datasource_entries/?datasource_id=${data[0].id}`
-            )
-            .then(async ({ data }) => data)
+            .get(`spaces/${spaceId}/datasource_entries/`, {
+                datasource_id: data[0].id,
+            } as any)
+            .then(async (response: any) => {
+                const { data } = response;
+                return data;
+            })
             .catch((err) => Logger.error(err));
     }
 };
@@ -108,16 +111,35 @@ export const updateDatasourceEntry = (
     datasourceId: string,
     datasourceToBeUpdated: any
 ) => {
+    console.log(" ");
+    console.log("updateDatasrouceEntry");
+    console.log("#############");
+    console.log({ datasourceEntry, datasourceId, datasourceToBeUpdated });
+    console.log("#############");
+    console.log(" ");
+
+    const final = {
+        name: datasourceEntry.name,
+        value: datasourceEntry.value,
+        datasource_id: datasourceId,
+        id: datasourceToBeUpdated.id,
+    };
+
+    for (const item in datasourceEntry.dimension_value) {
+        console.log(item, " ", datasourceEntry.dimension_value[item]);
+    }
+
+    console.log("??????????????????????????????????");
+    console.log("??????????????????????????????????");
+    console.log(final);
+    console.log("??????????????????????????????????");
+    console.log("??????????????????????????????????");
+
     return sbApi
         .put(
             `spaces/${spaceId}/datasource_entries/${datasourceToBeUpdated.id}`,
             {
-                datasource_entry: {
-                    name: Object.values(datasourceEntry)[0],
-                    value: Object.values(datasourceEntry)[1],
-                    datasource_id: datasourceId,
-                    id: datasourceToBeUpdated.id,
-                },
+                datasource_entry: final,
             } as any
         )
         .then(({ data }: any) => {
@@ -130,6 +152,7 @@ export const updateDatasource = (
     datasource: any,
     datasourceToBeUpdated: any
 ) => {
+    console.log("Nalezy sie update");
     const dimensionsToCreate = datasource.dimensions.filter(
         (dimension: { name: string; entry_value: string }) => {
             const isDimensionInRemoteDatasource =
@@ -230,6 +253,17 @@ export const syncDatasources = async ({
                 const remoteDatasourceEntries = await getDatasourceEntries(
                     data.datasource.name
                 );
+
+                console.log("##########");
+                console.log("remoteDatasourceEntries");
+                console.log(remoteDatasourceEntries);
+                console.log("##########");
+
+                console.log("!!!!!!!!!!!!!!!!!");
+                console.log("my local datsousrce entries");
+                console.log(datasource_entries);
+                console.log("!!!!!!!!!!!!!!!!!");
+
                 createDatasourceEntries(
                     data.datasource.id,
                     datasource_entries,
