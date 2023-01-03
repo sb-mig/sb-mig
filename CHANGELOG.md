@@ -8,6 +8,20 @@
 
 ### Bug Fixes
 
+* **readme:** add requirements table, node in version LTS 18.x.x required ([d1ab41e](https://github.com/sb-mig/sb-mig/commit/d1ab41e3d8f4ec6bc0233c3c9148bf4990ee911d))
+* **target:** change target to node 2017 to try if it will have backward compatibility ([e94715a](https://github.com/sb-mig/sb-mig/commit/e94715a7f0f504fff3829d6ba8a370d371ae1a28))
+* **target:** get back to next target ([b6b99b5](https://github.com/sb-mig/sb-mig/commit/b6b99b527a79fe0a6ebe2c28fdbd7dd39f8a1da3))
+
+# [4.1.0-beta.33](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.32...v4.1.0-beta.33) (2023-01-03)
+
+
+
+
+# [4.1.0-beta.33](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.32...v4.1.0-beta.33) (2023-01-03)
+
+
+### Bug Fixes
+
 * **target:** change target to node 2017 to try if it will have backward compatibility ([e94715a](https://github.com/sb-mig/sb-mig/commit/e94715a7f0f504fff3829d6ba8a370d371ae1a28))
 * **target:** get back to next target ([b6b99b5](https://github.com/sb-mig/sb-mig/commit/b6b99b527a79fe0a6ebe2c28fdbd7dd39f8a1da3))
 
