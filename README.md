@@ -14,6 +14,7 @@ https://docs.sb-mig.com/
 
 
 # Requirements: 
+
 | ------------- | ------------- |
 | Node          | LTS (18.x.x)  |
 
