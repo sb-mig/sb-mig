@@ -58,7 +58,7 @@
     "ncp": "^2.0.0",
     "rollup": "^3.9.0",
     "rollup-plugin-ts": "^3.0.2",
-    "storyblok-js-client": "^5.2.3",
+    "storyblok-js-client": "^5.2.5",
     "uuid": "^9.0.0"
   },
   "devDependencies": {
