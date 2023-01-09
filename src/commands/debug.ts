@@ -7,6 +7,7 @@ export const debug = async () => {
     console.log("storyblok.config.js: ", config, "\n");
     console.log(" ");
     console.log(" ");
+    console.log(" ");
 
     const fileContent = await getFileContentWithRequire({
         file: "../../package.json",
