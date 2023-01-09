@@ -12,7 +12,6 @@ const _decorateWithDimensions = async (
     dimensionsData: any,
     _callback: any
 ) => {
-    console.log("Running decorate");
     // callback for create or update
     const response = await _callback();
 
@@ -159,7 +158,6 @@ const _updateDatasourceEntry = (
     currentDatasource: any,
     finalDatasource_entry: any
 ) => {
-    console.log("_updateDatasourceEntry", finalDatasource_entry);
     return sbApi
         .put(
             `spaces/${spaceId}/datasource_entries/${finalDatasource_entry.id}`,
@@ -192,14 +190,6 @@ export const updateDatasourceEntry = (
         datasource_id: data.datasource.id,
         id: datasourceToBeUpdated.id,
     };
-
-    console.log(
-        "_________________________ updateDatasourceEntry ________________________________"
-    );
-    console.log(datasourceEntry);
-    console.log(
-        "________________________________________________________________________________"
-    );
 
     if (isObjectEmpty(datasourceEntry.dimension_values)) {
         return _updateDatasourceEntry(data, finalDatasource_entry);
