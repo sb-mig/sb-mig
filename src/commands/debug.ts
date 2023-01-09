@@ -18,9 +18,7 @@ export const debug = async () => {
     Logger.success(
         `storyblok-js-client: ${fileContent["dependencies"]["storyblok-js-client"]}`
     );
-    Logger.success(
-        `typescript: ${fileContent["devDependencies"]["typescript"]}`
-    );
+    Logger.success(`typescript: ${fileContent["dependencies"]["typescript"]}`);
     console.log(" ");
     console.log(" ");
 

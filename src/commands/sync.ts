@@ -14,7 +14,7 @@ import { syncAllRoles, syncProvidedRoles } from "../api/roles.js";
 import {
     syncAllDatasources,
     syncProvidedDatasources,
-} from "../api/datasources.js";
+} from "../api/datasources/datasources.js";
 
 const SYNC_COMMANDS = {
     story: "story",

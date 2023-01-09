@@ -7,7 +7,10 @@ import {
 import { createAndSaveToFile } from "../utils/files.js";
 import Logger from "../utils/logger.js";
 import { unpackOne } from "../utils/main.js";
-import { getAllDatasources, getDatasource } from "../api/datasources.js";
+import {
+    getAllDatasources,
+    getDatasource,
+} from "../api/datasources/datasources.js";
 import { getAllRoles, getRole } from "../api/roles.js";
 import { getComponentPresets } from "../api/componentPresets.js";
 import { getAllPresets, getPreset } from "../api/presets.js";
