@@ -1,3 +1,15 @@
+# [4.1.0-beta.35](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.34...v4.1.0-beta.35) (2023-01-10)
+
+
+
+
+# [4.1.0-beta.35](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.34...v4.1.0-beta.35) (2023-01-10)
+
+
+### Bug Fixes
+
+* **datasources:** fix updating datasource entries not working properly before ([a808c5f](https://github.com/sb-mig/sb-mig/commit/a808c5fdf0a269256a0217f5ce5154433e6f52d0))
+
 # [4.1.0-beta.34](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.33...v4.1.0-beta.34) (2023-01-10)
 
 
