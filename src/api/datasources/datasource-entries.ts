@@ -13,29 +13,29 @@ const _decorateWithDimensions = async (
     _callback: any
 ) => {
     // callback for create or update
-    const response = await _callback();
+    await _callback();
 
     const dimensionValueEntries = Object.entries(
         dimensionsData.dimensionValues
     );
 
     return dimensionValueEntries.map(([name, value]) => {
-        const { id: dimension_id } = dimensionsData.datasourceDimensions.find(
+        const data = dimensionsData.datasourceDimensions.find(
             (dimension: any) => dimension.name === name
         );
 
         const params = {
             datasource_entry: {
                 ...dimensionsData.finalDatasource_entry,
-                id: response.datasource_entry.id,
+                id: dimensionsData.finalDatasource_entry.datasource_id,
                 dimension_value: value,
             },
-            dimension_id,
+            dimension_id: data.id,
         };
 
         return sbApi
             .put(
-                `spaces/${spaceId}/datasource_entries/${response.datasource_entry.id}`,
+                `spaces/${spaceId}/datasource_entries/${dimensionsData.finalDatasource_entry.id}`,
                 params as any
             )
             .then((_: any) => {
