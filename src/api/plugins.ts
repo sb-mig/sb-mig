@@ -6,7 +6,9 @@ export const getAllPlugins = () => {
     console.log("Trying to get all plugins.");
 
     return sbApi
-        .get(`field_types?per_page=100`)
+        .get(`field_types`, {
+            per_page: 100,
+        })
         .then((res: any) => {
             console.log(
                 `Amount of field typess: ${res.data.field_types.length}`
@@ -48,7 +50,10 @@ export const getPluginDetails = (plugin: any) => {
 
     return sbApi
         .get(`field_types/${plugin.id}`)
-        .then((res: any) => res.data)
+        .then((res: any) => {
+            console.log("thisd", res);
+            return res.data;
+        })
         .catch((err: any) => console.error(err));
 };
 
