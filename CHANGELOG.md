@@ -1,3 +1,15 @@
+# [4.1.0-beta.36](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.35...v4.1.0-beta.36) (2023-01-16)
+
+
+
+
+# [4.1.0-beta.36](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.35...v4.1.0-beta.36) (2023-01-16)
+
+
+### Bug Fixes
+
+* **plugins:** fix syncing plugins - params now have to be passed via object not param strings ([dd975f0](https://github.com/sb-mig/sb-mig/commit/dd975f0f58e3c3339f08aee9eff13ffe77f1e636))
+
 # [4.1.0-beta.35](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.34...v4.1.0-beta.35) (2023-01-10)
 
 
