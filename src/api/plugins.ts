@@ -50,10 +50,7 @@ export const getPluginDetails = (plugin: any) => {
 
     return sbApi
         .get(`field_types/${plugin.id}`)
-        .then((res: any) => {
-            console.log("thisd", res);
-            return res.data;
-        })
+        .then((res: any) => res.data)
         .catch((err: any) => console.error(err));
 };
 
