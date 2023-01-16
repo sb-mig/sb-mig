@@ -47,6 +47,10 @@ jobs:
         run: |
           yarn test
 
+      - name: Sleep for 30 seconds
+        run: sleep 30s
+        shell: bash
+
       - name: Release
         env:
           NO_HUSKY: 1
