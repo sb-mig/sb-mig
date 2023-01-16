@@ -1,3 +1,19 @@
+# [4.1.0-beta.38](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.37...v4.1.0-beta.38) (2023-01-16)
+
+
+### fix
+
+* add sleep before semantic-release - maybe it will fix second limit thing ([51370ef](https://github.com/sb-mig/sb-mig/commit/51370ef6c5f8a842614ce2f9967f8b6458cba8d7))
+
+
+
+# [4.1.0-beta.38](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.37...v4.1.0-beta.38) (2023-01-16)
+
+
+### Bug Fixes
+
+* add sleep before semantic-release - maybe it will fix second limit thing ([51370ef](https://github.com/sb-mig/sb-mig/commit/51370ef6c5f8a842614ce2f9967f8b6458cba8d7))
+
 # [4.1.0-beta.37](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.36...v4.1.0-beta.37) (2023-01-16)
 
 
