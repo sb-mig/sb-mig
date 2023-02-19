@@ -1,4 +1,5 @@
 import Logger from "../utils/logger.js";
+import readline from "node:readline/promises";
 import { unpackElements } from "../utils/main.js";
 import storyblokConfig from "../config/config.js";
 import {
@@ -15,6 +16,7 @@ import {
     syncAllDatasources,
     syncProvidedDatasources,
 } from "../api/datasources/datasources.js";
+import chalk from "chalk";
 
 const SYNC_COMMANDS = {
     story: "story",
@@ -101,13 +103,51 @@ export const sync = async (props: CLIOptions) => {
                         `sync story... from boilerplateSpaceId: ${storyblokConfig.boilerplateSpaceId} to working dir spaceid: ${storyblokConfig.spaceId} with command: ${command}`
                     );
 
-                    await removeAllStories({
-                        spaceId: storyblokConfig.spaceId,
+                    // This section has to be changed, it was fast solution to asking for confirmation
+                    // need to reimplement it better
+                    await new Promise((resolve) => {
+                        setTimeout(() => {
+                            console.log(" ");
+                            console.log(" ");
+                            resolve(true);
+                        }, 3000);
                     });
-                    await syncContent({
-                        from: storyblokConfig.boilerplateSpaceId,
-                        to: storyblokConfig.spaceId,
+
+                    const rl = readline.createInterface({
+                        input: process.stdin,
+                        output: process.stdout,
+                        prompt: chalk.red(
+                            "Are you sure you want to delete all stories in your space and then apply test ones ? (y/n) > "
+                        ),
                     });
+
+                    rl.prompt();
+                    for await (const deletionConfirmation of rl) {
+                        if (deletionConfirmation.trim() !== "y") {
+                            Logger.success(
+                                "Stories not deleted, exiting the program..."
+                            );
+                            process.exit(0);
+                        } else {
+                            if (deletionConfirmation) {
+                                console.log(deletionConfirmation.trim());
+                                Logger.warning(
+                                    "Deleting all stories in your space and then applying test ones..."
+                                );
+
+                                await removeAllStories({
+                                    spaceId: storyblokConfig.spaceId,
+                                });
+                                await syncContent({
+                                    from: storyblokConfig.boilerplateSpaceId,
+                                    to: storyblokConfig.spaceId,
+                                });
+
+                                break;
+                            }
+                        }
+                        rl.prompt();
+                    }
                 }
 
                 if (flags["from"] && !flags["to"]) {
