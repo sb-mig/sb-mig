@@ -1,3 +1,17 @@
+# [4.1.0-beta.41](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.40...v4.1.0-beta.41) (2023-02-19)
+
+
+
+
+# [4.1.0-beta.41](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.40...v4.1.0-beta.41) (2023-02-19)
+
+
+### Bug Fixes
+
+* **sync content:** add protection - ask user is he sure he want to remove his content ([52c6acc](https://github.com/sb-mig/sb-mig/commit/52c6acc7b5724da41b420b65db3765ff99fcc43d))
+* **sync content:** remove not needed console.log ([88548d2](https://github.com/sb-mig/sb-mig/commit/88548d245fb40bfbc4d2c23934bf5989b88d1587))
+* **sync permissions:** extract to generic function ([d3a1c85](https://github.com/sb-mig/sb-mig/commit/d3a1c8557cadcc8962de083b919d2801cc304250))
+
 # [4.1.0-beta.40](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.39...v4.1.0-beta.40) (2023-02-19)
 
 
