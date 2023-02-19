@@ -130,7 +130,6 @@ export const sync = async (props: CLIOptions) => {
                             process.exit(0);
                         } else {
                             if (deletionConfirmation) {
-                                console.log(deletionConfirmation.trim());
                                 Logger.warning(
                                     "Deleting all stories in your space and then applying test ones..."
                                 );
