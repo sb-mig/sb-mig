@@ -1,5 +1,4 @@
 import Logger from "../utils/logger.js";
-import readline from "node:readline/promises";
 import { unpackElements } from "../utils/main.js";
 import storyblokConfig from "../config/config.js";
 import {
@@ -16,7 +15,7 @@ import {
     syncAllDatasources,
     syncProvidedDatasources,
 } from "../api/datasources/datasources.js";
-import chalk from "chalk";
+import { askForConfirmation } from "../utils/others.js";
 
 const SYNC_COMMANDS = {
     story: "story",
@@ -62,8 +61,16 @@ export const sync = async (props: CLIOptions) => {
                 );
                 const presets = flags["presets"] || false;
 
-                await removeAllComponents();
-                syncAllComponents({ presets });
+                await askForConfirmation(
+                    "Are you sure you want to use Single Source of truth? It will remove all your components added in GUI and replace them 1 to 1 with code versions.",
+                    async () => {
+                        await removeAllComponents();
+                        await syncAllComponents({ presets });
+                    },
+                    () => {
+                        Logger.success("Syncing components aborted.");
+                    }
+                );
             }
 
             break;
@@ -103,50 +110,27 @@ export const sync = async (props: CLIOptions) => {
                         `sync story... from boilerplateSpaceId: ${storyblokConfig.boilerplateSpaceId} to working dir spaceid: ${storyblokConfig.spaceId} with command: ${command}`
                     );
 
-                    // This section has to be changed, it was fast solution to asking for confirmation
-                    // need to reimplement it better
-                    await new Promise((resolve) => {
-                        setTimeout(() => {
-                            console.log(" ");
-                            console.log(" ");
-                            resolve(true);
-                        }, 3000);
-                    });
+                    await askForConfirmation(
+                        "Are you sure you want to delete all stories in your space and then apply test ones ?",
+                        async () => {
+                            Logger.warning(
+                                "Deleting all stories in your space and then applying test ones..."
+                            );
 
-                    const rl = readline.createInterface({
-                        input: process.stdin,
-                        output: process.stdout,
-                        prompt: chalk.red(
-                            "Are you sure you want to delete all stories in your space and then apply test ones ? (y/n) > "
-                        ),
-                    });
-
-                    rl.prompt();
-                    for await (const deletionConfirmation of rl) {
-                        if (deletionConfirmation.trim() !== "y") {
+                            await removeAllStories({
+                                spaceId: storyblokConfig.spaceId,
+                            });
+                            await syncContent({
+                                from: storyblokConfig.boilerplateSpaceId,
+                                to: storyblokConfig.spaceId,
+                            });
+                        },
+                        () => {
                             Logger.success(
                                 "Stories not deleted, exiting the program..."
                             );
-                            process.exit(0);
-                        } else {
-                            if (deletionConfirmation) {
-                                Logger.warning(
-                                    "Deleting all stories in your space and then applying test ones..."
-                                );
-
-                                await removeAllStories({
-                                    spaceId: storyblokConfig.spaceId,
-                                });
-                                await syncContent({
-                                    from: storyblokConfig.boilerplateSpaceId,
-                                    to: storyblokConfig.spaceId,
-                                });
-
-                                break;
-                            }
                         }
-                        rl.prompt();
-                    }
+                    );
                 }
 
                 if (flags["from"] && !flags["to"]) {
