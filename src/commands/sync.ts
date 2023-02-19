@@ -15,6 +15,7 @@ import {
     syncAllDatasources,
     syncProvidedDatasources,
 } from "../api/datasources/datasources.js";
+import { askForConfirmation } from "../utils/others.js";
 
 const SYNC_COMMANDS = {
     story: "story",
@@ -60,8 +61,16 @@ export const sync = async (props: CLIOptions) => {
                 );
                 const presets = flags["presets"] || false;
 
-                await removeAllComponents();
-                syncAllComponents({ presets });
+                await askForConfirmation(
+                    "Are you sure you want to use Single Source of truth? It will remove all your components added in GUI and replace them 1 to 1 with code versions.",
+                    async () => {
+                        await removeAllComponents();
+                        await syncAllComponents({ presets });
+                    },
+                    () => {
+                        Logger.success("Syncing components aborted.");
+                    }
+                );
             }
 
             break;
@@ -101,13 +110,27 @@ export const sync = async (props: CLIOptions) => {
                         `sync story... from boilerplateSpaceId: ${storyblokConfig.boilerplateSpaceId} to working dir spaceid: ${storyblokConfig.spaceId} with command: ${command}`
                     );
 
-                    await removeAllStories({
-                        spaceId: storyblokConfig.spaceId,
-                    });
-                    await syncContent({
-                        from: storyblokConfig.boilerplateSpaceId,
-                        to: storyblokConfig.spaceId,
-                    });
+                    await askForConfirmation(
+                        "Are you sure you want to delete all stories in your space and then apply test ones ?",
+                        async () => {
+                            Logger.warning(
+                                "Deleting all stories in your space and then applying test ones..."
+                            );
+
+                            await removeAllStories({
+                                spaceId: storyblokConfig.spaceId,
+                            });
+                            await syncContent({
+                                from: storyblokConfig.boilerplateSpaceId,
+                                to: storyblokConfig.spaceId,
+                            });
+                        },
+                        () => {
+                            Logger.success(
+                                "Stories not deleted, exiting the program..."
+                            );
+                        }
+                    );
                 }
 
                 if (flags["from"] && !flags["to"]) {
