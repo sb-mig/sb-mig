@@ -2,7 +2,7 @@
 // https://github.com/maoberlehner/storyblok-migrate
 // edit: changed a lot in here, but inspiration still is valid :)
 
-import glob from "glob";
+import { globSync } from "glob";
 import path from "path";
 
 console.log("###############");
@@ -144,7 +144,7 @@ export const discoverManyByPackageName = (
                 "package.json"
             );
 
-            listOfPackagesJsonFiles = glob.sync(pattern, { follow: true });
+            listOfPackagesJsonFiles = globSync(pattern, { follow: true });
 
             listOfFiles = listOfPackagesJsonFiles
                 .filter(async (file) =>
@@ -165,7 +165,7 @@ export const discoverManyByPackageName = (
                             `[^_]*.${storyblokConfig.schemaFileExt}`
                         );
 
-                    return glob.sync(
+                    return globSync(
                         allStoryblokSchemaFilesWithinFolderPattern,
                         { follow: true }
                     );
@@ -187,7 +187,7 @@ export const discoverManyByPackageName = (
                 "package.json"
             );
 
-            listOfPackagesJsonFiles = glob.sync(pattern, { follow: true });
+            listOfPackagesJsonFiles = globSync(pattern, { follow: true });
 
             listOfFiles = listOfPackagesJsonFiles
                 .filter((file) =>
@@ -208,7 +208,7 @@ export const discoverManyByPackageName = (
                             `[^_]*.${storyblokConfig.schemaFileExt}`
                         );
 
-                    return glob.sync(
+                    return globSync(
                         allStoryblokSchemaFilesWithinFolderPattern,
                         { follow: true }
                     );
@@ -226,7 +226,7 @@ export const discoverManyByPackageName = (
                 "package.json"
             );
 
-            listOfPackagesJsonFiles = glob.sync(pattern, { follow: true });
+            listOfPackagesJsonFiles = globSync(pattern, { follow: true });
 
             listOfFiles = listOfPackagesJsonFiles
                 .filter((file) =>
@@ -247,7 +247,7 @@ export const discoverManyByPackageName = (
                             `[^_]*.${storyblokConfig.schemaFileExt}`
                         );
 
-                    return glob.sync(
+                    return globSync(
                         allStoryblokSchemaFilesWithinFolderPattern,
                         { follow: true }
                     );
@@ -287,7 +287,7 @@ export const discoverOneByPackageName = (
                 "package.json"
             );
 
-            listOfPackagesJsonFiles = glob.sync(pattern, { follow: true });
+            listOfPackagesJsonFiles = globSync(pattern, { follow: true });
 
             listOfFiles = listOfPackagesJsonFiles
                 .filter(
@@ -308,7 +308,7 @@ export const discoverOneByPackageName = (
                             `[^_]*.${storyblokConfig.schemaFileExt}`
                         );
 
-                    return glob.sync(
+                    return globSync(
                         allStoryblokSchemaFilesWithinFolderPattern,
                         { follow: true }
                     );
@@ -330,7 +330,7 @@ export const discoverOneByPackageName = (
                 "package.json"
             );
 
-            listOfPackagesJsonFiles = glob.sync(pattern, { follow: true });
+            listOfPackagesJsonFiles = globSync(pattern, { follow: true });
 
             listOfFiles = listOfPackagesJsonFiles
                 .filter(
@@ -351,7 +351,7 @@ export const discoverOneByPackageName = (
                             `[^_]*.${storyblokConfig.schemaFileExt}`
                         );
 
-                    return glob.sync(
+                    return globSync(
                         allStoryblokSchemaFilesWithinFolderPattern,
                         { follow: true }
                     );
@@ -369,7 +369,7 @@ export const discoverOneByPackageName = (
                 "package.json"
             );
 
-            listOfPackagesJsonFiles = glob.sync(pattern, { follow: true });
+            listOfPackagesJsonFiles = globSync(pattern, { follow: true });
 
             listOfFiles = listOfPackagesJsonFiles
                 .filter(
@@ -390,7 +390,7 @@ export const discoverOneByPackageName = (
                             `[^_]*.${storyblokConfig.schemaFileExt}`
                         );
 
-                    return glob.sync(
+                    return globSync(
                         allStoryblokSchemaFilesWithinFolderPattern,
                         { follow: true }
                     );
@@ -435,7 +435,7 @@ export const discoverMany = async (
                     }`
                 );
 
-                const listOfFilesToCompile = glob.sync(pattern, {
+                const listOfFilesToCompile = globSync(pattern, {
                     follow: true,
                 });
                 await buildOnTheFly({ files: listOfFilesToCompile });
@@ -451,7 +451,7 @@ export const discoverMany = async (
                     }`
                 );
 
-                listOFSchemaTSFilesCompiled = glob.sync(pattern, {
+                listOFSchemaTSFilesCompiled = globSync(pattern, {
                     follow: true,
                 });
             }
@@ -467,7 +467,7 @@ export const discoverMany = async (
                 }`
             );
 
-            listOfFiles = glob.sync(pattern, { follow: true });
+            listOfFiles = globSync(pattern, { follow: true });
             listOfFiles = [...listOfFiles, ...listOFSchemaTSFilesCompiled];
             break;
 
@@ -488,7 +488,7 @@ export const discoverMany = async (
                 }`
             );
 
-            listOfFiles = glob.sync(pattern, { follow: true });
+            listOfFiles = globSync(pattern, { follow: true });
             break;
         case SCOPE.lock:
             break;
@@ -506,7 +506,7 @@ export const discoverMany = async (
                 }`
             );
 
-            listOfFiles = glob.sync(pattern, { follow: true });
+            listOfFiles = globSync(pattern, { follow: true });
             break;
 
         default:
@@ -542,7 +542,7 @@ export const discoverManyDatasources = (
                 }`
             );
 
-            listOfFiles = glob.sync(pattern, { follow: true });
+            listOfFiles = globSync(pattern, { follow: true });
             break;
 
         case SCOPE.external:
@@ -562,7 +562,7 @@ export const discoverManyDatasources = (
                 }`
             );
 
-            listOfFiles = glob.sync(pattern, { follow: true });
+            listOfFiles = globSync(pattern, { follow: true });
             break;
 
         case SCOPE.all:
@@ -578,7 +578,7 @@ export const discoverManyDatasources = (
                 }`
             );
 
-            listOfFiles = glob.sync(pattern, { follow: true });
+            listOfFiles = globSync(pattern, { follow: true });
             break;
 
         default:
@@ -612,7 +612,7 @@ export const discoverDatasources = (
                 `[^_]*.${storyblokConfig.datasourceExt}` // all files with 'ext' extension, without files beggining with _
             );
 
-            listOfFiles = glob.sync(pattern, { follow: true });
+            listOfFiles = globSync(pattern, { follow: true });
             break;
         case SCOPE.external:
             // ### ALL - EXTERNAL - fileName ###
@@ -629,7 +629,7 @@ export const discoverDatasources = (
                 `[^_]*.${storyblokConfig.datasourceExt}` // all files with 'ext' extension, without files beggining with _
             );
 
-            listOfFiles = glob.sync(pattern, { follow: true });
+            listOfFiles = globSync(pattern, { follow: true });
             break;
         case SCOPE.all:
             // ### ALL - LOCAL - fileName ###
@@ -642,7 +642,7 @@ export const discoverDatasources = (
                 `[^_]*.${storyblokConfig.datasourceExt}` // all files with 'ext' extension, without files beggining with _
             );
 
-            listOfFiles = glob.sync(pattern, { follow: true });
+            listOfFiles = globSync(pattern, { follow: true });
             break;
         default:
             break;
@@ -672,7 +672,7 @@ export const discoverOne = (request: DiscoverOneRequest): DiscoverResult => {
                 "**",
                 `${request.fileName}.${storyblokConfig.schemaFileExt}` // all files with 'ext' extension, without files beggining with _
             );
-            listOfFiles = glob.sync(pattern, { follow: true });
+            listOfFiles = globSync(pattern, { follow: true });
             break;
 
         case SCOPE.external:
@@ -689,7 +689,7 @@ export const discoverOne = (request: DiscoverOneRequest): DiscoverResult => {
                 "**",
                 `${request.fileName}.${storyblokConfig.schemaFileExt}` // all files with 'ext' extension, without files beggining with _
             );
-            listOfFiles = glob.sync(pattern, { follow: true });
+            listOfFiles = globSync(pattern, { follow: true });
             break;
 
         case SCOPE.all:
@@ -702,7 +702,7 @@ export const discoverOne = (request: DiscoverOneRequest): DiscoverResult => {
                 "**",
                 `${request.fileName}.${storyblokConfig.schemaFileExt}`
             );
-            listOfFiles = glob.sync(pattern, { follow: true });
+            listOfFiles = globSync(pattern, { follow: true });
             break;
         default:
             break;
@@ -751,7 +751,7 @@ export const discover = async (
             if (storyblokConfig.schemaType === SCHEMA.TS) {
                 pattern = filesPattern(onlyLocalComponentsDirectories, "sb.ts");
 
-                const listOfFilesToCompile = glob.sync(pattern, {
+                const listOfFilesToCompile = globSync(pattern, {
                     follow: true,
                 });
 
@@ -766,7 +766,7 @@ export const discover = async (
                     `[^_]*.${storyblokConfig.schemaFileExt}`
                 );
 
-                listOFSchemaTSFilesCompiled = glob.sync(pattern, {
+                listOFSchemaTSFilesCompiled = globSync(pattern, {
                     follow: true,
                 });
             }
@@ -776,7 +776,7 @@ export const discover = async (
                 storyblokConfig.schemaFileExt
             );
 
-            listOfFiles = glob.sync(pattern, { follow: true });
+            listOfFiles = globSync(pattern, { follow: true });
             listOfFiles = [...listOfFiles, ...listOFSchemaTSFilesCompiled];
             break;
         case SCOPE.external:
@@ -790,7 +790,7 @@ export const discover = async (
                 storyblokConfig.schemaFileExt
             );
 
-            listOfFiles = glob.sync(pattern, { follow: true });
+            listOfFiles = globSync(pattern, { follow: true });
             break;
         case SCOPE.all:
             // ### ALL - LOCAL - fileName ###
@@ -799,7 +799,7 @@ export const discover = async (
                 storyblokConfig.schemaFileExt
             );
 
-            listOfFiles = glob.sync(pattern, { follow: true });
+            listOfFiles = globSync(pattern, { follow: true });
             break;
         default:
             break;
@@ -832,7 +832,7 @@ export const discoverManyStyles = (
                 `${normalizeDiscover({ segments: request.fileNames })}.scss`
             );
 
-            listOfFiles = glob.sync(pattern, { follow: true });
+            listOfFiles = globSync(pattern, { follow: true });
             break;
 
         case SCOPE.external:
@@ -850,7 +850,7 @@ export const discoverManyStyles = (
                 `${normalizeDiscover({ segments: request.fileNames })}.scss`
             );
 
-            listOfFiles = glob.sync(pattern, { follow: true });
+            listOfFiles = globSync(pattern, { follow: true });
             break;
 
         case SCOPE.all:
@@ -864,7 +864,7 @@ export const discoverManyStyles = (
                 `${normalizeDiscover({ segments: request.fileNames })}.scss`
             );
 
-            listOfFiles = glob.sync(pattern, { follow: true });
+            listOfFiles = globSync(pattern, { follow: true });
             break;
 
         default:
@@ -896,7 +896,7 @@ export const discoverRoles = (request: DiscoverRequest): DiscoverResult => {
                 `[^_]*.${storyblokConfig.rolesExt}` // all files with 'ext' extension, without files beggining with _
             );
 
-            listOfFiles = glob.sync(pattern, { follow: true });
+            listOfFiles = globSync(pattern, { follow: true });
             break;
         case SCOPE.external:
             // ### ALL - EXTERNAL - fileName ###
@@ -913,7 +913,7 @@ export const discoverRoles = (request: DiscoverRequest): DiscoverResult => {
                 `[^_]*.${storyblokConfig.rolesExt}` // all files with 'ext' extension, without files beggining with _
             );
 
-            listOfFiles = glob.sync(pattern, { follow: true });
+            listOfFiles = globSync(pattern, { follow: true });
             break;
         case SCOPE.all:
             // ### ALL - LOCAL - fileName ###
@@ -926,7 +926,7 @@ export const discoverRoles = (request: DiscoverRequest): DiscoverResult => {
                 `[^_]*.${storyblokConfig.rolesExt}` // all files with 'ext' extension, without files beggining with _
             );
 
-            listOfFiles = glob.sync(pattern, { follow: true });
+            listOfFiles = globSync(pattern, { follow: true });
             break;
         default:
             break;
@@ -961,7 +961,7 @@ export const discoverManyRoles = (
                 }`
             );
 
-            listOfFiles = glob.sync(pattern, { follow: true });
+            listOfFiles = globSync(pattern, { follow: true });
             break;
         case SCOPE.external:
             // ### ALL - EXTERNAL - fileName ###
@@ -980,7 +980,7 @@ export const discoverManyRoles = (
                 }`
             );
 
-            listOfFiles = glob.sync(pattern, { follow: true });
+            listOfFiles = globSync(pattern, { follow: true });
             break;
         case SCOPE.all:
             // ### ALL - LOCAL - fileName ###
@@ -995,7 +995,7 @@ export const discoverManyRoles = (
                 }`
             );
 
-            listOfFiles = glob.sync(pattern, { follow: true });
+            listOfFiles = globSync(pattern, { follow: true });
             break;
         default:
             break;
