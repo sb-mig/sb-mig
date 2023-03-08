@@ -2,8 +2,10 @@
 // https://github.com/maoberlehner/storyblok-migrate
 // edit: changed a lot in here, but inspiration still is valid :)
 
-import { globSync } from "glob";
+import glob from "glob";
 import path from "path";
+
+const { globSync } = glob;
 
 console.log("###############");
 console.log(path.sep);
