@@ -1,3 +1,19 @@
+# [4.1.0-beta.43](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.42...v4.1.0-beta.43) (2023-03-08)
+
+
+### fix
+
+* normalize discover should not have mac os delimiter in string ([9d88fc5](https://github.com/sb-mig/sb-mig/commit/9d88fc599875c637bbe2a06576796143ac965a9d))
+
+
+
+# [4.1.0-beta.43](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.42...v4.1.0-beta.43) (2023-03-08)
+
+
+### Bug Fixes
+
+* normalize discover should not have mac os delimiter in string ([9d88fc5](https://github.com/sb-mig/sb-mig/commit/9d88fc599875c637bbe2a06576796143ac965a9d))
+
 # [4.1.0-beta.42](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.41...v4.1.0-beta.42) (2023-03-08)
 
 
