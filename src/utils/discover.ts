@@ -130,7 +130,8 @@ export const discoverManyByPackageName = (
                     (path: string) => !path.includes("node_modules")
                 );
             pattern = path.join(
-                `${directory}/${normalizeDiscover({
+                `${directory}`,
+                `${normalizeDiscover({
                     segments: onlyLocalComponentsDirectories,
                 })}`,
                 "**",
@@ -172,7 +173,8 @@ export const discoverManyByPackageName = (
                     path.includes("node_modules")
                 );
             pattern = path.join(
-                `${directory}/${normalizeDiscover({
+                `${directory}`,
+                `${normalizeDiscover({
                     segments: onlyNodeModulesPackagesComponentsDirectories,
                 })}`,
                 "**",
@@ -210,7 +212,8 @@ export const discoverManyByPackageName = (
         case SCOPE.all:
             // ### MANY by PACKAGE - ALL - packageName
             pattern = path.join(
-                `${directory}/${normalizeDiscover({
+                `${directory}`,
+                `${normalizeDiscover({
                     segments: storyblokConfig.componentsDirectories,
                 })}`,
                 "**",
@@ -270,7 +273,8 @@ export const discoverOneByPackageName = (
                     (path: string) => !path.includes("node_modules")
                 );
             pattern = path.join(
-                `${directory}/${normalizeDiscover({
+                `${directory}`,
+                `${normalizeDiscover({
                     segments: onlyLocalComponentsDirectories,
                 })}`,
                 "**",
@@ -312,7 +316,8 @@ export const discoverOneByPackageName = (
                     path.includes("node_modules")
                 );
             pattern = path.join(
-                `${directory}/${normalizeDiscover({
+                `${directory}`,
+                `${normalizeDiscover({
                     segments: onlyNodeModulesPackagesComponentsDirectories,
                 })}`,
                 "**",
@@ -350,7 +355,8 @@ export const discoverOneByPackageName = (
         case SCOPE.all:
             // ### ONE by PACKAGE - ALL - packageName
             pattern = path.join(
-                `${directory}/${normalizeDiscover({
+                `${directory}`,
+                `${normalizeDiscover({
                     segments: storyblokConfig.componentsDirectories,
                 })}`,
                 "**",
@@ -413,7 +419,8 @@ export const discoverMany = async (
 
             if (storyblokConfig.schemaType === SCHEMA.TS) {
                 pattern = path.join(
-                    `${directory}/${normalizeDiscover({
+                    `${directory}`,
+                    `${normalizeDiscover({
                         segments: onlyLocalComponentsDirectories,
                     })}`,
                     "**",
@@ -444,7 +451,8 @@ export const discoverMany = async (
             }
 
             pattern = path.join(
-                `${directory}/${normalizeDiscover({
+                `${directory}`,
+                `${normalizeDiscover({
                     segments: onlyLocalComponentsDirectories,
                 })}`,
                 "**",
@@ -464,7 +472,8 @@ export const discoverMany = async (
                     path.includes("node_modules")
                 );
             pattern = path.join(
-                `${directory}/${normalizeDiscover({
+                `${directory}`,
+                `${normalizeDiscover({
                     segments: onlyNodeModulesPackagesComponentsDirectories,
                 })}`,
                 "**",
@@ -481,7 +490,8 @@ export const discoverMany = async (
         case SCOPE.all:
             // ### MANY - ALL - fileName ###
             pattern = path.join(
-                `${directory}/${normalizeDiscover({
+                `${directory}`,
+                `${normalizeDiscover({
                     segments: storyblokConfig.componentsDirectories,
                 })}`,
                 "**",
@@ -516,7 +526,8 @@ export const discoverManyDatasources = (
                     (path: string) => !path.includes("node_modules")
                 );
             pattern = path.join(
-                `${directory}/${normalizeDiscover({
+                `${directory}`,
+                `${normalizeDiscover({
                     segments: onlyLocalComponentsDirectories,
                 })}`,
                 "**",
@@ -535,7 +546,8 @@ export const discoverManyDatasources = (
                     path.includes("node_modules")
                 );
             pattern = path.join(
-                `${directory}/${normalizeDiscover({
+                `${directory}`,
+                `${normalizeDiscover({
                     segments: onlyNodeModulesPackagesComponentsDirectories,
                 })}`,
                 "**",
@@ -550,7 +562,8 @@ export const discoverManyDatasources = (
         case SCOPE.all:
             // ### MANY - ALL - fileName ###
             pattern = path.join(
-                `${directory}/${normalizeDiscover({
+                `${directory}`,
+                `${normalizeDiscover({
                     segments: storyblokConfig.componentsDirectories,
                 })}`,
                 "**",
@@ -585,7 +598,8 @@ export const discoverDatasources = (
                     (path: string) => !path.includes("node_modules")
                 );
             pattern = path.join(
-                `${directory}/${normalizeDiscover({
+                `${directory}`,
+                `${normalizeDiscover({
                     segments: onlyLocalComponentsDirectories,
                 })}`,
                 "**",
@@ -601,7 +615,8 @@ export const discoverDatasources = (
                     path.includes("node_modules")
                 );
             pattern = path.join(
-                `${directory}/${normalizeDiscover({
+                `${directory}`,
+                `${normalizeDiscover({
                     segments: onlyNodeModulesPackagesComponentsDirectories,
                 })}`,
                 "**",
@@ -613,7 +628,8 @@ export const discoverDatasources = (
         case SCOPE.all:
             // ### ALL - LOCAL - fileName ###
             pattern = path.join(
-                `${directory}/${normalizeDiscover({
+                `${directory}`,
+                `${normalizeDiscover({
                     segments: storyblokConfig.componentsDirectories,
                 })}`,
                 "**",
@@ -643,7 +659,8 @@ export const discoverOne = (request: DiscoverOneRequest): DiscoverResult => {
                     (path: string) => !path.includes("node_modules")
                 );
             pattern = path.join(
-                `${directory}/${normalizeDiscover({
+                `${directory}`,
+                `${normalizeDiscover({
                     segments: onlyLocalComponentsDirectories,
                 })}`,
                 "**",
@@ -659,7 +676,8 @@ export const discoverOne = (request: DiscoverOneRequest): DiscoverResult => {
                     path.includes("node_modules")
                 );
             pattern = path.join(
-                `${directory}/${normalizeDiscover({
+                `${directory}`,
+                `${normalizeDiscover({
                     segments: onlyNodeModulesPackagesComponentsDirectories,
                 })}`,
                 "**",
@@ -671,7 +689,8 @@ export const discoverOne = (request: DiscoverOneRequest): DiscoverResult => {
         case SCOPE.all:
             // ### ONE - ALL - fileName ###
             pattern = path.join(
-                `${directory}/${normalizeDiscover({
+                `${directory}`,
+                `${normalizeDiscover({
                     segments: storyblokConfig.componentsDirectories,
                 })}`,
                 "**",
@@ -700,12 +719,14 @@ export const discover = async (
     ): string => {
         return componentDirectories.length === 1
             ? path.join(
-                  `${directory}/${componentDirectories[0]}`,
+                  `${directory}`,
+                  `${componentDirectories[0]}`,
                   "**",
                   `[^_]*.${ext}` // all files with 'ext' extension, without files beggining with _
               )
             : path.join(
-                  `${directory}/{${componentDirectories.join(",")}}`,
+                  `${directory}`,
+                  `{${componentDirectories.join(",")}}`,
                   "**",
                   `[^_]*.${ext}` // all files with 'ext' extension, without files beggining with _
               );
@@ -797,7 +818,8 @@ export const discoverManyStyles = (
                     (path: string) => !path.includes("node_modules")
                 );
             pattern = path.join(
-                `${directory}/${normalizeDiscover({
+                `${directory}`,
+                `${normalizeDiscover({
                     segments: onlyLocalComponentsDirectories,
                 })}`,
                 "**",
@@ -814,7 +836,8 @@ export const discoverManyStyles = (
                     path.includes("node_modules")
                 );
             pattern = path.join(
-                `${directory}/${normalizeDiscover({
+                `${directory}`,
+                `${normalizeDiscover({
                     segments: onlyNodeModulesPackagesComponentsDirectories,
                 })}`,
                 "**",
@@ -827,7 +850,8 @@ export const discoverManyStyles = (
         case SCOPE.all:
             // ### MANY - ALL - fileName ###
             pattern = path.join(
-                `${directory}/${normalizeDiscover({
+                `${directory}`,
+                `${normalizeDiscover({
                     segments: storyblokConfig.componentsDirectories,
                 })}`,
                 "**",
@@ -858,7 +882,8 @@ export const discoverRoles = (request: DiscoverRequest): DiscoverResult => {
                     (path: string) => !path.includes("node_modules")
                 );
             pattern = path.join(
-                `${directory}/${normalizeDiscover({
+                `${directory}`,
+                `${normalizeDiscover({
                     segments: onlyLocalComponentsDirectories,
                 })}`,
                 "**",
@@ -874,7 +899,8 @@ export const discoverRoles = (request: DiscoverRequest): DiscoverResult => {
                     path.includes("node_modules")
                 );
             pattern = path.join(
-                `${directory}/${normalizeDiscover({
+                `${directory}`,
+                `${normalizeDiscover({
                     segments: onlyNodeModulesPackagesComponentsDirectories,
                 })}`,
                 "**",
@@ -886,7 +912,8 @@ export const discoverRoles = (request: DiscoverRequest): DiscoverResult => {
         case SCOPE.all:
             // ### ALL - LOCAL - fileName ###
             pattern = path.join(
-                `${directory}/${normalizeDiscover({
+                `${directory}`,
+                `${normalizeDiscover({
                     segments: storyblokConfig.componentsDirectories,
                 })}`,
                 "**",
@@ -918,7 +945,8 @@ export const discoverManyRoles = (
                     (path: string) => !path.includes("node_modules")
                 );
             pattern = path.join(
-                `${directory}/${normalizeDiscover({
+                `${directory}`,
+                `${normalizeDiscover({
                     segments: onlyLocalComponentsDirectories,
                 })}`,
                 "**",
@@ -936,7 +964,8 @@ export const discoverManyRoles = (
                     path.includes("node_modules")
                 );
             pattern = path.join(
-                `${directory}/${normalizeDiscover({
+                `${directory}`,
+                `${normalizeDiscover({
                     segments: onlyNodeModulesPackagesComponentsDirectories,
                 })}`,
                 "**",
@@ -950,7 +979,8 @@ export const discoverManyRoles = (
         case SCOPE.all:
             // ### ALL - LOCAL - fileName ###
             pattern = path.join(
-                `${directory}/${normalizeDiscover({
+                `${directory}`,
+                `${normalizeDiscover({
                     segments: storyblokConfig.componentsDirectories,
                 })}`,
                 "**",
