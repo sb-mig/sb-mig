@@ -7,8 +7,13 @@ export const generateDatestamp = (datestamp: Date) =>
 export const askForConfirmation = async (
     message: string,
     resolveYes: () => void,
-    resolveNo: () => void
+    resolveNo: () => void,
+    ci?: boolean
 ) => {
+    if (ci) {
+        resolveYes();
+        return;
+    }
     // This section has to be changed, it was fast solution to asking for confirmation
     // need to reimplement it better
     await new Promise((resolve) => {

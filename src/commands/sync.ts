@@ -69,7 +69,8 @@ export const sync = async (props: CLIOptions) => {
                     },
                     () => {
                         Logger.success("Syncing components aborted.");
-                    }
+                    },
+                    flags["yes"]
                 );
             }
 
@@ -129,7 +130,8 @@ export const sync = async (props: CLIOptions) => {
                             Logger.success(
                                 "Stories not deleted, exiting the program..."
                             );
-                        }
+                        },
+                        flags["yes"]
                     );
                 }
 
