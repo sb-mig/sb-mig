@@ -1,3 +1,19 @@
+# [4.1.0-beta.42](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.41...v4.1.0-beta.42) (2023-03-08)
+
+
+### fix
+
+* adding a way to pass yes argument to askForConfirmation when used in ci ([8eda87b](https://github.com/sb-mig/sb-mig/commit/8eda87b4bf6fa29d8fcfca03fabe79414d639af2))
+
+
+
+# [4.1.0-beta.42](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.41...v4.1.0-beta.42) (2023-03-08)
+
+
+### Bug Fixes
+
+* adding a way to pass yes argument to askForConfirmation when used in ci ([8eda87b](https://github.com/sb-mig/sb-mig/commit/8eda87b4bf6fa29d8fcfca03fabe79414d639af2))
+
 # [4.1.0-beta.41](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.40...v4.1.0-beta.41) (2023-02-19)
 
 
