@@ -1,3 +1,4 @@
+import path from "path";
 import config from "../config/config.js";
 import { pkg } from "../utils/pkg.js";
 import { getFileContentWithRequire } from "../utils/main.js";
@@ -10,7 +11,7 @@ export const debug = async () => {
     console.log(" ");
 
     const fileContent = await getFileContentWithRequire({
-        file: "../../package.json",
+        file: path.join("..", "..", "package.json"),
     });
     console.log("sb-mig version: ");
     Logger.success(fileContent["version"]);
@@ -23,9 +24,11 @@ export const debug = async () => {
     console.log(" ");
     console.log(" ");
 
-    if (pkg(`${process.cwd()}/package.json`).type === "module") {
+    if (pkg(path.join(`${process.cwd()}`, `package.json`)).type === "module") {
         console.log("U are using new esm stuff. Good for you!");
     } else {
         console.log("Oh, common, commonjs, really? (common....js got it ?)");
     }
+
+    console.log("Local version");
 };
