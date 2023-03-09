@@ -4,10 +4,13 @@
 
 import glob from "glob";
 import path from "path";
-
 import storyblokConfig, { SCHEMA } from "../config/config.js";
 import { getFileContentWithRequire } from "./main.js";
 import { buildOnTheFly } from "../rollup/build-on-the-fly.js";
+
+console.log("###############");
+console.log(path.sep);
+console.log("###############");
 
 export enum SCOPE {
     local = "local",
@@ -55,7 +58,7 @@ interface CompareRequest {
 
 export interface OneComponent {
     name: string;
-    path: string;
+    p: string;
 }
 
 export interface CompareResult {
@@ -79,18 +82,20 @@ export const normalizeDiscover = ({ segments }: { segments: string[] }) => {
 };
 
 // export const compare = (request: CompareRequest): CompareResult => {
-export const compare = (request: CompareRequest): any => {
+export const compare = (
+    request: CompareRequest
+): { local: OneComponent[]; external: OneComponent[] } => {
     // TODO: figure out types
-    const splittedLocal = request.local.map((path) => {
+    const splittedLocal = request.local.map((p) => {
         return {
-            name: path.split("/")[path.split("/").length - 1], // last element of splited array - file name
-            path,
+            name: p.split(path.sep)[p.split(path.sep).length - 1], // last element of splited array - file name
+            p,
         };
     });
-    const splittedExternal = request.external.map((path) => {
+    const splittedExternal = request.external.map((p) => {
         return {
-            name: path.split("/")[path.split("/").length - 1], // last element of splited array - file name
-            path,
+            name: p.split(path.sep)[p.split(path.sep).length - 1], // last element of splited array - file name
+            p,
         };
     });
 
@@ -108,7 +113,7 @@ export const compare = (request: CompareRequest): any => {
             }
             return true;
         }),
-    };
+    } as { external: OneComponent[]; local: OneComponent[] };
 
     return result;
 };
@@ -127,7 +132,7 @@ export const discoverManyByPackageName = (
             // ### MANY by PACKAGE - LOCAL - packageName
             const onlyLocalComponentsDirectories =
                 storyblokConfig.componentsDirectories.filter(
-                    (path: string) => !path.includes("node_modules")
+                    (p: string) => !p.includes("node_modules")
                 );
             pattern = path.join(
                 `${directory}`,
@@ -149,9 +154,9 @@ export const discoverManyByPackageName = (
                 .map((file) => {
                     // get path to folder in which current package.json is
                     const fileFolderPath = file
-                        .split("/")
+                        .split(path.sep)
                         .slice(0, -1)
-                        .join("/");
+                        .join(path.sep);
                     const allStoryblokSchemaFilesWithinFolderPattern =
                         path.join(
                             `${fileFolderPath}`,
@@ -169,8 +174,8 @@ export const discoverManyByPackageName = (
         case SCOPE.external:
             // ### MANY by PACKAGE - EXTERNAL - packageName
             const onlyNodeModulesPackagesComponentsDirectories =
-                storyblokConfig.componentsDirectories.filter((path: string) =>
-                    path.includes("node_modules")
+                storyblokConfig.componentsDirectories.filter((p: string) =>
+                    p.includes("node_modules")
                 );
             pattern = path.join(
                 `${directory}`,
@@ -192,9 +197,9 @@ export const discoverManyByPackageName = (
                 .map((file) => {
                     // get path to folder in which current package.json is
                     const fileFolderPath = file
-                        .split("/")
+                        .split(path.sep)
                         .slice(0, -1)
-                        .join("/");
+                        .join(path.sep);
                     const allStoryblokSchemaFilesWithinFolderPattern =
                         path.join(
                             `${fileFolderPath}`,
@@ -231,9 +236,9 @@ export const discoverManyByPackageName = (
                 .map((file) => {
                     // get path to folder in which current package.json is
                     const fileFolderPath = file
-                        .split("/")
+                        .split(path.sep)
                         .slice(0, -1)
-                        .join("/");
+                        .join(path.sep);
                     const allStoryblokSchemaFilesWithinFolderPattern =
                         path.join(
                             `${fileFolderPath}`,
@@ -270,7 +275,7 @@ export const discoverOneByPackageName = (
             // ### ONE by PACKAGE - LOCAL - packageName
             const onlyLocalComponentsDirectories =
                 storyblokConfig.componentsDirectories.filter(
-                    (path: string) => !path.includes("node_modules")
+                    (p: string) => !p.includes("node_modules")
                 );
             pattern = path.join(
                 `${directory}`,
@@ -292,9 +297,9 @@ export const discoverOneByPackageName = (
                 .map((file) => {
                     // get path to folder in which current package.json is
                     const fileFolderPath = file
-                        .split("/")
+                        .split(path.sep)
                         .slice(0, -1)
-                        .join("/");
+                        .join(path.sep);
                     const allStoryblokSchemaFilesWithinFolderPattern =
                         path.join(
                             `${fileFolderPath}`,
@@ -312,8 +317,8 @@ export const discoverOneByPackageName = (
         case SCOPE.external:
             // ### ONE by PACKAGE - EXTERNAL - packageName
             const onlyNodeModulesPackagesComponentsDirectories =
-                storyblokConfig.componentsDirectories.filter((path: string) =>
-                    path.includes("node_modules")
+                storyblokConfig.componentsDirectories.filter((p: string) =>
+                    p.includes("node_modules")
                 );
             pattern = path.join(
                 `${directory}`,
@@ -335,9 +340,9 @@ export const discoverOneByPackageName = (
                 .map((file) => {
                     // get path to folder in which current package.json is
                     const fileFolderPath = file
-                        .split("/")
+                        .split(path.sep)
                         .slice(0, -1)
-                        .join("/");
+                        .join(path.sep);
                     const allStoryblokSchemaFilesWithinFolderPattern =
                         path.join(
                             `${fileFolderPath}`,
@@ -374,9 +379,9 @@ export const discoverOneByPackageName = (
                 .map((file) => {
                     // get path to folder in which current package.json is
                     const fileFolderPath = file
-                        .split("/")
+                        .split(path.sep)
                         .slice(0, -1)
-                        .join("/");
+                        .join(path.sep);
                     const allStoryblokSchemaFilesWithinFolderPattern =
                         path.join(
                             `${fileFolderPath}`,
@@ -414,7 +419,7 @@ export const discoverMany = async (
 
             const onlyLocalComponentsDirectories =
                 storyblokConfig.componentsDirectories.filter(
-                    (path: string) => !path.includes("node_modules")
+                    (p: string) => !p.includes("node_modules")
                 );
 
             if (storyblokConfig.schemaType === SCHEMA.TS) {
@@ -468,8 +473,8 @@ export const discoverMany = async (
         case SCOPE.external:
             // ### MANY - EXTERNAL - fileName ###
             const onlyNodeModulesPackagesComponentsDirectories =
-                storyblokConfig.componentsDirectories.filter((path: string) =>
-                    path.includes("node_modules")
+                storyblokConfig.componentsDirectories.filter((p: string) =>
+                    p.includes("node_modules")
                 );
             pattern = path.join(
                 `${directory}`,
@@ -523,7 +528,7 @@ export const discoverManyDatasources = (
             // ### MANY - LOCAL - fileName ###
             const onlyLocalComponentsDirectories =
                 storyblokConfig.componentsDirectories.filter(
-                    (path: string) => !path.includes("node_modules")
+                    (p: string) => !p.includes("node_modules")
                 );
             pattern = path.join(
                 `${directory}`,
@@ -542,8 +547,8 @@ export const discoverManyDatasources = (
         case SCOPE.external:
             // ### MANY - EXTERNAL - fileName ###
             const onlyNodeModulesPackagesComponentsDirectories =
-                storyblokConfig.componentsDirectories.filter((path: string) =>
-                    path.includes("node_modules")
+                storyblokConfig.componentsDirectories.filter((p: string) =>
+                    p.includes("node_modules")
                 );
             pattern = path.join(
                 `${directory}`,
@@ -595,7 +600,7 @@ export const discoverDatasources = (
             // ### ALL - LOCAL - fileName ###
             const onlyLocalComponentsDirectories =
                 storyblokConfig.componentsDirectories.filter(
-                    (path: string) => !path.includes("node_modules")
+                    (p: string) => !p.includes("node_modules")
                 );
             pattern = path.join(
                 `${directory}`,
@@ -611,8 +616,8 @@ export const discoverDatasources = (
         case SCOPE.external:
             // ### ALL - EXTERNAL - fileName ###
             const onlyNodeModulesPackagesComponentsDirectories =
-                storyblokConfig.componentsDirectories.filter((path: string) =>
-                    path.includes("node_modules")
+                storyblokConfig.componentsDirectories.filter((p: string) =>
+                    p.includes("node_modules")
                 );
             pattern = path.join(
                 `${directory}`,
@@ -656,7 +661,7 @@ export const discoverOne = (request: DiscoverOneRequest): DiscoverResult => {
             // ### ONE - LOCAL - fileName ###
             const onlyLocalComponentsDirectories =
                 storyblokConfig.componentsDirectories.filter(
-                    (path: string) => !path.includes("node_modules")
+                    (p: string) => !p.includes("node_modules")
                 );
             pattern = path.join(
                 `${directory}`,
@@ -672,8 +677,8 @@ export const discoverOne = (request: DiscoverOneRequest): DiscoverResult => {
         case SCOPE.external:
             // ### ONE - EXTERNAL - fileName ###
             const onlyNodeModulesPackagesComponentsDirectories =
-                storyblokConfig.componentsDirectories.filter((path: string) =>
-                    path.includes("node_modules")
+                storyblokConfig.componentsDirectories.filter((p: string) =>
+                    p.includes("node_modules")
                 );
             pattern = path.join(
                 `${directory}`,
@@ -708,7 +713,7 @@ export const discoverOne = (request: DiscoverOneRequest): DiscoverResult => {
 export const discover = async (
     request: DiscoverRequest
 ): Promise<DiscoverResult> => {
-    const rootDirectory = "./";
+    const rootDirectory = ".";
     const directory = path.resolve(process.cwd(), rootDirectory);
     let pattern;
     let listOfFiles = [""];
@@ -739,7 +744,7 @@ export const discover = async (
 
             const onlyLocalComponentsDirectories =
                 storyblokConfig.componentsDirectories.filter(
-                    (path: string) => !path.includes("node_modules")
+                    (p: string) => !p.includes("node_modules")
                 );
 
             if (storyblokConfig.schemaType === SCHEMA.TS) {
@@ -776,8 +781,8 @@ export const discover = async (
         case SCOPE.external:
             // ### ALL - EXTERNAL - fileName ###
             const onlyNodeModulesPackagesComponentsDirectories =
-                storyblokConfig.componentsDirectories.filter((path: string) =>
-                    path.includes("node_modules")
+                storyblokConfig.componentsDirectories.filter((p: string) =>
+                    p.includes("node_modules")
                 );
             pattern = filesPattern(
                 onlyNodeModulesPackagesComponentsDirectories,
@@ -815,7 +820,7 @@ export const discoverManyStyles = (
             // ### MANY - LOCAL - fileName ###
             const onlyLocalComponentsDirectories =
                 storyblokConfig.componentsDirectories.filter(
-                    (path: string) => !path.includes("node_modules")
+                    (p: string) => !p.includes("node_modules")
                 );
             pattern = path.join(
                 `${directory}`,
@@ -832,8 +837,8 @@ export const discoverManyStyles = (
         case SCOPE.external:
             // ### MANY - EXTERNAL - fileName ###
             const onlyNodeModulesPackagesComponentsDirectories =
-                storyblokConfig.componentsDirectories.filter((path: string) =>
-                    path.includes("node_modules")
+                storyblokConfig.componentsDirectories.filter((p: string) =>
+                    p.includes("node_modules")
                 );
             pattern = path.join(
                 `${directory}`,
@@ -879,7 +884,7 @@ export const discoverRoles = (request: DiscoverRequest): DiscoverResult => {
             // ### ALL - LOCAL - fileName ###
             const onlyLocalComponentsDirectories =
                 storyblokConfig.componentsDirectories.filter(
-                    (path: string) => !path.includes("node_modules")
+                    (p: string) => !p.includes("node_modules")
                 );
             pattern = path.join(
                 `${directory}`,
@@ -895,8 +900,8 @@ export const discoverRoles = (request: DiscoverRequest): DiscoverResult => {
         case SCOPE.external:
             // ### ALL - EXTERNAL - fileName ###
             const onlyNodeModulesPackagesComponentsDirectories =
-                storyblokConfig.componentsDirectories.filter((path: string) =>
-                    path.includes("node_modules")
+                storyblokConfig.componentsDirectories.filter((p: string) =>
+                    p.includes("node_modules")
                 );
             pattern = path.join(
                 `${directory}`,
@@ -942,7 +947,7 @@ export const discoverManyRoles = (
             // ### ALL - LOCAL - fileName ###
             const onlyLocalComponentsDirectories =
                 storyblokConfig.componentsDirectories.filter(
-                    (path: string) => !path.includes("node_modules")
+                    (p: string) => !p.includes("node_modules")
                 );
             pattern = path.join(
                 `${directory}`,
@@ -960,8 +965,8 @@ export const discoverManyRoles = (
         case SCOPE.external:
             // ### ALL - EXTERNAL - fileName ###
             const onlyNodeModulesPackagesComponentsDirectories =
-                storyblokConfig.componentsDirectories.filter((path: string) =>
-                    path.includes("node_modules")
+                storyblokConfig.componentsDirectories.filter((p: string) =>
+                    p.includes("node_modules")
                 );
             pattern = path.join(
                 `${directory}`,

@@ -89,7 +89,7 @@ interface SyncRoles {
 
 export const syncRoles = async ({ specifiedRoles }: SyncRoles) => {
     const specifiedRolesContent = await Promise.all(
-        specifiedRoles.map((roles) => getFileContent({ file: roles.path }))
+        specifiedRoles.map((roles) => getFileContent({ file: roles.p }))
     );
 
     const { space_roles } = await getAllRoles();
