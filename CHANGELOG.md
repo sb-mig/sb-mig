@@ -1,3 +1,31 @@
+# [4.1.0-beta.44](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.43...v4.1.0-beta.44) (2023-03-09)
+
+
+### fix
+
+* downgrade glob, to many changes for now to update ([dae0d91](https://github.com/sb-mig/sb-mig/commit/dae0d9146980c7fc0b086859792f2bf62e39c128))
+* path.join in more places ([8863474](https://github.com/sb-mig/sb-mig/commit/8863474e733b85729fd90ba17cdd15a09c9a60e8))
+* update breaking changes glob dep ([d276c88](https://github.com/sb-mig/sb-mig/commit/d276c88324da83ed916e6ab10bf47679e58fe4d0))
+* update deps ([98d9cad](https://github.com/sb-mig/sb-mig/commit/98d9cad017d535547e812d01c6c4583d3e43ff3f))
+* update semantic-release with breaking changes ([cf701f1](https://github.com/sb-mig/sb-mig/commit/cf701f17b9a1bca1fcb16f5f4c3fae2fcbe1d5b6))
+* update to use globSync ([370939e](https://github.com/sb-mig/sb-mig/commit/370939e60cee31a090f5c06d54cab6e7e01def2b))
+* update to use globSync properly ([f5cca88](https://github.com/sb-mig/sb-mig/commit/f5cca88dcb16a6c4ec56f9665e3d8d715054356c))
+
+
+
+# [4.1.0-beta.44](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.43...v4.1.0-beta.44) (2023-03-09)
+
+
+### Bug Fixes
+
+* downgrade glob, to many changes for now to update ([dae0d91](https://github.com/sb-mig/sb-mig/commit/dae0d9146980c7fc0b086859792f2bf62e39c128))
+* path.join in more places ([8863474](https://github.com/sb-mig/sb-mig/commit/8863474e733b85729fd90ba17cdd15a09c9a60e8))
+* update breaking changes glob dep ([d276c88](https://github.com/sb-mig/sb-mig/commit/d276c88324da83ed916e6ab10bf47679e58fe4d0))
+* update deps ([98d9cad](https://github.com/sb-mig/sb-mig/commit/98d9cad017d535547e812d01c6c4583d3e43ff3f))
+* update semantic-release with breaking changes ([cf701f1](https://github.com/sb-mig/sb-mig/commit/cf701f17b9a1bca1fcb16f5f4c3fae2fcbe1d5b6))
+* update to use globSync ([370939e](https://github.com/sb-mig/sb-mig/commit/370939e60cee31a090f5c06d54cab6e7e01def2b))
+* update to use globSync properly ([f5cca88](https://github.com/sb-mig/sb-mig/commit/f5cca88dcb16a6c4ec56f9665e3d8d715054356c))
+
 # [4.1.0-beta.43](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.42...v4.1.0-beta.43) (2023-03-08)
 
 
