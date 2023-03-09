@@ -1,3 +1,19 @@
+# [4.1.0-beta.45](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.44...v4.1.0-beta.45) (2023-03-09)
+
+
+### fix
+
+* debug for windows ([b8ac583](https://github.com/sb-mig/sb-mig/commit/b8ac583f54bab8ac57be7f25806e8caf017c227f))
+
+
+
+# [4.1.0-beta.45](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.44...v4.1.0-beta.45) (2023-03-09)
+
+
+### Bug Fixes
+
+* debug for windows ([b8ac583](https://github.com/sb-mig/sb-mig/commit/b8ac583f54bab8ac57be7f25806e8caf017c227f))
+
 # [4.1.0-beta.44](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.43...v4.1.0-beta.44) (2023-03-09)
 
 
