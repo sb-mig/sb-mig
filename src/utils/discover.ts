@@ -717,11 +717,23 @@ export const discover = async (
     const directory = path.resolve(process.cwd(), rootDirectory);
     let pattern;
     let listOfFiles = [""];
+    console.log("beggining directory: ");
+    console.log(directory);
 
     const filesPattern = (
         componentDirectories: string[],
         ext: string
     ): string => {
+        const guyToLookForStuff = path.join(
+            `${directory}`,
+            `{${componentDirectories.join(",")}}`,
+            "**",
+            `[^_]*.${ext}` // all files with 'ext' extension, without files beggining with _
+        );
+
+        console.log("Loooking in here: ");
+        console.log(guyToLookForStuff);
+
         return componentDirectories.length === 1
             ? path.join(
                   `${directory}`,
