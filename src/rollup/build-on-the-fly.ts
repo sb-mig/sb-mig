@@ -17,11 +17,15 @@ interface BuildOnTheFly {
 }
 export const buildOnTheFly = async ({ files }: BuildOnTheFly) => {
     if (storyblokConfig.flushCache) {
-        await remove(`${storyblokConfig.cacheDir}/sb-mig`);
+        await remove(path.join(`${storyblokConfig.cacheDir}`, `sb-mig`));
     }
 
     const projectDir = process.cwd();
-    const cacheDir = `${projectDir}/${storyblokConfig.cacheDir}/sb-mig`;
+    const cacheDir = path.join(
+        `${projectDir}`,
+        `${storyblokConfig.cacheDir}`,
+        `sb-mig`
+    );
 
     await Promise.all(
         files.map(async (filePath) => {
@@ -37,15 +41,17 @@ export const buildOnTheFly = async ({ files }: BuildOnTheFly) => {
 
             const outputOptionsList = [
                 {
-                    file: `${cacheDir}/${_extractComponentName(
-                        filePath
-                    )}.sb.cjs`,
+                    file: path.join(
+                        `${cacheDir}`,
+                        `${_extractComponentName(filePath)}.sb.cjs`
+                    ),
                     format: "cjs",
                 },
                 {
-                    file: `${cacheDir}/${_extractComponentName(
-                        filePath
-                    )}.sb.js`,
+                    file: path.join(
+                        `${cacheDir}`,
+                        `${_extractComponentName(filePath)}.sb.js`
+                    ),
                     format: "es",
                 },
             ];
