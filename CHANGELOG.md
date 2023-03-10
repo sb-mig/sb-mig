@@ -1,3 +1,19 @@
+# [4.1.0-beta.47](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.46...v4.1.0-beta.47) (2023-03-10)
+
+
+### fix
+
+* changing build on the fly files to be composed with path.join ([7109ba2](https://github.com/sb-mig/sb-mig/commit/7109ba25e6efc0a9b7f78ea5cdfa15aea3fd116f))
+
+
+
+# [4.1.0-beta.47](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.46...v4.1.0-beta.47) (2023-03-10)
+
+
+### Bug Fixes
+
+* changing build on the fly files to be composed with path.join ([7109ba2](https://github.com/sb-mig/sb-mig/commit/7109ba25e6efc0a9b7f78ea5cdfa15aea3fd116f))
+
 # [4.1.0-beta.46](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.45...v4.1.0-beta.46) (2023-03-09)
 
 
