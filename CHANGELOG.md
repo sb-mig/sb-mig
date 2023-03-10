@@ -1,3 +1,19 @@
+# [4.1.0-beta.46](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.45...v4.1.0-beta.46) (2023-03-09)
+
+
+### fix
+
+* add replace for forward slashes for windows cause glob needs that format ([7eabe61](https://github.com/sb-mig/sb-mig/commit/7eabe6107f39d90ffb1ec7652bbce101920a5a09))
+
+
+
+# [4.1.0-beta.46](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.45...v4.1.0-beta.46) (2023-03-09)
+
+
+### Bug Fixes
+
+* add replace for forward slashes for windows cause glob needs that format ([7eabe61](https://github.com/sb-mig/sb-mig/commit/7eabe6107f39d90ffb1ec7652bbce101920a5a09))
+
 # [4.1.0-beta.45](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.44...v4.1.0-beta.45) (2023-03-09)
 
 
