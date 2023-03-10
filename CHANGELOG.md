@@ -1,3 +1,19 @@
+# [4.1.0-beta.48](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.47...v4.1.0-beta.48) (2023-03-10)
+
+
+### fix
+
+* logging for windows ([75e2cd5](https://github.com/sb-mig/sb-mig/commit/75e2cd50c7755ef7c1e5a2c671e365694b30580e))
+
+
+
+# [4.1.0-beta.48](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.47...v4.1.0-beta.48) (2023-03-10)
+
+
+### Bug Fixes
+
+* logging for windows ([75e2cd5](https://github.com/sb-mig/sb-mig/commit/75e2cd50c7755ef7c1e5a2c671e365694b30580e))
+
 # [4.1.0-beta.47](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.46...v4.1.0-beta.47) (2023-03-10)
 
 
