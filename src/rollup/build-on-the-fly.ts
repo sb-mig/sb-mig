@@ -27,6 +27,10 @@ export const buildOnTheFly = async ({ files }: BuildOnTheFly) => {
         `sb-mig`
     );
 
+    console.log("This is cacheDir: ", cacheDir);
+    console.log("these are files: ");
+    console.log(files);
+
     await Promise.all(
         files.map(async (filePath) => {
             const inputOptions = {

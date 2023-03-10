@@ -470,6 +470,8 @@ export const discoverMany = async (
                         follow: true,
                     }
                 );
+
+                console.log("List of filed to compile");
                 await buildOnTheFly({ files: listOfFilesToCompile });
 
                 pattern = path.join(
