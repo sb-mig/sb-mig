@@ -1,3 +1,19 @@
+# [4.1.0-beta.51](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.50...v4.1.0-beta.51) (2023-03-11)
+
+
+### fix
+
+* add translation strattegy env ([514bd5b](https://github.com/sb-mig/sb-mig/commit/514bd5b706acfbf12a93596defcdec2e46ea39fe))
+
+
+
+# [4.1.0-beta.51](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.50...v4.1.0-beta.51) (2023-03-11)
+
+
+### Bug Fixes
+
+* add translation strattegy env ([514bd5b](https://github.com/sb-mig/sb-mig/commit/514bd5b706acfbf12a93596defcdec2e46ea39fe))
+
 # [4.1.0-beta.50](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.49...v4.1.0-beta.50) (2023-03-11)
 
 
