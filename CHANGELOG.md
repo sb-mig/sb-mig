@@ -1,3 +1,19 @@
+# [4.1.0-beta.52](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.51...v4.1.0-beta.52) (2023-03-11)
+
+
+### fix
+
+* update env variables ([93326d3](https://github.com/sb-mig/sb-mig/commit/93326d34305180db7f55407cdfc70c6aaaa9496e))
+
+
+
+# [4.1.0-beta.52](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.51...v4.1.0-beta.52) (2023-03-11)
+
+
+### Bug Fixes
+
+* update env variables ([93326d3](https://github.com/sb-mig/sb-mig/commit/93326d34305180db7f55407cdfc70c6aaaa9496e))
+
 # [4.1.0-beta.51](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.50...v4.1.0-beta.51) (2023-03-11)
 
 
