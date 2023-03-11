@@ -1,3 +1,19 @@
+# [4.1.0-beta.49](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.48...v4.1.0-beta.49) (2023-03-11)
+
+
+### fix
+
+* make filesPattern testable, write 2 tests ([577d99c](https://github.com/sb-mig/sb-mig/commit/577d99c9bb9515f567abadab581fa69560e80040))
+
+
+
+# [4.1.0-beta.49](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.48...v4.1.0-beta.49) (2023-03-11)
+
+
+### Bug Fixes
+
+* make filesPattern testable, write 2 tests ([577d99c](https://github.com/sb-mig/sb-mig/commit/577d99c9bb9515f567abadab581fa69560e80040))
+
 # [4.1.0-beta.48](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.47...v4.1.0-beta.48) (2023-03-10)
 
 
