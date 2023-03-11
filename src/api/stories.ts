@@ -1,5 +1,6 @@
 import storyblokConfig from "../config/config.js";
 import { sbApi } from "./config.js";
+import { ISbStory } from "storyblok-js-client";
 
 const { spaceId, boilerplateSpaceId } = storyblokConfig;
 
@@ -22,7 +23,9 @@ export const getAllStories = async ({ spaceId }: { spaceId: number }) => {
     console.log("Trying to get all Stories.");
 
     const allStoriesWithoutContent: any = await sbApi
-        .get(`spaces/${spaceId}/stories/`)
+        .get(`spaces/${spaceId}/stories/`, {
+            per_page: 100,
+        })
         .then((res: any) => res.data.stories)
         .catch((err: any) => console.error(err));
 
@@ -56,6 +59,12 @@ export const createStory = ({
     spaceId: number;
     content: any;
 }) => {
+    console.log(
+        "Moving story with name: ",
+        content.name,
+        "to space: ",
+        spaceId
+    );
     return sbApi
         .post(`spaces/${spaceId}/stories/`, {
             story: content,
@@ -66,3 +75,66 @@ export const createStory = ({
 };
 
 export const updateStory = () => {};
+
+interface TreeNode {
+    id: number;
+    parent_id: number | null;
+    children?: TreeNode[];
+    story: any;
+}
+
+export const createTree = (stories: any[]) => buildTree(stories, null);
+
+const buildTree = (
+    nodes: TreeNode[],
+    parentId: number | null = null
+): TreeNode[] => {
+    const tree: TreeNode[] = [];
+
+    nodes.forEach((node) => {
+        if (node.parent_id === parentId) {
+            const children = buildTree(nodes, node.id);
+            tree.push({
+                id: node.id,
+                parent_id: node.parent_id,
+                story: node,
+                children,
+            });
+        }
+    });
+
+    return tree;
+};
+
+type Tree = TreeNode[];
+
+interface TraverseAndCreate {
+    tree: Tree;
+    realParentId: number | null;
+    defaultRoot?: any;
+}
+
+export const traverseAndCreate = ({
+    tree,
+    realParentId,
+}: TraverseAndCreate) => {
+    tree.forEach(async (node) => {
+        try {
+            const { parent, ...content } = node.story;
+            const result = await createStory({
+                spaceId,
+                content: { ...content, parent_id: realParentId },
+            });
+            const storyId: number = result.story.id;
+            if (node.children) {
+                traverseAndCreate({
+                    tree: node.children,
+                    realParentId: storyId,
+                });
+            }
+        } catch (e) {
+            console.log("Error happened");
+            console.log(e);
+        }
+    });
+};

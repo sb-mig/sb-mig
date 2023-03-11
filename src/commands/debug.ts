@@ -29,6 +29,4 @@ export const debug = async () => {
     } else {
         console.log("Oh, common, commonjs, really? (common....js got it ?)");
     }
-
-    console.log("Local version");
 };

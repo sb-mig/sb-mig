@@ -17,9 +17,16 @@ import {
     discoverMany,
 } from "../utils/discover.js";
 import { getFileContentWithRequire } from "../utils/main.js";
-import { createStory, getAllStories, removeStory } from "./stories.js";
+import {
+    createStory,
+    createTree,
+    getAllStories,
+    removeStory,
+    traverseAndCreate,
+} from "./stories.js";
 import { createPlugin, getPlugin, updatePlugin } from "./plugins.js";
 import { readFile } from "../utils/files.js";
+import { writeFile } from "fs";
 
 const _uniqueValuesFrom = (array: any[]) => [...new Set(array)];
 
@@ -303,15 +310,40 @@ export const syncContent = async ({
     from: number;
     to: number;
 }) => {
+    console.log("We would try to migrate data from: ", from, "to: ", to);
     const stories = await getAllStories({ spaceId: from });
+    const storiesToPass = stories
+        .map((item) => item.story)
+        .map((item) =>
+            item.parent_id === 0 ? { ...item, parent_id: null } : item
+        );
 
-    const finalOutput = Promise.all(
-        stories.map(async (story: any) => {
-            await createStory({ spaceId: to, content: story.story });
-        })
-    );
+    console.log("Dlugosc: ");
+    console.log(storiesToPass.length);
 
-    return finalOutput;
+    const storiesToPassJson = JSON.stringify(storiesToPass, null, 2);
+
+    writeFile("storiesToPass.json", storiesToPassJson, (err) => {
+        if (err) {
+            console.error("Error writing to file:", err);
+        } else {
+            console.log("Successfully wrote to file");
+        }
+    });
+
+    const tree = createTree(storiesToPass);
+    const jsonString = JSON.stringify(tree, null, 2);
+    writeFile("tree.json", jsonString, (err) => {
+        if (err) {
+            console.error("Error writing to file:", err);
+        } else {
+            console.log("Successfully wrote to file");
+        }
+    });
+
+    await traverseAndCreate({ tree, realParentId: null });
+
+    return true;
 };
 
 export const removeAllStories = async ({ spaceId }: { spaceId: number }) => {
@@ -322,7 +354,7 @@ export const removeAllStories = async ({ spaceId }: { spaceId: number }) => {
     const allResponses = Promise.all(
         stories.map(
             async (story: any) =>
-                await removeStory({ spaceId, storyId: story.story.id })
+                await removeStory({ spaceId, storyId: story?.story?.id })
         )
     );
 

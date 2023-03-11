@@ -3,6 +3,6 @@ import storyblokConfig from "../config/config.js";
 
 const { accessToken, oauthToken, storyblokApiUrl } = storyblokConfig;
 export const sbApi = new StoryblokClient(
-    { accessToken, oauthToken },
+    { accessToken, oauthToken, rateLimit: 1 },
     storyblokApiUrl
 );
