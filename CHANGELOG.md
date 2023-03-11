@@ -1,3 +1,19 @@
+# [4.1.0-beta.53](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.52...v4.1.0-beta.53) (2023-03-11)
+
+
+### fix
+
+* console.log envs in init to see ([2ccaa5a](https://github.com/sb-mig/sb-mig/commit/2ccaa5a8790fe4a0c0785162c15c74bea218f860))
+
+
+
+# [4.1.0-beta.53](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.52...v4.1.0-beta.53) (2023-03-11)
+
+
+### Bug Fixes
+
+* console.log envs in init to see ([2ccaa5a](https://github.com/sb-mig/sb-mig/commit/2ccaa5a8790fe4a0c0785162c15c74bea218f860))
+
 # [4.1.0-beta.52](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.51...v4.1.0-beta.52) (2023-03-11)
 
 
