@@ -772,6 +772,40 @@ export const discoverOne = (request: DiscoverOneRequest): DiscoverResult => {
     return listOfFiles;
 };
 
+export const filesPattern = ({
+    mainDirectory,
+    componentDirectories,
+    ext,
+}: {
+    mainDirectory: string;
+    componentDirectories: string[];
+    ext: string;
+}): string => {
+    const guyToLookForStuff = path.join(
+        `${mainDirectory}`,
+        `{${componentDirectories.join(",")}}`,
+        "**",
+        `[^_]*.${ext}` // all files with 'ext' extension, without files beggining with _
+    );
+
+    console.log("Loooking in here: ");
+    console.log(guyToLookForStuff);
+
+    return componentDirectories.length === 1
+        ? path.join(
+              `${mainDirectory}`,
+              `${componentDirectories[0]}`,
+              "**",
+              `[^_]*.${ext}` // all files with 'ext' extension, without files beggining with _
+          )
+        : path.join(
+              `${mainDirectory}`,
+              `{${componentDirectories.join(",")}}`,
+              "**",
+              `[^_]*.${ext}` // all files with 'ext' extension, without files beggining with _
+          );
+};
+
 export const discover = async (
     request: DiscoverRequest
 ): Promise<DiscoverResult> => {
@@ -779,37 +813,6 @@ export const discover = async (
     const directory = path.resolve(process.cwd(), rootDirectory);
     let pattern;
     let listOfFiles = [""];
-    console.log("beggining directory: ");
-    console.log(directory);
-
-    const filesPattern = (
-        componentDirectories: string[],
-        ext: string
-    ): string => {
-        const guyToLookForStuff = path.join(
-            `${directory}`,
-            `{${componentDirectories.join(",")}}`,
-            "**",
-            `[^_]*.${ext}` // all files with 'ext' extension, without files beggining with _
-        );
-
-        console.log("Loooking in here: ");
-        console.log(guyToLookForStuff);
-
-        return componentDirectories.length === 1
-            ? path.join(
-                  `${directory}`,
-                  `${componentDirectories[0]}`,
-                  "**",
-                  `[^_]*.${ext}` // all files with 'ext' extension, without files beggining with _
-              )
-            : path.join(
-                  `${directory}`,
-                  `{${componentDirectories.join(",")}}`,
-                  "**",
-                  `[^_]*.${ext}` // all files with 'ext' extension, without files beggining with _
-              );
-    };
 
     switch (request.scope) {
         case SCOPE.local:
@@ -822,7 +825,11 @@ export const discover = async (
                 );
 
             if (storyblokConfig.schemaType === SCHEMA.TS) {
-                pattern = filesPattern(onlyLocalComponentsDirectories, "sb.ts");
+                pattern = filesPattern({
+                    mainDirectory: directory,
+                    componentDirectories: onlyLocalComponentsDirectories,
+                    ext: "sb.ts",
+                });
 
                 const listOfFilesToCompile = glob.sync(
                     pattern.replace(/\\/g, "/"),
@@ -850,10 +857,11 @@ export const discover = async (
                 );
             }
 
-            pattern = filesPattern(
-                onlyLocalComponentsDirectories,
-                storyblokConfig.schemaFileExt
-            );
+            pattern = filesPattern({
+                mainDirectory: directory,
+                componentDirectories: onlyLocalComponentsDirectories,
+                ext: storyblokConfig.schemaFileExt,
+            });
 
             listOfFiles = glob.sync(pattern.replace(/\\/g, "/"), {
                 follow: true,
@@ -866,10 +874,12 @@ export const discover = async (
                 storyblokConfig.componentsDirectories.filter((p: string) =>
                     p.includes("node_modules")
                 );
-            pattern = filesPattern(
-                onlyNodeModulesPackagesComponentsDirectories,
-                storyblokConfig.schemaFileExt
-            );
+            pattern = filesPattern({
+                mainDirectory: directory,
+                componentDirectories:
+                    onlyNodeModulesPackagesComponentsDirectories,
+                ext: storyblokConfig.schemaFileExt,
+            });
 
             listOfFiles = glob.sync(pattern.replace(/\\/g, "/"), {
                 follow: true,
@@ -877,10 +887,11 @@ export const discover = async (
             break;
         case SCOPE.all:
             // ### ALL - LOCAL - fileName ###
-            pattern = filesPattern(
-                storyblokConfig.componentsDirectories,
-                storyblokConfig.schemaFileExt
-            );
+            pattern = filesPattern({
+                mainDirectory: directory,
+                componentDirectories: storyblokConfig.componentsDirectories,
+                ext: storyblokConfig.schemaFileExt,
+            });
 
             listOfFiles = glob.sync(pattern.replace(/\\/g, "/"), {
                 follow: true,
