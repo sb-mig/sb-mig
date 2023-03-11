@@ -50,8 +50,8 @@ export const init = async (props: CLIOptions) => {
                 `NEXT_PUBLIC_STORYBLOK_ACCESS_TOKEN=${NEXT_PUBLIC_STORYBLOK_ACCESS_TOKEN}\n` +
                 `STORYBLOK_PREVIEW_SECRET=${STORYBLOK_PREVIEW_SECRET}\n` +
                 `STORYBLOK_OAUTH_TOKEN=${STORYBLOK_OAUTH_TOKEN}\n` +
-                `NEXT_PUBLIC_GTM_ID=${NEXT_PUBLIC_GTM_ID}\n`;
-            `NEXT_PUBLIC_TRANSLATION_STRATEGY=folder`;
+                `NEXT_PUBLIC_GTM_ID=${NEXT_PUBLIC_GTM_ID}\n` +
+                `NEXT_PUBLIC_TRANSLATION_STRATEGY=folder\n`;
 
             try {
                 const response = await fs.promises.writeFile(
