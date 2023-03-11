@@ -1,3 +1,19 @@
+# [4.1.0-beta.50](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.49...v4.1.0-beta.50) (2023-03-11)
+
+
+### fix
+
+* syncing nested content should work now, stil having lots of debug console.logS ([6e17177](https://github.com/sb-mig/sb-mig/commit/6e17177a1fac5119d1e005935d01e80ef27a38a9))
+
+
+
+# [4.1.0-beta.50](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.49...v4.1.0-beta.50) (2023-03-11)
+
+
+### Bug Fixes
+
+* syncing nested content should work now, stil having lots of debug console.logS ([6e17177](https://github.com/sb-mig/sb-mig/commit/6e17177a1fac5119d1e005935d01e80ef27a38a9))
+
 # [4.1.0-beta.49](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.48...v4.1.0-beta.49) (2023-03-11)
 
 
