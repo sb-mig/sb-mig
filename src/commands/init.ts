@@ -53,6 +53,9 @@ export const init = async (props: CLIOptions) => {
                 `NEXT_PUBLIC_GTM_ID=${NEXT_PUBLIC_GTM_ID}\n` +
                 `NEXT_PUBLIC_TRANSLATION_STRATEGY=folder\n`;
 
+            console.log("Envs that we will create: ");
+            console.log(envFileContent);
+
             try {
                 const response = await fs.promises.writeFile(
                     ".env",
