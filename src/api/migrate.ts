@@ -344,11 +344,17 @@ export const removeAllStories = async ({ spaceId }: { spaceId: string }) => {
         `Trying to remove all stories from space with spaceId: ${spaceId}`
     );
     const stories = await getAllStories({ spaceId });
+
+    const onlyRootStories = (story: any) =>
+        story.story.parent_id === 0 || story.story.parent_id === null;
+
     const allResponses = Promise.all(
-        stories.map(
-            async (story: any) =>
-                await removeStory({ spaceId, storyId: story?.story?.id })
-        )
+        stories
+            .filter(onlyRootStories)
+            .map(
+                async (story: any) =>
+                    await removeStory({ spaceId, storyId: story?.story?.id })
+            )
     );
 
     return allResponses;
