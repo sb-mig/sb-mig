@@ -1,3 +1,25 @@
+# [4.1.0-beta.54](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.53...v4.1.0-beta.54) (2023-03-12)
+
+
+### fix
+
+* add rateLimit option for storyblok api to storyblok.config.js ([d8f66b2](https://github.com/sb-mig/sb-mig/commit/d8f66b26f9db2755994547f5744be17efb99171f))
+* improve removing all stories - just remove parent one, this will remove all its children ([1470708](https://github.com/sb-mig/sb-mig/commit/147070850a4309923d50387471ea819a2f8cf9cc))
+* path.sep issue, glob is returning unix stuff ([c4e0cdf](https://github.com/sb-mig/sb-mig/commit/c4e0cdf3d03473a677e2a3202440030ce59defd5))
+* remove console.logs, and fix types inconsistency ([e545668](https://github.com/sb-mig/sb-mig/commit/e5456686b65b1778e3527dde8b4ff979c55fd177))
+
+
+
+# [4.1.0-beta.54](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.53...v4.1.0-beta.54) (2023-03-12)
+
+
+### Bug Fixes
+
+* add rateLimit option for storyblok api to storyblok.config.js ([d8f66b2](https://github.com/sb-mig/sb-mig/commit/d8f66b26f9db2755994547f5744be17efb99171f))
+* improve removing all stories - just remove parent one, this will remove all its children ([1470708](https://github.com/sb-mig/sb-mig/commit/147070850a4309923d50387471ea819a2f8cf9cc))
+* path.sep issue, glob is returning unix stuff ([c4e0cdf](https://github.com/sb-mig/sb-mig/commit/c4e0cdf3d03473a677e2a3202440030ce59defd5))
+* remove console.logs, and fix types inconsistency ([e545668](https://github.com/sb-mig/sb-mig/commit/e5456686b65b1778e3527dde8b4ff979c55fd177))
+
 # [4.1.0-beta.53](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.52...v4.1.0-beta.53) (2023-03-11)
 
 
