@@ -32,6 +32,7 @@ export const defaultConfig = (
         flushCache: true,
         cacheDir: ".next/cache",
         debug: false,
+        rateLimit: 2,
     };
 };
 

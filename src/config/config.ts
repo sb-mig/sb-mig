@@ -28,6 +28,7 @@ export interface IStoryblokConfig {
     flushCache: boolean;
     cacheDir: string;
     debug: boolean;
+    rateLimit: number;
 }
 
 const filePath = path.resolve(process.cwd(), "storyblok.config");
