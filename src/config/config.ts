@@ -10,7 +10,7 @@ export const SCHEMA = {
     JS: "js",
 } as const;
 
-type SchemaType = typeof SCHEMA[keyof typeof SCHEMA];
+type SchemaType = (typeof SCHEMA)[keyof typeof SCHEMA];
 
 export interface IStoryblokConfig {
     storyblokComponentsLocalDirectory: string;
@@ -23,10 +23,11 @@ export interface IStoryblokConfig {
     oauthToken: string;
     spaceId: string;
     accessToken: string;
-    boilerplateSpaceId: number;
+    boilerplateSpaceId: string;
     schemaType: SchemaType;
     flushCache: boolean;
     cacheDir: string;
+    debug: boolean;
 }
 
 const filePath = path.resolve(process.cwd(), "storyblok.config");
@@ -38,4 +39,4 @@ const customConfig = await getStoryblokConfigContent({
 export default {
     ...defaultConfig(pkg, `${process.cwd()}`, process.env),
     ...customConfig,
-};
+} as IStoryblokConfig;

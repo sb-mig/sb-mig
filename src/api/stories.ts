@@ -9,8 +9,8 @@ export const removeStory = ({
     spaceId,
     storyId,
 }: {
-    spaceId: number;
-    storyId: number;
+    spaceId: string;
+    storyId: string;
 }) => {
     return sbApi
         .delete(`spaces/${spaceId}/stories/${storyId}`, {})
@@ -19,7 +19,7 @@ export const removeStory = ({
 };
 
 // GET
-export const getAllStories = async ({ spaceId }: { spaceId: number }) => {
+export const getAllStories = async ({ spaceId }: { spaceId: string }) => {
     console.log("Trying to get all Stories.");
 
     const allStoriesWithoutContent: any = await sbApi
@@ -42,8 +42,8 @@ export const getStory = ({
     spaceId,
     storyId,
 }: {
-    spaceId: number;
-    storyId: number;
+    spaceId: string;
+    storyId: string;
 }) => {
     return sbApi
         .get(`spaces/${spaceId}/stories/${storyId}`)
@@ -56,7 +56,7 @@ export const createStory = ({
     spaceId,
     content,
 }: {
-    spaceId: number;
+    spaceId: string;
     content: any;
 }) => {
     console.log(
