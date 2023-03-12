@@ -1,26 +1,34 @@
 import storyblokConfig from "../config/config.js";
 import { sbApi } from "./config.js";
-import { ISbStory } from "storyblok-js-client";
+import Logger from "../utils/logger.js";
 
-const { spaceId, boilerplateSpaceId } = storyblokConfig;
+const { spaceId } = storyblokConfig;
 
 // DELETE
 export const removeStory = ({
     spaceId,
     storyId,
 }: {
-    spaceId: number;
-    storyId: number;
+    spaceId: string;
+    storyId: string;
 }) => {
+    console.log(`Removing ${storyId} from ${spaceId}`);
     return sbApi
         .delete(`spaces/${spaceId}/stories/${storyId}`, {})
-        .then((res: any) => res.data)
-        .catch((err: any) => console.error(err));
+        .then((res: any) => {
+            Logger.success(
+                `Successfully removed: ${res.data.story.name} with ${res.data.story.id} id.`
+            );
+            return res;
+        })
+        .catch(() => {
+            Logger.error(`Unable to remove: ${storyId}`);
+        });
 };
 
 // GET
-export const getAllStories = async ({ spaceId }: { spaceId: number }) => {
-    console.log("Trying to get all Stories.");
+export const getAllStories = async ({ spaceId }: { spaceId: string }) => {
+    console.log("Trying to get all Stories from: .", spaceId);
 
     const allStoriesWithoutContent: any = await sbApi
         .get(`spaces/${spaceId}/stories/`, {
@@ -42,8 +50,8 @@ export const getStory = ({
     spaceId,
     storyId,
 }: {
-    spaceId: number;
-    storyId: number;
+    spaceId: string;
+    storyId: string;
 }) => {
     return sbApi
         .get(`spaces/${spaceId}/stories/${storyId}`)
@@ -56,7 +64,7 @@ export const createStory = ({
     spaceId,
     content,
 }: {
-    spaceId: number;
+    spaceId: string;
     content: any;
 }) => {
     console.log(

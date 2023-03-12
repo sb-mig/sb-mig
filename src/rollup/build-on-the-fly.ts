@@ -6,7 +6,8 @@ import { remove } from "fs-extra";
 import path from "path";
 
 export const _extractComponentName = (filePath: string): string => {
-    const sP = filePath.split(path.sep);
+    const separator = "/"; // this guy is like in unix, becasue what glob is returning is always like that... that's why we are NOT using path.sep here...
+    const sP = filePath.split(separator);
     const lastElement = sP[sP.length - 1] as string;
 
     return lastElement.replaceAll(".ts", "").replaceAll(".sb", "");
@@ -26,10 +27,6 @@ export const buildOnTheFly = async ({ files }: BuildOnTheFly) => {
         `${storyblokConfig.cacheDir}`,
         `sb-mig`
     );
-
-    console.log("This is cacheDir: ", cacheDir);
-    console.log("these are files: ");
-    console.log(files);
 
     await Promise.all(
         files.map(async (filePath) => {

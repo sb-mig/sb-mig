@@ -8,10 +8,6 @@ import storyblokConfig, { SCHEMA } from "../config/config.js";
 import { getFileContentWithRequire } from "./main.js";
 import { buildOnTheFly } from "../rollup/build-on-the-fly.js";
 
-console.log("###############");
-console.log(path.sep);
-console.log("###############");
-
 export enum SCOPE {
     local = "local",
     external = "external",
@@ -471,7 +467,6 @@ export const discoverMany = async (
                     }
                 );
 
-                console.log("List of filed to compile");
                 await buildOnTheFly({ files: listOfFilesToCompile });
 
                 pattern = path.join(
@@ -787,9 +782,6 @@ export const filesPattern = ({
         "**",
         `[^_]*.${ext}` // all files with 'ext' extension, without files beggining with _
     );
-
-    console.log("Loooking in here: ");
-    console.log(guyToLookForStuff);
 
     return componentDirectories.length === 1
         ? path.join(

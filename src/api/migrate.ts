@@ -1,4 +1,5 @@
 import Logger from "../utils/logger.js";
+import config from "../config/config.js";
 import {
     getAllComponentsGroups,
     createComponentsGroup,
@@ -230,15 +231,11 @@ export const discoverAllComponents = async () => {
 };
 
 export const syncAllComponents = async ({ presets }: SyncAllComponents) => {
-    console.log(presets);
     // #1: discover all external .sb.js files
     const allLocalSbComponentsSchemaFiles = await discover({
         scope: SCOPE.local,
         type: LOOKUP_TYPE.fileName,
     });
-
-    console.log("All local");
-    console.log(allLocalSbComponentsSchemaFiles);
 
     // #2: discover all local .sb.js files
     const allExternalSbComponentsSchemaFiles = await discover({
@@ -246,17 +243,11 @@ export const syncAllComponents = async ({ presets }: SyncAllComponents) => {
         type: LOOKUP_TYPE.fileName,
     });
 
-    console.log("All external");
-    console.log(allExternalSbComponentsSchemaFiles);
-
     // // #3: compare results, prefare local ones (so we have to create final external paths array and local array of things to sync from where)
     const { local, external } = compare({
         local: allLocalSbComponentsSchemaFiles,
         external: allExternalSbComponentsSchemaFiles,
     });
-
-    console.log("Compared: ");
-    console.log({ local, external });
 
     // #4: sync - do all stuff already done (groups resolving, and so on)
     syncComponents({
@@ -307,8 +298,8 @@ export const syncContent = async ({
     from,
     to,
 }: {
-    from: number;
-    to: number;
+    from: string;
+    to: string;
 }) => {
     console.log("We would try to migrate data from: ", from, "to: ", to);
     const stories = await getAllStories({ spaceId: from });
@@ -318,44 +309,52 @@ export const syncContent = async ({
             item.parent_id === 0 ? { ...item, parent_id: null } : item
         );
 
-    console.log("Dlugosc: ");
-    console.log(storiesToPass.length);
-
+    Logger.warning(`Amount of all stories to migrate: ${storiesToPass.length}`);
     const storiesToPassJson = JSON.stringify(storiesToPass, null, 2);
 
-    writeFile("storiesToPass.json", storiesToPassJson, (err) => {
-        if (err) {
-            console.error("Error writing to file:", err);
-        } else {
-            console.log("Successfully wrote to file");
-        }
-    });
+    if (config.debug) {
+        writeFile("storiesToPass.json", storiesToPassJson, (err) => {
+            if (err) {
+                console.error("Error writing to file:", err);
+            } else {
+                console.log("Successfully wrote to file");
+            }
+        });
+    }
 
     const tree = createTree(storiesToPass);
     const jsonString = JSON.stringify(tree, null, 2);
-    writeFile("tree.json", jsonString, (err) => {
-        if (err) {
-            console.error("Error writing to file:", err);
-        } else {
-            console.log("Successfully wrote to file");
-        }
-    });
+    if (config.debug) {
+        writeFile("tree.json", jsonString, (err) => {
+            if (err) {
+                console.error("Error writing to file:", err);
+            } else {
+                console.log("Successfully wrote to file");
+            }
+        });
+    }
 
     await traverseAndCreate({ tree, realParentId: null });
 
     return true;
 };
 
-export const removeAllStories = async ({ spaceId }: { spaceId: number }) => {
+export const removeAllStories = async ({ spaceId }: { spaceId: string }) => {
     Logger.warning(
         `Trying to remove all stories from space with spaceId: ${spaceId}`
     );
     const stories = await getAllStories({ spaceId });
+
+    const onlyRootStories = (story: any) =>
+        story.story.parent_id === 0 || story.story.parent_id === null;
+
     const allResponses = Promise.all(
-        stories.map(
-            async (story: any) =>
-                await removeStory({ spaceId, storyId: story?.story?.id })
-        )
+        stories
+            .filter(onlyRootStories)
+            .map(
+                async (story: any) =>
+                    await removeStory({ spaceId, storyId: story?.story?.id })
+            )
     );
 
     return allResponses;
