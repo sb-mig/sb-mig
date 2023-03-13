@@ -19,15 +19,19 @@ import {
 } from "../utils/discover.js";
 import { getFileContentWithRequire } from "../utils/main.js";
 import {
-    createStory,
     createTree,
     getAllStories,
     removeStory,
     traverseAndCreate,
 } from "./stories.js";
 import { createPlugin, getPlugin, updatePlugin } from "./plugins.js";
-import { readFile } from "../utils/files.js";
-import { writeFile } from "fs";
+import { dumpToFile, readFile } from "../utils/files.js";
+import {
+    migrateAsset,
+    getAllAssets,
+    getAssetById,
+    getAssetByName,
+} from "./assets.js";
 
 const _uniqueValuesFrom = (array: any[]) => [...new Set(array)];
 
@@ -294,14 +298,21 @@ export const removeSpecifiedComponents = async ({
     );
 };
 
-export const syncContent = async ({
-    from,
-    to,
-}: {
-    from: string;
-    to: string;
-}) => {
-    console.log("We would try to migrate data from: ", from, "to: ", to);
+interface SyncContent {
+    type: "content" | "assets";
+    transmission: {
+        from: string;
+        to: string;
+    };
+}
+
+const syncStories = async ({ from, to }: SyncContent["transmission"]) => {
+    console.log(
+        "We would try to migrate Stories data from: ",
+        from,
+        "to: ",
+        to
+    );
     const stories = await getAllStories({ spaceId: from });
     const storiesToPass = stories
         .map((item) => item.story)
@@ -313,30 +324,40 @@ export const syncContent = async ({
     const storiesToPassJson = JSON.stringify(storiesToPass, null, 2);
 
     if (config.debug) {
-        writeFile("storiesToPass.json", storiesToPassJson, (err) => {
-            if (err) {
-                console.error("Error writing to file:", err);
-            } else {
-                console.log("Successfully wrote to file");
-            }
-        });
+        dumpToFile("storiesToPass.json", storiesToPassJson);
     }
 
     const tree = createTree(storiesToPass);
     const jsonString = JSON.stringify(tree, null, 2);
     if (config.debug) {
-        writeFile("tree.json", jsonString, (err) => {
-            if (err) {
-                console.error("Error writing to file:", err);
-            } else {
-                console.log("Successfully wrote to file");
-            }
-        });
+        dumpToFile("tree.json", jsonString);
     }
 
     await traverseAndCreate({ tree, realParentId: null });
+};
+const syncAssets = async ({ from, to }: SyncContent["transmission"]) => {
+    console.log("We would try to migrate Assets data from: ", from, "to: ", to);
 
-    return true;
+    const allAssets = await getAllAssets({ spaceId: from });
+    allAssets.assets.map((asset) => {
+        const { id, created_at, updated_at, ...newAssetPayload } = asset;
+        migrateAsset({
+            migrateTo: to,
+            payload: newAssetPayload,
+        });
+    });
+};
+
+export const syncContent = async ({ type, transmission }: SyncContent) => {
+    if (type === "content") {
+        await syncStories(transmission);
+        return true;
+    } else if (type === "assets") {
+        await syncAssets(transmission);
+        return true;
+    } else {
+        throw Error("This should never happen");
+    }
 };
 
 export const removeAllStories = async ({ spaceId }: { spaceId: string }) => {
