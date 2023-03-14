@@ -118,7 +118,7 @@ export const sync = async (props: CLIOptions) => {
             }
             break;
         case SYNC_COMMANDS.content:
-            Logger.log(`Syncing story with command: ${command}`);
+            Logger.log(`Syncing content with command: ${command}`);
 
             if (isIt("all")) {
                 Logger.warning(
@@ -130,10 +130,10 @@ export const sync = async (props: CLIOptions) => {
                 );
 
                 await askForConfirmation(
-                    "Are you sure you want to delete all content (stories, assets) in your space and then apply test ones ?",
+                    "Are you sure you want to delete all content (stories) in your space and then apply test ones ?",
                     async () => {
                         Logger.warning(
-                            "Deleting all stories in your space and then applying test ones..."
+                            "Deleting all stories in your space and then applying migrated ones..."
                         );
 
                         await removeAllStories({
