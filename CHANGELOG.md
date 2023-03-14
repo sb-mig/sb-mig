@@ -1,3 +1,19 @@
+# [4.1.0-beta.57](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.56...v4.1.0-beta.57) (2023-03-14)
+
+
+### fix
+
+* Add yes to whitelist ([e17dc85](https://github.com/sb-mig/sb-mig/commit/e17dc85f9e0884f0911e302b3bb8e89be3e1838a))
+
+
+
+# [4.1.0-beta.57](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.56...v4.1.0-beta.57) (2023-03-14)
+
+
+### Bug Fixes
+
+* Add yes to whitelist ([e17dc85](https://github.com/sb-mig/sb-mig/commit/e17dc85f9e0884f0911e302b3bb8e89be3e1838a))
+
 # [4.1.0-beta.56](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.55...v4.1.0-beta.56) (2023-03-14)
 
 
