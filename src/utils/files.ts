@@ -1,5 +1,6 @@
 import * as fs from "fs";
 import pkg from "ncp";
+import { writeFile } from "fs";
 import { generateDatestamp } from "./others.js";
 import storyblokConfig from "../config/config.js";
 import Logger from "./logger.js";
@@ -142,4 +143,14 @@ export const readFile = async (path: string) => {
         console.error("Error happened while reading file.");
         return;
     }
+};
+
+export const dumpToFile = async (path: string, content: string) => {
+    writeFile(path, content, (err) => {
+        if (err) {
+            console.error("Error writing to file:", err);
+        } else {
+            console.log("Successfully wrote to file");
+        }
+    });
 };

@@ -4,7 +4,7 @@ import {_extractComponentName} from "../src/rollup/build-on-the-fly.js";
 describe("Build Typescript on-the-fly", () => {
     if (process.platform === "win32") {
         it("WINDOWS: _extractComponentName return OK filename (removes .sb.ts and beggining)", () => {
-            const windowsFilePath = "C:\\Users\\username\\Desktop\\example.sb.ts"
+            const windowsFilePath = "C:/Users/username/Desktop/example.sb.ts" // this will be already from glob, which is unix slash not windows slash
             assert.equal(_extractComponentName(windowsFilePath), 'example');
         });
     } else if (process.platform === "darwin") {

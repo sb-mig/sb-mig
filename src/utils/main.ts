@@ -52,3 +52,31 @@ export const isObjectEmpty = (obj: any) => {
         return true;
     }
 };
+
+export const delay = (time: number) =>
+    new Promise((resolve) => setTimeout(resolve, time));
+
+export const isItFactory = <T>(flags: any, rules: any, whitelist: string[]) => {
+    return (type: T) => {
+        const rulesCopy = [...rules[type]];
+        const flagsKeys = Object.keys(flags);
+
+        const temp = flagsKeys.map((flag: string) => {
+            if (whitelist.includes(flag)) {
+                return true;
+            }
+            if (rulesCopy.includes(flag)) {
+                rulesCopy.splice(rulesCopy.indexOf(flag), 1);
+                return true;
+            } else {
+                return false;
+            }
+        });
+
+        if (rulesCopy.length > 0) {
+            return false;
+        } else {
+            return temp.every((el: boolean) => el === true);
+        }
+    };
+};
