@@ -1,3 +1,30 @@
+# [4.1.0-beta.55](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.54...v4.1.0-beta.55) (2023-03-14)
+
+
+### feat
+
+* syncing asset part 1, tests for flags parsing for cli ([f990e97](https://github.com/sb-mig/sb-mig/commit/f990e97032d38b67a0943a20ae3dddb2cc36ce8c))
+
+### fix
+
+* just some better explanation ([6fa0e36](https://github.com/sb-mig/sb-mig/commit/6fa0e3699cdce0a196ccea8802dbc0e0f7f48b24))
+* windows extractComponentName path test ([2edfa66](https://github.com/sb-mig/sb-mig/commit/2edfa66d933bda81f4725ba18b2f57a4e4818576))
+
+
+
+# [4.1.0-beta.55](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.54...v4.1.0-beta.55) (2023-03-14)
+
+
+### Bug Fixes
+
+* just some better explanation ([6fa0e36](https://github.com/sb-mig/sb-mig/commit/6fa0e3699cdce0a196ccea8802dbc0e0f7f48b24))
+* windows extractComponentName path test ([2edfa66](https://github.com/sb-mig/sb-mig/commit/2edfa66d933bda81f4725ba18b2f57a4e4818576))
+
+
+### Features
+
+* syncing asset part 1, tests for flags parsing for cli ([f990e97](https://github.com/sb-mig/sb-mig/commit/f990e97032d38b67a0943a20ae3dddb2cc36ce8c))
+
 # [4.1.0-beta.54](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.53...v4.1.0-beta.54) (2023-03-12)
 
 
