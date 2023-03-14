@@ -43,6 +43,7 @@ export const sync = async (props: CLIOptions) => {
         "to",
         "presets",
         "packageName",
+        "yes",
     ]);
 
     switch (command) {
