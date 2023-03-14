@@ -356,7 +356,7 @@ export const syncContent = async ({ type, transmission }: SyncContent) => {
         await syncAssets(transmission);
         return true;
     } else {
-        throw Error("This should never happen");
+        throw Error("This should never happen!");
     }
 };
 
