@@ -10,19 +10,26 @@ export const debug = async () => {
     console.log(" ");
     console.log(" ");
 
-    const fileContent = await getFileContentWithRequire({
-        file: path.join("..", "..", "package.json"),
-    });
-    console.log("sb-mig version: ");
-    Logger.success(fileContent["version"]);
-    console.log(" ");
-    console.log("Version used: ");
-    Logger.success(
-        `storyblok-js-client: ${fileContent["dependencies"]["storyblok-js-client"]}`
-    );
-    Logger.success(`typescript: ${fileContent["dependencies"]["typescript"]}`);
-    console.log(" ");
-    console.log(" ");
+    try {
+        const fileContent = await getFileContentWithRequire({
+            file: path.join("..", "..", "package.json"),
+        });
+
+        console.log("sb-mig version: ");
+        Logger.success(fileContent["version"]);
+        console.log(" ");
+        console.log("Version used: ");
+        Logger.success(
+            `storyblok-js-client: ${fileContent["dependencies"]["storyblok-js-client"]}`
+        );
+        Logger.success(
+            `typescript: ${fileContent["dependencies"]["typescript"]}`
+        );
+        console.log(" ");
+        console.log(" ");
+    } catch (e) {
+        console.log("Can't find package.json");
+    }
 
     if (pkg(path.join(`${process.cwd()}`, `package.json`)).type === "module") {
         console.log("U are using new esm stuff. Good for you!");
