@@ -27,13 +27,17 @@ export const debug = async () => {
         );
         console.log(" ");
         console.log(" ");
+
+        if (
+            pkg(path.join(`${process.cwd()}`, `package.json`)).type === "module"
+        ) {
+            console.log("U are using new esm stuff. Good for you!");
+        } else {
+            console.log(
+                "Oh, common, commonjs, really? (common....js got it ?)"
+            );
+        }
     } catch (e) {
         console.log("Can't find package.json");
-    }
-
-    if (pkg(path.join(`${process.cwd()}`, `package.json`)).type === "module") {
-        console.log("U are using new esm stuff. Good for you!");
-    } else {
-        console.log("Oh, common, commonjs, really? (common....js got it ?)");
     }
 };
