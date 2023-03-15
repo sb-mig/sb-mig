@@ -1,3 +1,19 @@
+# [4.1.0-beta.58](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.57...v4.1.0-beta.58) (2023-03-15)
+
+
+### fix
+
+* problem with requesting package.json file that do not exist ([d1bfcbc](https://github.com/sb-mig/sb-mig/commit/d1bfcbcc313ea5998735c96bd6a59537c8e38c15))
+
+
+
+# [4.1.0-beta.58](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.57...v4.1.0-beta.58) (2023-03-15)
+
+
+### Bug Fixes
+
+* problem with requesting package.json file that do not exist ([d1bfcbc](https://github.com/sb-mig/sb-mig/commit/d1bfcbcc313ea5998735c96bd6a59537c8e38c15))
+
 # [4.1.0-beta.57](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.56...v4.1.0-beta.57) (2023-03-14)
 
 
