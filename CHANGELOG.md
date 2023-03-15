@@ -1,3 +1,19 @@
+# [4.1.0-beta.59](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.58...v4.1.0-beta.59) (2023-03-15)
+
+
+### fix
+
+* move one more part of debug into try catch ([5027813](https://github.com/sb-mig/sb-mig/commit/50278138de251ac324e7463176cc9382e2ce1371))
+
+
+
+# [4.1.0-beta.59](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.58...v4.1.0-beta.59) (2023-03-15)
+
+
+### Bug Fixes
+
+* move one more part of debug into try catch ([5027813](https://github.com/sb-mig/sb-mig/commit/50278138de251ac324e7463176cc9382e2ce1371))
+
 # [4.1.0-beta.58](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.57...v4.1.0-beta.58) (2023-03-15)
 
 
