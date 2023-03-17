@@ -22,8 +22,7 @@ export const updateComponent = (component: any, presets: boolean) => {
             }
         })
         .catch((err) => {
-            Logger.error("error happened... :(");
-            console.log(
+            Logger.error(
                 `${err.message} in migration of ${component.name} in updateComponent function`
             );
         });
@@ -46,8 +45,7 @@ export const createComponent = (component: any, presets: boolean) => {
             }
         })
         .catch((err) => {
-            Logger.error("error happened... :(");
-            console.log(
+            Logger.error(
                 `${err.message} in migration of ${component.name} in createComponent function`
             );
         });
