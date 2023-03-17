@@ -47,7 +47,7 @@ export const getFilesContentWithRequire = (data: { files: string[] }) => {
 
 export const isObjectEmpty = (obj: any) => {
     if (obj) {
-        return Object.keys(obj).length === 0;
+        return Object.keys(obj).length === 0 && obj.constructor === Object;
     } else {
         return true;
     }

@@ -17,7 +17,7 @@ import {
     discover,
     discoverMany,
 } from "../utils/discover.js";
-import { getFileContentWithRequire } from "../utils/main.js";
+import { getFileContentWithRequire, isObjectEmpty } from "../utils/main.js";
 import {
     createTree,
     getAllStories,
@@ -107,13 +107,19 @@ export const syncComponents = async ({
     const componentsToCreate = [];
 
     for (const component of specifiedComponentsContent) {
-        const shouldBeUpdated = remoteComponents.components.find(
-            (remoteComponent: any) => component.name === remoteComponent.name
-        );
-        if (shouldBeUpdated) {
-            componentsToUpdate.push({ id: shouldBeUpdated.id, ...component });
-        } else {
-            componentsToCreate.push(component);
+        if (!isObjectEmpty(component)) {
+            const shouldBeUpdated = remoteComponents.components.find(
+                (remoteComponent: any) =>
+                    component.name === remoteComponent.name
+            );
+            if (shouldBeUpdated) {
+                componentsToUpdate.push({
+                    id: shouldBeUpdated.id,
+                    ...component,
+                });
+            } else {
+                componentsToCreate.push(component);
+            }
         }
     }
 
