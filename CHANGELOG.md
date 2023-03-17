@@ -1,3 +1,19 @@
+# [4.1.0-beta.61](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.60...v4.1.0-beta.61) (2023-03-17)
+
+
+### fix
+
+* bug with passing empty object to componentToUpdate and syncing undefined ([de85166](https://github.com/sb-mig/sb-mig/commit/de8516625114847266b3083e823dbc97118eee26))
+
+
+
+# [4.1.0-beta.61](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.60...v4.1.0-beta.61) (2023-03-17)
+
+
+### Bug Fixes
+
+* bug with passing empty object to componentToUpdate and syncing undefined ([de85166](https://github.com/sb-mig/sb-mig/commit/de8516625114847266b3083e823dbc97118eee26))
+
 # [4.1.0-beta.60](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.59...v4.1.0-beta.60) (2023-03-17)
 
 
