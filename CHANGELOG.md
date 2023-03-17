@@ -1,3 +1,19 @@
+# [4.1.0-beta.60](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.59...v4.1.0-beta.60) (2023-03-17)
+
+
+### fix
+
+* just change console.log to Logger.error ([6aeb142](https://github.com/sb-mig/sb-mig/commit/6aeb142522bfcb3337e02aed3f88e0ed8504c6db))
+
+
+
+# [4.1.0-beta.60](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.59...v4.1.0-beta.60) (2023-03-17)
+
+
+### Bug Fixes
+
+* just change console.log to Logger.error ([6aeb142](https://github.com/sb-mig/sb-mig/commit/6aeb142522bfcb3337e02aed3f88e0ed8504c6db))
+
 # [4.1.0-beta.59](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.58...v4.1.0-beta.59) (2023-03-15)
 
 
