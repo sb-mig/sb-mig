@@ -1,3 +1,19 @@
+# [4.1.0-beta.62](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.61...v4.1.0-beta.62) (2023-03-18)
+
+
+### fix
+
+* update deps ([48249a5](https://github.com/sb-mig/sb-mig/commit/48249a51b1656b123b51815f5665c0c704907bfb))
+
+
+
+# [4.1.0-beta.62](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.61...v4.1.0-beta.62) (2023-03-18)
+
+
+### Bug Fixes
+
+* update deps ([48249a5](https://github.com/sb-mig/sb-mig/commit/48249a51b1656b123b51815f5665c0c704907bfb))
+
 # [4.1.0-beta.61](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.60...v4.1.0-beta.61) (2023-03-17)
 
 
