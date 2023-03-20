@@ -969,7 +969,7 @@ export const discoverManyStyles = (
 };
 
 export const discoverRoles = (request: DiscoverRequest): DiscoverResult => {
-    const rootDirectory = "./";
+    const rootDirectory = ".";
     const directory = path.resolve(process.cwd(), rootDirectory);
     let pattern;
     let listOfFiles = [""];

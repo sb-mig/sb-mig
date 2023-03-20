@@ -9,7 +9,7 @@ import {
     discoverManyRoles,
     OneComponent,
 } from "../utils/discover.js";
-import { getFileContent } from "../utils/main.js";
+import { getFileContentWithRequire } from "../utils/main.js";
 
 const { spaceId } = storyblokConfig;
 
@@ -89,7 +89,9 @@ interface SyncRoles {
 
 export const syncRoles = async ({ specifiedRoles }: SyncRoles) => {
     const specifiedRolesContent = await Promise.all(
-        specifiedRoles.map((roles) => getFileContent({ file: roles.p }))
+        specifiedRoles.map((roles) =>
+            getFileContentWithRequire({ file: roles.p })
+        )
     );
 
     const { space_roles } = await getAllRoles();
