@@ -1,3 +1,19 @@
+# [4.1.0-beta.64](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.63...v4.1.0-beta.64) (2023-03-20)
+
+
+### fix
+
+* way of getting content of file (on windows import doesnt work, need require for some reason) ([e98485e](https://github.com/sb-mig/sb-mig/commit/e98485e4437b304e47aad6bf24cf98dcdd7105fb))
+
+
+
+# [4.1.0-beta.64](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.63...v4.1.0-beta.64) (2023-03-20)
+
+
+### Bug Fixes
+
+* way of getting content of file (on windows import doesnt work, need require for some reason) ([e98485e](https://github.com/sb-mig/sb-mig/commit/e98485e4437b304e47aad6bf24cf98dcdd7105fb))
+
 # [4.1.0-beta.63](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.62...v4.1.0-beta.63) (2023-03-18)
 
 
