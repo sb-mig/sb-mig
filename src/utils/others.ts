@@ -1,8 +1,16 @@
 import readline from "node:readline/promises";
 import chalk from "chalk";
 
-export const generateDatestamp = (datestamp: Date) =>
-    `${datestamp.getUTCFullYear()}-${datestamp.getUTCMonth()}-${datestamp.getUTCDay()}_${datestamp.getUTCHours()}-${datestamp.getUTCMinutes()}-${datestamp.getUTCSeconds()}`;
+export const generateDatestamp = (datestamp: Date) => {
+    const year = datestamp.getFullYear();
+    const month = datestamp.getMonth() + 1;
+    const day = datestamp.getDate();
+    const hours = datestamp.getHours();
+    const minutes = datestamp.getMinutes();
+    const seconds = datestamp.getSeconds();
+
+    return `${year}-${month}-${day}_${hours}-${minutes}-${seconds}`;
+};
 
 export const askForConfirmation = async (
     message: string,
