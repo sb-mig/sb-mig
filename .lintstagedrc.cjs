@@ -2,7 +2,8 @@ const path = require('path');
 
 module.exports = {
   "src/**/!(*dist)/*.{js,jsx,ts,tsx}": [
-    "npx prettier --write"
+    "npx prettier --write",
+    'yarn lint:fix',
   ],
   '**/*.{ts,tsx}': [`tsc-files --noEmit`],
 }

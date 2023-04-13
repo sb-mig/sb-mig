@@ -8,9 +8,9 @@ import {
     removeComponentGroup,
 } from "./components.js";
 import { updateComponent, createComponent } from "./mutateComponents.js";
+import type { OneComponent } from "../utils/discover.js";
 import {
     discoverManyByPackageName,
-    OneComponent,
     LOOKUP_TYPE,
     SCOPE,
     compare,

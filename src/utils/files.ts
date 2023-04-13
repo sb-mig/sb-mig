@@ -43,7 +43,7 @@ module.exports = stories;
 export const createJSFile = async (
     content: string,
     pathWithFilename: string,
-    timestamp: boolean = false
+    timestamp = false
 ) => {
     const datestamp = new Date();
     const finalContent = `/*

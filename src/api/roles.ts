@@ -1,13 +1,13 @@
 import Logger from "../utils/logger.js";
 import storyblokConfig from "../config/config.js";
 import { sbApi } from "./config.js";
+import type { OneComponent } from "../utils/discover.js";
 import {
     LOOKUP_TYPE,
     SCOPE,
     compare,
     discoverRoles,
     discoverManyRoles,
-    OneComponent,
 } from "../utils/discover.js";
 import { getFileContentWithRequire } from "../utils/main.js";
 

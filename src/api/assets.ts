@@ -4,16 +4,18 @@ import https from "https";
 import Logger from "../utils/logger.js";
 import storyblokConfig from "../config/config.js";
 import { sbApi } from "./config.js";
-import {
+import type {
     AssetPayload,
-    FinalizeUpload,
     GetAllAssets,
     GetAssetById,
     GetAssetByName,
     MigrateAsset,
+    UploadFile,
+} from "./assets.types.js";
+import {
+    FinalizeUpload,
     SBAsset,
     SignedResponseObject,
-    UploadFile,
 } from "./assets.types.js";
 import { createDir, isDirectoryExists } from "../utils/files.js";
 import path from "path";
@@ -123,10 +125,10 @@ const requestSignedUploadUrl = ({
 
 const uploadFile: UploadFile = ({ signedResponseObject, pathToFile }) => {
     const file = pathToFile;
-    let form = new FormData();
+    const form = new FormData();
 
     // apply all fields from the signed response object to the second request
-    for (let key in signedResponseObject.fields) {
+    for (const key in signedResponseObject.fields) {
         form.append(key, signedResponseObject.fields[key]);
     }
 

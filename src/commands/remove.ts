@@ -1,5 +1,5 @@
 import Logger from "../utils/logger.js";
-import { CLIOptions } from "../utils/interfaces.js";
+import type { CLIOptions } from "../utils/interfaces.js";
 import {
     removeAllComponents,
     removeAllStories,

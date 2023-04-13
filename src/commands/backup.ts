@@ -17,7 +17,7 @@ import {
 import { getAllRoles, getRole } from "../api/roles.js";
 import { getComponentPresets } from "../api/componentPresets.js";
 import { getAllPresets, getPreset } from "../api/presets.js";
-import { CLIOptions } from "../utils/interfaces.js";
+import type { CLIOptions } from "../utils/interfaces.js";
 import { getAllPlugins, getPlugin } from "../api/plugins.js";
 import { backupStories, getStoryBySlug } from "../api/stories.js";
 import storyblokConfig from "../config/config.js";

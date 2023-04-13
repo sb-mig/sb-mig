@@ -1,6 +1,6 @@
 import { sbApi } from "./config.js";
 import storyblokConfig from "../config/config.js";
-import { ISbResult } from "storyblok-js-client/src/interfaces";
+import type { ISbResult } from "storyblok-js-client/src/interfaces";
 import { getAllSpaces } from "./spaces.js";
 
 interface Org {}

@@ -9,7 +9,7 @@ import {
     removeAllStories,
     syncProvidedPlugins,
 } from "../api/migrate.js";
-import { CLIOptions } from "../utils/interfaces.js";
+import type { CLIOptions } from "../utils/interfaces.js";
 import { syncAllRoles, syncProvidedRoles } from "../api/roles.js";
 import {
     syncAllDatasources,
