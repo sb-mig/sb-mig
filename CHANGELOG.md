@@ -1,3 +1,42 @@
+# [4.1.0-beta.65](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.64...v4.1.0-beta.65) (2023-04-13)
+
+
+### feat
+
+* full solution of syncing data from file, from space, to file ([6f11211](https://github.com/sb-mig/sb-mig/commit/6f11211e3e28ec180902b4b6372d7a190b3400ad))
+
+### fix
+
+* add import type group path to eslint import order ([5283a3e](https://github.com/sb-mig/sb-mig/commit/5283a3e4116a458e63356208220d78cd9ba9013e))
+* add some eslint rules ([8b8a015](https://github.com/sb-mig/sb-mig/commit/8b8a015a9c0a4725f457a77f55ad745c9e9aca0b))
+* change implementation of test, to use regex, not the actual date ([9c9e8c9](https://github.com/sb-mig/sb-mig/commit/9c9e8c97818070e9b96a70d0680db6689b2ec38d))
+* eslint all files, fix, disable some eslint rules for month ([7f36882](https://github.com/sb-mig/sb-mig/commit/7f36882731ec8dcbcd4f02e651851ce8e0e3002b))
+* import orders etc ([4e4fb64](https://github.com/sb-mig/sb-mig/commit/4e4fb64d5894d3f00f831a9d352018be42332adb))
+* improve datestamp generation ([d4ec6c3](https://github.com/sb-mig/sb-mig/commit/d4ec6c39598133f83a2d22def9776805890fdf89))
+* tests ([9f5c2e4](https://github.com/sb-mig/sb-mig/commit/9f5c2e4928684c1189a57a2871f5aec1453919f0))
+* wrong spaces passed to wrong functions ([7581a0a](https://github.com/sb-mig/sb-mig/commit/7581a0a8f93379ebf1b93264c3ccd0732b6e1cd9))
+
+
+
+# [4.1.0-beta.65](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.64...v4.1.0-beta.65) (2023-04-13)
+
+
+### Bug Fixes
+
+* add import type group path to eslint import order ([5283a3e](https://github.com/sb-mig/sb-mig/commit/5283a3e4116a458e63356208220d78cd9ba9013e))
+* add some eslint rules ([8b8a015](https://github.com/sb-mig/sb-mig/commit/8b8a015a9c0a4725f457a77f55ad745c9e9aca0b))
+* change implementation of test, to use regex, not the actual date ([9c9e8c9](https://github.com/sb-mig/sb-mig/commit/9c9e8c97818070e9b96a70d0680db6689b2ec38d))
+* eslint all files, fix, disable some eslint rules for month ([7f36882](https://github.com/sb-mig/sb-mig/commit/7f36882731ec8dcbcd4f02e651851ce8e0e3002b))
+* import orders etc ([4e4fb64](https://github.com/sb-mig/sb-mig/commit/4e4fb64d5894d3f00f831a9d352018be42332adb))
+* improve datestamp generation ([d4ec6c3](https://github.com/sb-mig/sb-mig/commit/d4ec6c39598133f83a2d22def9776805890fdf89))
+* tests ([9f5c2e4](https://github.com/sb-mig/sb-mig/commit/9f5c2e4928684c1189a57a2871f5aec1453919f0))
+* wrong spaces passed to wrong functions ([7581a0a](https://github.com/sb-mig/sb-mig/commit/7581a0a8f93379ebf1b93264c3ccd0732b6e1cd9))
+
+
+### Features
+
+* full solution of syncing data from file, from space, to file ([6f11211](https://github.com/sb-mig/sb-mig/commit/6f11211e3e28ec180902b4b6372d7a190b3400ad))
+
 # [4.1.0-beta.64](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.63...v4.1.0-beta.64) (2023-03-20)
 
 
