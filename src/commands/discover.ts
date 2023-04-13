@@ -1,8 +1,9 @@
-import Logger from "../utils/logger.js";
-import storyblokConfig from "../config/config.js";
+import type { CLIOptions } from "../utils/interfaces.js";
+
 import { discoverAllComponents } from "../api/migrate.js";
-import { CLIOptions } from "../utils/interfaces.js";
+import storyblokConfig from "../config/config.js";
 import { createAndSaveComponentListToFile } from "../utils/files.js";
+import Logger from "../utils/logger.js";
 
 const DISCOVER_COMMANDS = {
     components: "components",
@@ -38,9 +39,6 @@ export const discover = async (props: CLIOptions) => {
                             .replaceAll(".sb.mjs", "")
                     ),
                 ];
-
-                Logger.success("#### Discovered components  ####");
-                console.log(content);
 
                 if (flags["write"]) {
                     await createAndSaveComponentListToFile({

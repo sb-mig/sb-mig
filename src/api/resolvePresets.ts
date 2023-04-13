@@ -1,6 +1,7 @@
 import Logger from "../utils/logger.js";
-import { updatePreset, createPreset } from "./presets.js";
+
 import { getComponentPresets } from "./componentPresets.js";
+import { updatePreset, createPreset } from "./presets.js";
 
 const _resolvePresets = async (res: any, all_presets: any, component: any) => {
     const componentId = res.data.component.id;

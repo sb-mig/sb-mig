@@ -1,10 +1,13 @@
-import Logger from "../utils/logger.js";
+import type { CLIOptions } from "../utils/interfaces.js";
+
 import * as fs from "fs";
-import storyblokConfig from "../config/config.js";
-import { v4 as uuidv4 } from "uuid";
-import { CLIOptions } from "../utils/interfaces.js";
-import { getSpace, updateSpace } from "../api/spaces.js";
+
 import StoryblokClient from "storyblok-js-client";
+import { v4 as uuidv4 } from "uuid";
+
+import { getSpace, updateSpace } from "../api/spaces.js";
+import storyblokConfig from "../config/config.js";
+import Logger from "../utils/logger.js";
 
 const INIT_COMMANDS = {
     project: "project",

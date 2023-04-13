@@ -1,7 +1,10 @@
 import path from "path";
+
 import dotenv from "dotenv";
-import { defaultConfig, getStoryblokConfigContent } from "./helper.js";
+
 import { pkg } from "../utils/pkg.js";
+
+import { defaultConfig, getStoryblokConfigContent } from "./helper.js";
 
 dotenv.config();
 
@@ -19,7 +22,9 @@ export interface IStoryblokConfig {
     schemaFileExt: "sb.cjs" | "sb.js";
     datasourceExt: string;
     rolesExt: string;
+    storiesExt: string;
     storyblokApiUrl: string;
+    storyblokDeliveryApiUrl: string;
     oauthToken: string;
     spaceId: string;
     accessToken: string;

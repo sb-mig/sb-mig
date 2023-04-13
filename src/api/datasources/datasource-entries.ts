@@ -1,9 +1,11 @@
-import Logger from "../../utils/logger.js";
-import { sbApi } from "../config.js";
-import { getDatasource } from "./datasources.js";
-import storyblokConfig from "../../config/config.js";
-import { isObjectEmpty } from "../../utils/main.js";
 import chalk from "chalk";
+
+import storyblokConfig from "../../config/config.js";
+import Logger from "../../utils/logger.js";
+import { isObjectEmpty } from "../../utils/main.js";
+import { sbApi } from "../config.js";
+
+import { getDatasource } from "./datasources.js";
 
 const { spaceId } = storyblokConfig;
 

@@ -1,5 +1,25 @@
-import Logger from "../utils/logger.js";
+import type { OneComponent } from "../utils/discover.js";
+import type { SyncDirection } from "../utils/sync-utils";
+
 import config from "../config/config.js";
+import {
+    discoverManyByPackageName,
+    LOOKUP_TYPE,
+    SCOPE,
+    compare,
+    discover,
+    discoverMany,
+    discoverStories,
+} from "../utils/discover.js";
+import { dumpToFile, readFile } from "../utils/files.js";
+import Logger from "../utils/logger.js";
+import {
+    getFileContentWithRequire,
+    getFilesContentWithRequire,
+    isObjectEmpty,
+} from "../utils/main.js";
+
+import { migrateAsset, getAllAssets } from "./assets.js";
 import {
     getAllComponentsGroups,
     createComponentsGroup,
@@ -8,30 +28,14 @@ import {
     removeComponentGroup,
 } from "./components.js";
 import { updateComponent, createComponent } from "./mutateComponents.js";
+import { createPlugin, getPlugin, updatePlugin } from "./plugins.js";
 import {
-    discoverManyByPackageName,
-    OneComponent,
-    LOOKUP_TYPE,
-    SCOPE,
-    compare,
-    discover,
-    discoverMany,
-} from "../utils/discover.js";
-import { getFileContentWithRequire, isObjectEmpty } from "../utils/main.js";
-import {
+    backupStories,
     createTree,
     getAllStories,
     removeStory,
     traverseAndCreate,
 } from "./stories.js";
-import { createPlugin, getPlugin, updatePlugin } from "./plugins.js";
-import { dumpToFile, readFile } from "../utils/files.js";
-import {
-    migrateAsset,
-    getAllAssets,
-    getAssetById,
-    getAssetByName,
-} from "./assets.js";
 
 const _uniqueValuesFrom = (array: any[]) => [...new Set(array)];
 
@@ -305,28 +309,35 @@ export const removeSpecifiedComponents = async ({
 };
 
 interface SyncContent {
-    type: "content" | "assets";
+    type: "stories" | "assets";
     transmission: {
         from: string;
         to: string;
     };
+    syncDirection: SyncDirection;
 }
 
-const syncStories = async ({ from, to }: SyncContent["transmission"]) => {
-    console.log(
-        "We would try to migrate Stories data from: ",
-        from,
-        "to: ",
-        to
-    );
-    const stories = await getAllStories({ spaceId: from });
+interface SyncStories {
+    transmission: SyncContent["transmission"];
+    stories: any[];
+    toSpaceId: string;
+}
+
+const syncStories = async ({
+    transmission: { from, to },
+    stories,
+    toSpaceId,
+}: SyncStories) => {
+    Logger.log(`We would try to migrate Stories data from: ${from} to: ${to}`);
+
     const storiesToPass = stories
-        .map((item) => item.story)
-        .map((item) =>
+        .map((item: any) => item.story)
+        .map((item: any) =>
             item.parent_id === 0 ? { ...item, parent_id: null } : item
         );
 
     Logger.warning(`Amount of all stories to migrate: ${storiesToPass.length}`);
+
     const storiesToPassJson = JSON.stringify(storiesToPass, null, 2);
 
     if (config.debug) {
@@ -339,10 +350,15 @@ const syncStories = async ({ from, to }: SyncContent["transmission"]) => {
         dumpToFile("tree.json", jsonString);
     }
 
-    await traverseAndCreate({ tree, realParentId: null });
+    await traverseAndCreate({ tree, realParentId: null, spaceId: toSpaceId });
 };
-const syncAssets = async ({ from, to }: SyncContent["transmission"]) => {
-    console.log("We would try to migrate Assets data from: ", from, "to: ", to);
+
+interface SyncAssets {
+    transmission: SyncContent["transmission"];
+}
+
+const syncAssets = async ({ transmission: { from, to } }: SyncAssets) => {
+    Logger.log(`We would try to migrate Assets data from: ${from} to: ${to}`);
 
     const allAssets = await getAllAssets({ spaceId: from });
     allAssets.assets.map((asset) => {
@@ -354,12 +370,50 @@ const syncAssets = async ({ from, to }: SyncContent["transmission"]) => {
     });
 };
 
-export const syncContent = async ({ type, transmission }: SyncContent) => {
-    if (type === "content") {
-        await syncStories(transmission);
+export const syncContent = async ({
+    type,
+    transmission,
+    syncDirection,
+}: SyncContent) => {
+    if (type === "stories") {
+        if (syncDirection === "fromSpaceToFile") {
+            await backupStories({
+                filename: transmission.to,
+                suffix: ".sb.stories",
+                spaceId: transmission.from,
+            });
+        }
+
+        if (syncDirection === "fromSpaceToSpace") {
+            const stories = await getAllStories({ spaceId: transmission.from });
+            await syncStories({
+                transmission,
+                stories,
+                toSpaceId: transmission.to,
+            });
+        }
+
+        if (syncDirection === "fromFileToSpace") {
+            const allLocalStories = discoverStories({
+                scope: SCOPE.local,
+                type: LOOKUP_TYPE.fileName,
+                fileNames: [transmission.from],
+            });
+
+            const storiesFileContent = getFilesContentWithRequire({
+                files: allLocalStories,
+            });
+
+            await syncStories({
+                transmission,
+                stories: storiesFileContent[0],
+                toSpaceId: transmission.to,
+            });
+        }
+
         return true;
     } else if (type === "assets") {
-        await syncAssets(transmission);
+        await syncAssets({ transmission });
         return true;
     } else {
         throw Error("This should never happen!");
@@ -393,13 +447,13 @@ export const syncProvidedPlugins = async ({ plugins }: SyncProvidedPlugins) => {
         const pluginName = plugins[0];
         const plugin = await getPlugin(pluginName);
         if (plugin) {
-            console.log("Plugin exist.");
-            console.log("Start updating plugin....");
+            Logger.log("Plugin exist.");
+            Logger.log("Start updating plugin....");
             return await updatePlugin({ plugin: plugin.field_type, body });
         } else {
-            console.log("Start creating plugin...");
+            Logger.log("Start creating plugin...");
             const { field_type } = await createPlugin(pluginName as string);
-            console.log("Start updating plugin...");
+            Logger.log("Start updating plugin...");
             return await updatePlugin({ plugin: field_type, body });
         }
     }

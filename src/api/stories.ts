@@ -1,8 +1,8 @@
-import storyblokConfig from "../config/config.js";
-import { sbApi } from "./config.js";
+import { createAndSaveToStoriesFile } from "../utils/files.js";
 import Logger from "../utils/logger.js";
+import { generateDatestamp } from "../utils/others.js";
 
-const { spaceId } = storyblokConfig;
+import { sbApi } from "./config.js";
 
 // DELETE
 export const removeStory = ({
@@ -28,25 +28,28 @@ export const removeStory = ({
 
 // GET
 export const getAllStories = async ({ spaceId }: { spaceId: string }) => {
-    console.log("Trying to get all Stories from: .", spaceId);
+    Logger.log(`Trying to get all Stories from: ${spaceId}`);
 
     const allStoriesWithoutContent: any = await sbApi
         .get(`spaces/${spaceId}/stories/`, {
             per_page: 100,
         })
         .then((res: any) => res.data.stories)
+
         .catch((err: any) => console.error(err));
 
     const allStories = await Promise.all(
         allStoriesWithoutContent.map(
-            async (story: any) => await getStory({ spaceId, storyId: story.id })
+            async (story: any) =>
+                await getStoryById({ spaceId, storyId: story.id })
         )
     );
 
     return allStories;
 };
 
-export const getStory = ({
+// GET
+export const getStoryById = ({
     spaceId,
     storyId,
 }: {
@@ -57,6 +60,32 @@ export const getStory = ({
         .get(`spaces/${spaceId}/stories/${storyId}`)
         .then((res: any) => res.data)
         .catch((err: any) => console.error(err));
+};
+
+export const getStoryBySlug = async ({
+    spaceId,
+    slug,
+}: {
+    spaceId: string;
+    slug: string;
+}) => {
+    const storiesWithoutContent: any = await sbApi
+        .get(`spaces/${spaceId}/stories/`, {
+            per_page: 100,
+            // @ts-ignore
+            with_slug: slug,
+        })
+        .then((res: any) => res.data.stories)
+        .catch((err: any) => console.error(err));
+
+    const storiesWithContent = await Promise.all(
+        storiesWithoutContent.map(
+            async (story: any) =>
+                await getStoryById({ spaceId, storyId: story.id })
+        )
+    );
+
+    return storiesWithContent[0];
 };
 
 // CREATE
@@ -120,11 +149,13 @@ interface TraverseAndCreate {
     tree: Tree;
     realParentId: number | null;
     defaultRoot?: any;
+    spaceId: string;
 }
 
 export const traverseAndCreate = ({
     tree,
     realParentId,
+    spaceId,
 }: TraverseAndCreate) => {
     tree.forEach(async (node) => {
         try {
@@ -138,6 +169,7 @@ export const traverseAndCreate = ({
                 traverseAndCreate({
                     tree: node.children,
                     realParentId: storyId,
+                    spaceId,
                 });
             }
         } catch (e) {
@@ -145,4 +177,30 @@ export const traverseAndCreate = ({
             console.log(e);
         }
     });
+};
+
+export const backupStories = async ({
+    filename,
+    suffix,
+    spaceId,
+}: {
+    filename: string;
+    spaceId: string;
+    suffix?: string;
+}) => {
+    Logger.log(`Making backup of your stories.`);
+    const timestamp = generateDatestamp(new Date());
+    await getAllStories({ spaceId })
+        .then(async (res: any) => {
+            await createAndSaveToStoriesFile({
+                filename: `${filename}_${timestamp}`,
+                suffix,
+                folder: "stories",
+                res,
+            });
+        })
+        .catch((err: any) => {
+            Logger.error(err);
+            Logger.error("error happened... :(");
+        });
 };

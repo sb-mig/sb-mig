@@ -1,4 +1,5 @@
 import storyblokConfig from "../config/config.js";
+
 import { sbApi } from "./config.js";
 
 const { spaceId } = storyblokConfig;
@@ -31,6 +32,16 @@ export const removeComponentGroup = ({
 
 // GET
 export const getAllComponents = () => {
+    console.log("Trying to get all components.");
+
+    return sbApi
+        .get(`spaces/${spaceId}/components/`)
+        .then((res: any) => res.data)
+        .catch((err: any) => console.error(err));
+};
+
+// GET
+export const getAllStories = () => {
     console.log("Trying to get all components.");
 
     return sbApi

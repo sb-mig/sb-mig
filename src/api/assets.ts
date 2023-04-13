@@ -1,23 +1,23 @@
-import fs from "fs";
-import FormData from "form-data";
-import https from "https";
-import Logger from "../utils/logger.js";
-import storyblokConfig from "../config/config.js";
-import { sbApi } from "./config.js";
-import {
+import type {
     AssetPayload,
-    FinalizeUpload,
     GetAllAssets,
     GetAssetById,
     GetAssetByName,
     MigrateAsset,
-    SBAsset,
-    SignedResponseObject,
     UploadFile,
 } from "./assets.types.js";
-import { createDir, isDirectoryExists } from "../utils/files.js";
+
+import fs from "fs";
+import https from "https";
 import path from "path";
-import config from "../config/config.js";
+
+import FormData from "form-data";
+
+import storyblokConfig from "../config/config.js";
+import { createDir, isDirectoryExists } from "../utils/files.js";
+import Logger from "../utils/logger.js";
+
+import { sbApi } from "./config.js";
 
 const { spaceId } = storyblokConfig;
 
@@ -109,7 +109,7 @@ const requestSignedUploadUrl = ({
             ...restPayload,
         })
         .then((signedResponseObject) => {
-            if (config.debug) {
+            if (storyblokConfig.debug) {
                 Logger.log(
                     `Signed upload URL has been requested for ${filename}.`
                 );
@@ -117,17 +117,16 @@ const requestSignedUploadUrl = ({
             return (signedResponseObject as any as { data: any }).data; // this is very bad... but storyblok-js-client types are pretty broken
         })
         .catch((err) => {
-            console.log("WTF ?");
             console.log(err);
         });
 };
 
 const uploadFile: UploadFile = ({ signedResponseObject, pathToFile }) => {
     const file = pathToFile;
-    let form = new FormData();
+    const form = new FormData();
 
     // apply all fields from the signed response object to the second request
-    for (let key in signedResponseObject.fields) {
+    for (const key in signedResponseObject.fields) {
         form.append(key, signedResponseObject.fields[key]);
     }
 
@@ -164,12 +163,14 @@ const downloadAsset = async ({ payload }: { payload: AssetPayload }) => {
     const fileName = getFileName(payload.filename);
     const fileUrl = payload.filename;
     const downloadedAssetsFolder = path.join(
-        config.sbmigWorkingDirectory,
+        storyblokConfig.sbmigWorkingDirectory,
         "downloadedAssets"
     );
     Logger.log(
         `Downloading ${fileName} asset ${
-            config.debug ? `from ${fileUrl} to ${downloadedAssetsFolder}` : ""
+            storyblokConfig.debug
+                ? `from ${fileUrl} to ${downloadedAssetsFolder}`
+                : ""
         }`
     );
 

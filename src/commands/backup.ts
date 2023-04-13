@@ -1,24 +1,31 @@
+import type { CLIOptions } from "../utils/interfaces.js";
+
+import { getComponentPresets } from "../api/componentPresets.js";
 import {
     getAllComponents,
     getAllComponentsGroups,
     getComponent,
     getComponentsGroup,
 } from "../api/components.js";
-import { createAndSaveToFile } from "../utils/files.js";
-import Logger from "../utils/logger.js";
-import { unpackOne } from "../utils/main.js";
 import {
     getAllDatasources,
     getDatasource,
 } from "../api/datasources/datasources.js";
-import { getAllRoles, getRole } from "../api/roles.js";
-import { getComponentPresets } from "../api/componentPresets.js";
-import { getAllPresets, getPreset } from "../api/presets.js";
-import { CLIOptions } from "../utils/interfaces.js";
 import { getAllPlugins, getPlugin } from "../api/plugins.js";
+import { getAllPresets, getPreset } from "../api/presets.js";
+import { getAllRoles, getRole } from "../api/roles.js";
+import { backupStories, getStoryBySlug } from "../api/stories.js";
+import storyblokConfig from "../config/config.js";
+import {
+    createAndSaveToFile,
+    createAndSaveToStoriesFile,
+} from "../utils/files.js";
+import Logger from "../utils/logger.js";
+import { unpackOne } from "../utils/main.js";
 
 const BACKUP_COMMANDS = {
     components: "components",
+    stories: "stories",
     componentGroups: "component-groups",
     datasources: "datasources",
     presets: "presets",
@@ -27,7 +34,7 @@ const BACKUP_COMMANDS = {
     plugins: "plugins",
 };
 
-export const backup = (props: CLIOptions) => {
+export const backup = async (props: CLIOptions) => {
     const { input, flags } = props;
 
     const command = input[1];
@@ -66,6 +73,17 @@ export const backup = (props: CLIOptions) => {
                         console.log(err);
                         Logger.error("error happened... :(");
                     });
+            }
+
+            break;
+        case BACKUP_COMMANDS.stories:
+            Logger.warning(`back up stories... with command: ${command}`);
+            if (flags["all"]) {
+                backupStories({
+                    filename: "all-stories-backup",
+                    suffix: ".stories",
+                    spaceId: storyblokConfig.spaceId,
+                });
             }
 
             break;

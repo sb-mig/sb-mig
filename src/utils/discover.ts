@@ -2,11 +2,14 @@
 // https://github.com/maoberlehner/storyblok-migrate
 // edit: changed a lot in here, but inspiration still is valid :)
 
-import glob from "glob";
 import path from "path";
+
+import glob from "glob";
+
 import storyblokConfig, { SCHEMA } from "../config/config.js";
-import { getFileContentWithRequire } from "./main.js";
 import { buildOnTheFly } from "../rollup/build-on-the-fly.js";
+
+import { getFileContentWithRequire } from "./main.js";
 
 export enum SCOPE {
     local = "local",
@@ -623,6 +626,53 @@ export const discoverManyDatasources = (
             listOfFiles = glob.sync(pattern.replace(/\\/g, "/"), {
                 follow: true,
             });
+            break;
+
+        default:
+            break;
+    }
+
+    return listOfFiles;
+};
+
+export const discoverStories = (
+    request: DiscoverManyRequest
+): DiscoverResult => {
+    const rootDirectory = "./";
+    const directory = path.resolve(process.cwd(), rootDirectory);
+    let pattern;
+    let listOfFiles = [""];
+
+    console.log("Request: ", request);
+
+    switch (request.scope) {
+        case SCOPE.local:
+            // ### MANY - LOCAL - fileName ###
+            const onlyLocalComponentsDirectories =
+                storyblokConfig.componentsDirectories.filter(
+                    (p: string) => !p.includes("node_modules")
+                );
+            pattern = path.join(
+                `${directory}`,
+                `${normalizeDiscover({
+                    segments: onlyLocalComponentsDirectories,
+                })}`,
+                "**",
+                `${normalizeDiscover({ segments: request.fileNames })}.${
+                    storyblokConfig.storiesExt
+                }`
+            );
+
+            listOfFiles = glob.sync(pattern.replace(/\\/g, "/"), {
+                follow: true,
+            });
+
+            console.log("!!!!!!!!!!!!!!!!");
+            console.log(onlyLocalComponentsDirectories);
+            console.log(pattern);
+            console.log(listOfFiles);
+            console.log("!!!!!!!!!!!!!!!!");
+
             break;
 
         default:

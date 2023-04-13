@@ -1,9 +1,12 @@
 import * as fs from "fs";
-import pkg from "ncp";
 import { writeFile } from "fs";
-import { generateDatestamp } from "./others.js";
+
+import pkg from "ncp";
+
 import storyblokConfig from "../config/config.js";
+
 import Logger from "./logger.js";
+import { generateDatestamp } from "./others.js";
 
 const { ncp } = pkg;
 
@@ -22,10 +25,28 @@ export const createJsonFile = async (
     await fs.promises.writeFile(pathWithFilename, content, { flag: "w" });
 };
 
+export const createJSFile2 = async (
+    content: string,
+    pathWithFilename: string
+) => {
+    const finalContent = `/*
+
+Auto-generated file by sb-mig
+
+Do not edit manually
+
+*/
+const stories = ${content};
+
+module.exports = stories;
+`;
+    await fs.promises.writeFile(pathWithFilename, finalContent, { flag: "w" });
+};
+
 export const createJSFile = async (
     content: string,
     pathWithFilename: string,
-    timestamp: boolean = false
+    timestamp = false
 ) => {
     const datestamp = new Date();
     const finalContent = `/*
@@ -106,7 +127,34 @@ export const createAndSaveToFile = async ({
         JSON.stringify(res, undefined, 2),
         `${storyblokConfig.sbmigWorkingDirectory}/${folder}/${filename}.json`
     );
-    Logger.success(`All groups written to a file:  ${filename}`);
+    Logger.success(`All response written to a file:  ${filename}`);
+};
+
+interface CreateAndSaveToStoriesFile {
+    filename: string;
+    folder: string;
+    suffix?: string;
+    res: any;
+}
+
+export const createAndSaveToStoriesFile = async ({
+    filename,
+    folder,
+    suffix,
+    res,
+}: CreateAndSaveToStoriesFile): Promise<void> => {
+    await createDir(`${storyblokConfig.sbmigWorkingDirectory}/${folder}/`);
+    await createJSFile2(
+        JSON.stringify(res, undefined, 2),
+        `${storyblokConfig.sbmigWorkingDirectory}/${folder}/${filename}${
+            suffix ? suffix : ""
+        }.cjs`
+    );
+    Logger.success(
+        `All response written to a file:  ${filename}${
+            suffix ? suffix : ""
+        }.cjs`
+    );
 };
 
 export const createAndSaveComponentListToFile = async ({

@@ -1,9 +1,12 @@
-import ts from "rollup-plugin-ts";
-import { build } from "./setup-rollup.js";
-import Logger from "../utils/logger.js";
-import storyblokConfig from "../config/config.js";
-import { remove } from "fs-extra";
 import path from "path";
+
+import { remove } from "fs-extra";
+import ts from "rollup-plugin-ts";
+
+import storyblokConfig from "../config/config.js";
+import Logger from "../utils/logger.js";
+
+import { build } from "./setup-rollup.js";
 
 export const _extractComponentName = (filePath: string): string => {
     const separator = "/"; // this guy is like in unix, becasue what glob is returning is always like that... that's why we are NOT using path.sep here...

@@ -1,4 +1,5 @@
 import {assert} from "chai";
+
 import {isItFactory} from "../src/utils/main.js";
 
 describe("isItFactory for parsing flags", () => {

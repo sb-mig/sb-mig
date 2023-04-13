@@ -1,5 +1,6 @@
-import Logger from "../utils/logger.js";
 import storyblokConfig from "../config/config.js";
+import Logger from "../utils/logger.js";
+
 import { sbApi } from "./config.js";
 import _resolvePresets from "./resolvePresets.js";
 
