@@ -117,7 +117,6 @@ const requestSignedUploadUrl = ({
             return (signedResponseObject as any as { data: any }).data; // this is very bad... but storyblok-js-client types are pretty broken
         })
         .catch((err) => {
-            console.log("WTF ?");
             console.log(err);
         });
 };

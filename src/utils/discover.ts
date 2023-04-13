@@ -632,6 +632,53 @@ export const discoverManyDatasources = (
     return listOfFiles;
 };
 
+export const discoverStories = (
+    request: DiscoverManyRequest
+): DiscoverResult => {
+    const rootDirectory = "./";
+    const directory = path.resolve(process.cwd(), rootDirectory);
+    let pattern;
+    let listOfFiles = [""];
+
+    console.log("Request: ", request);
+
+    switch (request.scope) {
+        case SCOPE.local:
+            // ### MANY - LOCAL - fileName ###
+            const onlyLocalComponentsDirectories =
+                storyblokConfig.componentsDirectories.filter(
+                    (p: string) => !p.includes("node_modules")
+                );
+            pattern = path.join(
+                `${directory}`,
+                `${normalizeDiscover({
+                    segments: onlyLocalComponentsDirectories,
+                })}`,
+                "**",
+                `${normalizeDiscover({ segments: request.fileNames })}.${
+                    storyblokConfig.storiesExt
+                }`
+            );
+
+            listOfFiles = glob.sync(pattern.replace(/\\/g, "/"), {
+                follow: true,
+            });
+
+            console.log("!!!!!!!!!!!!!!!!");
+            console.log(onlyLocalComponentsDirectories);
+            console.log(pattern);
+            console.log(listOfFiles);
+            console.log("!!!!!!!!!!!!!!!!");
+
+            break;
+
+        default:
+            break;
+    }
+
+    return listOfFiles;
+};
+
 export const discoverDatasources = (
     request: DiscoverRequest
 ): DiscoverResult => {

@@ -1,6 +1,8 @@
 import storyblokConfig from "../config/config.js";
 import { sbApi } from "./config.js";
 import Logger from "../utils/logger.js";
+import { createAndSaveToStoriesFile } from "../utils/files.js";
+import { generateDatestamp } from "../utils/others.js";
 
 const { spaceId } = storyblokConfig;
 
@@ -28,25 +30,28 @@ export const removeStory = ({
 
 // GET
 export const getAllStories = async ({ spaceId }: { spaceId: string }) => {
-    console.log("Trying to get all Stories from: .", spaceId);
+    Logger.log(`Trying to get all Stories from: ${spaceId}`);
 
     const allStoriesWithoutContent: any = await sbApi
         .get(`spaces/${spaceId}/stories/`, {
             per_page: 100,
         })
         .then((res: any) => res.data.stories)
+
         .catch((err: any) => console.error(err));
 
     const allStories = await Promise.all(
         allStoriesWithoutContent.map(
-            async (story: any) => await getStory({ spaceId, storyId: story.id })
+            async (story: any) =>
+                await getStoryById({ spaceId, storyId: story.id })
         )
     );
 
     return allStories;
 };
 
-export const getStory = ({
+// GET
+export const getStoryById = ({
     spaceId,
     storyId,
 }: {
@@ -57,6 +62,32 @@ export const getStory = ({
         .get(`spaces/${spaceId}/stories/${storyId}`)
         .then((res: any) => res.data)
         .catch((err: any) => console.error(err));
+};
+
+export const getStoryBySlug = async ({
+    spaceId,
+    slug,
+}: {
+    spaceId: string;
+    slug: string;
+}) => {
+    const storiesWithoutContent: any = await sbApi
+        .get(`spaces/${spaceId}/stories/`, {
+            per_page: 100,
+            // @ts-ignore
+            with_slug: slug,
+        })
+        .then((res: any) => res.data.stories)
+        .catch((err: any) => console.error(err));
+
+    const storiesWithContent = await Promise.all(
+        storiesWithoutContent.map(
+            async (story: any) =>
+                await getStoryById({ spaceId, storyId: story.id })
+        )
+    );
+
+    return storiesWithContent[0];
 };
 
 // CREATE
@@ -145,4 +176,28 @@ export const traverseAndCreate = ({
             console.log(e);
         }
     });
+};
+
+export const backupStories = async ({
+    filename,
+    suffix,
+}: {
+    filename: string;
+    suffix?: string;
+}) => {
+    Logger.log(`Making backup of your stories.`);
+    const timestamp = generateDatestamp(new Date());
+    await getAllStories({ spaceId: storyblokConfig.spaceId })
+        .then(async (res: any) => {
+            await createAndSaveToStoriesFile({
+                filename: `${filename}_${timestamp}`,
+                suffix,
+                folder: "stories",
+                res,
+            });
+        })
+        .catch((err: any) => {
+            Logger.error(err);
+            Logger.error("error happened... :(");
+        });
 };

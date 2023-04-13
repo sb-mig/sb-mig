@@ -19,7 +19,9 @@ export interface IStoryblokConfig {
     schemaFileExt: "sb.cjs" | "sb.js";
     datasourceExt: string;
     rolesExt: string;
+    storiesExt: string;
     storyblokApiUrl: string;
+    storyblokDeliveryApiUrl: string;
     oauthToken: string;
     spaceId: string;
     accessToken: string;

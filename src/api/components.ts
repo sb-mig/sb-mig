@@ -40,6 +40,16 @@ export const getAllComponents = () => {
 };
 
 // GET
+export const getAllStories = () => {
+    console.log("Trying to get all components.");
+
+    return sbApi
+        .get(`spaces/${spaceId}/components/`)
+        .then((res: any) => res.data)
+        .catch((err: any) => console.error(err));
+};
+
+// GET
 export const getAllPlugins = () => {
     console.log("Trying to get all plugins.");
 

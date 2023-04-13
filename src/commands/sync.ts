@@ -17,6 +17,26 @@ import {
 } from "../api/datasources/datasources.js";
 import { askForConfirmation } from "../utils/others.js";
 
+export type SyncDirection =
+    | "fromSpaceToFile"
+    | "fromFileToSpace"
+    | "fromSpaceToSpace";
+
+const defineSyncDirection = (
+    fromPredicate: unknown,
+    toPredicate: unknown
+): SyncDirection => {
+    if (Number.isNaN(fromPredicate) && !Number.isNaN(toPredicate)) {
+        return "fromFileToSpace";
+    } else if (!Number.isNaN(fromPredicate) && Number.isNaN(toPredicate)) {
+        return "fromSpaceToFile";
+    } else if (!Number.isNaN(fromPredicate) && !Number.isNaN(toPredicate)) {
+        return "fromSpaceToSpace";
+    } else {
+        throw new Error("You cannot sync from file to file");
+    }
+};
+
 const SYNC_COMMANDS = {
     content: "content",
     components: "components",
@@ -121,15 +141,28 @@ export const sync = async (props: CLIOptions) => {
         case SYNC_COMMANDS.content:
             Logger.log(`Syncing content with command: ${command}`);
 
-            if (isIt("all")) {
-                Logger.warning(
-                    `sync story... from ${
-                        flags["from"] ? flags["from"] : "boilerplateSpaceId"
-                    } to working dir spaceid: ${
-                        flags["to"] ? flags["to"] : storyblokConfig.spaceId
-                    }} with command: ${command}`
-                );
+            const from = flags["from"]
+                ? flags["from"]
+                : storyblokConfig.boilerplateSpaceId;
+            const to = flags["to"] ? flags["to"] : storyblokConfig.spaceId;
 
+            Logger.warning(
+                `sync story... from ${from} to working dir spaceid: ${to} with command: ${command}`
+            );
+
+            const syncDirection: SyncDirection = defineSyncDirection(
+                Number(from),
+                Number(to)
+            );
+
+            console.log({
+                from,
+                to,
+                ...flags,
+                syncDirection,
+            });
+
+            if (isIt("all")) {
                 await askForConfirmation(
                     "Are you sure you want to delete all content (stories) in your space and then apply test ones ?",
                     async () => {
@@ -137,30 +170,33 @@ export const sync = async (props: CLIOptions) => {
                             "Deleting all stories in your space and then applying migrated ones..."
                         );
 
+                        // Backup all stories to file
+                        await syncContent({
+                            type: "stories",
+                            transmission: {
+                                from: to,
+                                to: `${to}_stories-backup`,
+                            },
+                            syncDirection: "fromSpaceToFile",
+                        });
+
+                        // Remove all stories from 'to' space
                         await removeAllStories({
                             spaceId: storyblokConfig.spaceId,
                         });
+
+                        // Sync stories from 'from' space to 'to' space
                         await syncContent({
-                            type: "content",
-                            transmission: {
-                                from: flags["from"]
-                                    ? flags["from"]
-                                    : storyblokConfig.boilerplateSpaceId,
-                                to: flags["to"]
-                                    ? flags["to"]
-                                    : storyblokConfig.spaceId,
-                            },
+                            type: "stories",
+                            transmission: { from, to },
+                            syncDirection,
                         });
+
+                        // Sync assets from 'from' space to 'to' space
                         await syncContent({
                             type: "assets",
-                            transmission: {
-                                from: flags["from"]
-                                    ? flags["from"]
-                                    : storyblokConfig.boilerplateSpaceId,
-                                to: flags["to"]
-                                    ? flags["to"]
-                                    : storyblokConfig.spaceId,
-                            },
+                            transmission: { from, to },
+                            syncDirection,
                         });
                     },
                     () => {
@@ -172,60 +208,64 @@ export const sync = async (props: CLIOptions) => {
                 );
             } else if (isIt("assets")) {
                 Logger.warning(
-                    `sync story... from ${
-                        flags["from"] ? flags["from"] : "boilerplateSpaceId"
-                    } to working dir spaceid: ${
-                        flags["to"] ? flags["to"] : storyblokConfig.spaceId
-                    }} with command: ${command}`
+                    `Syncing using sync direction: ${syncDirection}`
                 );
 
                 await syncContent({
                     type: "assets",
-                    transmission: {
-                        from: flags["from"]
-                            ? flags["from"]
-                            : storyblokConfig.boilerplateSpaceId,
-                        to: flags["to"] ? flags["to"] : storyblokConfig.spaceId,
-                    },
+                    transmission: { from, to },
+                    syncDirection,
                 });
             } else if (isIt("stories")) {
                 Logger.warning(
-                    `sync story... from ${
-                        flags["from"] ? flags["from"] : "boilerplateSpaceId"
-                    } to working dir spaceid: ${
-                        flags["to"] ? flags["to"] : storyblokConfig.spaceId
-                    }} with command: ${command}`
+                    `Syncing using sync direction: ${syncDirection}`
                 );
 
-                await askForConfirmation(
-                    "Are you sure you want to delete all stories in your space and then apply test ones ?",
-                    async () => {
-                        Logger.warning(
-                            "Deleting all stories in your space and then applying test ones..."
-                        );
+                if (syncDirection !== "fromSpaceToFile") {
+                    await askForConfirmation(
+                        "Are you sure you want to delete all stories in your space and then apply test ones ?",
+                        async () => {
+                            Logger.warning(
+                                "Deleting all stories in your space and then applying test ones..."
+                            );
 
-                        await removeAllStories({
-                            spaceId: storyblokConfig.spaceId,
-                        });
-                        await syncContent({
-                            type: "content",
-                            transmission: {
-                                from: flags["from"]
-                                    ? flags["from"]
-                                    : storyblokConfig.boilerplateSpaceId,
-                                to: flags["to"]
-                                    ? flags["to"]
-                                    : storyblokConfig.spaceId,
-                            },
-                        });
-                    },
-                    () => {
-                        Logger.success(
-                            "Stories not deleted, exiting the program..."
-                        );
-                    },
-                    flags["yes"]
-                );
+                            // Backup all stories to file
+                            await syncContent({
+                                type: "stories",
+                                transmission: {
+                                    from: to,
+                                    to: `${to}_stories-backup`,
+                                },
+                                syncDirection: "fromSpaceToFile",
+                            });
+
+                            // Remove all stories from 'to' space
+                            await removeAllStories({
+                                spaceId: to,
+                            });
+
+                            // Sync stories to 'to' space
+                            await syncContent({
+                                type: "stories",
+                                transmission: { from, to },
+                                syncDirection,
+                            });
+                        },
+                        () => {
+                            Logger.success(
+                                "Stories not deleted, exiting the program..."
+                            );
+                        },
+                        flags["yes"]
+                    );
+                } else {
+                    // Sync stories to 'to' space
+                    await syncContent({
+                        type: "stories",
+                        transmission: { from, to },
+                        syncDirection,
+                    });
+                }
             } else {
                 Logger.error(
                     "Wrong combination of flags. check help for more info."

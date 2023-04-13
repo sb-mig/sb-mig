@@ -39,9 +39,6 @@ export const discover = async (props: CLIOptions) => {
                     ),
                 ];
 
-                Logger.success("#### Discovered components  ####");
-                console.log(content);
-
                 if (flags["write"]) {
                     await createAndSaveComponentListToFile({
                         file: flags["file"] || undefined,

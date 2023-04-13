@@ -57,6 +57,6 @@ export const remove = async (props: CLIOptions) => {
 
             break;
         default:
-            console.log(`no command like that: ${command}`);
+            Logger.log(`no command like that: ${command}`);
     }
 };

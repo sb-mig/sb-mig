@@ -20,7 +20,12 @@ export const defaultConfig = (
                 : "sb.datasource.cjs",
         rolesExt:
             pkg(packagePath).type === "module" ? "sb.roles.js" : "sb.roles.cjs",
+        storiesExt:
+            pkg(packagePath).type === "module"
+                ? "sb.stories.js"
+                : "sb.stories.cjs",
         storyblokApiUrl: "https://mapi.storyblok.com/v1", // should be mapi.storyblok.com ?
+        storyblokDeliveryApiUrl: "https://api.storyblok.com/v2",
         oauthToken: env["STORYBLOK_OAUTH_TOKEN"] ?? "",
         spaceId: env["STORYBLOK_SPACE_ID"] ?? "",
         accessToken:

@@ -3,14 +3,14 @@ import { sbApi } from "./config.js";
 import Logger from "../utils/logger.js";
 
 export const getAllPlugins = () => {
-    console.log("Trying to get all plugins.");
+    Logger.log("Trying to get all plugins.");
 
     return sbApi
         .get(`field_types`, {
             per_page: 100,
         })
         .then((res: any) => {
-            console.log(
+            Logger.log(
                 `Amount of field typess: ${res.data.field_types.length}`
             );
             return res.data;
