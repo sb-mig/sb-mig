@@ -1,5 +1,7 @@
-import config from "../config/config.js";
 import type { OneComponent } from "../utils/discover.js";
+import type { SyncDirection } from "../utils/sync-utils";
+
+import config from "../config/config.js";
 import {
     discoverManyByPackageName,
     LOOKUP_TYPE,
@@ -7,7 +9,6 @@ import {
     compare,
     discover,
     discoverMany,
-    discoverManyDatasources,
     discoverStories,
 } from "../utils/discover.js";
 import { dumpToFile, readFile } from "../utils/files.js";
@@ -17,15 +18,8 @@ import {
     getFilesContentWithRequire,
     isObjectEmpty,
 } from "../utils/main.js";
-import type { SyncDirection } from "../utils/sync-utils";
 
-import {
-    migrateAsset,
-    getAllAssets,
-    getAssetById,
-    getAssetByName,
-} from "./assets.js";
-import { getCurrentUser } from "./auth.js";
+import { migrateAsset, getAllAssets } from "./assets.js";
 import {
     getAllComponentsGroups,
     createComponentsGroup,
@@ -33,7 +27,6 @@ import {
     removeComponent,
     removeComponentGroup,
 } from "./components.js";
-import { deliveryApi } from "./deliveryApi.js";
 import { updateComponent, createComponent } from "./mutateComponents.js";
 import { createPlugin, getPlugin, updatePlugin } from "./plugins.js";
 import {

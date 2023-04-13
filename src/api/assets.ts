@@ -1,3 +1,12 @@
+import type {
+    AssetPayload,
+    GetAllAssets,
+    GetAssetById,
+    GetAssetByName,
+    MigrateAsset,
+    UploadFile,
+} from "./assets.types.js";
+
 import fs from "fs";
 import https from "https";
 import path from "path";
@@ -8,14 +17,6 @@ import storyblokConfig from "../config/config.js";
 import { createDir, isDirectoryExists } from "../utils/files.js";
 import Logger from "../utils/logger.js";
 
-import type {
-    AssetPayload,
-    GetAllAssets,
-    GetAssetById,
-    GetAssetByName,
-    MigrateAsset,
-    UploadFile,
-} from "./assets.types.js";
 import { sbApi } from "./config.js";
 
 const { spaceId } = storyblokConfig;

@@ -1,5 +1,6 @@
-import storyblokConfig from "../config/config.js";
 import type { OneComponent } from "../utils/discover.js";
+
+import storyblokConfig from "../config/config.js";
 import {
     LOOKUP_TYPE,
     SCOPE,

@@ -1,3 +1,6 @@
+import type { CLIOptions } from "../utils/interfaces.js";
+import type { SyncDirection } from "../utils/sync-utils.js";
+
 import {
     syncAllDatasources,
     syncProvidedDatasources,
@@ -12,11 +15,9 @@ import {
 } from "../api/migrate.js";
 import { syncAllRoles, syncProvidedRoles } from "../api/roles.js";
 import storyblokConfig from "../config/config.js";
-import type { CLIOptions } from "../utils/interfaces.js";
 import Logger from "../utils/logger.js";
 import { isItFactory, unpackElements } from "../utils/main.js";
 import { askForConfirmation } from "../utils/others.js";
-import type { SyncDirection } from "../utils/sync-utils.js";
 import { defineSyncDirection } from "../utils/sync-utils.js";
 
 const SYNC_COMMANDS = {

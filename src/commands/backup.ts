@@ -1,3 +1,5 @@
+import type { CLIOptions } from "../utils/interfaces.js";
+
 import { getComponentPresets } from "../api/componentPresets.js";
 import {
     getAllComponents,
@@ -18,7 +20,6 @@ import {
     createAndSaveToFile,
     createAndSaveToStoriesFile,
 } from "../utils/files.js";
-import type { CLIOptions } from "../utils/interfaces.js";
 import Logger from "../utils/logger.js";
 import { unpackOne } from "../utils/main.js";
 

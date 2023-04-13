@@ -1,6 +1,7 @@
+import type { IStoryblokConfig } from "./config.js";
+
 import Logger from "../utils/logger.js";
 
-import type { IStoryblokConfig } from "./config.js";
 import { SCHEMA } from "./config.js";
 
 export const defaultConfig = (
