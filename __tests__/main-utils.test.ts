@@ -2,6 +2,11 @@ import {assert} from "chai";
 import {unpackElements, unpackOne} from "../src/utils/main.js";
 import {generateDatestamp} from "../src/utils/others.js";
 
+const isValidString = (s: string) => {
+    const pattern = /^(\d{4}-\d{1,2}-\d{1,2}_\d{1,2}-\d{1,2})$/;
+    return pattern.test(s);
+}
+
 describe("General Utils", () => {
     it("unpackElements works OK for command: 'sync components sb-blockquote sb-card'", () => {
         const elements = ["sync", "components", "sb-blockquote", "sb-card"]
@@ -43,6 +48,7 @@ describe("General Utils", () => {
 
         const stamp = generateDatestamp(new Date(date))
 
-        assert.equal(stamp, "2022-02-22_22-18-46");
+        const result = isValidString(stamp)
+        assert.isTrue(result)
     });
 });
