@@ -1,11 +1,8 @@
-import storyblokConfig from "../config/config.js";
 import { createAndSaveToStoriesFile } from "../utils/files.js";
 import Logger from "../utils/logger.js";
 import { generateDatestamp } from "../utils/others.js";
 
 import { sbApi } from "./config.js";
-
-const { spaceId } = storyblokConfig;
 
 // DELETE
 export const removeStory = ({
@@ -152,11 +149,13 @@ interface TraverseAndCreate {
     tree: Tree;
     realParentId: number | null;
     defaultRoot?: any;
+    spaceId: string;
 }
 
 export const traverseAndCreate = ({
     tree,
     realParentId,
+    spaceId,
 }: TraverseAndCreate) => {
     tree.forEach(async (node) => {
         try {
@@ -170,6 +169,7 @@ export const traverseAndCreate = ({
                 traverseAndCreate({
                     tree: node.children,
                     realParentId: storyId,
+                    spaceId,
                 });
             }
         } catch (e) {
@@ -182,13 +182,15 @@ export const traverseAndCreate = ({
 export const backupStories = async ({
     filename,
     suffix,
+    spaceId,
 }: {
     filename: string;
+    spaceId: string;
     suffix?: string;
 }) => {
     Logger.log(`Making backup of your stories.`);
     const timestamp = generateDatestamp(new Date());
-    await getAllStories({ spaceId: storyblokConfig.spaceId })
+    await getAllStories({ spaceId })
         .then(async (res: any) => {
             await createAndSaveToStoriesFile({
                 filename: `${filename}_${timestamp}`,

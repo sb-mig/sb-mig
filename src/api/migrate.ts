@@ -320,11 +320,13 @@ interface SyncContent {
 interface SyncStories {
     transmission: SyncContent["transmission"];
     stories: any[];
+    toSpaceId: string;
 }
 
 const syncStories = async ({
     transmission: { from, to },
     stories,
+    toSpaceId,
 }: SyncStories) => {
     Logger.log(`We would try to migrate Stories data from: ${from} to: ${to}`);
 
@@ -348,7 +350,7 @@ const syncStories = async ({
         dumpToFile("tree.json", jsonString);
     }
 
-    await traverseAndCreate({ tree, realParentId: null });
+    await traverseAndCreate({ tree, realParentId: null, spaceId: toSpaceId });
 };
 
 interface SyncAssets {
@@ -378,12 +380,17 @@ export const syncContent = async ({
             await backupStories({
                 filename: transmission.to,
                 suffix: ".sb.stories",
+                spaceId: transmission.from,
             });
         }
 
         if (syncDirection === "fromSpaceToSpace") {
             const stories = await getAllStories({ spaceId: transmission.from });
-            await syncStories({ transmission, stories });
+            await syncStories({
+                transmission,
+                stories,
+                toSpaceId: transmission.to,
+            });
         }
 
         if (syncDirection === "fromFileToSpace") {
@@ -397,7 +404,11 @@ export const syncContent = async ({
                 files: allLocalStories,
             });
 
-            await syncStories({ transmission, stories: storiesFileContent[0] });
+            await syncStories({
+                transmission,
+                stories: storiesFileContent[0],
+                toSpaceId: transmission.to,
+            });
         }
 
         return true;

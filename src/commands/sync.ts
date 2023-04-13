@@ -14,6 +14,7 @@ import {
     syncProvidedPlugins,
 } from "../api/migrate.js";
 import { syncAllRoles, syncProvidedRoles } from "../api/roles.js";
+import { backupStories } from "../api/stories.js";
 import storyblokConfig from "../config/config.js";
 import Logger from "../utils/logger.js";
 import { isItFactory, unpackElements } from "../utils/main.js";
@@ -213,13 +214,10 @@ export const sync = async (props: CLIOptions) => {
                             );
 
                             // Backup all stories to file
-                            await syncContent({
-                                type: "stories",
-                                transmission: {
-                                    from: to,
-                                    to: `${to}_stories-backup`,
-                                },
-                                syncDirection: "fromSpaceToFile",
+                            await backupStories({
+                                spaceId: from,
+                                filename: `${from}_stories-backup`,
+                                suffix: ".sb.stories",
                             });
 
                             // Remove all stories from 'to' space

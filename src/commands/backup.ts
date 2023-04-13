@@ -82,6 +82,7 @@ export const backup = async (props: CLIOptions) => {
                 backupStories({
                     filename: "all-stories-backup",
                     suffix: ".stories",
+                    spaceId: storyblokConfig.spaceId,
                 });
             }
 
