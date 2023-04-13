@@ -39,10 +39,10 @@ describe("General Utils", () => {
     });
 
     it("generateDatestamp generates OK datestamp", () => {
-        const date = "2022-12-29T22:18:46.499Z"
+        const date = "2022-02-02T22:18:46.499Z"
 
         const stamp = generateDatestamp(new Date(date))
 
-        assert.equal(stamp, "2022-11-4_22-18-46");
+        assert.equal(stamp, "2022-02-22_22-18-46");
     });
 });

@@ -7,9 +7,8 @@ export const generateDatestamp = (datestamp: Date) => {
     const day = datestamp.getDate();
     const hours = datestamp.getHours();
     const minutes = datestamp.getMinutes();
-    const seconds = datestamp.getSeconds();
 
-    return `${year}-${month}-${day}_${hours}-${minutes}-${seconds}`;
+    return `${year}-${month}-${day}_${hours}-${minutes}`;
 };
 
 export const askForConfirmation = async (
