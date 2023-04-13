@@ -1,6 +1,7 @@
-import Logger from "../utils/logger.js";
-import { isItFactory, unpackElements } from "../utils/main.js";
-import storyblokConfig from "../config/config.js";
+import {
+    syncAllDatasources,
+    syncProvidedDatasources,
+} from "../api/datasources/datasources.js";
 import {
     removeAllComponents,
     syncAllComponents,
@@ -9,12 +10,11 @@ import {
     removeAllStories,
     syncProvidedPlugins,
 } from "../api/migrate.js";
-import type { CLIOptions } from "../utils/interfaces.js";
 import { syncAllRoles, syncProvidedRoles } from "../api/roles.js";
-import {
-    syncAllDatasources,
-    syncProvidedDatasources,
-} from "../api/datasources/datasources.js";
+import storyblokConfig from "../config/config.js";
+import type { CLIOptions } from "../utils/interfaces.js";
+import Logger from "../utils/logger.js";
+import { isItFactory, unpackElements } from "../utils/main.js";
 import { askForConfirmation } from "../utils/others.js";
 import type { SyncDirection } from "../utils/sync-utils.js";
 import { defineSyncDirection } from "../utils/sync-utils.js";

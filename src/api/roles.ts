@@ -1,6 +1,4 @@
-import Logger from "../utils/logger.js";
 import storyblokConfig from "../config/config.js";
-import { sbApi } from "./config.js";
 import type { OneComponent } from "../utils/discover.js";
 import {
     LOOKUP_TYPE,
@@ -9,7 +7,10 @@ import {
     discoverRoles,
     discoverManyRoles,
 } from "../utils/discover.js";
+import Logger from "../utils/logger.js";
 import { getFileContentWithRequire } from "../utils/main.js";
+
+import { sbApi } from "./config.js";
 
 const { spaceId } = storyblokConfig;
 

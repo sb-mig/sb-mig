@@ -1,9 +1,12 @@
 import * as fs from "fs";
-import pkg from "ncp";
 import { writeFile } from "fs";
-import { generateDatestamp } from "./others.js";
+
+import pkg from "ncp";
+
 import storyblokConfig from "../config/config.js";
+
 import Logger from "./logger.js";
+import { generateDatestamp } from "./others.js";
 
 const { ncp } = pkg;
 

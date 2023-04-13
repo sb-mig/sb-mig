@@ -1,8 +1,9 @@
 import storyblokConfig from "../config/config.js";
-import { sbApi } from "./config.js";
-import Logger from "../utils/logger.js";
 import { createAndSaveToStoriesFile } from "../utils/files.js";
+import Logger from "../utils/logger.js";
 import { generateDatestamp } from "../utils/others.js";
+
+import { sbApi } from "./config.js";
 
 const { spaceId } = storyblokConfig;
 

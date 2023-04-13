@@ -1,6 +1,8 @@
-import {assert} from "chai";
-import {filesPattern, normalizeDiscover} from "../src/utils/discover.js";
 import path from "path";
+
+import {assert} from "chai";
+
+import {filesPattern, normalizeDiscover} from "../src/utils/discover.js";
 
 describe("Discovering files", () => {
     it("pattern passed to glob work correctly for sb.ts extension for unix paths", () => {

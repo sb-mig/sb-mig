@@ -1,8 +1,9 @@
 import path from "path";
+
 import config from "../config/config.js";
-import { pkg } from "../utils/pkg.js";
-import { getFileContentWithRequire } from "../utils/main.js";
 import Logger from "../utils/logger.js";
+import { getFileContentWithRequire } from "../utils/main.js";
+import { pkg } from "../utils/pkg.js";
 
 export const debug = async () => {
     console.log("storyblok.config.js: ", config, "\n");

@@ -1,6 +1,6 @@
 import StoryblokClient from "storyblok-js-client";
+
 import storyblokConfig from "../config/config.js";
-import Storyblok from "storyblok-js-client";
 
 const {
     accessToken,
@@ -14,7 +14,7 @@ export const sbApi = new StoryblokClient(
     storyblokApiUrl
 );
 
-export const sbDeliveryApi = new Storyblok(
+export const sbDeliveryApi = new StoryblokClient(
     { accessToken, rateLimit: rateLimit },
     storyblokDeliveryApiUrl
 );

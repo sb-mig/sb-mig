@@ -1,4 +1,5 @@
 import storyblokConfig from "../config/config.js";
+
 import { sbApi } from "./config.js";
 
 const { spaceId } = storyblokConfig;

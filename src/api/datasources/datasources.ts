@@ -1,13 +1,14 @@
-import Logger from "../../utils/logger.js";
 import storyblokConfig from "../../config/config.js";
-import { sbApi } from "../config.js";
 import {
     LOOKUP_TYPE,
     SCOPE,
     discoverManyDatasources,
     discoverDatasources,
 } from "../../utils/discover.js";
+import Logger from "../../utils/logger.js";
 import { getFilesContentWithRequire } from "../../utils/main.js";
+import { sbApi } from "../config.js";
+
 import {
     createDatasourceEntries,
     getDatasourceEntries,

@@ -1,6 +1,7 @@
 // GET
-import { sbApi } from "./config.js";
 import Logger from "../utils/logger.js";
+
+import { sbApi } from "./config.js";
 
 export const getAllPlugins = () => {
     Logger.log("Trying to get all plugins.");

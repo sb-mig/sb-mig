@@ -1,9 +1,13 @@
 import fs from "fs";
-import FormData from "form-data";
 import https from "https";
-import Logger from "../utils/logger.js";
+import path from "path";
+
+import FormData from "form-data";
+
 import storyblokConfig from "../config/config.js";
-import { sbApi } from "./config.js";
+import { createDir, isDirectoryExists } from "../utils/files.js";
+import Logger from "../utils/logger.js";
+
 import type {
     AssetPayload,
     GetAllAssets,
@@ -12,14 +16,7 @@ import type {
     MigrateAsset,
     UploadFile,
 } from "./assets.types.js";
-import {
-    FinalizeUpload,
-    SBAsset,
-    SignedResponseObject,
-} from "./assets.types.js";
-import { createDir, isDirectoryExists } from "../utils/files.js";
-import path from "path";
-import config from "../config/config.js";
+import { sbApi } from "./config.js";
 
 const { spaceId } = storyblokConfig;
 
@@ -111,7 +108,7 @@ const requestSignedUploadUrl = ({
             ...restPayload,
         })
         .then((signedResponseObject) => {
-            if (config.debug) {
+            if (storyblokConfig.debug) {
                 Logger.log(
                     `Signed upload URL has been requested for ${filename}.`
                 );
@@ -165,12 +162,14 @@ const downloadAsset = async ({ payload }: { payload: AssetPayload }) => {
     const fileName = getFileName(payload.filename);
     const fileUrl = payload.filename;
     const downloadedAssetsFolder = path.join(
-        config.sbmigWorkingDirectory,
+        storyblokConfig.sbmigWorkingDirectory,
         "downloadedAssets"
     );
     Logger.log(
         `Downloading ${fileName} asset ${
-            config.debug ? `from ${fileUrl} to ${downloadedAssetsFolder}` : ""
+            storyblokConfig.debug
+                ? `from ${fileUrl} to ${downloadedAssetsFolder}`
+                : ""
         }`
     );
 

@@ -1,12 +1,6 @@
 #! /usr/bin/env node
 import meow from "meow";
-import { debug } from "./commands/debug.js";
-import { init } from './commands/init.js'
-import { pipe, prop } from "./utils/main.js";
-import { sync } from "./commands/sync.js";
-import { discover } from "./commands/discover.js";
-import {remove} from "./commands/remove.js";
-import { backup } from "./commands/backup.js";
+
 import {
     backupDescription,
     debugDescription,
@@ -14,6 +8,13 @@ import {
     syncDescription,
     removeDescription, initDescription, discoverDescription
 } from "./cli-descriptions.js";
+import { backup } from "./commands/backup.js";
+import { debug } from "./commands/debug.js";
+import { discover } from "./commands/discover.js";
+import { init } from './commands/init.js'
+import {remove} from "./commands/remove.js";
+import { sync } from "./commands/sync.js";
+import { pipe, prop } from "./utils/main.js";
 
 const app = () => ({
     cli: meow(mainDescription, {

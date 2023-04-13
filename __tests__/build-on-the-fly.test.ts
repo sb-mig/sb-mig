@@ -1,4 +1,5 @@
 import {assert} from "chai";
+
 import {_extractComponentName} from "../src/rollup/build-on-the-fly.js";
 
 describe("Build Typescript on-the-fly", () => {

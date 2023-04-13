@@ -2,11 +2,14 @@
 // https://github.com/maoberlehner/storyblok-migrate
 // edit: changed a lot in here, but inspiration still is valid :)
 
-import glob from "glob";
 import path from "path";
+
+import glob from "glob";
+
 import storyblokConfig, { SCHEMA } from "../config/config.js";
-import { getFileContentWithRequire } from "./main.js";
 import { buildOnTheFly } from "../rollup/build-on-the-fly.js";
+
+import { getFileContentWithRequire } from "./main.js";
 
 export enum SCOPE {
     local = "local",

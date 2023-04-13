@@ -1,7 +1,10 @@
 import path from "path";
+
 import dotenv from "dotenv";
-import { defaultConfig, getStoryblokConfigContent } from "./helper.js";
+
 import { pkg } from "../utils/pkg.js";
+
+import { defaultConfig, getStoryblokConfigContent } from "./helper.js";
 
 dotenv.config();
 

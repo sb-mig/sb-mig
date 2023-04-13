@@ -1,13 +1,4 @@
-import Logger from "../utils/logger.js";
 import config from "../config/config.js";
-import {
-    getAllComponentsGroups,
-    createComponentsGroup,
-    getAllComponents,
-    removeComponent,
-    removeComponentGroup,
-} from "./components.js";
-import { updateComponent, createComponent } from "./mutateComponents.js";
 import type { OneComponent } from "../utils/discover.js";
 import {
     discoverManyByPackageName,
@@ -19,21 +10,15 @@ import {
     discoverManyDatasources,
     discoverStories,
 } from "../utils/discover.js";
+import { dumpToFile, readFile } from "../utils/files.js";
+import Logger from "../utils/logger.js";
 import {
     getFileContentWithRequire,
     getFilesContentWithRequire,
     isObjectEmpty,
 } from "../utils/main.js";
-import {
-    backupStories,
-    createTree,
-    getAllStories,
-    removeStory,
-    traverseAndCreate,
-} from "./stories.js";
-import { deliveryApi } from "./deliveryApi.js";
-import { createPlugin, getPlugin, updatePlugin } from "./plugins.js";
-import { dumpToFile, readFile } from "../utils/files.js";
+import type { SyncDirection } from "../utils/sync-utils";
+
 import {
     migrateAsset,
     getAllAssets,
@@ -41,7 +26,23 @@ import {
     getAssetByName,
 } from "./assets.js";
 import { getCurrentUser } from "./auth.js";
-import type { SyncDirection } from "../utils/sync-utils";
+import {
+    getAllComponentsGroups,
+    createComponentsGroup,
+    getAllComponents,
+    removeComponent,
+    removeComponentGroup,
+} from "./components.js";
+import { deliveryApi } from "./deliveryApi.js";
+import { updateComponent, createComponent } from "./mutateComponents.js";
+import { createPlugin, getPlugin, updatePlugin } from "./plugins.js";
+import {
+    backupStories,
+    createTree,
+    getAllStories,
+    removeStory,
+    traverseAndCreate,
+} from "./stories.js";
 
 const _uniqueValuesFrom = (array: any[]) => [...new Set(array)];
 
