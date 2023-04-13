@@ -82,6 +82,8 @@
     "chai": "^4.3.7",
     "chokidar-cli": "^3.0.0",
     "conventional-changelog-cli": "^2.0.31",
+    "@typescript-eslint/eslint-plugin": "^5.53.0",
+    "@typescript-eslint/parser": "^5.53.0",
     "eslint": "^8.36.0",
     "eslint-config-prettier": "^8.7.0",
     "esm": "^3.2.25",

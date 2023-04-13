@@ -16,26 +16,8 @@ import {
     syncProvidedDatasources,
 } from "../api/datasources/datasources.js";
 import { askForConfirmation } from "../utils/others.js";
-
-export type SyncDirection =
-    | "fromSpaceToFile"
-    | "fromFileToSpace"
-    | "fromSpaceToSpace";
-
-const defineSyncDirection = (
-    fromPredicate: unknown,
-    toPredicate: unknown
-): SyncDirection => {
-    if (Number.isNaN(fromPredicate) && !Number.isNaN(toPredicate)) {
-        return "fromFileToSpace";
-    } else if (!Number.isNaN(fromPredicate) && Number.isNaN(toPredicate)) {
-        return "fromSpaceToFile";
-    } else if (!Number.isNaN(fromPredicate) && !Number.isNaN(toPredicate)) {
-        return "fromSpaceToSpace";
-    } else {
-        throw new Error("You cannot sync from file to file");
-    }
-};
+import type { SyncDirection } from "../utils/sync-utils.js";
+import { defineSyncDirection } from "../utils/sync-utils.js";
 
 const SYNC_COMMANDS = {
     content: "content",

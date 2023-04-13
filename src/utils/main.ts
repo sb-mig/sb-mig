@@ -1,5 +1,4 @@
 import { createRequire } from "module";
-import fs from "fs";
 
 export const prop = (k: any) => (o: any) => o[k];
 

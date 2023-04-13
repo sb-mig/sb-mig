@@ -41,7 +41,7 @@ import {
     getAssetByName,
 } from "./assets.js";
 import { getCurrentUser } from "./auth.js";
-import { SyncDirection } from "../commands/sync";
+import type { SyncDirection } from "../utils/sync-utils";
 
 const _uniqueValuesFrom = (array: any[]) => [...new Set(array)];
 

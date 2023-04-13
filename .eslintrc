@@ -1,6 +1,9 @@
 {
   "extends": [],
+  "parser": "@typescript-eslint/parser",
+  "plugins": ["@typescript-eslint"],
   "rules": {
+    "@typescript-eslint/consistent-type-imports": 1,
     "no-console": 0
   }
 }
