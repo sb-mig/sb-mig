@@ -1,5 +1,7 @@
+import type { MigrateFrom } from "../api/stories.js";
 import type { CLIOptions } from "../utils/interfaces.js";
 
+import { migrateStories } from "../api/stories.js";
 import Logger from "../utils/logger.js";
 import { isItFactory } from "../utils/main.js";
 import { askForConfirmation } from "../utils/others.js";
@@ -16,6 +18,7 @@ export const migrate = async (props: CLIOptions) => {
         empty: [],
     };
     const isIt = isItFactory<keyof typeof rules>(flags, rules, [
+        "from",
         "pageId",
         "migration",
         "yes",
@@ -48,7 +51,15 @@ export const migrate = async (props: CLIOptions) => {
                         //     syncDirection: "fromSpaceToFile",
                         // });
 
+                        const migrateFrom: MigrateFrom = "file";
+
                         // here we should migrate stuff
+                        await migrateStories({
+                            from: flags["from"],
+                            migrateFrom,
+                            pageId: flags["pageId"],
+                            migrationConfig: flags["migration"],
+                        });
                     },
                     () => {
                         Logger.success(

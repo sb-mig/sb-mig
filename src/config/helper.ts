@@ -22,6 +22,10 @@ export const defaultConfig = (
                 : "sb.datasource.cjs",
         rolesExt:
             pkg(packagePath).type === "module" ? "sb.roles.js" : "sb.roles.cjs",
+        migrationConfigExt:
+            pkg(packagePath).type === "module"
+                ? "sb.migration.js"
+                : "sb.migration.cjs",
         storiesExt:
             pkg(packagePath).type === "module"
                 ? "sb.stories.js"
