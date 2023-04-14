@@ -44,6 +44,25 @@ export const syncDescription = `
         $ sb-mig sync plugins my-awesome-plugin - (you have to be in catalog which has ./dist/export.js file with compiled plugin)
 `;
 
+export const migrateDescription = `
+    Usage
+        $ sb-mig migrate content --pageId <pageId> --migration <migration>
+        
+    Description
+        Migrate content WIP
+        
+    COMMANDS
+        content        - migrate content 
+     
+    FLAGS
+        --pageId       - Page you want to migrate 
+        --migration    - Migration rules
+    
+    EXAMPLES
+        $ sb-mig migrate content --pageId 123456789 --migration default
+        
+`;
+
 export const discoverDescription = `
     Usage
         $ sb-mig discover [components] --all --write
