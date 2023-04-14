@@ -215,8 +215,8 @@ export const sync = async (props: CLIOptions) => {
 
                             // Backup all stories to file
                             await backupStories({
-                                spaceId: from,
-                                filename: `${from}_stories-backup`,
+                                spaceId: to,
+                                filename: `${to}_stories-backup`,
                                 suffix: ".sb.stories",
                             });
 
