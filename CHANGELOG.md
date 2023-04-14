@@ -1,3 +1,19 @@
+# [4.1.0-beta.67](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.66...v4.1.0-beta.67) (2023-04-14)
+
+
+### fix
+
+* backup stories in sync from file to spacE ([3618135](https://github.com/sb-mig/sb-mig/commit/3618135d7061521bc1667cb916b16cb91bb20627))
+
+
+
+# [4.1.0-beta.67](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.66...v4.1.0-beta.67) (2023-04-14)
+
+
+### Bug Fixes
+
+* backup stories in sync from file to spacE ([3618135](https://github.com/sb-mig/sb-mig/commit/3618135d7061521bc1667cb916b16cb91bb20627))
+
 # [4.1.0-beta.66](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.65...v4.1.0-beta.66) (2023-04-14)
 
 
