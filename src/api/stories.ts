@@ -20,7 +20,7 @@ export const removeStory = ({
     spaceId: string;
     storyId: string;
 }) => {
-    console.log(`Removing ${storyId} from ${spaceId}`);
+    Logger.log(`Removing ${storyId} from ${spaceId}`);
     return sbApi
         .delete(`spaces/${spaceId}/stories/${storyId}`, {})
         .then((res: any) => {
@@ -34,17 +34,70 @@ export const removeStory = ({
         });
 };
 
+interface GetAllItemsWithPagination {
+    apiFn: (...args: any) => any;
+    params: any;
+    itemsKey: string;
+}
+
+export const getAllItemsWithPagination = async ({
+    apiFn,
+    params,
+    itemsKey,
+}: GetAllItemsWithPagination) => {
+    const per_page = 100;
+    const allItems = [];
+    let page = 1;
+    let totalPages;
+
+    if (storyblokConfig.debug) {
+        Logger.warning("####### getAllItemsWithPagination #######");
+        Logger.warning({ params, per_page, page });
+        Logger.warning("#########################################");
+    }
+
+    do {
+        const response = await apiFn({ per_page, page, ...params });
+
+        if (storyblokConfig.debug) {
+            Logger.warning(
+                "####### response in getAllItemsWithPagination #######"
+            );
+            Logger.warning(response);
+            Logger.warning(
+                "#####################################################"
+            );
+        }
+
+        if (!totalPages) {
+            totalPages = Math.ceil(response.total / response.perPage);
+        }
+
+        Logger.log(`Total pages: ${totalPages}`);
+
+        allItems.push(...response.data[itemsKey]);
+
+        page++;
+    } while (page <= totalPages);
+
+    return allItems;
+};
+
 // GET
 export const getAllStories = async ({ spaceId }: { spaceId: string }) => {
     Logger.log(`Trying to get all Stories from: ${spaceId}`);
 
-    const allStoriesWithoutContent: any = await sbApi
-        .get(`spaces/${spaceId}/stories/`, {
-            per_page: 100,
-        })
-        .then((res: any) => res.data.stories)
-
-        .catch((err: any) => console.error(err));
+    const allStoriesWithoutContent = await getAllItemsWithPagination({
+        apiFn: ({ per_page, page }) =>
+            sbApi.get(`spaces/${spaceId}/stories/`, {
+                per_page,
+                page,
+            }),
+        params: {
+            spaceId,
+        },
+        itemsKey: "stories",
+    });
 
     const allStories = await Promise.all(
         allStoriesWithoutContent.map(
@@ -104,12 +157,7 @@ export const createStory = ({
     spaceId: string;
     content: any;
 }) => {
-    console.log(
-        "Moving story with name: ",
-        content.name,
-        "to space: ",
-        spaceId
-    );
+    Logger.log(`Moving story with name: ${content.name} to space: ${spaceId}`);
     return sbApi
         .post(`spaces/${spaceId}/stories/`, {
             story: content,
@@ -181,8 +229,8 @@ export const traverseAndCreate = ({
                 });
             }
         } catch (e) {
-            console.log("Error happened");
-            console.log(e);
+            Logger.error("Error happened");
+            Logger.error(e);
         }
     });
 };
@@ -196,10 +244,13 @@ export const backupStories = async ({
     spaceId: string;
     suffix?: string;
 }) => {
+    console.log({ filename, suffix });
     Logger.log(`Making backup of your stories.`);
     const timestamp = generateDatestamp(new Date());
     await getAllStories({ spaceId })
         .then(async (res: any) => {
+            console.log("Amount of stories received: ");
+            console.log(res.length);
             await createAndSaveToStoriesFile({
                 filename: `${filename}_${timestamp}`,
                 suffix,

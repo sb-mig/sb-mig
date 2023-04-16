@@ -14,12 +14,9 @@ import {
 import { getAllPlugins, getPlugin } from "../api/plugins.js";
 import { getAllPresets, getPreset } from "../api/presets.js";
 import { getAllRoles, getRole } from "../api/roles.js";
-import { backupStories, getStoryBySlug } from "../api/stories.js";
+import { backupStories } from "../api/stories.js";
 import storyblokConfig from "../config/config.js";
-import {
-    createAndSaveToFile,
-    createAndSaveToStoriesFile,
-} from "../utils/files.js";
+import { createAndSaveToFile } from "../utils/files.js";
 import Logger from "../utils/logger.js";
 import { unpackOne } from "../utils/main.js";
 

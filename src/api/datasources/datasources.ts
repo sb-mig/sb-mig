@@ -8,6 +8,7 @@ import {
 import Logger from "../../utils/logger.js";
 import { getFilesContentWithRequire } from "../../utils/main.js";
 import { sbApi } from "../config.js";
+import { getAllItemsWithPagination } from "../stories.js";
 
 import {
     createDatasourceEntries,
@@ -20,20 +21,31 @@ const { spaceId } = storyblokConfig;
 export const getAllDatasources = () => {
     Logger.log("Trying to get all Datasources.");
 
-    return sbApi
-        .get(`spaces/${spaceId}/datasources/`)
-        .then(({ data }) => data)
-        .catch((err) => {
-            if (err.response.status === 404) {
-                Logger.error(
-                    `There is no datasources in your Storyblok ${spaceId} space.`
-                );
-                return true;
-            } else {
-                Logger.error(err);
-                return false;
-            }
-        });
+    return getAllItemsWithPagination({
+        apiFn: ({ per_page, page }) =>
+            sbApi
+                .get(`spaces/${spaceId}/datasources/`, { per_page, page })
+                .then((res) => {
+                    Logger.log(`Amount of datasources: ${res.total}`);
+
+                    return res;
+                })
+                .catch((err) => {
+                    if (err.response.status === 404) {
+                        Logger.error(
+                            `There is no datasources in your Storyblok ${spaceId} space.`
+                        );
+                        return true;
+                    } else {
+                        Logger.error(err);
+                        return false;
+                    }
+                }),
+        params: {
+            spaceId,
+        },
+        itemsKey: "datasources",
+    });
 };
 
 export const getDatasource = (datasourceName: string | undefined) => {
@@ -42,9 +54,11 @@ export const getDatasource = (datasourceName: string | undefined) => {
     return getAllDatasources()
         .then((res) => {
             if (res) {
-                return res.datasources.filter(
+                return res.filter(
                     (datasource: any) => datasource.name === datasourceName
                 );
+            } else {
+                return [];
             }
         })
         .then((res) => {
@@ -143,7 +157,7 @@ export const syncDatasources = async ({
 
     Promise.all(
         providedDatasourcesContent.map((datasource: any) => {
-            const datasourceToBeUpdated = remoteDatasources.datasources.find(
+            const datasourceToBeUpdated = remoteDatasources.find(
                 (remoteDatasource: any) =>
                     datasource.name === remoteDatasource.name
             );

@@ -2,6 +2,7 @@ import storyblokConfig from "../config/config.js";
 import Logger from "../utils/logger.js";
 
 import { sbApi } from "./config.js";
+import { getAllItemsWithPagination } from "./stories.js";
 
 const { spaceId } = storyblokConfig;
 
@@ -28,10 +29,23 @@ export const getPreset = (presetId: string | undefined) => {
 export const getAllPresets = () => {
     Logger.log("Trying to get all Presets.");
 
-    return sbApi
-        .get(`spaces/${spaceId}/presets/`)
-        .then((response) => response.data)
-        .catch((err) => Logger.error(err));
+    // TODO: All Presets doesnt support pagination...
+    // https://github.com/storyblok/storyblok-js-client/issues/535
+    return getAllItemsWithPagination({
+        apiFn: ({ per_page, page, spaceId }) =>
+            sbApi
+                .get(`spaces/${spaceId}/presets/`, { per_page, page })
+                .then((res) => {
+                    Logger.log(`Amount of presets: ${res.total}`);
+
+                    return res;
+                })
+                .catch((err) => Logger.error(err)),
+        params: {
+            spaceId,
+        },
+        itemsKey: "presets",
+    });
 };
 
 // CREATE

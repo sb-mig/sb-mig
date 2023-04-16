@@ -12,6 +12,7 @@ import Logger from "../utils/logger.js";
 import { getFileContentWithRequire } from "../utils/main.js";
 
 import { sbApi } from "./config.js";
+import { getAllItemsWithPagination } from "./stories.js";
 
 const { spaceId } = storyblokConfig;
 
@@ -51,20 +52,35 @@ export const updateRole = (role: any) => {
 
 // GET
 export const getAllRoles = async () => {
-    return sbApi
-        .get(`spaces/${spaceId}/space_roles/`)
-        .then(({ data }) => data)
-        .catch((err) => {
-            if (err.response.status === 404) {
-                Logger.error(
-                    `There is no roles in your Storyblok ${spaceId} space.`
-                );
-                return true;
-            } else {
-                Logger.error(err);
-                return false;
-            }
-        });
+    Logger.log("Trying to get all roles.");
+
+    // TODO: All Roles doesnt support pagination...
+    // https://github.com/storyblok/storyblok-js-client/issues/535
+    return getAllItemsWithPagination({
+        apiFn: ({ per_page, page }) =>
+            sbApi
+                .get(`spaces/${spaceId}/space_roles/`, { per_page, page })
+                .then((res) => {
+                    Logger.log(`Amount of roles: ${res.total}`);
+
+                    return res;
+                })
+                .catch((err) => {
+                    if (err.response.status === 404) {
+                        Logger.error(
+                            `There is no roles in your Storyblok ${spaceId} space.`
+                        );
+                        return true;
+                    } else {
+                        Logger.error(err);
+                        return false;
+                    }
+                }),
+        params: {
+            spaceId,
+        },
+        itemsKey: "space_roles",
+    });
 };
 
 // GET
@@ -72,9 +88,7 @@ export const getRole = async (roleName: string | undefined) => {
     Logger.log(`Trying to get '${roleName}' role.`);
 
     return getAllRoles()
-        .then((res) =>
-            res.space_roles.filter((role: any) => role.role === roleName)
-        )
+        .then((res) => res.filter((role: any) => role.role === roleName))
         .then((res) => {
             if (Array.isArray(res) && res.length === 0) {
                 Logger.warning(`There is no role named '${roleName}'`);
@@ -96,7 +110,7 @@ export const syncRoles = async ({ specifiedRoles }: SyncRoles) => {
         )
     );
 
-    const { space_roles } = await getAllRoles();
+    const space_roles = await getAllRoles();
 
     const rolesToUpdate = [];
     const rolesToCreate = [];
