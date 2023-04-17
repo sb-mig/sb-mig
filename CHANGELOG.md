@@ -1,3 +1,23 @@
+# [4.1.0-beta.68](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.67...v4.1.0-beta.68) (2023-04-17)
+
+
+### feat
+
+* add pagination to all functions that requests ALL items ([acb2f73](https://github.com/sb-mig/sb-mig/commit/acb2f73e71a1bc73c5be41daa7df4f63ebd89ca4))
+* first version of migrating fields when name of field is changing and value of field (so #1 and #2 option) ([d53d5ec](https://github.com/sb-mig/sb-mig/commit/d53d5eccb270f5e97fb842935750d26946c8ade8)), closes [#1](https://github.com/sb-mig/sb-mig/issues/1) [#2](https://github.com/sb-mig/sb-mig/issues/2)
+* setup new migrate cli command ([75f6ddb](https://github.com/sb-mig/sb-mig/commit/75f6ddbac231d9d726810bdd311392101dfbeb82))
+
+
+
+# [4.1.0-beta.68](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.67...v4.1.0-beta.68) (2023-04-17)
+
+
+### Features
+
+* add pagination to all functions that requests ALL items ([acb2f73](https://github.com/sb-mig/sb-mig/commit/acb2f73e71a1bc73c5be41daa7df4f63ebd89ca4))
+* first version of migrating fields when name of field is changing and value of field (so [#1](https://github.com/sb-mig/sb-mig/issues/1) and [#2](https://github.com/sb-mig/sb-mig/issues/2) option) ([d53d5ec](https://github.com/sb-mig/sb-mig/commit/d53d5eccb270f5e97fb842935750d26946c8ade8))
+* setup new migrate cli command ([75f6ddb](https://github.com/sb-mig/sb-mig/commit/75f6ddbac231d9d726810bdd311392101dfbeb82))
+
 # [4.1.0-beta.67](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.66...v4.1.0-beta.67) (2023-04-14)
 
 
