@@ -2,28 +2,32 @@
 import Logger from "../utils/logger.js";
 
 import { sbApi } from "./config.js";
+import { getAllItemsWithPagination } from "./stories.js";
 
 export const getAllPlugins = () => {
     Logger.log("Trying to get all plugins.");
 
-    return sbApi
-        .get(`field_types`, {
-            per_page: 100,
-        })
-        .then((res: any) => {
-            Logger.log(
-                `Amount of field typess: ${res.data.field_types.length}`
-            );
-            return res.data;
-        })
-        .catch((err: any) => console.error(err));
+    return getAllItemsWithPagination({
+        apiFn: ({ per_page, page }) =>
+            sbApi
+                .get(`field_types`, {
+                    per_page,
+                    page,
+                })
+                .then((res) => {
+                    Logger.log(`Amount of field types: ${res.total}`);
+
+                    return res;
+                })
+                .catch((err) => Logger.error(err)),
+        params: {},
+        itemsKey: "field_types",
+    });
 };
 
 export const getPlugin = (pluginName: string | undefined) => {
     return getAllPlugins()
-        .then((res) =>
-            res.field_types.find((plugin: any) => plugin.name === pluginName)
-        )
+        .then((res) => res.find((plugin: any) => plugin.name === pluginName))
         .then((res) => {
             if (!res) {
                 throw Error("Not Found - plugins does not exist");

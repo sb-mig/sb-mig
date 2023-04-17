@@ -1,6 +1,8 @@
 import storyblokConfig from "../config/config.js";
+import Logger from "../utils/logger.js";
 
 import { sbApi } from "./config.js";
+import { getAllItemsWithPagination } from "./stories.js";
 
 const { spaceId } = storyblokConfig;
 
@@ -32,22 +34,23 @@ export const removeComponentGroup = ({
 
 // GET
 export const getAllComponents = () => {
-    console.log("Trying to get all components.");
+    Logger.log("Trying to get all components.");
 
-    return sbApi
-        .get(`spaces/${spaceId}/components/`)
-        .then((res: any) => res.data)
-        .catch((err: any) => console.error(err));
-};
+    return getAllItemsWithPagination({
+        apiFn: ({ per_page, page }) =>
+            sbApi
+                .get(`spaces/${spaceId}/components/`, { per_page, page })
+                .then((res) => {
+                    Logger.log(`Amount of components: ${res.total}`);
 
-// GET
-export const getAllStories = () => {
-    console.log("Trying to get all components.");
-
-    return sbApi
-        .get(`spaces/${spaceId}/components/`)
-        .then((res: any) => res.data)
-        .catch((err: any) => console.error(err));
+                    return res;
+                })
+                .catch((err: any) => console.error(err)),
+        params: {
+            spaceId,
+        },
+        itemsKey: "components",
+    });
 };
 
 // GET
@@ -65,9 +68,7 @@ export const getComponent = (componentName: string | undefined) => {
 
     return getAllComponents()
         .then((res) =>
-            res.components.filter(
-                (component: any) => component.name === componentName
-            )
+            res.filter((component: any) => component.name === componentName)
         )
         .then((res) => {
             if (Array.isArray(res) && res.length === 0) {
@@ -84,9 +85,7 @@ export const getComponentsGroup = (groupName: string | undefined) => {
 
     return getAllComponentsGroups()
         .then((res) => {
-            return res.component_groups.filter(
-                (group: any) => group.name === groupName
-            );
+            return res.filter((group: any) => group.name === groupName);
         })
         .then((res) => {
             if (Array.isArray(res) && res.length === 0) {
@@ -99,12 +98,25 @@ export const getComponentsGroup = (groupName: string | undefined) => {
 };
 
 export const getAllComponentsGroups = async () => {
-    console.log("Trying to get all groups.");
+    Logger.log("Trying to get all groups.");
 
-    return sbApi
-        .get(`spaces/${spaceId}/component_groups/`)
-        .then((response) => response.data)
-        .catch((err) => console.error(err));
+    // TODO: All Components Groups doesnt support pagination...
+    // https://github.com/storyblok/storyblok-js-client/issues/535
+    return getAllItemsWithPagination({
+        apiFn: ({ per_page, page }) =>
+            sbApi
+                .get(`spaces/${spaceId}/component_groups/`, { per_page, page })
+                .then((res) => {
+                    Logger.log(`Amount of component groups: ${res.total}`);
+
+                    return res;
+                })
+                .catch((err) => console.error(err)),
+        params: {
+            spaceId,
+        },
+        itemsKey: "component_groups",
+    });
 };
 
 export const createComponentsGroup = (groupName: string) => {

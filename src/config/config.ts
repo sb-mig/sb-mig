@@ -23,6 +23,7 @@ export interface IStoryblokConfig {
     datasourceExt: string;
     rolesExt: string;
     storiesExt: string;
+    migrationConfigExt: string;
     storyblokApiUrl: string;
     storyblokDeliveryApiUrl: string;
     oauthToken: string;

@@ -41,10 +41,11 @@ const _uniqueValuesFrom = (array: any[]) => [...new Set(array)];
 
 const _checkAndPrepareGroups = async (groupsToCheck: any) => {
     const componentsGroups = await getAllComponentsGroups();
+    console.log("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+    console.log(componentsGroups);
+    console.log("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
     const groupExist = (groupName: any) =>
-        componentsGroups.component_groups.find(
-            (group: any) => group.name === groupName
-        );
+        componentsGroups.find((group: any) => group.name === groupName);
 
     groupsToCheck.forEach(async (groupName: string) => {
         if (!groupExist(groupName)) {
@@ -65,11 +66,10 @@ const _resolveGroups = async (
         (group: any) => component.component_group_name === group
     );
     if (componentsGroup) {
-        const component_group_uuid =
-            remoteComponentsGroups.component_groups.find(
-                (remoteComponentsGroup: any) =>
-                    remoteComponentsGroup.name === componentsGroup
-            ).uuid;
+        const component_group_uuid = remoteComponentsGroups.find(
+            (remoteComponentsGroup: any) =>
+                remoteComponentsGroup.name === componentsGroup
+        ).uuid;
 
         return { ...component, component_group_uuid };
     }
@@ -112,7 +112,7 @@ export const syncComponents = async ({
 
     for (const component of specifiedComponentsContent) {
         if (!isObjectEmpty(component)) {
-            const shouldBeUpdated = remoteComponents.components.find(
+            const shouldBeUpdated = remoteComponents.find(
                 (remoteComponent: any) =>
                     component.name === remoteComponent.name
             );
@@ -271,7 +271,8 @@ export const syncAllComponents = async ({ presets }: SyncAllComponents) => {
 };
 
 export const removeAllComponents = async () => {
-    const { components, component_groups } = await getAllComponents();
+    const components = await getAllComponents();
+    const component_groups = await getAllComponentsGroups();
 
     return Promise.all([
         ...components.map(async (component: any) => {
@@ -281,6 +282,8 @@ export const removeAllComponents = async () => {
             await removeComponentGroup({ componentGroup });
         }),
     ]);
+
+    return [];
 };
 
 export const removeSpecifiedComponents = async ({
@@ -292,7 +295,7 @@ export const removeSpecifiedComponents = async ({
     const componentsToRemove: any = [];
 
     components.map((component: any) => {
-        const shouldBeRemoved = remoteComponents.components.find(
+        const shouldBeRemoved = remoteComponents.find(
             (remoteComponent: any) => component === remoteComponent.name
         );
         shouldBeRemoved && componentsToRemove.push(shouldBeRemoved);

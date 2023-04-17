@@ -6,12 +6,13 @@ import {
     debugDescription,
     mainDescription,
     syncDescription,
-    removeDescription, initDescription, discoverDescription
+    removeDescription, initDescription, discoverDescription, migrateDescription
 } from "./cli-descriptions.js";
 import { backup } from "./commands/backup.js";
 import { debug } from "./commands/debug.js";
 import { discover } from "./commands/discover.js";
 import { init } from './commands/init.js'
+import {migrate} from "./commands/migrate.js";
 import {remove} from "./commands/remove.js";
 import { sync } from "./commands/sync.js";
 import { pipe, prop } from "./utils/main.js";
@@ -31,6 +32,16 @@ app.sync = () => ({
     }),
     action: (cli: any) => {
         sync(cli);
+    },
+});
+
+app.migrate = () => ({
+    cli: meow(migrateDescription, {
+        importMeta: import.meta,
+        booleanDefault: undefined,
+    }),
+    action: (cli: any) => {
+        migrate(cli);
     },
 });
 
