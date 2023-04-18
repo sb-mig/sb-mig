@@ -197,16 +197,16 @@ interface SyncProvidedDatasources {
     datasources: string[];
 }
 
-export const syncProvidedDatasources = ({
+export const syncProvidedDatasources = async ({
     datasources,
 }: SyncProvidedDatasources) => {
-    const allLocalDatasources = discoverManyDatasources({
+    const allLocalDatasources = await discoverManyDatasources({
         scope: SCOPE.local,
         type: LOOKUP_TYPE.fileName,
         fileNames: datasources,
     });
 
-    const allExternalDatasources = discoverManyDatasources({
+    const allExternalDatasources = await discoverManyDatasources({
         scope: SCOPE.external,
         type: LOOKUP_TYPE.fileName,
         fileNames: datasources,

@@ -557,9 +557,9 @@ export const discoverMany = async (
     return listOfFiles;
 };
 
-export const discoverManyDatasources = (
+export const discoverManyDatasources = async (
     request: DiscoverManyRequest
-): DiscoverResult => {
+): Promise<DiscoverResult> => {
     const rootDirectory = "./";
     const directory = path.resolve(process.cwd(), rootDirectory);
     let pattern;
@@ -568,24 +568,69 @@ export const discoverManyDatasources = (
     switch (request.scope) {
         case SCOPE.local:
             // ### MANY - LOCAL - fileName ###
+            let listOFSchemaTSFilesCompiled: string[] = [];
+
             const onlyLocalComponentsDirectories =
                 storyblokConfig.componentsDirectories.filter(
                     (p: string) => !p.includes("node_modules")
                 );
+
+            if (storyblokConfig.schemaType === SCHEMA.TS) {
+                pattern = path.join(
+                    `${directory}`,
+                    `${normalizeDiscover({
+                        segments: onlyLocalComponentsDirectories,
+                    })}`,
+                    "**",
+                    `${normalizeDiscover({
+                        segments: request.fileNames,
+                    })}.sb.datasource.${storyblokConfig.schemaType}`
+                );
+
+                const listOfFilesToCompile = glob.sync(
+                    pattern.replace(/\\/g, "/"),
+                    {
+                        follow: true,
+                    }
+                );
+
+                await buildOnTheFly({ files: listOfFilesToCompile });
+
+                pattern = path.join(
+                    directory,
+                    ".next",
+                    "cache",
+                    "sb-mig",
+                    "**",
+                    `${normalizeDiscover({
+                        segments: request.fileNames,
+                    })}.datasource.${storyblokConfig.schemaFileExt}`
+                );
+
+                listOFSchemaTSFilesCompiled = glob.sync(
+                    pattern.replace(/\\/g, "/"),
+                    {
+                        follow: true,
+                    }
+                );
+            }
+
             pattern = path.join(
                 `${directory}`,
                 `${normalizeDiscover({
                     segments: onlyLocalComponentsDirectories,
                 })}`,
                 "**",
-                `${normalizeDiscover({ segments: request.fileNames })}.${
-                    storyblokConfig.datasourceExt
-                }`
+                `${normalizeDiscover({
+                    segments: request.fileNames,
+                })}.datasource.${storyblokConfig.datasourceExt}`
             );
 
             listOfFiles = glob.sync(pattern.replace(/\\/g, "/"), {
                 follow: true,
             });
+
+            listOfFiles = [...listOfFiles, ...listOFSchemaTSFilesCompiled];
             break;
 
         case SCOPE.external:
@@ -1124,21 +1169,64 @@ export const discoverRoles = (request: DiscoverRequest): DiscoverResult => {
     return listOfFiles;
 };
 
-export const discoverManyRoles = (
+export const discoverManyRoles = async (
     request: DiscoverManyRequest
-): DiscoverResult => {
+): Promise<DiscoverResult> => {
     const rootDirectory = "./";
     const directory = path.resolve(process.cwd(), rootDirectory);
     let pattern;
-    let listOfFiles = [""];
+    let listOfFiles: string[] = [""];
 
     switch (request.scope) {
         case SCOPE.local:
             // ### ALL - LOCAL - fileName ###
+            let listOFSchemaTSFilesCompiled: string[] = [];
+
             const onlyLocalComponentsDirectories =
                 storyblokConfig.componentsDirectories.filter(
                     (p: string) => !p.includes("node_modules")
                 );
+
+            if (storyblokConfig.schemaType === SCHEMA.TS) {
+                pattern = path.join(
+                    `${directory}`,
+                    `${normalizeDiscover({
+                        segments: onlyLocalComponentsDirectories,
+                    })}`,
+                    "**",
+                    `${normalizeDiscover({
+                        segments: request.fileNames,
+                    })}.sb.roles.${storyblokConfig.schemaType}`
+                );
+
+                const listOfFilesToCompile = glob.sync(
+                    pattern.replace(/\\/g, "/"),
+                    {
+                        follow: true,
+                    }
+                );
+
+                await buildOnTheFly({ files: listOfFilesToCompile });
+
+                pattern = path.join(
+                    directory,
+                    ".next",
+                    "cache",
+                    "sb-mig",
+                    "**",
+                    `${normalizeDiscover({
+                        segments: request.fileNames,
+                    })}.roles.${storyblokConfig.schemaFileExt}`
+                );
+
+                listOFSchemaTSFilesCompiled = glob.sync(
+                    pattern.replace(/\\/g, "/"),
+                    {
+                        follow: true,
+                    }
+                );
+            }
+
             pattern = path.join(
                 `${directory}`,
                 `${normalizeDiscover({
@@ -1153,6 +1241,8 @@ export const discoverManyRoles = (
             listOfFiles = glob.sync(pattern.replace(/\\/g, "/"), {
                 follow: true,
             });
+
+            listOfFiles = [...listOfFiles, ...listOFSchemaTSFilesCompiled];
             break;
         case SCOPE.external:
             // ### ALL - EXTERNAL - fileName ###
