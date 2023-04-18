@@ -156,15 +156,15 @@ export const syncAllRoles = async () => {
     syncRoles({ specifiedRoles: [...local, ...external] });
 };
 
-export const syncProvidedRoles = ({ roles }: { roles: string[] }) => {
+export const syncProvidedRoles = async ({ roles }: { roles: string[] }) => {
     // #1: discover all external .sb.js files
-    const allLocalSbComponentsSchemaFiles = discoverManyRoles({
+    const allLocalSbComponentsSchemaFiles = await discoverManyRoles({
         scope: SCOPE.local,
         type: LOOKUP_TYPE.fileName,
         fileNames: roles,
     });
     // #2: discover all local .sb.js files
-    const allExternalSbComponentsSchemaFiles = discoverManyRoles({
+    const allExternalSbComponentsSchemaFiles = await discoverManyRoles({
         scope: SCOPE.external,
         type: LOOKUP_TYPE.fileName,
         fileNames: roles,
@@ -174,6 +174,7 @@ export const syncProvidedRoles = ({ roles }: { roles: string[] }) => {
         local: allLocalSbComponentsSchemaFiles,
         external: allExternalSbComponentsSchemaFiles,
     });
+
     // #4: sync - do all stuff already done (groups resolving, and so on)
     syncRoles({ specifiedRoles: [...local, ...external] });
 };
