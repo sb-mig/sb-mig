@@ -1,3 +1,19 @@
+# [4.1.0-beta.69](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.68...v4.1.0-beta.69) (2023-04-18)
+
+
+### fix
+
+* add precompiling ts files for roles and datasources ([6b79dfe](https://github.com/sb-mig/sb-mig/commit/6b79dfe3858b238fe784666935a7bb0bf2c2ab32))
+
+
+
+# [4.1.0-beta.69](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.68...v4.1.0-beta.69) (2023-04-18)
+
+
+### Bug Fixes
+
+* add precompiling ts files for roles and datasources ([6b79dfe](https://github.com/sb-mig/sb-mig/commit/6b79dfe3858b238fe784666935a7bb0bf2c2ab32))
+
 # [4.1.0-beta.68](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.67...v4.1.0-beta.68) (2023-04-17)
 
 
