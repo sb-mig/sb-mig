@@ -1,3 +1,19 @@
+# [4.1.0-beta.70](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.69...v4.1.0-beta.70) (2023-04-19)
+
+
+### fix
+
+* downgrade @swc/core and @swc/helpers - breaking change ([2a9eaec](https://github.com/sb-mig/sb-mig/commit/2a9eaec01b73ab9eb898051dc025be6033c7ea7d))
+
+
+
+# [4.1.0-beta.70](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.69...v4.1.0-beta.70) (2023-04-19)
+
+
+### Bug Fixes
+
+* downgrade @swc/core and @swc/helpers - breaking change ([2a9eaec](https://github.com/sb-mig/sb-mig/commit/2a9eaec01b73ab9eb898051dc025be6033c7ea7d))
+
 # [4.1.0-beta.69](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.68...v4.1.0-beta.69) (2023-04-18)
 
 
