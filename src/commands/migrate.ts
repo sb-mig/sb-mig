@@ -5,6 +5,7 @@ import {
     migrateAllComponentsDataInStories,
     migrateProvidedComponentsDataInStories,
 } from "../api/data-migration/component-data-migration.js";
+import { backupStories } from "../api/stories.js";
 import Logger from "../utils/logger.js";
 import { isItFactory, unpackElements } from "../utils/main.js";
 import { askForConfirmation } from "../utils/others.js";
@@ -37,9 +38,15 @@ export const migrate = async (props: CLIOptions) => {
                 const componentsToMigrate = unpackElements(input) || [""];
 
                 await askForConfirmation(
-                    "Are you sure you want to MIGRATE content (stories) in your space ?",
+                    "Are you sure you want to MIGRATE content (stories) in your space ? (it will overwrite stories)",
                     async () => {
                         Logger.warning("Preparing to migrate...");
+
+                        await backupStories({
+                            filename: `${flags["from"]}--backup`,
+                            suffix: ".sb.stories",
+                            spaceId: flags["from"],
+                        });
 
                         const migrateFrom: MigrateFrom = "space";
 
@@ -62,12 +69,15 @@ export const migrate = async (props: CLIOptions) => {
             } else if (isIt("all")) {
                 console.log("migrating all!");
                 await askForConfirmation(
-                    "Are you sure you want to MIGRATE content (stories) in your space ?",
+                    "Are you sure you want to MIGRATE content (stories) in your space ? (it will overwrite stories)",
                     async () => {
                         Logger.warning("Preparing to migrate...");
 
-                        // Logger.log("Backing up current space data...");
-                        // Backup all stories to file
+                        await backupStories({
+                            filename: `${flags["from"]}--backup`,
+                            suffix: ".sb.stories",
+                            spaceId: flags["from"],
+                        });
 
                         const migrateFrom: MigrateFrom = "space";
 

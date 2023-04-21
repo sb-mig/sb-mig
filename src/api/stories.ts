@@ -53,7 +53,12 @@ export const getAllItemsWithPagination = async ({
 
     do {
         const response = await apiFn({ per_page, page, ...params });
-        Logger.success(`Page: ${page} of ${response.total} items fetched.`);
+
+        if (!totalPages) {
+            totalPages = Math.ceil(response.total / response.perPage);
+        }
+
+        Logger.success(`${page} of ${totalPages} items fetched.`);
 
         if (storyblokConfig.debug) {
             Logger.warning(
@@ -63,10 +68,6 @@ export const getAllItemsWithPagination = async ({
             Logger.warning(
                 "#####################################################"
             );
-        }
-
-        if (!totalPages) {
-            totalPages = Math.ceil(response.total / response.perPage);
         }
 
         Logger.log(`Total pages: ${totalPages}`);
