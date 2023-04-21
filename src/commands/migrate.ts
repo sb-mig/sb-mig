@@ -1,9 +1,12 @@
-import type { MigrateFrom } from "../api/stories.js";
+import type { MigrateFrom } from "../api/data-migration/component-data-migration.js";
 import type { CLIOptions } from "../utils/interfaces.js";
 
-import { migrateStories } from "../api/stories.js";
+import {
+    migrateAllComponentsDataInStories,
+    migrateProvidedComponentsDataInStories,
+} from "../api/data-migration/component-data-migration.js";
 import Logger from "../utils/logger.js";
-import { isItFactory } from "../utils/main.js";
+import { isItFactory, unpackElements } from "../utils/main.js";
 import { askForConfirmation } from "../utils/others.js";
 
 const MIGRATE_COMMANDS = {
@@ -16,8 +19,10 @@ export const migrate = async (props: CLIOptions) => {
     const command = input[1];
     const rules = {
         empty: [],
+        all: ["all"],
     };
     const isIt = isItFactory<keyof typeof rules>(flags, rules, [
+        "to",
         "from",
         "pageId",
         "migration",
@@ -28,36 +33,49 @@ export const migrate = async (props: CLIOptions) => {
         case MIGRATE_COMMANDS.content:
             Logger.log(`Migrating content with command: ${command}`);
 
-            console.log("############");
-            console.log({
-                ...flags,
-            });
-            console.log("############");
-
             if (isIt("empty")) {
+                const componentsToMigrate = unpackElements(input) || [""];
+
                 await askForConfirmation(
                     "Are you sure you want to MIGRATE content (stories) in your space ?",
                     async () => {
                         Logger.warning("Preparing to migrate...");
-                        Logger.log("Backing up current space data...");
 
-                        // Backup all stories to file
-                        // await syncContent({
-                        //     type: "stories",
-                        //     transmission: {
-                        //         from: to,
-                        //         to: `${to}_stories-backup`,
-                        //     },
-                        //     syncDirection: "fromSpaceToFile",
-                        // });
+                        const migrateFrom: MigrateFrom = "space";
 
-                        const migrateFrom: MigrateFrom = "file";
-
-                        // here we should migrate stuff
-                        await migrateStories({
+                        // Migrating provided components
+                        await migrateProvidedComponentsDataInStories({
                             from: flags["from"],
+                            to: flags["to"],
                             migrateFrom,
-                            pageId: flags["pageId"],
+                            componentsToMigrate,
+                            migrationConfig: flags["migration"],
+                        });
+                    },
+                    () => {
+                        Logger.success(
+                            "Migration not started, exiting the program..."
+                        );
+                    },
+                    flags["yes"]
+                );
+            } else if (isIt("all")) {
+                console.log("migrating all!");
+                await askForConfirmation(
+                    "Are you sure you want to MIGRATE content (stories) in your space ?",
+                    async () => {
+                        Logger.warning("Preparing to migrate...");
+
+                        // Logger.log("Backing up current space data...");
+                        // Backup all stories to file
+
+                        const migrateFrom: MigrateFrom = "space";
+
+                        // here we should migrate all
+                        await migrateAllComponentsDataInStories({
+                            from: flags["from"],
+                            to: flags["to"],
+                            migrateFrom,
                             migrationConfig: flags["migration"],
                         });
                     },

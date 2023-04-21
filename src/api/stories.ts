@@ -1,13 +1,8 @@
+import chalk from "chalk";
+
 import storyblokConfig from "../config/config.js";
-import {
-    discoverMigrationConfig,
-    discoverStories,
-    LOOKUP_TYPE,
-    SCOPE,
-} from "../utils/discover.js";
 import { createAndSaveToStoriesFile } from "../utils/files.js";
 import Logger from "../utils/logger.js";
-import { getFilesContentWithRequire } from "../utils/main.js";
 import { generateDatestamp } from "../utils/others.js";
 
 import { sbApi } from "./config.js";
@@ -58,6 +53,7 @@ export const getAllItemsWithPagination = async ({
 
     do {
         const response = await apiFn({ per_page, page, ...params });
+        Logger.success(`Page: ${page} of ${response.total} items fetched.`);
 
         if (storyblokConfig.debug) {
             Logger.warning(
@@ -149,15 +145,16 @@ export const getStoryBySlug = async ({
     return storiesWithContent[0];
 };
 
-// CREATE
-export const createStory = ({
-    spaceId,
-    content,
-}: {
+export interface CreateStory {
     spaceId: string;
     content: any;
-}) => {
-    Logger.log(`Moving story with name: ${content.name} to space: ${spaceId}`);
+}
+
+// CREATE
+export const createStory = ({ spaceId, content }: CreateStory) => {
+    Logger.log(
+        `Creating story with name: ${content.name} in space: ${spaceId}`
+    );
     return sbApi
         .post(`spaces/${spaceId}/stories/`, {
             story: content,
@@ -167,7 +164,29 @@ export const createStory = ({
         .catch((err: any) => console.error(err));
 };
 
-export const updateStory = () => {};
+export interface UpdateStory {
+    spaceId: string;
+    content: any;
+    storyId: string;
+}
+
+// UPDATE
+export const updateStory = ({ spaceId, content, storyId }: UpdateStory) => {
+    Logger.warning("Trying to update Story...");
+    Logger.log(
+        `Updating story with name: ${content.name} in space: ${spaceId}`
+    );
+    return sbApi
+        .put(`spaces/${spaceId}/stories/${storyId}`, {
+            story: content,
+            publish: 1,
+        })
+        .then((res: any) => {
+            console.log(`${chalk.green(res.data.story.full_slug)} updated.`);
+            return res.data;
+        })
+        .catch((err: any) => console.error(err));
+};
 
 interface TreeNode {
     id: number;
@@ -244,13 +263,10 @@ export const backupStories = async ({
     spaceId: string;
     suffix?: string;
 }) => {
-    console.log({ filename, suffix });
     Logger.log(`Making backup of your stories.`);
     const timestamp = generateDatestamp(new Date());
     await getAllStories({ spaceId })
         .then(async (res: any) => {
-            console.log("Amount of stories received: ");
-            console.log(res.length);
             await createAndSaveToStoriesFile({
                 filename: `${filename}_${timestamp}`,
                 suffix,
@@ -262,186 +278,4 @@ export const backupStories = async ({
             Logger.error(err);
             Logger.error("error happened... :(");
         });
-};
-
-export type MigrateFrom = "file" | "space";
-
-interface MigrateStories {
-    from: string;
-    migrateFrom: MigrateFrom;
-    pageId: string;
-    migrationConfig: string;
-}
-
-interface ReplaceComponentData {
-    parent: any;
-    key: any;
-    component: string;
-    mapper: (data: any) => any;
-    depth: number;
-    maxDepth: number;
-}
-
-function replaceComponentData({
-    parent,
-    key,
-    component,
-    mapper,
-    depth,
-    maxDepth,
-}: ReplaceComponentData) {
-    let currentMaxDepth = depth;
-    if (storyblokConfig.debug) {
-        Logger.warning(`Current max depth: ${depth}`);
-    }
-
-    if (typeof parent[key] === "object") {
-        if (parent[key]?.component === component) {
-            const { content, citation, ...rest } = parent[key];
-            const dataToReplace = mapper(parent[key]);
-            parent[key] = { ...rest, ...dataToReplace };
-        }
-
-        if (Array.isArray(parent[key])) {
-            for (let i = 0; i < parent[key].length; i++) {
-                const childMaxDepth = replaceComponentData({
-                    parent: parent[key],
-                    key: i,
-                    component,
-                    mapper,
-                    depth: depth + 1,
-                    maxDepth,
-                });
-                currentMaxDepth = Math.max(currentMaxDepth, childMaxDepth);
-            }
-        } else {
-            for (const subKey in parent[key]) {
-                const childMaxDepth = replaceComponentData({
-                    parent: parent[key],
-                    key: subKey,
-                    component,
-                    mapper,
-                    depth: depth + 1,
-                    maxDepth,
-                });
-                currentMaxDepth = Math.max(currentMaxDepth, childMaxDepth);
-            }
-        }
-    }
-
-    return currentMaxDepth;
-}
-
-export const migrateStories = async ({
-    migrationConfig,
-    migrateFrom,
-    from,
-    pageId,
-}: MigrateStories) => {
-    console.log({ migrationConfig, migrateFrom, from, pageId });
-    if (migrateFrom === "file") {
-        Logger.log("Migrating using file....");
-
-        const allLocalStories = discoverStories({
-            scope: SCOPE.local,
-            type: LOOKUP_TYPE.fileName,
-            fileNames: [from],
-        });
-
-        const storiesFileContent = getFilesContentWithRequire({
-            files: allLocalStories,
-        });
-
-        const singleStory = storiesFileContent[0].find(
-            ({ story }: any) => story.id === pageId
-        );
-
-        console.log("This is stories content from file: ");
-        console.log(storiesFileContent);
-
-        console.log("Single story: ");
-        console.log(singleStory);
-
-        const migrationConfigFiles = discoverMigrationConfig({
-            scope: SCOPE.local,
-            type: LOOKUP_TYPE.fileName,
-            fileNames: [migrationConfig],
-        });
-
-        const migrationConfigFileContent = getFilesContentWithRequire({
-            files: migrationConfigFiles,
-        });
-
-        console.log("This is migration config file content: ");
-        console.log(migrationConfigFileContent);
-
-        // const json = {
-        //     "content": {
-        //         //... your JSON structure
-        //     }
-        // };
-
-        const componentToMigrate:
-            | "sb-blockquote-flex-group"
-            | "sb-blockquote-section" = "sb-blockquote-section";
-
-        const arrayOfMaxDepths: number[] = [];
-
-        storiesFileContent[0].map((stories: any, index: number) => {
-            Logger.success(`#   ${index}   #`);
-            const json = stories.story.content;
-            const maxDepth = replaceComponentData({
-                parent: { root: json },
-                key: "root",
-                component: componentToMigrate,
-                mapper: migrationConfigFileContent[0][0][componentToMigrate],
-                depth: 0,
-                maxDepth: 0,
-            });
-
-            arrayOfMaxDepths.push(maxDepth);
-        });
-
-        const maxOfMax = Math.max(...arrayOfMaxDepths);
-
-        console.log("#################");
-        console.log("#################");
-        console.log("#################");
-        if (maxOfMax > 30) {
-            Logger.error(`Max depth: ${maxOfMax}`);
-        } else {
-            Logger.success(`Max depth: ${maxOfMax}`);
-        }
-        console.log("#################");
-        console.log("#################");
-        console.log("#################");
-
-        // const json = singleStory.story.content;
-        // const maxDepth = replaceComponentData({
-        //     parent: {root: json},
-        //     key: 'root',
-        //     component: componentToMigrate,
-        //     mapper: migrationConfigFileContent[0][0][componentToMigrate],
-        //     depth: 0,
-        //     maxDepth: 0
-        // })
-        //
-        // if(maxDepth > 30) {
-        //     Logger.error(`Max depth: ${maxDepth}`)
-        // } else {
-        //     Logger.success(`Max depth: ${maxDepth}`)
-        // }
-
-        // replaceComponentData({{root: json}, key: 'root', replacementData, component: replacementData.component});
-
-        // await createAndSaveToStoriesFile({
-        //     filename: `new_stuffffff`,
-        //     suffix: 'dupa-',
-        //     folder: "migrations",
-        //     res: json,
-        // });
-    } else {
-        Logger.log("Migrating using space....");
-        Logger.log("------------ not implemented yet ------------");
-    }
 };
