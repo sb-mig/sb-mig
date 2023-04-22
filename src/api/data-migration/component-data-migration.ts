@@ -136,6 +136,14 @@ export const prepareStoriesFromLocalFile = ({ from }: any) => {
         files: allLocalStories,
     })[0];
 
+    if (!storiesFileContent) {
+        throw new Error(
+            `Couldn't receive data from provided stories filename: ${chalk.red(
+                from
+            )}`
+        );
+    }
+
     return storiesFileContent;
 };
 

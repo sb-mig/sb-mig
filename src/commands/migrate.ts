@@ -15,12 +15,14 @@ const MIGRATE_COMMANDS = {
 };
 
 export const migrate = async (props: CLIOptions) => {
+    console.log("PRops");
+    console.log(props);
     const { input, flags } = props;
 
     const command = input[1];
     const rules = {
         empty: [],
-        all: ["all"],
+        all: ["all", "migrateFrom"],
     };
     const isIt = isItFactory<keyof typeof rules>(flags, rules, [
         "to",
@@ -60,7 +62,7 @@ export const migrate = async (props: CLIOptions) => {
                         });
                     },
                     () => {
-                        Logger.success(
+                        Logger.warning(
                             "Migration not started, exiting the program..."
                         );
                     },
@@ -73,13 +75,13 @@ export const migrate = async (props: CLIOptions) => {
                     async () => {
                         Logger.warning("Preparing to migrate...");
 
-                        await backupStories({
-                            filename: `${flags["from"]}--backup`,
-                            suffix: ".sb.stories",
-                            spaceId: flags["from"],
-                        });
+                        // await backupStories({
+                        //     filename: `${flags["from"]}--backup`,
+                        //     suffix: ".sb.stories",
+                        //     spaceId: flags["from"],
+                        // });
 
-                        const migrateFrom: MigrateFrom = "space";
+                        const migrateFrom: MigrateFrom = flags["migrateFrom"];
 
                         // here we should migrate all
                         await migrateAllComponentsDataInStories({
@@ -90,7 +92,7 @@ export const migrate = async (props: CLIOptions) => {
                         });
                     },
                     () => {
-                        Logger.success(
+                        Logger.warning(
                             "Migration not started, exiting the program..."
                         );
                     },

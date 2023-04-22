@@ -39,6 +39,19 @@ app.migrate = () => ({
     cli: meow(migrateDescription, {
         importMeta: import.meta,
         booleanDefault: undefined,
+        flags: {
+            from: {
+                type: "string"
+            },
+            to: {
+                type: "string"
+            },
+            migrateFrom: {
+                type: "string",
+                default: "space",
+                isRequired: true
+            }
+        }
     }),
     action: (cli: any) => {
         migrate(cli);
