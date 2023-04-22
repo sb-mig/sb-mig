@@ -44,12 +44,7 @@ export const getAllItemsWithPagination = async ({
     const allItems = [];
     let page = 1;
     let totalPages;
-
-    if (storyblokConfig.debug) {
-        Logger.warning("####### getAllItemsWithPagination #######");
-        Logger.warning({ params, per_page, page });
-        Logger.warning("#########################################");
-    }
+    let amountOfFetchedItems = 0;
 
     do {
         const response = await apiFn({ per_page, page, ...params });
@@ -58,7 +53,14 @@ export const getAllItemsWithPagination = async ({
             totalPages = Math.ceil(response.total / response.perPage);
         }
 
-        Logger.success(`${page} of ${totalPages} items fetched.`);
+        amountOfFetchedItems +=
+            response.total - amountOfFetchedItems > per_page
+                ? per_page
+                : response.total - amountOfFetchedItems;
+
+        Logger.success(
+            `${amountOfFetchedItems} of ${response.total} items fetched.`
+        );
 
         if (storyblokConfig.debug) {
             Logger.warning(
@@ -69,8 +71,6 @@ export const getAllItemsWithPagination = async ({
                 "#####################################################"
             );
         }
-
-        Logger.log(`Total pages: ${totalPages}`);
 
         allItems.push(...response.data[itemsKey]);
 
@@ -96,11 +96,28 @@ export const getAllStories = async ({ spaceId }: { spaceId: string }) => {
         itemsKey: "stories",
     });
 
+    Logger.success(
+        `Successfully pre-fetched ${allStoriesWithoutContent.length} stories.`
+    );
+
+    let heartBeat = 0;
+
     const allStories = await Promise.all(
-        allStoriesWithoutContent.map(
-            async (story: any) =>
-                await getStoryById({ spaceId, storyId: story.id })
-        )
+        allStoriesWithoutContent.map(async (story: any) => {
+            const result = await getStoryById({ spaceId, storyId: story.id });
+
+            heartBeat++;
+            if (
+                heartBeat % 10 === 0 ||
+                heartBeat === allStoriesWithoutContent.length
+            ) {
+                Logger.success(
+                    `Successfully fetched ${heartBeat} stories with full content.`
+                );
+            }
+
+            return result;
+        })
     );
 
     return allStories;
@@ -114,10 +131,23 @@ export const getStoryById = ({
     spaceId: string;
     storyId: string;
 }) => {
+    if (storyblokConfig.debug) {
+        console.log(
+            `Trying to get Story with id: ${storyId} from space: ${spaceId}, to fill content field.`
+        );
+    }
     return sbApi
         .get(`spaces/${spaceId}/stories/${storyId}`)
-        .then((res: any) => res.data)
-        .catch((err: any) => console.error(err));
+        .then((res: any) => {
+            if (storyblokConfig.debug) {
+                Logger.success(
+                    `Successfuly fetched story with content, with id: ${storyId} from space: ${spaceId}.`
+                );
+            }
+
+            return res.data;
+        })
+        .catch((err: any) => Logger.error(err));
 };
 
 export const getStoryBySlug = async ({

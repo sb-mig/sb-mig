@@ -138,6 +138,7 @@ export const backupDescription = `
         presets           - backup presets
         component-presets - backup component presets
         plugins           - backup plugins
+        stories           - backup stories (only --all)
 
      
     FLAGS
@@ -151,6 +152,7 @@ export const backupDescription = `
         $ sb-mig backup roles admin --one
         $ sb-mig backup plugins --all
         $ sb-mig backup plugins my-awesome-plugin --one
+        $ sb-mig backup stories --all
 `;
 
 export const debugDescription = `
