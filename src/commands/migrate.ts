@@ -8,15 +8,13 @@ import {
 import { backupStories } from "../api/stories.js";
 import Logger from "../utils/logger.js";
 import { isItFactory, unpackElements } from "../utils/main.js";
-import { askForConfirmation } from "../utils/others.js";
+import { askForConfirmation, getFrom, getTo } from "../utils/others.js";
 
 const MIGRATE_COMMANDS = {
     content: "content",
 };
 
 export const migrate = async (props: CLIOptions) => {
-    console.log("PRops");
-    console.log(props);
     const { input, flags } = props;
 
     const command = input[1];
@@ -32,12 +30,22 @@ export const migrate = async (props: CLIOptions) => {
         "yes",
     ]);
 
+    Logger.warning(
+        `This feature is in BETA. Use it at your own risk. The API might change in the future. (Probably in a standard Prisma like migration way)`
+    );
+
     switch (command) {
         case MIGRATE_COMMANDS.content:
             Logger.log(`Migrating content with command: ${command}`);
 
+            const from = getFrom(flags);
+            const to = getTo(flags);
+            const migrationConfig = flags["migration"];
+
             if (isIt("empty")) {
                 const componentsToMigrate = unpackElements(input) || [""];
+
+                const migrateFrom: MigrateFrom = "space";
 
                 await askForConfirmation(
                     "Are you sure you want to MIGRATE content (stories) in your space ? (it will overwrite stories)",
@@ -45,20 +53,18 @@ export const migrate = async (props: CLIOptions) => {
                         Logger.warning("Preparing to migrate...");
 
                         await backupStories({
-                            filename: `${flags["from"]}--backup`,
+                            filename: `${from}--backup-before-migration___${migrationConfig}`,
                             suffix: ".sb.stories",
-                            spaceId: flags["from"],
+                            spaceId: from,
                         });
-
-                        const migrateFrom: MigrateFrom = "space";
 
                         // Migrating provided components
                         await migrateProvidedComponentsDataInStories({
-                            from: flags["from"],
-                            to: flags["to"],
+                            from,
+                            to,
                             migrateFrom,
                             componentsToMigrate,
-                            migrationConfig: flags["migration"],
+                            migrationConfig,
                         });
                     },
                     () => {
@@ -69,26 +75,31 @@ export const migrate = async (props: CLIOptions) => {
                     flags["yes"]
                 );
             } else if (isIt("all")) {
-                console.log("migrating all!");
+                const migrateFrom: MigrateFrom = flags["migrateFrom"];
+
+                console.log({
+                    from,
+                    to,
+                    migrateFrom,
+                    migrationConfig,
+                });
+
                 await askForConfirmation(
                     "Are you sure you want to MIGRATE content (stories) in your space ? (it will overwrite stories)",
                     async () => {
                         Logger.warning("Preparing to migrate...");
 
-                        // await backupStories({
-                        //     filename: `${flags["from"]}--backup`,
-                        //     suffix: ".sb.stories",
-                        //     spaceId: flags["from"],
-                        // });
+                        await backupStories({
+                            filename: `${from}--backup-before-migration___${migrationConfig}`,
+                            suffix: ".sb.stories",
+                            spaceId: from,
+                        });
 
-                        const migrateFrom: MigrateFrom = flags["migrateFrom"];
-
-                        // here we should migrate all
                         await migrateAllComponentsDataInStories({
-                            from: flags["from"],
-                            to: flags["to"],
+                            from,
+                            to,
                             migrateFrom,
-                            migrationConfig: flags["migration"],
+                            migrationConfig,
                         });
                     },
                     () => {

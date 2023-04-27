@@ -10,7 +10,7 @@ import {
 import { createAndSaveToStoriesFile } from "../../utils/files.js";
 import Logger from "../../utils/logger.js";
 import { getFilesContentWithRequire, isObjectEmpty } from "../../utils/main.js";
-import { getAllStories, updateStory } from "../stories.js";
+import { getAllStories, updateStories, updateStory } from "../stories.js";
 
 export type MigrateFrom = "file" | "space";
 
@@ -288,14 +288,7 @@ export const doTheMigration = async ({
         res: migratedStories,
     });
 
-    // Run through stories, and update the space with migrated version of stories
-    migratedStories.forEach(async (stories: any) => {
-        updateStory({
-            storyId: stories.story.id,
-            content: stories.story,
-            spaceId: to,
-        });
-    });
+    await updateStories({ stories: migratedStories, spaceId: to });
 };
 
 export const migrateProvidedComponentsDataInStories = async ({

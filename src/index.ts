@@ -6,7 +6,7 @@ import {
     debugDescription,
     mainDescription,
     syncDescription,
-    removeDescription, initDescription, discoverDescription, migrateDescription
+    removeDescription, initDescription, discoverDescription, migrateDescription, revertDescription
 } from "./cli-descriptions.js";
 import { backup } from "./commands/backup.js";
 import { debug } from "./commands/debug.js";
@@ -16,6 +16,7 @@ import {migrate} from "./commands/migrate.js";
 import {remove} from "./commands/remove.js";
 import { sync } from "./commands/sync.js";
 import { pipe, prop } from "./utils/main.js";
+import {revert} from "./commands/revert.js";
 
 const app = () => ({
     cli: meow(mainDescription, {
@@ -55,6 +56,16 @@ app.migrate = () => ({
     }),
     action: (cli: any) => {
         migrate(cli);
+    },
+});
+
+app.revert = () => ({
+    cli: meow(revertDescription, {
+        importMeta: import.meta,
+        booleanDefault: undefined,
+    }),
+    action: (cli: any) => {
+        revert(cli);
     },
 });
 

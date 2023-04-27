@@ -19,6 +19,13 @@ export interface IStoryblokConfig {
     storyblokComponentsLocalDirectory: string;
     sbmigWorkingDirectory: string;
     componentsDirectories: string[];
+    awsBucketData: {
+        bucketName: string;
+        s3Url: `s3://${string}`;
+        httpUrl: `https://${string}`;
+    };
+    contentHubOriginUrl: string;
+    contentHubAuthorizationToken: string;
     schemaFileExt: "sb.cjs" | "sb.js";
     datasourceExt: string;
     rolesExt: string;

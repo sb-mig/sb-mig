@@ -60,7 +60,7 @@ export const syncDescription = `
 
 export const migrateDescription = `
     Usage
-        $ sb-mig migrate [content] [space separated file names] or --all --from [spaceId] --to [spaceId] --migration [migration]
+        $ sb-mig migrate [content] [space separated file names] or --all --from [spaceId] --to [spaceId] --migration [migration-config-filename]
         
     Description
         Migrate content from space to space, or from file to space. It's potentially dangerous command, so it will ask for confirmation.
@@ -81,6 +81,24 @@ export const migrateDescription = `
         $ sb-mig migrate content --all --migrate-from file --from file-with-stories --to 12345 --migration file-with-migration
         $ sb-mig migrate content my-component-1 my-component-2 --from 12345 --to 12345 --migration file-with-migration
         $ sb-mig migrate content my-component-1 my-component-2 --migrate-from file --from file-with-stories --to 12345 --migration file-with-migration        
+`;
+
+export const revertDescription = `
+    Usage
+        $ sb-mig revert [content] --migration
+        
+    Description
+        Revert content migration
+        
+    COMMANDS
+        content           - revert content migration 
+     
+    FLAGS
+        --migration       - ???
+        --yes             - Skip ask for confirmation (dangerous, but useful in CI/CD) 
+    
+    EXAMPLES
+        $ sb-mig revert content --migration        
 `;
 
 export const discoverDescription = `

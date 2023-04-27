@@ -219,6 +219,25 @@ export const updateStory = ({ spaceId, content, storyId }: UpdateStory) => {
         .catch((err: any) => console.error(err));
 };
 
+export const updateStories = ({
+    stories,
+    spaceId,
+}: {
+    stories: any;
+    spaceId: string;
+}) => {
+    return Promise.allSettled(
+        // Run through stories, and update the space with migrated version of stories
+        stories.map(async (stories: any) => {
+            return updateStory({
+                storyId: stories.story.id,
+                content: stories.story,
+                spaceId,
+            });
+        })
+    );
+};
+
 interface TreeNode {
     id: number;
     parent_id: number | null;
