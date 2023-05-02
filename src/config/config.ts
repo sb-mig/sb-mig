@@ -18,6 +18,8 @@ type SchemaType = (typeof SCHEMA)[keyof typeof SCHEMA];
 export interface IStoryblokConfig {
     storyblokComponentsLocalDirectory: string;
     sbmigWorkingDirectory: string;
+    presetsBackupDirectory: string;
+    storiesBackupDirectory: string;
     componentsDirectories: string[];
     awsBucketData: {
         bucketName: string;

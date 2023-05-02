@@ -11,9 +11,13 @@ export const defaultConfig = (
 ): IStoryblokConfig => {
     const packagePath = `${path}/package.json`;
 
+    const sbmigWorkingDirectory = "sbmig";
+
     return {
         storyblokComponentsLocalDirectory: "src/@storyblok-components",
-        sbmigWorkingDirectory: "sbmig",
+        sbmigWorkingDirectory: sbmigWorkingDirectory,
+        presetsBackupDirectory: `${sbmigWorkingDirectory}/component-presets`,
+        storiesBackupDirectory: `${sbmigWorkingDirectory}/stories`,
         componentsDirectories: ["src", "storyblok"],
         awsBucketData: {
             bucketName: "site-builder-content-hub",
