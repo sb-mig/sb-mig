@@ -18,7 +18,7 @@ import { backupStories } from "../api/stories.js";
 import storyblokConfig from "../config/config.js";
 import Logger from "../utils/logger.js";
 import { isItFactory, unpackElements } from "../utils/main.js";
-import { askForConfirmation } from "../utils/others.js";
+import { askForConfirmation, getFrom, getTo } from "../utils/others.js";
 import { defineSyncDirection } from "../utils/sync-utils.js";
 
 const SYNC_COMMANDS = {
@@ -43,6 +43,8 @@ export const sync = async (props: CLIOptions) => {
         empty: [],
     };
     const isIt = isItFactory<keyof typeof rules>(flags, rules, [
+        "filename",
+        "syncDirection",
         "from",
         "to",
         "presets",
@@ -125,19 +127,16 @@ export const sync = async (props: CLIOptions) => {
         case SYNC_COMMANDS.content:
             Logger.log(`Syncing content with command: ${command}`);
 
-            const from = flags["from"]
-                ? flags["from"]
-                : storyblokConfig.boilerplateSpaceId;
-            const to = flags["to"] ? flags["to"] : storyblokConfig.spaceId;
+            const from = getFrom(flags);
+            const to = getTo(flags);
 
             Logger.warning(
                 `sync story... from ${from} to working dir spaceid: ${to} with command: ${command}`
             );
 
-            const syncDirection: SyncDirection = defineSyncDirection(
-                Number(from),
-                Number(to)
-            );
+            const syncDirection: SyncDirection =
+                flags["syncDirection"] ||
+                defineSyncDirection(Number(from), Number(to));
 
             console.log({
                 from,
@@ -205,6 +204,12 @@ export const sync = async (props: CLIOptions) => {
                     `Syncing using sync direction: ${syncDirection}`
                 );
 
+                console.log({
+                    from,
+                    to,
+                    syncDirection,
+                });
+
                 if (syncDirection !== "fromSpaceToFile") {
                     await askForConfirmation(
                         "Are you sure you want to delete all stories in your space and then apply test ones ?",
@@ -230,6 +235,7 @@ export const sync = async (props: CLIOptions) => {
                                 type: "stories",
                                 transmission: { from, to },
                                 syncDirection,
+                                filename: flags["filename"],
                             });
                         },
                         () => {

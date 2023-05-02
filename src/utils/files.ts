@@ -1,5 +1,6 @@
 import * as fs from "fs";
 import { writeFile } from "fs";
+import path from "path";
 
 import pkg from "ncp";
 
@@ -108,6 +109,11 @@ interface CreateAndSaveToFile {
     res: any;
 }
 
+interface CreateAndSavePresetToFile {
+    filename: string;
+    res: any;
+}
+
 interface CreateAndSaveComponentListToFile {
     file?: string;
     folder?: string;
@@ -126,6 +132,18 @@ export const createAndSaveToFile = async ({
     await createJsonFile(
         JSON.stringify(res, undefined, 2),
         `${storyblokConfig.sbmigWorkingDirectory}/${folder}/${filename}.json`
+    );
+    Logger.success(`All response written to a file:  ${filename}`);
+};
+
+export const createAndSavePresetToFile = async ({
+    filename,
+    res,
+}: CreateAndSavePresetToFile): Promise<void> => {
+    await createDir(`${storyblokConfig.presetsBackupDirectory}`);
+    await createJsonFile(
+        JSON.stringify(res, undefined, 2),
+        path.join(storyblokConfig.presetsBackupDirectory, filename)
     );
     Logger.success(`All response written to a file:  ${filename}`);
 };

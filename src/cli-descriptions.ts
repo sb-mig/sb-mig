@@ -3,9 +3,10 @@ export const mainDescription = `
       $ sb-mig [command]
     
     COMMANDS
-        sync      Synchronize components, datasources or roles with Storyblok space.
+        sync      Synchronize components, datasources, roles, stories, assets with Storyblok space.
         discover  Discover components and write to file or stdout.
         backup    Command for backing up anything related to Storyblok
+        migrate   Migrate content from space to space, or from file to space.
         debug     Output extra debugging information
         help      This screen
     
@@ -26,11 +27,17 @@ export const syncDescription = `
         roles          - sync roles
         datasources    - sync datasources
         plugins        - sync plugins
+        content        - sync content (stories, assets) - ! right now destructive, it will move content from 1 space to another, completelly overwriting it
      
     FLAGS
         --all          - Sync all components, roles, datasources 
         --packageName  - Sync based on package name, instead of file name (package can have multiple schema files to sync) *for components only
         --presets      - Pass it, if u want to sync also with presets (will take longer) *for components only
+        
+        Only when syncing 'content':
+        --yes          - Skip ask for confirmation (dangerous, but useful in CI/CD)
+        --from         - Space ID from which you want to sync content
+        --to           - Space ID to which you want to sync content
     
     EXAMPLES
         $ sb-mig sync components --all
@@ -39,28 +46,59 @@ export const syncDescription = `
         $ sb-mig sync components accordion accordion-item --presets
         $ sb-mig sync components @storyblok-components/accordion --packageName
         $ sb-mig sync components @storyblok-components/accordion --packageName --presets
+        
         $ sb-mig sync roles --all
+        
         $ sb-mig sync datasources --all
+        
         $ sb-mig sync plugins my-awesome-plugin - (you have to be in catalog which has ./dist/export.js file with compiled plugin)
+        
+        $ sb-mig sync content --all --from 12345 --to 12345
+        $ sb-mig sync content --stories --from 12345 --to 12345
+        $ sb-mig sync content --assets --from 12345 --to 12345
 `;
 
 export const migrateDescription = `
     Usage
-        $ sb-mig migrate content --pageId <pageId> --migration <migration>
+        $ sb-mig migrate [content] [space separated file names] or --all --from [spaceId] --to [spaceId] --migration [migration-config-filename]
         
     Description
-        Migrate content WIP
+        Migrate content from space to space, or from file to space. It's potentially dangerous command, so it will ask for confirmation.
+        Use with care.
         
     COMMANDS
-        content        - migrate content 
+        content           - migrate content 
      
     FLAGS
-        --pageId       - Page you want to migrate 
-        --migration    - Migration rules
+        --from            - Space ID from which you want to migrate / or file name if passed '--migrate-from file'
+        --to              - Space ID to which you want to migrate
+        --migrate-from    - Migrate from (space, file) default: space
+        --migration       - File name of migration file (without extension)
+        --yes             - Skip ask for confirmation (dangerous, but useful in CI/CD) 
     
     EXAMPLES
-        $ sb-mig migrate content --pageId 123456789 --migration default
+        $ sb-mig migrate content --all --from 12345 --to 12345 --migration file-with-migration
+        $ sb-mig migrate content --all --migrate-from file --from file-with-stories --to 12345 --migration file-with-migration
+        $ sb-mig migrate content my-component-1 my-component-2 --from 12345 --to 12345 --migration file-with-migration
+        $ sb-mig migrate content my-component-1 my-component-2 --migrate-from file --from file-with-stories --to 12345 --migration file-with-migration        
+`;
+
+export const revertDescription = `
+    Usage
+        $ sb-mig revert [content] --migration
         
+    Description
+        Revert content migration
+        
+    COMMANDS
+        content           - revert content migration 
+     
+    FLAGS
+        --migration       - ???
+        --yes             - Skip ask for confirmation (dangerous, but useful in CI/CD) 
+    
+    EXAMPLES
+        $ sb-mig revert content --migration        
 `;
 
 export const discoverDescription = `
@@ -118,6 +156,7 @@ export const backupDescription = `
         presets           - backup presets
         component-presets - backup component presets
         plugins           - backup plugins
+        stories           - backup stories (only --all)
 
      
     FLAGS
@@ -131,6 +170,7 @@ export const backupDescription = `
         $ sb-mig backup roles admin --one
         $ sb-mig backup plugins --all
         $ sb-mig backup plugins my-awesome-plugin --one
+        $ sb-mig backup stories --all
 `;
 
 export const debugDescription = `

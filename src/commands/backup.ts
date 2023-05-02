@@ -16,7 +16,10 @@ import { getAllPresets, getPreset } from "../api/presets.js";
 import { getAllRoles, getRole } from "../api/roles.js";
 import { backupStories } from "../api/stories.js";
 import storyblokConfig from "../config/config.js";
-import { createAndSaveToFile } from "../utils/files.js";
+import {
+    createAndSavePresetToFile,
+    createAndSaveToFile,
+} from "../utils/files.js";
 import Logger from "../utils/logger.js";
 import { unpackOne } from "../utils/main.js";
 
@@ -222,9 +225,8 @@ export const backup = async (props: CLIOptions) => {
 
                 getComponentPresets(componentPresetToBackup)
                     .then(async (res: any) => {
-                        await createAndSaveToFile({
-                            prefix: `component-preset-${componentPresetToBackup}-`,
-                            folder: "component-presets",
+                        await createAndSavePresetToFile({
+                            filename: `${componentPresetToBackup}.presets.sb.json`,
                             res,
                         });
                     })
@@ -232,6 +234,23 @@ export const backup = async (props: CLIOptions) => {
                         console.log(err);
                         Logger.error("error happened... :(");
                     });
+            } else if (flags["all"]) {
+                const allRemoteComponents = await getAllComponents();
+                allRemoteComponents.forEach(async (component: any) => {
+                    getComponentPresets(component.name)
+                        .then(async (res: any) => {
+                            if (res) {
+                                await createAndSavePresetToFile({
+                                    filename: `${component.name}.presets.sb.json`,
+                                    res,
+                                });
+                            }
+                        })
+                        .catch((err: any) => {
+                            console.log(err);
+                            Logger.error("error happened... :(");
+                        });
+                });
             }
             break;
         case BACKUP_COMMANDS.plugins:

@@ -2,6 +2,8 @@ import readline from "node:readline/promises";
 
 import chalk from "chalk";
 
+import storyblokConfig from "../config/config.js";
+
 export const generateDatestamp = (datestamp: Date) => {
     const year = datestamp.getFullYear();
     const month = datestamp.getMonth() + 1;
@@ -53,3 +55,8 @@ export const askForConfirmation = async (
         rl.prompt();
     }
 };
+
+export const getFrom = (flags: any): string =>
+    (flags["from"] ? flags["from"] : storyblokConfig.spaceId).toString();
+export const getTo = (flags: any): string =>
+    (flags["to"] ? flags["to"] : storyblokConfig.spaceId).toString();

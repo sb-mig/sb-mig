@@ -11,10 +11,23 @@ export const defaultConfig = (
 ): IStoryblokConfig => {
     const packagePath = `${path}/package.json`;
 
+    const sbmigWorkingDirectory = "sbmig";
+
     return {
         storyblokComponentsLocalDirectory: "src/@storyblok-components",
-        sbmigWorkingDirectory: "sbmig",
+        sbmigWorkingDirectory: sbmigWorkingDirectory,
+        presetsBackupDirectory: `${sbmigWorkingDirectory}/component-presets`,
+        storiesBackupDirectory: `${sbmigWorkingDirectory}/stories`,
         componentsDirectories: ["src", "storyblok"],
+        awsBucketData: {
+            bucketName: "site-builder-content-hub",
+            s3Url: "s3://site-builder-content-hub",
+            httpUrl:
+                "https://site-builder-content-hub.s3.eu-central-1.amazonaws.com",
+        },
+        contentHubOriginUrl:
+            "https://site-builder-content-hub.vercel.app/api/hub/",
+        contentHubAuthorizationToken: "",
         schemaFileExt: pkg(packagePath).type === "module" ? "sb.js" : "sb.cjs",
         datasourceExt:
             pkg(packagePath).type === "module"

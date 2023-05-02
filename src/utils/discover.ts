@@ -688,8 +688,6 @@ export const discoverStories = (
     let pattern;
     let listOfFiles = [""];
 
-    console.log("Request: ", request);
-
     switch (request.scope) {
         case SCOPE.local:
             // ### MANY - LOCAL - fileName ###
@@ -711,12 +709,6 @@ export const discoverStories = (
             listOfFiles = glob.sync(pattern.replace(/\\/g, "/"), {
                 follow: true,
             });
-
-            console.log("!!!!!!!!!!!!!!!!");
-            console.log(onlyLocalComponentsDirectories);
-            console.log(pattern);
-            console.log(listOfFiles);
-            console.log("!!!!!!!!!!!!!!!!");
 
             break;
 

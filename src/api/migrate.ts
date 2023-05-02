@@ -27,6 +27,7 @@ import {
     removeComponent,
     removeComponentGroup,
 } from "./components.js";
+import { contentHubApi } from "./contentHubApi.js";
 import { updateComponent, createComponent } from "./mutateComponents.js";
 import { createPlugin, getPlugin, updatePlugin } from "./plugins.js";
 import {
@@ -36,6 +37,7 @@ import {
     removeStory,
     traverseAndCreate,
 } from "./stories.js";
+
 
 const _uniqueValuesFrom = (array: any[]) => [...new Set(array)];
 
@@ -318,6 +320,7 @@ interface SyncContent {
         to: string;
     };
     syncDirection: SyncDirection;
+    filename?: string;
 }
 
 interface SyncStories {
@@ -377,6 +380,7 @@ export const syncContent = async ({
     type,
     transmission,
     syncDirection,
+    filename,
 }: SyncContent) => {
     if (type === "stories") {
         if (syncDirection === "fromSpaceToFile") {
@@ -410,6 +414,19 @@ export const syncContent = async ({
             await syncStories({
                 transmission,
                 stories: storiesFileContent[0],
+                toSpaceId: transmission.to,
+            });
+        }
+
+        if (syncDirection === "fromAWSToSpace") {
+            const data = await contentHubApi.getAllStories({
+                spaceId: transmission.from,
+                storiesFilename: filename,
+            });
+
+            await syncStories({
+                transmission,
+                stories: data.stories,
                 toSpaceId: transmission.to,
             });
         }

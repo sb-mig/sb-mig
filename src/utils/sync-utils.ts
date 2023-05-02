@@ -1,7 +1,8 @@
 export type SyncDirection =
     | "fromSpaceToFile"
     | "fromFileToSpace"
-    | "fromSpaceToSpace";
+    | "fromSpaceToSpace"
+    | "fromAWSToSpace";
 
 export const defineSyncDirection = (
     fromPredicate: unknown,
