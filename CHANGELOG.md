@@ -1,3 +1,36 @@
+# [4.1.0-beta.71](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.70...v4.1.0-beta.71) (2023-05-02)
+
+
+### feat
+
+* added syncing from aws ([05caab9](https://github.com/sb-mig/sb-mig/commit/05caab989a010008c13220f7b2aac5221690889b))
+
+### fix
+
+* add backup before all migrations ([8433f80](https://github.com/sb-mig/sb-mig/commit/8433f80565a399ed853046ca72a67342d7b33486))
+* add better backup command for all presets ([57ec066](https://github.com/sb-mig/sb-mig/commit/57ec066171c9cfd3acaf4c24a5383756d87a814a))
+* add better logging with heartbeat ([2de1f0f](https://github.com/sb-mig/sb-mig/commit/2de1f0f621c238ff71ad29c2f8ce623699d6ee6d))
+* migrating from space to space with migration file ([9e31742](https://github.com/sb-mig/sb-mig/commit/9e31742f0b809ccf467c429d11cbdecac9cb6751))
+* updating descriptions of help ([4ae4d53](https://github.com/sb-mig/sb-mig/commit/4ae4d5300f8497a6a426a8214dd2b0089817e0ed))
+
+
+
+# [4.1.0-beta.71](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.70...v4.1.0-beta.71) (2023-05-02)
+
+
+### Bug Fixes
+
+* add backup before all migrations ([8433f80](https://github.com/sb-mig/sb-mig/commit/8433f80565a399ed853046ca72a67342d7b33486))
+* add better backup command for all presets ([57ec066](https://github.com/sb-mig/sb-mig/commit/57ec066171c9cfd3acaf4c24a5383756d87a814a))
+* add better logging with heartbeat ([2de1f0f](https://github.com/sb-mig/sb-mig/commit/2de1f0f621c238ff71ad29c2f8ce623699d6ee6d))
+* migrating from space to space with migration file ([9e31742](https://github.com/sb-mig/sb-mig/commit/9e31742f0b809ccf467c429d11cbdecac9cb6751))
+* updating descriptions of help ([4ae4d53](https://github.com/sb-mig/sb-mig/commit/4ae4d5300f8497a6a426a8214dd2b0089817e0ed))
+
+
+### Features
+
+* added syncing from aws ([05caab9](https://github.com/sb-mig/sb-mig/commit/05caab989a010008c13220f7b2aac5221690889b))
+
 # [4.1.0-beta.70](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.69...v4.1.0-beta.70) (2023-04-19)
 
 
