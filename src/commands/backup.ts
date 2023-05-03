@@ -21,7 +21,7 @@ import {
     createAndSaveToFile,
 } from "../utils/files.js";
 import Logger from "../utils/logger.js";
-import { unpackOne } from "../utils/main.js";
+import { extractFields, getPackageJson, unpackOne } from "../utils/main.js";
 
 const BACKUP_COMMANDS = {
     components: "components",
@@ -236,13 +236,25 @@ export const backup = async (props: CLIOptions) => {
                     });
             } else if (flags["all"]) {
                 const allRemoteComponents = await getAllComponents();
+                let metadata = {};
+
+                if (flags["metadata"]) {
+                    const pkgJson = getPackageJson();
+                    metadata = {
+                        metadata: extractFields(
+                            pkgJson,
+                            storyblokConfig.metadataSelection
+                        ),
+                    };
+                }
+
                 allRemoteComponents.forEach(async (component: any) => {
                     getComponentPresets(component.name)
                         .then(async (res: any) => {
                             if (res) {
                                 await createAndSavePresetToFile({
                                     filename: `${component.name}.presets.sb.json`,
-                                    res,
+                                    res: { allPresets: res, ...metadata },
                                 });
                             }
                         })

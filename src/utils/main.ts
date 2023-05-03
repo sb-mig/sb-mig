@@ -1,4 +1,6 @@
+import fs from "fs";
 import { createRequire } from "module";
+import path from "path";
 
 export const prop = (k: any) => (o: any) => o[k];
 
@@ -79,3 +81,47 @@ export const isItFactory = <T>(flags: any, rules: any, whitelist: string[]) => {
         }
     };
 };
+
+export const getPackageJson = () => {
+    const packageJsonPath = path.join(process.cwd(), "package.json");
+
+    // Read the file content as a string
+    const packageJsonContent = fs.readFileSync(packageJsonPath, "utf-8");
+
+    // Parse the file content as a JSON object
+    const packageJson = JSON.parse(packageJsonContent);
+
+    return packageJson;
+};
+
+export const extractFields = (data: any, filter: any) => {
+    const result: any = {};
+
+    for (const key in filter) {
+        if (filter[key] === true) {
+            result[key] = data[key];
+        } else if (typeof filter[key] === "object") {
+            result[key] = extractFields(data[key], filter[key]);
+        }
+    }
+
+    return result;
+};
+
+// export const generateMetadata = (args: any) => {
+//     const packageJson = getPackageJson();
+//
+//     const contentHubName = packageJson.name;
+//     const contentHubLatestVersion = packageJson.version;
+//
+//     const backpackVersionInContentHub =
+//         packageJson.dependencies['@ef-global/backpack'];
+//
+//     return {
+//         metadata: {
+//             contentHubName,
+//             contentHubLatestVersion,
+//             backpackVersionInContentHub,
+//         },
+//     };
+// };
