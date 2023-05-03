@@ -1,13 +1,12 @@
-import type StoryblokClient from "storyblok-js-client";
+import type {
+    RequestBaseConfig} from "./utils/request.js";
 
 import Logger from "../../utils/logger.js";
 
-import { getAllItemsWithPagination } from "./utils/request.js";
-
-interface RequestBaseConfig {
-    spaceId: string;
-    sbApi: StoryblokClient;
-}
+import _resolvePresets from "./presets/resolvePresets";
+import {
+    getAllItemsWithPagination
+} from "./utils/request.js";
 
 /*
  *
@@ -58,4 +57,36 @@ export const getComponent = (
             return res;
         })
         .catch((err) => console.error(err));
+};
+
+/*
+ *
+ * PUT ONE Component
+ *
+ * */
+export const updateComponent = (
+    component: any,
+    presets: boolean,
+    config: RequestBaseConfig
+) => {
+    const { spaceId, sbApi } = config;
+    Logger.log(`Trying to update '${component.name}' with id ${component.id}`);
+    const componentWithPresets = component;
+    const { all_presets, ...componentWithoutPresets } = componentWithPresets;
+
+    sbApi
+        .put(`spaces/${spaceId}/components/${component.id}`, {
+            component: componentWithoutPresets,
+        })
+        .then((res) => {
+            Logger.success(`Component '${component.name}' has been updated.`);
+            if (presets) {
+                _resolvePresets(res, all_presets, component, config);
+            }
+        })
+        .catch((err) => {
+            Logger.error(
+                `${err.message} in migration of ${component.name} in updateComponent function`
+            );
+        });
 };
