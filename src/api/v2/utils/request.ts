@@ -1,4 +1,11 @@
+import type StoryblokClient from "storyblok-js-client";
+
 import Logger from "../../../utils/logger.js";
+
+export interface RequestBaseConfig {
+    spaceId: string;
+    sbApi: StoryblokClient;
+}
 
 interface GetAllItemsWithPagination {
     apiFn: (...args: any) => any;
