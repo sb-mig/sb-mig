@@ -1,3 +1,19 @@
+# [4.1.0-beta.72](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.71...v4.1.0-beta.72) (2023-05-03)
+
+
+### feat
+
+* start rewriting api to be not tightly coupled ([56bcb13](https://github.com/sb-mig/sb-mig/commit/56bcb1312a2ed1e42dac6390c263c5895be8f16d))
+
+
+
+# [4.1.0-beta.72](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.71...v4.1.0-beta.72) (2023-05-03)
+
+
+### Features
+
+* start rewriting api to be not tightly coupled ([56bcb13](https://github.com/sb-mig/sb-mig/commit/56bcb1312a2ed1e42dac6390c263c5895be8f16d))
+
 # [4.1.0-beta.71](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.70...v4.1.0-beta.71) (2023-05-02)
 
 
