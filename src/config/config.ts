@@ -1,3 +1,5 @@
+import type StoryblokClient from "storyblok-js-client";
+
 import path from "path";
 
 import dotenv from "dotenv";
@@ -26,6 +28,7 @@ export interface IStoryblokConfig {
         s3Url: `s3://${string}`;
         httpUrl: `https://${string}`;
     };
+    metadataSelection: Record<string, any>;
     contentHubOriginUrl: string;
     contentHubAuthorizationToken: string;
     schemaFileExt: "sb.cjs" | "sb.js";
@@ -44,9 +47,11 @@ export interface IStoryblokConfig {
     cacheDir: string;
     debug: boolean;
     rateLimit: number;
+    sbApi?: () => StoryblokClient;
 }
 
 const filePath = path.resolve(process.cwd(), "storyblok.config");
+
 const customConfig = await getStoryblokConfigContent({
     filePath,
     ext: ".js",

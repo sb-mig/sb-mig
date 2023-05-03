@@ -9,7 +9,10 @@ const {
     storyblokDeliveryApiUrl,
     rateLimit,
 } = storyblokConfig;
-export const sbApi = new StoryblokClient(
+
+const generateApi = (custom: StoryblokClient) => custom;
+
+const globalSbapi = new StoryblokClient(
     {
         accessToken,
         oauthToken,
@@ -21,6 +24,23 @@ export const sbApi = new StoryblokClient(
     },
     storyblokApiUrl
 );
+
+export const sbApi = generateApi(
+    storyblokConfig.sbApi ? storyblokConfig.sbApi() : globalSbapi
+);
+
+// export const sbApi = new StoryblokClient(
+//     {
+//         accessToken,
+//         oauthToken,
+//         rateLimit: rateLimit,
+//         cache: {
+//             clear: "auto",
+//             type: "none",
+//         },
+//     },
+//     storyblokApiUrl
+// )
 
 export const sbDeliveryApi = new StoryblokClient(
     {

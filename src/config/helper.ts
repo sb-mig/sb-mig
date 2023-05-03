@@ -28,6 +28,12 @@ export const defaultConfig = (
         contentHubOriginUrl:
             "https://site-builder-content-hub.vercel.app/api/hub/",
         contentHubAuthorizationToken: "",
+        metadataSelection: {
+            name: true,
+            version: true,
+            author: true,
+            description: true,
+        },
         schemaFileExt: pkg(packagePath).type === "module" ? "sb.js" : "sb.cjs",
         datasourceExt:
             pkg(packagePath).type === "module"
