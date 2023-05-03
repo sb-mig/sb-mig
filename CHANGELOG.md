@@ -1,3 +1,19 @@
+# [4.1.0-beta.73](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.72...v4.1.0-beta.73) (2023-05-03)
+
+
+### feat
+
+* add update component and presets to v2 api ([b3962d3](https://github.com/sb-mig/sb-mig/commit/b3962d3834935970f106eb4b7ad1150162d4e5ae))
+
+
+
+# [4.1.0-beta.73](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.72...v4.1.0-beta.73) (2023-05-03)
+
+
+### Features
+
+* add update component and presets to v2 api ([b3962d3](https://github.com/sb-mig/sb-mig/commit/b3962d3834935970f106eb4b7ad1150162d4e5ae))
+
 # [4.1.0-beta.72](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.71...v4.1.0-beta.72) (2023-05-03)
 
 
