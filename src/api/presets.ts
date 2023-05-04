@@ -6,13 +6,24 @@ import { getAllItemsWithPagination } from "./stories.js";
 
 const { spaceId } = storyblokConfig;
 
+const removeIdFromPreset = (preset: any) => {
+    // TODO: probably change to some better options - deleting is very slow
+    delete preset.preset.id;
+    delete preset.preset.space_id;
+    delete preset.preset.component_id;
+
+    return preset;
+};
+
 // GET
 export const getPreset = (presetId: string | undefined) => {
     Logger.log(`Trying to get preset by id: ${presetId}`);
 
     return sbApi
         .get(`spaces/${spaceId}/presets/${presetId}`)
-        .then((response) => response.data)
+        .then((response) => {
+            return removeIdFromPreset(response.data);
+        })
         .then((response) => {
             if (Array.isArray(response.presets)) {
                 Logger.warning(
