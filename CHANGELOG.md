@@ -1,3 +1,19 @@
+# [4.1.0-beta.74](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.73...v4.1.0-beta.74) (2023-05-04)
+
+
+### fix
+
+* remove id from preset in getPreset functions ([f5818db](https://github.com/sb-mig/sb-mig/commit/f5818db2f2c143446657833ddcf879ec676f7e60))
+
+
+
+# [4.1.0-beta.74](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.73...v4.1.0-beta.74) (2023-05-04)
+
+
+### Bug Fixes
+
+* remove id from preset in getPreset functions ([f5818db](https://github.com/sb-mig/sb-mig/commit/f5818db2f2c143446657833ddcf879ec676f7e60))
+
 # [4.1.0-beta.73](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.72...v4.1.0-beta.73) (2023-05-03)
 
 
