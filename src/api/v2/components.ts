@@ -1,12 +1,9 @@
-import type {
-    RequestBaseConfig} from "./utils/request.js";
+import type { RequestBaseConfig } from "./utils/request.js";
 
 import Logger from "../../utils/logger.js";
 
 import _resolvePresets from "./presets/resolvePresets";
-import {
-    getAllItemsWithPagination
-} from "./utils/request.js";
+import { getAllItemsWithPagination } from "./utils/request.js";
 
 /*
  *
@@ -74,14 +71,16 @@ export const updateComponent = (
     const componentWithPresets = component;
     const { all_presets, ...componentWithoutPresets } = componentWithPresets;
 
-    sbApi
+    return sbApi
         .put(`spaces/${spaceId}/components/${component.id}`, {
             component: componentWithoutPresets,
         })
         .then((res) => {
             Logger.success(`Component '${component.name}' has been updated.`);
             if (presets) {
-                _resolvePresets(res, all_presets, component, config);
+                return _resolvePresets(res, all_presets, component, config);
+            } else {
+                return [];
             }
         })
         .catch((err) => {

@@ -47,15 +47,26 @@ const _resolvePresets = async (
             }
         }
 
-        presetsToUpdate.map((preset) => {
-            updatePreset(preset, config);
-        });
+        const presetsToUpdateResult = await Promise.all(
+            presetsToUpdate.map((preset) => {
+                return updatePreset(preset, config);
+            })
+        );
 
-        presetsToCreate.map((preset) => {
-            createPreset(preset, config);
-        });
+        const presetsToCreateResult = await Promise.all(
+            presetsToCreate.map((preset) => {
+                return createPreset(preset, config);
+            })
+        );
+
+        console.log("###########");
+        console.log([...presetsToCreateResult, presetsToUpdateResult]);
+        console.log("###########");
+
+        return [...presetsToCreateResult, presetsToUpdateResult];
     } else {
         Logger.warning("There are no presets for this component.");
+        return [];
     }
 };
 

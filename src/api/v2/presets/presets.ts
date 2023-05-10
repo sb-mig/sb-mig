@@ -53,12 +53,13 @@ export const getAllPresets = (config: RequestBaseConfig) => {
 // CREATE
 export const createPreset = (p: any, config: RequestBaseConfig) => {
     const { spaceId, sbApi } = config;
-    sbApi
+    return sbApi
         .post(`spaces/${spaceId}/presets/`, {
             preset: p.preset,
         } as any)
-        .then(() => {
+        .then((res: any) => {
             Logger.warning(`Preset: '${p.preset.name}' has been created.`);
+            return res;
         })
         .catch((e) => {
             console.log("!!!!!!!!!!");
@@ -72,14 +73,15 @@ export const createPreset = (p: any, config: RequestBaseConfig) => {
 // UPDATE
 export const updatePreset = (p: any, config: RequestBaseConfig) => {
     const { spaceId, sbApi } = config;
-    sbApi
+    return sbApi
         .put(`spaces/${spaceId}/presets/${p.preset.id}`, {
             preset: p.preset,
         } as any)
-        .then(() => {
+        .then((res: any) => {
             Logger.warning(
                 `Preset: '${p.preset.name}' with '${p.preset.id}' id has been updated.`
             );
+            return res;
         })
         .catch(() => {
             Logger.error(
