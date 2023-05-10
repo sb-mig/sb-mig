@@ -75,10 +75,15 @@ export const updateComponent = (
         .put(`spaces/${spaceId}/components/${component.id}`, {
             component: componentWithoutPresets,
         })
-        .then((res) => {
+        .then(async (res) => {
             Logger.success(`Component '${component.name}' has been updated.`);
             if (presets) {
-                return _resolvePresets(res, all_presets, component, config);
+                return await _resolvePresets(
+                    res,
+                    all_presets,
+                    component,
+                    config
+                );
             } else {
                 return [];
             }
