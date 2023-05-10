@@ -1,3 +1,21 @@
+# [4.1.0-beta.75](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.74...v4.1.0-beta.75) (2023-05-10)
+
+
+### fix
+
+* await resolvePresets in updateComponent ([5b31ea2](https://github.com/sb-mig/sb-mig/commit/5b31ea2ba1d07a4c1b9dca1414d52bd4af439566))
+* new changes ([220bb1a](https://github.com/sb-mig/sb-mig/commit/220bb1ada822b313c4589efd41129528ef38b730))
+
+
+
+# [4.1.0-beta.75](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.74...v4.1.0-beta.75) (2023-05-10)
+
+
+### Bug Fixes
+
+* await resolvePresets in updateComponent ([5b31ea2](https://github.com/sb-mig/sb-mig/commit/5b31ea2ba1d07a4c1b9dca1414d52bd4af439566))
+* new changes ([220bb1a](https://github.com/sb-mig/sb-mig/commit/220bb1ada822b313c4589efd41129528ef38b730))
+
 # [4.1.0-beta.74](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.73...v4.1.0-beta.74) (2023-05-04)
 
 
