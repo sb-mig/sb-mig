@@ -1,3 +1,19 @@
+# [4.1.0-beta.77](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.76...v4.1.0-beta.77) (2023-05-30)
+
+
+### fix
+
+* remove not needed console.logs ([3d2413a](https://github.com/sb-mig/sb-mig/commit/3d2413ad96d3d851786c90c7f191d00a7efb8ed5))
+
+
+
+# [4.1.0-beta.77](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.76...v4.1.0-beta.77) (2023-05-30)
+
+
+### Bug Fixes
+
+* remove not needed console.logs ([3d2413a](https://github.com/sb-mig/sb-mig/commit/3d2413ad96d3d851786c90c7f191d00a7efb8ed5))
+
 # [4.1.0-beta.76](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.75...v4.1.0-beta.76) (2023-05-30)
 
 
