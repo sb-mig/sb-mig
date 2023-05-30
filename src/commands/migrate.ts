@@ -76,12 +76,14 @@ export const migrate = async (props: CLIOptions) => {
                 );
             } else if (isIt("all")) {
                 const migrateFrom: MigrateFrom = flags["migrateFrom"];
+                const dryRun = flags["dryRun"];
 
                 console.log({
                     from,
                     to,
                     migrateFrom,
                     migrationConfig,
+                    dryRun,
                 });
 
                 await askForConfirmation(
@@ -89,11 +91,11 @@ export const migrate = async (props: CLIOptions) => {
                     async () => {
                         Logger.warning("Preparing to migrate...");
 
-                        await backupStories({
-                            filename: `${from}--backup-before-migration___${migrationConfig}`,
-                            suffix: ".sb.stories",
-                            spaceId: from,
-                        });
+                        // await backupStories({
+                        //     filename: `${from}--backup-before-migration___${migrationConfig}`,
+                        //     suffix: ".sb.stories",
+                        //     spaceId: from,
+                        // });
 
                         await migrateAllComponentsDataInStories({
                             from,

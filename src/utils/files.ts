@@ -198,8 +198,8 @@ export const createAndSaveComponentListToFile = async ({
     Logger.success(`All components written to a file:  ${filename}`);
 };
 
-export const readFile = async (path: string) => {
-    const absolutePath = `${process.cwd()}/${path}`;
+export const readFile = async (pathToFile: string) => {
+    const absolutePath = path.join(process.cwd(), pathToFile);
 
     try {
         const result = await fs.promises.readFile(absolutePath);

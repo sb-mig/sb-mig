@@ -120,6 +120,23 @@ export const discoverDescription = `
         $ sb-mig discover components --all -- write
 `;
 
+export const migrationsDescription = `
+    Usage
+        $ sb-mig migrations recognize
+        
+    Description
+        Recognize migrations you need to apply
+        
+    COMMANDS
+        recognize      - recognize migrations
+     
+    FLAGS 
+    
+    EXAMPLES
+        $ sb-mig migrations recognize
+
+`
+
 export const removeDescription = `
     Usage
         $ sb-mig remove [components|roles|datasources] [space separated file names] or --all 

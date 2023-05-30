@@ -7,9 +7,13 @@ import {
     LOOKUP_TYPE,
     SCOPE,
 } from "../../utils/discover.js";
-import { createAndSaveToStoriesFile } from "../../utils/files.js";
+import {
+    createAndSaveToStoriesFile,
+    createJsonFile,
+} from "../../utils/files.js";
 import Logger from "../../utils/logger.js";
 import { getFilesContentWithRequire, isObjectEmpty } from "../../utils/main.js";
+import { modifyOrCreateAppliedMigrationsFile } from "../../utils/migrations.js";
 import { getAllStories, updateStories, updateStory } from "../stories.js";
 
 export type MigrateFrom = "file" | "space";
@@ -53,7 +57,7 @@ function replaceComponentData({
             parent[key]?.component &&
             components.includes(parent[key].component)
         ) {
-            const { content, citation, ...rest } = parent[key];
+            const { ...rest } = parent[key];
             const { data: dataToReplace, wasReplaced } = (
                 mapper[parent[key].component] as MapperDefinition
             )(parent[key]);
@@ -74,6 +78,7 @@ function replaceComponentData({
                         dataToReplace._uid
                     )} `
                 );
+                console.log("Was it replaced? ", wasReplaced);
                 console.log(
                     chalk.yellow(
                         `____________________________________________________________`
@@ -88,6 +93,9 @@ function replaceComponentData({
                 ]
                     ? sumOfReplacing[dataToReplace.component] + 1
                     : 1;
+
+                console.log("Sum of replacing: ");
+                console.log(sumOfReplacing);
             }
         }
 
@@ -191,6 +199,7 @@ export const migrateAllComponentsDataInStories = async ({
 
     // Taking every component defined in const config = {} in migration config file
     const componentsToMigrate = Object.keys(migrationConfigFileContent);
+    console.log(componentsToMigrate);
 
     if (storyblokConfig.debug) {
         Logger.warning(
@@ -213,8 +222,10 @@ export const doTheMigration = async ({
     storiesToMigrate,
     componentsToMigrate,
     migrationConfigFileContent,
+    migrationConfig,
     to,
 }: any) => {
+    console.log(to);
     const arrayOfMaxDepths: number[] = [];
 
     const migratedStories = storiesToMigrate.map(
@@ -258,13 +269,17 @@ export const doTheMigration = async ({
                 });
             }
 
-            return {
-                ...stories,
-                story: {
-                    ...stories.story,
-                    content: json,
-                },
-            };
+            if (Object.keys(sumOfReplacing).length > 0) {
+                return {
+                    ...stories,
+                    story: {
+                        ...stories.story,
+                        content: json,
+                    },
+                };
+            } else {
+                return null;
+            }
         }
     );
 
@@ -280,13 +295,23 @@ export const doTheMigration = async ({
         console.log(" ");
     }
 
+    const isListEmpty = (list: any[]) => list.filter((item) => item).length;
+
+    if (!isListEmpty(migratedStories)) {
+        console.log("# No Stories to update #");
+    } else {
+        console.log(`${migratedStories.length} stories to migrate`);
+    }
+
     // Saving result with migrated version of stories into file
     await createAndSaveToStoriesFile({
         filename: from,
         suffix: "---migrated",
         folder: "migrations",
-        res: migratedStories,
+        res: migratedStories.filter((item: any) => item),
     });
+
+    await modifyOrCreateAppliedMigrationsFile(migrationConfig);
 
     await updateStories({ stories: migratedStories, spaceId: to });
 };
@@ -320,6 +345,7 @@ export const migrateProvidedComponentsDataInStories = async ({
             storiesToMigrate,
             componentsToMigrate,
             migrationConfigFileContent,
+            migrationConfig,
             from,
             to,
         });

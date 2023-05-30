@@ -6,17 +6,23 @@ import {
     debugDescription,
     mainDescription,
     syncDescription,
-    removeDescription, initDescription, discoverDescription, migrateDescription, revertDescription
+    removeDescription,
+    initDescription,
+    discoverDescription,
+    migrateDescription,
+    revertDescription,
+    migrationsDescription
 } from "./cli-descriptions.js";
 import { backup } from "./commands/backup.js";
 import { debug } from "./commands/debug.js";
 import { discover } from "./commands/discover.js";
 import { init } from './commands/init.js'
 import {migrate} from "./commands/migrate.js";
+import {migrations} from './commands/migrations.js';
 import {remove} from "./commands/remove.js";
+import {revert} from "./commands/revert.js";
 import { sync } from "./commands/sync.js";
 import { pipe, prop } from "./utils/main.js";
-import {revert} from "./commands/revert.js";
 
 const app = () => ({
     cli: meow(mainDescription, {
@@ -76,6 +82,16 @@ app.discover = () => ({
     }),
     action: (cli: any) => {
         discover(cli);
+    },
+});
+
+app.migrations = () => ({
+    cli: meow(migrationsDescription, {
+        importMeta: import.meta,
+        booleanDefault: undefined,
+    }),
+    action: (cli: any) => {
+        migrations(cli);
     },
 });
 

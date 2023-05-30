@@ -695,7 +695,7 @@ export const discoverStories = (
                 storyblokConfig.componentsDirectories.filter(
                     (p: string) => !p.includes("node_modules")
                 );
-            pattern = path.join(
+            const pattern = path.join(
                 `${directory}`,
                 `${normalizeDiscover({
                     segments: onlyLocalComponentsDirectories,
@@ -730,20 +730,58 @@ export const discoverMigrationConfig = (
     switch (request.scope) {
         case SCOPE.local:
             // ### MANY - LOCAL - fileName ###
-            const onlyLocalComponentsDirectories =
-                storyblokConfig.componentsDirectories.filter(
-                    (p: string) => !p.includes("node_modules")
-                );
+            // const onlyLocalComponentsDirectories =
+            //     storyblokConfig.componentsDirectories.filter(
+            //         (p: string) => !p.includes("node_modules")
+            //     );
             pattern = path.join(
                 `${directory}`,
                 `${normalizeDiscover({
-                    segments: onlyLocalComponentsDirectories,
+                    segments: storyblokConfig.componentsDirectories,
                 })}`,
                 "**",
                 `${normalizeDiscover({ segments: request.fileNames })}.${
                     storyblokConfig.migrationConfigExt
                 }`
             );
+
+            console.log(pattern);
+
+            listOfFiles = glob.sync(pattern.replace(/\\/g, "/"), {
+                follow: true,
+            });
+
+            break;
+
+        default:
+            break;
+    }
+
+    return listOfFiles;
+};
+
+export const discoverVersionMapping = (
+    request: DiscoverManyRequest
+): DiscoverResult => {
+    const rootDirectory = "./";
+    const directory = path.resolve(process.cwd(), rootDirectory);
+    let pattern;
+    let listOfFiles = [""];
+
+    switch (request.scope) {
+        case SCOPE.all:
+            pattern = path.join(
+                `${directory}`,
+                `${normalizeDiscover({
+                    segments: storyblokConfig.componentsDirectories,
+                })}`,
+                "**",
+                `${normalizeDiscover({
+                    segments: request.fileNames,
+                })}.${"sb.migrations.cjs"}`
+            );
+
+            console.log(pattern);
 
             listOfFiles = glob.sync(pattern.replace(/\\/g, "/"), {
                 follow: true,
