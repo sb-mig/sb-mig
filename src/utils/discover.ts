@@ -781,8 +781,6 @@ export const discoverVersionMapping = (
                 })}.${"sb.migrations.cjs"}`
             );
 
-            console.log(pattern);
-
             listOfFiles = glob.sync(pattern.replace(/\\/g, "/"), {
                 follow: true,
             });
