@@ -1,3 +1,19 @@
+# [4.1.0-beta.78](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.77...v4.1.0-beta.78) (2023-05-30)
+
+
+### fix
+
+* remove console.logs, and add if statement to console.log better ([72d3bc4](https://github.com/sb-mig/sb-mig/commit/72d3bc4a6308d7370d12bfebcf64b22389001796))
+
+
+
+# [4.1.0-beta.78](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.77...v4.1.0-beta.78) (2023-05-30)
+
+
+### Bug Fixes
+
+* remove console.logs, and add if statement to console.log better ([72d3bc4](https://github.com/sb-mig/sb-mig/commit/72d3bc4a6308d7370d12bfebcf64b22389001796))
+
 # [4.1.0-beta.77](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.76...v4.1.0-beta.77) (2023-05-30)
 
 
