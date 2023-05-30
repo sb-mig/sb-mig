@@ -39,7 +39,6 @@ export const migrations = async (props: CLIOptions) => {
             if (isIt("from")) {
                 // 1. take from flag - from what verison you comming
                 const previousBackpackVersion = flags["from"];
-                console.log("Previous version: ", previousBackpackVersion);
 
                 const fileName = "applied-backpack-migrations.json";
 
@@ -59,8 +58,6 @@ export const migrations = async (props: CLIOptions) => {
                     alreadyAppliedMigrations = [];
                 }
 
-                console.log(alreadyAppliedMigrations);
-
                 // 3. read versionMapping for migrations to calculate stuff
                 const versionMappingFile = discoverVersionMapping({
                     scope: SCOPE.all,
@@ -72,9 +69,6 @@ export const migrations = async (props: CLIOptions) => {
                 const versionMappingFileContent = getFilesContentWithRequire({
                     files: versionMappingFile,
                 })[0];
-
-                console.log("This is content of version mapping");
-                console.log(versionMappingFileContent);
 
                 // 4. calculate stuff taking into consideration all the facts and apply migrations, or console.log
                 // commands to run
@@ -102,8 +96,15 @@ export const migrations = async (props: CLIOptions) => {
                     versionMappingFileContent,
                     alreadyAppliedMigrations
                 );
-                console.log("_____________");
-                console.log(whatToMigrate);
+
+                console.log(
+                    "Command you have to run to migrate (the best in that order): "
+                );
+                whatToMigrate.forEach((migration) => {
+                    console.log(
+                        `yarn sb-mig migrate content --all --migration ${migration} --yes`
+                    );
+                });
             }
 
             break;
