@@ -1,3 +1,19 @@
+# [4.1.0-beta.76](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.75...v4.1.0-beta.76) (2023-05-30)
+
+
+### feat
+
+* add some helper migration commands ([df26ec2](https://github.com/sb-mig/sb-mig/commit/df26ec279459957fa8910a271bd874297fb872ca))
+
+
+
+# [4.1.0-beta.76](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.75...v4.1.0-beta.76) (2023-05-30)
+
+
+### Features
+
+* add some helper migration commands ([df26ec2](https://github.com/sb-mig/sb-mig/commit/df26ec279459957fa8910a271bd874297fb872ca))
+
 # [4.1.0-beta.75](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.74...v4.1.0-beta.75) (2023-05-10)
 
 
