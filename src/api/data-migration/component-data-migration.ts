@@ -376,7 +376,7 @@ export const migrateProvidedComponentsDataInStories = async ({
 
         // save stories to file as backup
         await saveBackupStoriesToFile({
-            filename: from,
+            filename: `before__${migrationConfig}__${from}`,
             folder: backupFolder,
             res: storiesToMigrate,
         });
