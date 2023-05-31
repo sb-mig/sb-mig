@@ -53,7 +53,11 @@ export const revert = async (props: CLIOptions) => {
                             files: allLocalStories,
                         });
 
-                        await updateStories({ stories, spaceId: to });
+                        await updateStories({
+                            stories,
+                            spaceId: to,
+                            options: { publish: false },
+                        });
                     },
                     () => {
                         Logger.warning(
