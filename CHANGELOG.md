@@ -1,3 +1,19 @@
+# [4.1.0-beta.81](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.80...v4.1.0-beta.81) (2023-05-31)
+
+
+### fix
+
+* add before string and name of the migration to backup file before migration ([cceab62](https://github.com/sb-mig/sb-mig/commit/cceab62b803299ef89d8daafc5c580ff6b27e52a))
+
+
+
+# [4.1.0-beta.81](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.80...v4.1.0-beta.81) (2023-05-31)
+
+
+### Bug Fixes
+
+* add before string and name of the migration to backup file before migration ([cceab62](https://github.com/sb-mig/sb-mig/commit/cceab62b803299ef89d8daafc5c580ff6b27e52a))
+
 # [4.1.0-beta.80](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.79...v4.1.0-beta.80) (2023-05-31)
 
 
