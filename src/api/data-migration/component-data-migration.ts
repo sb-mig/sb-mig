@@ -1,3 +1,5 @@
+import path from "path";
+
 import chalk from "chalk";
 
 import storyblokConfig from "../../config/config.js";
@@ -14,7 +16,8 @@ import {
 import Logger from "../../utils/logger.js";
 import { getFilesContentWithRequire, isObjectEmpty } from "../../utils/main.js";
 import { modifyOrCreateAppliedMigrationsFile } from "../../utils/migrations.js";
-import { getAllStories, updateStories, updateStory } from "../stories.js";
+import { generateDatestamp } from "../../utils/others.js";
+import { getAllStories, updateStories } from "../stories.js";
 
 export type MigrateFrom = "file" | "space";
 
@@ -320,6 +323,29 @@ export const doTheMigration = async ({
     });
 };
 
+type SaveBackupStoriesToFile = ({
+    filename,
+    folder,
+    res,
+}: {
+    filename: string;
+    folder: string;
+    res: any;
+}) => Promise<void>;
+
+const saveBackupStoriesToFile: SaveBackupStoriesToFile = async ({
+    res,
+    folder,
+    filename,
+}) => {
+    const timestamp = generateDatestamp(new Date());
+    await createAndSaveToStoriesFile({
+        filename: `${filename}_${timestamp}`,
+        folder,
+        res: res,
+    });
+};
+
 export const migrateProvidedComponentsDataInStories = async ({
     migrationConfig,
     migrateFrom,
@@ -345,6 +371,16 @@ export const migrateProvidedComponentsDataInStories = async ({
     } else if (migrateFrom === "space") {
         // Get all stories to be migrated from storyblok space
         const storiesToMigrate = await getAllStories({ spaceId: from });
+
+        const backupFolder = path.join("backup", "stories");
+
+        // save stories to file as backup
+        await saveBackupStoriesToFile({
+            filename: from,
+            folder: backupFolder,
+            res: storiesToMigrate,
+        });
+
         await doTheMigration({
             storiesToMigrate,
             componentsToMigrate,
