@@ -1,3 +1,21 @@
+# [4.1.0-beta.79](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.78...v4.1.0-beta.79) (2023-05-31)
+
+
+### fix
+
+* make possible update stories without publishing it - you can pass true or false ([bf63491](https://github.com/sb-mig/sb-mig/commit/bf634913afe2fc63ab6c6b54a96cecd0976cf5ed))
+* revert command to use new updateStories options parameter ([a3346d9](https://github.com/sb-mig/sb-mig/commit/a3346d9f6da4cfc775fab1fe56fb920748036853))
+
+
+
+# [4.1.0-beta.79](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.78...v4.1.0-beta.79) (2023-05-31)
+
+
+### Bug Fixes
+
+* make possible update stories without publishing it - you can pass true or false ([bf63491](https://github.com/sb-mig/sb-mig/commit/bf634913afe2fc63ab6c6b54a96cecd0976cf5ed))
+* revert command to use new updateStories options parameter ([a3346d9](https://github.com/sb-mig/sb-mig/commit/a3346d9f6da4cfc775fab1fe56fb920748036853))
+
 # [4.1.0-beta.78](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.77...v4.1.0-beta.78) (2023-05-30)
 
 
