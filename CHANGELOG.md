@@ -1,3 +1,19 @@
+# [4.1.0-beta.80](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.79...v4.1.0-beta.80) (2023-05-31)
+
+
+### fix
+
+* udpate component migration with making backup ([ca4db33](https://github.com/sb-mig/sb-mig/commit/ca4db33ae94c6b17a8902ce230a90ac688256f6c))
+
+
+
+# [4.1.0-beta.80](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.79...v4.1.0-beta.80) (2023-05-31)
+
+
+### Bug Fixes
+
+* udpate component migration with making backup ([ca4db33](https://github.com/sb-mig/sb-mig/commit/ca4db33ae94c6b17a8902ce230a90ac688256f6c))
+
 # [4.1.0-beta.79](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.78...v4.1.0-beta.79) (2023-05-31)
 
 
