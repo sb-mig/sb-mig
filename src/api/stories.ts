@@ -199,10 +199,18 @@ export interface UpdateStory {
     spaceId: string;
     content: any;
     storyId: string;
+    options: {
+        publish?: boolean;
+    };
 }
 
 // UPDATE
-export const updateStory = ({ spaceId, content, storyId }: UpdateStory) => {
+export const updateStory = ({
+    spaceId,
+    content,
+    storyId,
+    options,
+}: UpdateStory) => {
     Logger.warning("Trying to update Story...");
     Logger.log(
         `Updating story with name: ${content.name} in space: ${spaceId}`
@@ -210,7 +218,7 @@ export const updateStory = ({ spaceId, content, storyId }: UpdateStory) => {
     return sbApi
         .put(`spaces/${spaceId}/stories/${storyId}`, {
             story: content,
-            publish: 1,
+            publish: options.publish ? 1 : 0,
         })
         .then((res: any) => {
             console.log(`${chalk.green(res.data.story.full_slug)} updated.`);
@@ -222,9 +230,13 @@ export const updateStory = ({ spaceId, content, storyId }: UpdateStory) => {
 export const updateStories = ({
     stories,
     spaceId,
+    options,
 }: {
     stories: any;
     spaceId: string;
+    options: {
+        publish?: boolean;
+    };
 }) => {
     return Promise.allSettled(
         // Run through stories, and update the space with migrated version of stories
@@ -233,6 +245,9 @@ export const updateStories = ({
                 storyId: stories.story.id,
                 content: stories.story,
                 spaceId,
+                options: {
+                    publish: options.publish,
+                },
             });
         })
     );

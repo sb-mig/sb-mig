@@ -313,7 +313,11 @@ export const doTheMigration = async ({
 
     await modifyOrCreateAppliedMigrationsFile(migrationConfig);
 
-    await updateStories({ stories: migratedStories, spaceId: to });
+    await updateStories({
+        stories: migratedStories,
+        spaceId: to,
+        options: { publish: false },
+    });
 };
 
 export const migrateProvidedComponentsDataInStories = async ({
