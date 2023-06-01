@@ -1,6 +1,8 @@
+import type { RequestBaseConfig } from "../../api/v2/utils/request.js";
 import type { CLIOptions } from "../../utils/interfaces.js";
 import type { SyncDirection } from "../../utils/sync-utils.js";
 
+import { sbApi } from "../../api/config.js";
 import {
     syncAllDatasources,
     syncProvidedDatasources,
@@ -13,8 +15,8 @@ import {
     removeAllStories,
     syncProvidedPlugins,
 } from "../../api/migrate.js";
-import { syncAllRoles, syncProvidedRoles } from "../../api/roles.js";
 import { backupStories } from "../../api/stories.js";
+import { syncAllRoles, syncProvidedRoles } from "../../api/v2/roles.js";
 import storyblokConfig from "../../config/config.js";
 import Logger from "../../utils/logger.js";
 import { isItFactory, unpackElements } from "../../utils/main.js";
@@ -31,6 +33,11 @@ const SYNC_COMMANDS = {
 
 export const sync = async (props: CLIOptions) => {
     const { input, flags } = props;
+
+    const apiConfig: RequestBaseConfig = {
+        spaceId: storyblokConfig.spaceId,
+        sbApi: sbApi,
+    };
 
     const command = input[1];
     const rules = {
@@ -101,14 +108,14 @@ export const sync = async (props: CLIOptions) => {
             if (isIt("all")) {
                 Logger.log("Syncing all roles...");
 
-                syncAllRoles();
+                syncAllRoles(apiConfig);
             }
 
             if (isIt("empty")) {
                 Logger.log("Syncing provided roles...");
                 const rolesToSync = unpackElements(input);
 
-                syncProvidedRoles({ roles: rolesToSync });
+                syncProvidedRoles({ roles: rolesToSync }, apiConfig);
             }
             break;
         case SYNC_COMMANDS.datasources:

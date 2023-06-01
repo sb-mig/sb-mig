@@ -1,23 +1,34 @@
-import type { OneComponent } from "../utils/discover.js";
+import type {
+    CreateRole,
+    GetAllRoles,
+    GetRole,
+    SyncAllRoles,
+    SyncProvidedRoles,
+    SyncRoles,
+    UpdateRole,
+} from "./roles.types";
+import type { OneComponent } from "../../utils/discover.js";
 
-import storyblokConfig from "../config/config.js";
+import storyblokConfig from "../../config/config.js";
 import {
     LOOKUP_TYPE,
     SCOPE,
     compare,
     discoverRoles,
     discoverManyRoles,
-} from "../utils/discover.js";
-import Logger from "../utils/logger.js";
-import { getFileContentWithRequire } from "../utils/main.js";
+} from "../../utils/discover.js";
+import Logger from "../../utils/logger.js";
+import { getFileContentWithRequire } from "../../utils/main.js";
+import { getAllItemsWithPagination } from "../stories.js";
 
-import { sbApi } from "./config.js";
-import { getAllItemsWithPagination } from "./stories.js";
+import { RequestBaseConfig } from "./utils/request";
 
 const { spaceId } = storyblokConfig;
 
 // POST
-export const createRole = (role: any) => {
+export const createRole: CreateRole = (role: any, config) => {
+    const { sbApi, spaceId } = config;
+
     sbApi
         .post(`spaces/${spaceId}/space_roles/`, {
             space_role: role,
@@ -34,7 +45,9 @@ export const createRole = (role: any) => {
 };
 
 // PUT
-export const updateRole = (role: any) => {
+export const updateRole: UpdateRole = (role, config) => {
+    const { sbApi, spaceId } = config;
+
     sbApi
         .put(`spaces/${spaceId}/space_roles/${role.id}`, {
             space_role: role,
@@ -51,7 +64,8 @@ export const updateRole = (role: any) => {
 };
 
 // GET
-export const getAllRoles = async () => {
+export const getAllRoles: GetAllRoles = async (config) => {
+    const { sbApi, spaceId } = config;
     Logger.log("Trying to get all roles.");
 
     // TODO: All Roles doesnt support pagination...
@@ -84,10 +98,13 @@ export const getAllRoles = async () => {
 };
 
 // GET
-export const getRole = async (roleName: string | undefined) => {
+export const getRole: GetRole = async (
+    roleName: string | undefined,
+    config
+) => {
     Logger.log(`Trying to get '${roleName}' role.`);
 
-    return getAllRoles()
+    return getAllRoles(config)
         .then((res) => res.filter((role: any) => role.role === roleName))
         .then((res) => {
             if (Array.isArray(res) && res.length === 0) {
@@ -99,18 +116,14 @@ export const getRole = async (roleName: string | undefined) => {
         .catch((err) => Logger.error(err));
 };
 
-interface SyncRoles {
-    specifiedRoles: OneComponent[];
-}
-
-export const syncRoles = async ({ specifiedRoles }: SyncRoles) => {
+export const syncRoles: SyncRoles = async ({ specifiedRoles }, config) => {
     const specifiedRolesContent = await Promise.all(
         specifiedRoles.map((roles) =>
             getFileContentWithRequire({ file: roles.p })
         )
     );
 
-    const space_roles = await getAllRoles();
+    const space_roles = await getAllRoles(config);
 
     const rolesToUpdate = [];
     const rolesToCreate = [];
@@ -127,15 +140,15 @@ export const syncRoles = async ({ specifiedRoles }: SyncRoles) => {
     }
 
     rolesToUpdate.map(async (role) => {
-        await updateRole(role);
+        await updateRole(role, config);
     });
 
     rolesToCreate.map(async (role) => {
-        await createRole(role);
+        await createRole(role, config);
     });
 };
 
-export const syncAllRoles = async () => {
+export const syncAllRoles: SyncAllRoles = async (config) => {
     // #1: discover all external .roles.sb.js files
     const allLocalSbComponentsSchemaFiles = discoverRoles({
         scope: SCOPE.local,
@@ -153,10 +166,13 @@ export const syncAllRoles = async () => {
     });
 
     // #4: sync - do all stuff already done (groups resolving, and so on)
-    syncRoles({ specifiedRoles: [...local, ...external] });
+    await syncRoles({ specifiedRoles: [...local, ...external] }, config);
 };
 
-export const syncProvidedRoles = async ({ roles }: { roles: string[] }) => {
+export const syncProvidedRoles: SyncProvidedRoles = async (
+    { roles }: { roles: string[] },
+    config
+) => {
     // #1: discover all external .sb.js files
     const allLocalSbComponentsSchemaFiles = await discoverManyRoles({
         scope: SCOPE.local,
@@ -176,5 +192,5 @@ export const syncProvidedRoles = async ({ roles }: { roles: string[] }) => {
     });
 
     // #4: sync - do all stuff already done (groups resolving, and so on)
-    syncRoles({ specifiedRoles: [...local, ...external] });
+    await syncRoles({ specifiedRoles: [...local, ...external] }, config);
 };

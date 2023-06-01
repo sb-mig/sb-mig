@@ -1,3 +1,4 @@
+import type { RequestBaseConfig } from "../../api/v2/utils/request.js";
 import type { CLIOptions } from "../../utils/interfaces.js";
 
 import { getComponentPresets } from "../../api/componentPresets.js";
@@ -7,14 +8,15 @@ import {
     getComponent,
     getComponentsGroup,
 } from "../../api/components.js";
+import { sbApi } from "../../api/config.js";
 import {
     getAllDatasources,
     getDatasource,
 } from "../../api/datasources/datasources.js";
 import { getAllPlugins, getPlugin } from "../../api/plugins.js";
 import { getAllPresets, getPreset } from "../../api/presets.js";
-import { getAllRoles, getRole } from "../../api/roles.js";
 import { backupStories } from "../../api/stories.js";
+import { getAllRoles, getRole } from "../../api/v2/roles.js";
 import storyblokConfig from "../../config/config.js";
 import {
     createAndSavePresetToFile,
@@ -36,6 +38,11 @@ const BACKUP_COMMANDS = {
 
 export const backup = async (props: CLIOptions) => {
     const { input, flags } = props;
+
+    const apiConfig: RequestBaseConfig = {
+        spaceId: storyblokConfig.spaceId,
+        sbApi: sbApi,
+    };
 
     const command = input[1];
 
@@ -155,7 +162,7 @@ export const backup = async (props: CLIOptions) => {
             break;
         case BACKUP_COMMANDS.roles:
             if (flags["all"]) {
-                getAllRoles()
+                getAllRoles(apiConfig)
                     .then(async (res: any) => {
                         await createAndSaveToFile({
                             prefix: "all-roles-",
@@ -171,7 +178,7 @@ export const backup = async (props: CLIOptions) => {
             if (flags["one"]) {
                 const roleToBackup = unpackOne(input);
 
-                getRole(roleToBackup)
+                getRole(roleToBackup, apiConfig)
                     .then(async (res: any) => {
                         if (res) {
                             await createAndSaveToFile({
