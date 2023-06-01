@@ -1,10 +1,10 @@
-import type { CLIOptions } from "../utils/interfaces.js";
-import type { SyncDirection } from "../utils/sync-utils.js";
+import type { CLIOptions } from "../../utils/interfaces.js";
+import type { SyncDirection } from "../../utils/sync-utils.js";
 
 import {
     syncAllDatasources,
     syncProvidedDatasources,
-} from "../api/datasources/datasources.js";
+} from "../../api/datasources/datasources.js";
 import {
     removeAllComponents,
     syncAllComponents,
@@ -12,14 +12,14 @@ import {
     syncProvidedComponents,
     removeAllStories,
     syncProvidedPlugins,
-} from "../api/migrate.js";
-import { syncAllRoles, syncProvidedRoles } from "../api/roles.js";
-import { backupStories } from "../api/stories.js";
-import storyblokConfig from "../config/config.js";
-import Logger from "../utils/logger.js";
-import { isItFactory, unpackElements } from "../utils/main.js";
-import { askForConfirmation, getFrom, getTo } from "../utils/others.js";
-import { defineSyncDirection } from "../utils/sync-utils.js";
+} from "../../api/migrate.js";
+import { syncAllRoles, syncProvidedRoles } from "../../api/roles.js";
+import { backupStories } from "../../api/stories.js";
+import storyblokConfig from "../../config/config.js";
+import Logger from "../../utils/logger.js";
+import { isItFactory, unpackElements } from "../../utils/main.js";
+import { askForConfirmation, getFrom, getTo } from "../../utils/others.js";
+import { defineSyncDirection } from "../../utils/sync-utils.js";
 
 const SYNC_COMMANDS = {
     content: "content",

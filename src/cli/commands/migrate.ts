@@ -1,14 +1,14 @@
-import type { MigrateFrom } from "../api/data-migration/component-data-migration.js";
-import type { CLIOptions } from "../utils/interfaces.js";
+import type { MigrateFrom } from "../../api/data-migration/component-data-migration.js";
+import type { CLIOptions } from "../../utils/interfaces.js";
 
 import {
     migrateAllComponentsDataInStories,
     migrateProvidedComponentsDataInStories,
-} from "../api/data-migration/component-data-migration.js";
-import { backupStories } from "../api/stories.js";
-import Logger from "../utils/logger.js";
-import { isItFactory, unpackElements } from "../utils/main.js";
-import { askForConfirmation, getFrom, getTo } from "../utils/others.js";
+} from "../../api/data-migration/component-data-migration.js";
+import { backupStories } from "../../api/stories.js";
+import Logger from "../../utils/logger.js";
+import { isItFactory, unpackElements } from "../../utils/main.js";
+import { askForConfirmation, getFrom, getTo } from "../../utils/others.js";
 
 const MIGRATE_COMMANDS = {
     content: "content",

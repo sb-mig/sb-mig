@@ -4,8 +4,8 @@
   "description": "CLI to rule the world. (and handle stuff related to Storyblok CMS)",
   "author": "Marcin Krawczyk <marckraw@icloud.com>",
   "license": "MIT",
-  "bin": "./dist/index.js",
-  "main": "./dist/index.js",
+  "bin": "./dist/cli/index.js",
+  "main": "./dist/cli/index.js",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/sb-mig/sb-mig.git"
@@ -24,7 +24,7 @@
   ],
   "type": "module",
   "exports": {
-    ".": "./dist/index.js",
+    ".": "./dist/cli/index.js",
     "./dist/*": "./dist/*"
   },
   "engines": {

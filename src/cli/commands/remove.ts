@@ -1,13 +1,13 @@
-import type { CLIOptions } from "../utils/interfaces.js";
+import type { CLIOptions } from "../../utils/interfaces.js";
 
 import {
     removeAllComponents,
     removeAllStories,
     removeSpecifiedComponents,
     syncProvidedComponents,
-} from "../api/migrate.js";
-import Logger from "../utils/logger.js";
-import { unpackElements } from "../utils/main.js";
+} from "../../api/migrate.js";
+import Logger from "../../utils/logger.js";
+import { unpackElements } from "../../utils/main.js";
 
 const REMOVE_COMMANDS = {
     story: "story",

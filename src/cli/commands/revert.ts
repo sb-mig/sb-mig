@@ -1,10 +1,10 @@
-import type { CLIOptions } from "../utils/interfaces.js";
+import type { CLIOptions } from "../../utils/interfaces.js";
 
-import { backupStories, updateStories } from "../api/stories.js";
-import { discoverStories, LOOKUP_TYPE, SCOPE } from "../utils/discover.js";
-import Logger from "../utils/logger.js";
-import { getFilesContentWithRequire, isItFactory } from "../utils/main.js";
-import { askForConfirmation, getFrom, getTo } from "../utils/others.js";
+import { backupStories, updateStories } from "../../api/stories.js";
+import { discoverStories, LOOKUP_TYPE, SCOPE } from "../../utils/discover.js";
+import Logger from "../../utils/logger.js";
+import { getFilesContentWithRequire, isItFactory } from "../../utils/main.js";
+import { askForConfirmation, getFrom, getTo } from "../../utils/others.js";
 
 const REVERT_COMMANDS = {
     content: "content",

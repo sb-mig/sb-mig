@@ -1,6 +1,8 @@
 #! /usr/bin/env node
 import meow from "meow";
 
+import { pipe, prop } from "../utils/main.js";
+
 import {
     backupDescription,
     debugDescription,
@@ -11,18 +13,17 @@ import {
     discoverDescription,
     migrateDescription,
     revertDescription,
-    migrationsDescription
+    migrationsDescription,
 } from "./cli-descriptions.js";
 import { backup } from "./commands/backup.js";
 import { debug } from "./commands/debug.js";
 import { discover } from "./commands/discover.js";
-import { init } from './commands/init.js'
-import {migrate} from "./commands/migrate.js";
-import {migrations} from './commands/migrations.js';
-import {remove} from "./commands/remove.js";
-import {revert} from "./commands/revert.js";
+import { init } from "./commands/init.js";
+import { migrate } from "./commands/migrate.js";
+import { migrations } from "./commands/migrations.js";
+import { remove } from "./commands/remove.js";
+import { revert } from "./commands/revert.js";
 import { sync } from "./commands/sync.js";
-import { pipe, prop } from "./utils/main.js";
 
 const app = () => ({
     cli: meow(mainDescription, {
@@ -48,17 +49,17 @@ app.migrate = () => ({
         booleanDefault: undefined,
         flags: {
             from: {
-                type: "string"
+                type: "string",
             },
             to: {
-                type: "string"
+                type: "string",
             },
             migrateFrom: {
                 type: "string",
                 default: "space",
-                isRequired: true
-            }
-        }
+                isRequired: true,
+            },
+        },
     }),
     action: (cli: any) => {
         migrate(cli);

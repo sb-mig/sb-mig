@@ -135,7 +135,7 @@ export const migrationsDescription = `
     EXAMPLES
         $ sb-mig migrations recognize
 
-`
+`;
 
 export const removeDescription = `
     Usage
