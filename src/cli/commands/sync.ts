@@ -276,9 +276,12 @@ export const sync = async (props: CLIOptions) => {
                 Logger.warning("Synchronizing PROVIDED plugins...");
                 const pluginsToSync = unpackElements(input);
 
-                syncProvidedPlugins({
-                    plugins: pluginsToSync,
-                });
+                await syncProvidedPlugins(
+                    {
+                        plugins: pluginsToSync,
+                    },
+                    apiConfig
+                );
             }
 
             break;

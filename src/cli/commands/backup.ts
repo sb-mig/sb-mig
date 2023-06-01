@@ -13,9 +13,9 @@ import {
     getAllDatasources,
     getDatasource,
 } from "../../api/datasources/datasources.js";
-import { getAllPlugins, getPlugin } from "../../api/plugins.js";
-import { getAllPresets, getPreset } from "../../api/presets.js";
 import { backupStories } from "../../api/stories.js";
+import { getAllPlugins, getPlugin } from "../../api/v2/plugins.js";
+import { getAllPresets, getPreset } from "../../api/v2/presets/presets";
 import { getAllRoles, getRole } from "../../api/v2/roles.js";
 import storyblokConfig from "../../config/config.js";
 import {
@@ -196,7 +196,7 @@ export const backup = async (props: CLIOptions) => {
             break;
         case BACKUP_COMMANDS.presets:
             if (flags["all"]) {
-                getAllPresets()
+                getAllPresets(apiConfig)
                     .then(async (res: any) => {
                         await createAndSaveToFile({
                             prefix: "all-presets-",
@@ -212,7 +212,7 @@ export const backup = async (props: CLIOptions) => {
             if (flags["one"]) {
                 const presetToBackup = unpackOne(input);
 
-                getPreset(presetToBackup)
+                getPreset(presetToBackup, apiConfig)
                     .then(async (res: any) => {
                         await createAndSaveToFile({
                             prefix: `preset-${presetToBackup}-`,
@@ -276,7 +276,7 @@ export const backup = async (props: CLIOptions) => {
             if (flags["one"]) {
                 const pluginToBackup = unpackOne(input);
 
-                getPlugin(pluginToBackup)
+                getPlugin(pluginToBackup, apiConfig)
                     .then(async (res: any) => {
                         if (res) {
                             await createAndSaveToFile({
@@ -293,7 +293,7 @@ export const backup = async (props: CLIOptions) => {
             }
 
             if (flags["all"]) {
-                getAllPlugins()
+                getAllPlugins(apiConfig)
                     .then(async (res: any) => {
                         await createAndSaveToFile({
                             prefix: "all-plugins-",

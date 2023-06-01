@@ -1,3 +1,4 @@
+import type { SyncProvidedPlugins } from "./v2/plugins.types.js";
 import type { OneComponent } from "../utils/discover.js";
 import type { SyncDirection } from "../utils/sync-utils";
 
@@ -29,7 +30,6 @@ import {
 } from "./components.js";
 import { contentHubApi } from "./contentHubApi.js";
 import { updateComponent, createComponent } from "./mutateComponents.js";
-import { createPlugin, getPlugin, updatePlugin } from "./plugins.js";
 import {
     backupStories,
     createTree,
@@ -37,7 +37,7 @@ import {
     removeStory,
     traverseAndCreate,
 } from "./stories.js";
-
+import { createPlugin, getPlugin, updatePlugin } from "./v2/plugins.js";
 
 const _uniqueValuesFrom = (array: any[]) => [...new Set(array)];
 
@@ -166,10 +166,6 @@ interface SyncProvidedComponents {
     presets: boolean;
     components: string[];
     packageName: boolean;
-}
-
-interface SyncProvidedPlugins {
-    plugins: string[];
 }
 
 export const syncProvidedComponents = async ({
@@ -461,20 +457,29 @@ export const removeAllStories = async ({ spaceId }: { spaceId: string }) => {
     return allResponses;
 };
 
-export const syncProvidedPlugins = async ({ plugins }: SyncProvidedPlugins) => {
+export const syncProvidedPlugins: SyncProvidedPlugins = async (
+    { plugins },
+    config
+) => {
     const body = await readFile("dist/export.js");
     if (plugins.length === 1) {
         const pluginName = plugins[0];
-        const plugin = await getPlugin(pluginName);
+        const plugin = await getPlugin(pluginName, config);
         if (plugin) {
             Logger.log("Plugin exist.");
             Logger.log("Start updating plugin....");
-            return await updatePlugin({ plugin: plugin.field_type, body });
+            return await updatePlugin(
+                { plugin: plugin.field_type, body },
+                config
+            );
         } else {
             Logger.log("Start creating plugin...");
-            const { field_type } = await createPlugin(pluginName as string);
+            const { field_type } = await createPlugin(
+                pluginName as string,
+                config
+            );
             Logger.log("Start updating plugin...");
-            return await updatePlugin({ plugin: field_type, body });
+            return await updatePlugin({ plugin: field_type, body }, config);
         }
     }
 };

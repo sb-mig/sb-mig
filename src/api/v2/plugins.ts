@@ -1,10 +1,17 @@
 // GET
-import Logger from "../utils/logger.js";
+import type {
+    CreatePlugin,
+    GetAllPlugins,
+    GetPlugin,
+    GetPluginDetails,
+    UpdatePlugin,
+} from "./plugins.types.js";
 
-import { sbApi } from "./config.js";
-import { getAllItemsWithPagination } from "./stories.js";
+import Logger from "../../utils/logger.js";
+import { getAllItemsWithPagination } from "../stories.js";
 
-export const getAllPlugins = () => {
+export const getAllPlugins: GetAllPlugins = (config) => {
+    const { sbApi, spaceId } = config;
     Logger.log("Trying to get all plugins.");
 
     return getAllItemsWithPagination({
@@ -25,8 +32,11 @@ export const getAllPlugins = () => {
     });
 };
 
-export const getPlugin = (pluginName: string | undefined) => {
-    return getAllPlugins()
+export const getPlugin: GetPlugin = (
+    pluginName: string | undefined,
+    config
+) => {
+    return getAllPlugins(config)
         .then((res) => res.find((plugin: any) => plugin.name === pluginName))
         .then((res) => {
             if (!res) {
@@ -40,7 +50,7 @@ export const getPlugin = (pluginName: string | undefined) => {
             return res;
         })
         .then((plugin) => {
-            return getPluginDetails(plugin)
+            return getPluginDetails(plugin, config)
                 .then((res) => res)
                 .catch((err) => console.error(err));
         })
@@ -50,7 +60,8 @@ export const getPlugin = (pluginName: string | undefined) => {
         });
 };
 
-export const getPluginDetails = (plugin: any) => {
+export const getPluginDetails: GetPluginDetails = (plugin, config) => {
+    const { sbApi } = config;
     console.log(`Trying to get ${plugin.name} details `);
 
     return sbApi
@@ -59,15 +70,8 @@ export const getPluginDetails = (plugin: any) => {
         .catch((err: any) => console.error(err));
 };
 
-interface UpdatePlugin {
-    plugin: {
-        id: number;
-        name: string;
-    };
-    body?: string;
-}
-
-export const updatePlugin = ({ plugin, body }: UpdatePlugin) => {
+export const updatePlugin: UpdatePlugin = ({ plugin, body }, config) => {
+    const { sbApi, spaceId } = config;
     return sbApi
         .put(`field_types/${plugin.id}`, {
             publish: true,
@@ -86,7 +90,8 @@ export const updatePlugin = ({ plugin, body }: UpdatePlugin) => {
         });
 };
 
-export const createPlugin = (pluginName: string) => {
+export const createPlugin: CreatePlugin = (pluginName: string, config) => {
+    const { sbApi, spaceId } = config;
     return sbApi
         .post(`field_types`, {
             publish: true,
