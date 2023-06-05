@@ -1,4 +1,4 @@
-import type { RequestBaseConfig } from "./utils/request.js";
+import type { RequestBaseConfig } from "../utils/request.js";
 
 interface Plugin {
     id: number;
@@ -7,6 +7,7 @@ interface Plugin {
 
 interface UpdatePluginDTO {
     plugin: Plugin;
+
     body?: string;
 }
 

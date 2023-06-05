@@ -103,11 +103,11 @@ export const copyFile = async (src: string, dest: string) => {
     });
 };
 
-interface CreateAndSaveToFile {
-    prefix: string;
-    folder: string;
-    res: any;
-}
+// interface CreateAndSaveToFile {
+//     prefix: string;
+//     folder: string;
+//     res: any;
+// }
 
 interface CreateAndSavePresetToFile {
     filename: string;
@@ -121,20 +121,68 @@ interface CreateAndSaveComponentListToFile {
     timestamp?: boolean;
 }
 
-export const createAndSaveToFile = async ({
-    prefix,
-    folder,
+type CreateAndSaveToFile = (args: {
+    ext?: string;
+    datestamp?: boolean;
+    prefix?: string;
+    path?: string;
+    filename?: string;
+    folder?: string;
+    res: any;
+}) => void;
+
+export const createAndSaveToFile: CreateAndSaveToFile = async ({
+    ext = "json",
+    datestamp = false,
+    prefix = "",
+    path = null,
+    filename = "",
+    folder = "default",
     res,
-}: CreateAndSaveToFile): Promise<void> => {
-    const datestamp = new Date();
-    const filename = `${prefix}${generateDatestamp(datestamp)}`;
-    await createDir(`${storyblokConfig.sbmigWorkingDirectory}/${folder}/`);
-    await createJsonFile(
-        JSON.stringify(res, undefined, 2),
-        `${storyblokConfig.sbmigWorkingDirectory}/${folder}/${filename}.json`
-    );
-    Logger.success(`All response written to a file:  ${filename}`);
+}) => {
+    if (!path) {
+        const timestamp = generateDatestamp(new Date());
+        const finalFilename = `${prefix}${filename}${
+            datestamp ? `__${timestamp}` : ""
+        }`;
+
+        await createDir(`${storyblokConfig.sbmigWorkingDirectory}/${folder}/`);
+        await createJsonFile(
+            JSON.stringify(res, undefined, 2),
+            `${storyblokConfig.sbmigWorkingDirectory}/${folder}/${finalFilename}.${ext}`
+        );
+
+        Logger.success(
+            `All response written to a file:  ${storyblokConfig.sbmigWorkingDirectory}/${folder}/${finalFilename}.${ext}`
+        );
+    }
+
+    if (path) {
+        const folderPath = path
+            .split("/")
+            .slice(0, path.split("/").length - 1)
+            .join("/");
+        await createDir(folderPath);
+        await createJsonFile(JSON.stringify(res, undefined, 2), path);
+
+        Logger.success(`All response written to a file:  ${path}`);
+    }
 };
+
+// export const createAndSaveToFile = async ({
+//     prefix,
+//     folder,
+//     res,
+// }: CreateAndSaveToFile): Promise<void> => {
+//     const datestamp = new Date();
+//     const filename = `${prefix}${generateDatestamp(datestamp)}`;
+//     await createDir(`${storyblokConfig.sbmigWorkingDirectory}/${folder}/`);
+//     await createJsonFile(
+//         JSON.stringify(res, undefined, 2),
+//         `${storyblokConfig.sbmigWorkingDirectory}/${folder}/${filename}.json`
+//     );
+//     Logger.success(`All response written to a file:  ${filename}`);
+// };
 
 export const createAndSavePresetToFile = async ({
     filename,

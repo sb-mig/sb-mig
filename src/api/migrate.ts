@@ -1,4 +1,4 @@
-import type { SyncProvidedPlugins } from "./v2/plugins.types.js";
+import type { SyncProvidedPlugins } from "./v2/plugins/plugins.types.js";
 import type { OneComponent } from "../utils/discover.js";
 import type { SyncDirection } from "../utils/sync-utils";
 
@@ -37,7 +37,7 @@ import {
     removeStory,
     traverseAndCreate,
 } from "./stories.js";
-import { createPlugin, getPlugin, updatePlugin } from "./v2/plugins.js";
+import { createPlugin, getPlugin, updatePlugin } from "./v2/plugins/plugins.js";
 
 const _uniqueValuesFrom = (array: any[]) => [...new Set(array)];
 

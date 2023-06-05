@@ -7,8 +7,8 @@ import type {
     UpdatePlugin,
 } from "./plugins.types.js";
 
-import Logger from "../../utils/logger.js";
-import { getAllItemsWithPagination } from "../stories.js";
+import Logger from "../../../utils/logger.js";
+import { getAllItemsWithPagination } from "../../stories.js";
 
 export const getAllPlugins: GetAllPlugins = (config) => {
     const { sbApi, spaceId } = config;

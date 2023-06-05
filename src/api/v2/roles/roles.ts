@@ -7,23 +7,17 @@ import type {
     SyncRoles,
     UpdateRole,
 } from "./roles.types";
-import type { OneComponent } from "../../utils/discover.js";
 
-import storyblokConfig from "../../config/config.js";
 import {
     LOOKUP_TYPE,
     SCOPE,
     compare,
     discoverRoles,
     discoverManyRoles,
-} from "../../utils/discover.js";
-import Logger from "../../utils/logger.js";
-import { getFileContentWithRequire } from "../../utils/main.js";
-import { getAllItemsWithPagination } from "../stories.js";
-
-import { RequestBaseConfig } from "./utils/request";
-
-const { spaceId } = storyblokConfig;
+} from "../../../utils/discover.js";
+import Logger from "../../../utils/logger.js";
+import { getFileContentWithRequire } from "../../../utils/main.js";
+import { getAllItemsWithPagination } from "../../stories.js";
 
 // POST
 export const createRole: CreateRole = (role: any, config) => {

@@ -16,7 +16,7 @@ import {
     syncProvidedPlugins,
 } from "../../api/migrate.js";
 import { backupStories } from "../../api/stories.js";
-import { syncAllRoles, syncProvidedRoles } from "../../api/v2/roles.js";
+import { syncAllRoles, syncProvidedRoles } from "../../api/v2/roles/roles.js";
 import storyblokConfig from "../../config/config.js";
 import Logger from "../../utils/logger.js";
 import { isItFactory, unpackElements } from "../../utils/main.js";

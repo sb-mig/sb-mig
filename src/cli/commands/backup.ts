@@ -1,7 +1,6 @@
 import type { RequestBaseConfig } from "../../api/v2/utils/request.js";
 import type { CLIOptions } from "../../utils/interfaces.js";
 
-import { getComponentPresets } from "../../api/componentPresets.js";
 import {
     getAllComponents,
     getAllComponentsGroups,
@@ -14,16 +13,22 @@ import {
     getDatasource,
 } from "../../api/datasources/datasources.js";
 import { backupStories } from "../../api/stories.js";
-import { getAllPlugins, getPlugin } from "../../api/v2/plugins.js";
-import { getAllPresets, getPreset } from "../../api/v2/presets/presets";
-import { getAllRoles, getRole } from "../../api/v2/roles.js";
+import { getAllPlugins, getPlugin } from "../../api/v2/plugins/plugins.js";
+import { getComponentPresets } from "../../api/v2/presets/componentPresets.js";
+import { getAllPresets, getPreset } from "../../api/v2/presets/presets.js";
+import { getAllRoles, getRole } from "../../api/v2/roles/roles.js";
 import storyblokConfig from "../../config/config.js";
 import {
     createAndSavePresetToFile,
     createAndSaveToFile,
 } from "../../utils/files.js";
 import Logger from "../../utils/logger.js";
-import { extractFields, getPackageJson, unpackOne } from "../../utils/main.js";
+import {
+    extractFields,
+    getPackageJson,
+    isItFactory,
+    unpackOne,
+} from "../../utils/main.js";
 
 const BACKUP_COMMANDS = {
     components: "components",
@@ -46,6 +51,20 @@ export const backup = async (props: CLIOptions) => {
 
     const command = input[1];
 
+    const rules = {
+        all: ["all"],
+        empty: [],
+    };
+    const isIt = isItFactory<keyof typeof rules>(flags, rules, [
+        "filename",
+        "syncDirection",
+        "from",
+        "to",
+        "presets",
+        "packageName",
+        "yes",
+    ]);
+
     switch (command) {
         case BACKUP_COMMANDS.components:
             Logger.warning(`back up components... with command: ${command}`);
@@ -63,7 +82,7 @@ export const backup = async (props: CLIOptions) => {
                         console.error("error happened... :(");
                     });
             }
-            if (flags["one"]) {
+            if (isIt("empty")) {
                 const componentToBackup = unpackOne(input);
 
                 getComponent(componentToBackup)
@@ -109,7 +128,7 @@ export const backup = async (props: CLIOptions) => {
                         Logger.error("error happened... :(");
                     });
             }
-            if (flags["one"]) {
+            if (isIt("empty")) {
                 const componentGroupToBackup = unpackOne(input);
 
                 getComponentsGroup(componentGroupToBackup)
@@ -141,7 +160,7 @@ export const backup = async (props: CLIOptions) => {
                         Logger.error("error happened... :(");
                     });
             }
-            if (flags["one"]) {
+            if (isIt("empty")) {
                 const datasourceToBackup = unpackOne(input);
 
                 getDatasource(datasourceToBackup)
@@ -175,7 +194,7 @@ export const backup = async (props: CLIOptions) => {
                         Logger.error("error happened... :(");
                     });
             }
-            if (flags["one"]) {
+            if (isIt("empty")) {
                 const roleToBackup = unpackOne(input);
 
                 getRole(roleToBackup, apiConfig)
@@ -209,7 +228,7 @@ export const backup = async (props: CLIOptions) => {
                         Logger.error("error happened... :(");
                     });
             }
-            if (flags["one"]) {
+            if (isIt("empty")) {
                 const presetToBackup = unpackOne(input);
 
                 getPreset(presetToBackup, apiConfig)
@@ -227,10 +246,10 @@ export const backup = async (props: CLIOptions) => {
             }
             break;
         case BACKUP_COMMANDS.componentPresets:
-            if (flags["one"]) {
+            if (isIt("empty")) {
                 const componentPresetToBackup = unpackOne(input);
 
-                getComponentPresets(componentPresetToBackup)
+                getComponentPresets(componentPresetToBackup, apiConfig)
                     .then(async (res: any) => {
                         await createAndSavePresetToFile({
                             filename: `${componentPresetToBackup}.presets.sb.json`,
@@ -256,7 +275,7 @@ export const backup = async (props: CLIOptions) => {
                 }
 
                 allRemoteComponents.forEach(async (component: any) => {
-                    getComponentPresets(component.name)
+                    getComponentPresets(component.name, apiConfig)
                         .then(async (res: any) => {
                             if (res) {
                                 await createAndSavePresetToFile({
@@ -273,23 +292,39 @@ export const backup = async (props: CLIOptions) => {
             }
             break;
         case BACKUP_COMMANDS.plugins:
-            if (flags["one"]) {
+            if (isIt("empty")) {
                 const pluginToBackup = unpackOne(input);
 
                 getPlugin(pluginToBackup, apiConfig)
                     .then(async (res: any) => {
                         if (res) {
                             await createAndSaveToFile({
-                                prefix: `plugin-${pluginToBackup}-`,
-                                folder: "plugins",
+                                ext: "json",
+                                prefix: "plugin-",
+                                filename: pluginToBackup,
+                                datestamp: true,
                                 res,
+                                folder: "plugins",
                             });
+
+                            // await createAndSaveToFile({
+                            //     path: './plugins/whatever/something.json',
+                            //     res,
+                            // })
+
+                            // await createAndSaveToFile({
+                            //     prefix: `plugin-${pluginToBackup}-`,
+                            //     folder: "plugins",
+                            //     res,
+                            // });
                         }
                     })
                     .catch((err: any) => {
                         console.log(err);
                         Logger.error("error happened... :(");
                     });
+
+                Logger.log("Backing up provided plugins...");
             }
 
             if (flags["all"]) {

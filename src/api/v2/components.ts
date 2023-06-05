@@ -2,7 +2,7 @@ import type { RequestBaseConfig } from "./utils/request.js";
 
 import Logger from "../../utils/logger.js";
 
-import _resolvePresets from "./presets/resolvePresets";
+import _resolvePresets from "./presets/resolvePresets.js";
 import { getAllItemsWithPagination } from "./utils/request.js";
 
 /*

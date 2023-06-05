@@ -161,7 +161,7 @@ export const removeDescription = `
 
 export const backupDescription = `
     Usage
-        $ sb-mig backup [components|component-groups|roles|datasources|presets|component-presets] component-name --one or --all
+        $ sb-mig backup [components|component-groups|roles|datasources|presets|component-presets] component-name or --all
     Description
         Command for backing up anything related to Storyblok
         
@@ -178,15 +178,14 @@ export const backupDescription = `
      
     FLAGS
         --all   - Backup all 
-        --one   - Backup one 
     
     EXAMPLES
         $ sb-mig backup components --all
-        $ sb-mig backup components accordion --one  
+        $ sb-mig backup components accordion  
         $ sb-mig backup datasources --all
-        $ sb-mig backup roles admin --one
+        $ sb-mig backup roles admin
         $ sb-mig backup plugins --all
-        $ sb-mig backup plugins my-awesome-plugin --one
+        $ sb-mig backup plugins my-awesome-plugin
         $ sb-mig backup stories --all
 `;
 
