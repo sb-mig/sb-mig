@@ -72,9 +72,11 @@ export const backup = async (props: CLIOptions) => {
                 getAllComponents()
                     .then(async (res: any) => {
                         await createAndSaveToFile({
-                            prefix: "all-components-",
-                            folder: "components",
+                            ext: "json",
+                            prefix: "all-components",
+                            datestamp: true,
                             res,
+                            folder: "components",
                         });
                     })
                     .catch((err: any) => {
@@ -89,9 +91,12 @@ export const backup = async (props: CLIOptions) => {
                     .then(async (res: any) => {
                         if (res) {
                             await createAndSaveToFile({
+                                ext: "json",
                                 prefix: "component-",
-                                folder: "components",
+                                filename: componentToBackup,
+                                datestamp: true,
                                 res,
+                                folder: "components",
                             });
                         }
                     })
@@ -118,9 +123,11 @@ export const backup = async (props: CLIOptions) => {
                 getAllComponentsGroups()
                     .then(async (res) => {
                         await createAndSaveToFile({
-                            prefix: "all-component_groups-",
-                            folder: "component_groups",
+                            ext: "json",
+                            prefix: "all-component_groups",
+                            datestamp: true,
                             res,
+                            folder: "component-groups",
                         });
                     })
                     .catch((err: any) => {
@@ -134,9 +141,12 @@ export const backup = async (props: CLIOptions) => {
                 getComponentsGroup(componentGroupToBackup)
                     .then(async (res: any) => {
                         await createAndSaveToFile({
-                            prefix: "components_group-",
-                            folder: "component_groups",
+                            ext: "json",
+                            prefix: "component_group-",
+                            datestamp: true,
+                            filename: componentGroupToBackup,
                             res,
+                            folder: "component-groups",
                         });
                     })
                     .catch((err: any) => {
@@ -150,9 +160,11 @@ export const backup = async (props: CLIOptions) => {
                 getAllDatasources()
                     .then(async (res: any) => {
                         await createAndSaveToFile({
-                            prefix: "all-datasources-",
-                            folder: "datasources",
+                            ext: "json",
+                            prefix: "all-datasources",
+                            datestamp: true,
                             res,
+                            folder: "datasources",
                         });
                     })
                     .catch((err: any) => {
@@ -167,9 +179,12 @@ export const backup = async (props: CLIOptions) => {
                     .then(async (res: any) => {
                         if (res) {
                             await createAndSaveToFile({
-                                prefix: `datasource-${datasourceToBackup}-`,
-                                folder: "datasources",
+                                ext: "json",
+                                prefix: "datasources-",
+                                filename: datasourceToBackup,
+                                datestamp: true,
                                 res,
+                                folder: "datasources",
                             });
                         }
                     })
@@ -184,9 +199,11 @@ export const backup = async (props: CLIOptions) => {
                 getAllRoles(apiConfig)
                     .then(async (res: any) => {
                         await createAndSaveToFile({
-                            prefix: "all-roles-",
-                            folder: "roles",
+                            ext: "json",
+                            prefix: "all-roles",
+                            datestamp: true,
                             res,
+                            folder: "roles",
                         });
                     })
                     .catch((err: any) => {
@@ -201,9 +218,12 @@ export const backup = async (props: CLIOptions) => {
                     .then(async (res: any) => {
                         if (res) {
                             await createAndSaveToFile({
-                                prefix: `role-${roleToBackup}`,
-                                folder: "roles",
+                                ext: "json",
+                                prefix: "role-",
+                                filename: roleToBackup,
+                                datestamp: true,
                                 res,
+                                folder: "roles",
                             });
                         }
                     })
@@ -218,9 +238,11 @@ export const backup = async (props: CLIOptions) => {
                 getAllPresets(apiConfig)
                     .then(async (res: any) => {
                         await createAndSaveToFile({
+                            ext: "json",
                             prefix: "all-presets-",
-                            folder: "presets",
+                            datestamp: true,
                             res,
+                            folder: "presets",
                         });
                     })
                     .catch((err: any) => {
@@ -234,9 +256,12 @@ export const backup = async (props: CLIOptions) => {
                 getPreset(presetToBackup, apiConfig)
                     .then(async (res: any) => {
                         await createAndSaveToFile({
-                            prefix: `preset-${presetToBackup}-`,
-                            folder: "presets",
+                            ext: "json",
+                            prefix: "preset-",
+                            filename: presetToBackup,
+                            datestamp: true,
                             res,
+                            folder: "presets",
                         });
                     })
                     .catch((err: any) => {
@@ -306,17 +331,6 @@ export const backup = async (props: CLIOptions) => {
                                 res,
                                 folder: "plugins",
                             });
-
-                            // await createAndSaveToFile({
-                            //     path: './plugins/whatever/something.json',
-                            //     res,
-                            // })
-
-                            // await createAndSaveToFile({
-                            //     prefix: `plugin-${pluginToBackup}-`,
-                            //     folder: "plugins",
-                            //     res,
-                            // });
                         }
                     })
                     .catch((err: any) => {
@@ -331,9 +345,11 @@ export const backup = async (props: CLIOptions) => {
                 getAllPlugins(apiConfig)
                     .then(async (res: any) => {
                         await createAndSaveToFile({
+                            ext: "json",
                             prefix: "all-plugins-",
-                            folder: "plugins",
+                            datestamp: true,
                             res,
+                            folder: "plugins",
                         });
                     })
                     .catch((err: any) => {
