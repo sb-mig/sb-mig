@@ -18,10 +18,7 @@ import { getComponentPresets } from "../../api/v2/presets/componentPresets.js";
 import { getAllPresets, getPreset } from "../../api/v2/presets/presets.js";
 import { getAllRoles, getRole } from "../../api/v2/roles/roles.js";
 import storyblokConfig from "../../config/config.js";
-import {
-    createAndSavePresetToFile,
-    createAndSaveToFile,
-} from "../../utils/files.js";
+import { createAndSaveToFile } from "../../utils/files.js";
 import Logger from "../../utils/logger.js";
 import {
     extractFields,
@@ -276,9 +273,11 @@ export const backup = async (props: CLIOptions) => {
 
                 getComponentPresets(componentPresetToBackup, apiConfig)
                     .then(async (res: any) => {
-                        await createAndSavePresetToFile({
+                        await createAndSaveToFile({
+                            ext: "json",
                             filename: `${componentPresetToBackup}.presets.sb.json`,
                             res,
+                            folder: storyblokConfig.presetsBackupDirectory,
                         });
                     })
                     .catch((err: any) => {
@@ -303,9 +302,11 @@ export const backup = async (props: CLIOptions) => {
                     getComponentPresets(component.name, apiConfig)
                         .then(async (res: any) => {
                             if (res) {
-                                await createAndSavePresetToFile({
+                                await createAndSaveToFile({
+                                    ext: "json",
                                     filename: `${component.name}.presets.sb.json`,
                                     res: { allPresets: res, ...metadata },
+                                    folder: storyblokConfig.presetsBackupDirectory,
                                 });
                             }
                         })

@@ -1,9 +1,8 @@
 import chalk from "chalk";
 
 import storyblokConfig from "../config/config.js";
-import { createAndSaveToStoriesFile } from "../utils/files.js";
+import { createAndSaveToFile } from "../utils/files.js";
 import Logger from "../utils/logger.js";
-import { generateDatestamp } from "../utils/others.js";
 
 import { sbApi } from "./config.js";
 
@@ -329,12 +328,12 @@ export const backupStories = async ({
     suffix?: string;
 }) => {
     Logger.log(`Making backup of your stories.`);
-    const timestamp = generateDatestamp(new Date());
     await getAllStories({ spaceId })
         .then(async (res: any) => {
-            await createAndSaveToStoriesFile({
-                filename: `${filename}_${timestamp}`,
-                suffix,
+            await createAndSaveToFile({
+                ext: "cjs",
+                filename: `${filename}__${suffix}`,
+                datestamp: true,
                 folder: "stories",
                 res,
             });

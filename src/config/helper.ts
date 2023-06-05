@@ -16,8 +16,8 @@ export const defaultConfig = (
     return {
         storyblokComponentsLocalDirectory: "src/@storyblok-components",
         sbmigWorkingDirectory: sbmigWorkingDirectory,
-        presetsBackupDirectory: `${sbmigWorkingDirectory}/component-presets`,
-        storiesBackupDirectory: `${sbmigWorkingDirectory}/stories`,
+        presetsBackupDirectory: `component-presets`,
+        storiesBackupDirectory: `stories`,
         componentsDirectories: ["src", "storyblok"],
         awsBucketData: {
             bucketName: "site-builder-content-hub",

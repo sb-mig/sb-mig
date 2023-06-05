@@ -9,10 +9,7 @@ import {
     LOOKUP_TYPE,
     SCOPE,
 } from "../../utils/discover.js";
-import {
-    createAndSaveToStoriesFile,
-    createJsonFile,
-} from "../../utils/files.js";
+import { createAndSaveToFile } from "../../utils/files.js";
 import Logger from "../../utils/logger.js";
 import { getFilesContentWithRequire, isObjectEmpty } from "../../utils/main.js";
 import { modifyOrCreateAppliedMigrationsFile } from "../../utils/migrations.js";
@@ -307,9 +304,9 @@ export const doTheMigration = async ({
     }
 
     // Saving result with migrated version of stories into file
-    await createAndSaveToStoriesFile({
-        filename: from,
-        suffix: "---migrated",
+    await createAndSaveToFile({
+        ext: "cjs",
+        filename: `${from}---migrated`,
         folder: "migrations",
         res: migratedStories.filter((item: any) => item),
     });
@@ -338,9 +335,9 @@ const saveBackupStoriesToFile: SaveBackupStoriesToFile = async ({
     folder,
     filename,
 }) => {
-    const timestamp = generateDatestamp(new Date());
-    await createAndSaveToStoriesFile({
-        filename: `${filename}_${timestamp}`,
+    await createAndSaveToFile({
+        datestamp: true,
+        filename,
         folder,
         res: res,
     });
