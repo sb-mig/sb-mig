@@ -1,5 +1,5 @@
 import type { SyncProvidedPlugins } from "./v2/plugins/plugins.types.js";
-import type { SyncDirection } from "../utils/sync-utils";
+import type { SyncDirection } from "../utils/sync-utils.js";
 
 import config from "../config/config.js";
 import {

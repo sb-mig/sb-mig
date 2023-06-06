@@ -17,7 +17,7 @@ import {
     removeAllComponents,
     syncAllComponents,
     syncProvidedComponents,
-} from "../../api/v2/migrate";
+} from "../../api/v2/migrate.js";
 import { syncAllRoles, syncProvidedRoles } from "../../api/v2/roles/roles.js";
 import storyblokConfig from "../../config/config.js";
 import Logger from "../../utils/logger.js";

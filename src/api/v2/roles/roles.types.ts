@@ -1,5 +1,5 @@
-import type { OneComponent } from "../../../utils/discover";
-import type { RequestBaseConfig } from "../utils/request";
+import type { OneComponent } from "../../../utils/discover.js";
+import type { RequestBaseConfig } from "../utils/request.js";
 
 export type GetRole = (
     roleName: string | undefined,

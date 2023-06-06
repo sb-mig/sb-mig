@@ -7,11 +7,9 @@ import type {
     RemoveComponent,
     RemoveComponentGroup,
     UpdateComponent,
-} from "./components.types";
-import type { RequestBaseConfig } from "./utils/request.js";
+} from "./components.types.js";
 
 import Logger from "../../utils/logger.js";
-import { sbApi } from "../config";
 
 import _resolvePresets from "./presets/resolvePresets.js";
 import { getAllItemsWithPagination } from "./utils/request.js";

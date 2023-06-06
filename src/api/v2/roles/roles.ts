@@ -6,7 +6,7 @@ import type {
     SyncProvidedRoles,
     SyncRoles,
     UpdateRole,
-} from "./roles.types";
+} from "./roles.types.js";
 
 import {
     LOOKUP_TYPE,

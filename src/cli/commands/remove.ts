@@ -1,13 +1,13 @@
-import type { RequestBaseConfig } from "../../api/v2/utils/request";
+import type { RequestBaseConfig } from "../../api/v2/utils/request.js";
 import type { CLIOptions } from "../../utils/interfaces.js";
 
-import { sbApi } from "../../api/config";
+import { sbApi } from "../../api/config.js";
 import { removeAllStories } from "../../api/migrate.js";
 import {
     removeAllComponents,
     removeSpecifiedComponents,
-} from "../../api/v2/migrate";
-import storyblokConfig from "../../config/config";
+} from "../../api/v2/migrate.js";
+import storyblokConfig from "../../config/config.js";
 import Logger from "../../utils/logger.js";
 import { unpackElements } from "../../utils/main.js";
 

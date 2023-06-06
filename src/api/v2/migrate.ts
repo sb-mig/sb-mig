@@ -2,13 +2,13 @@ import type {
     CheckAndPrepareGroups,
     RemoveSpecificComponents,
     ResolveGroups,
-} from "./components.types";
+} from "./components.types.js";
 import type {
     SyncAllComponents,
     SyncComponents,
     SyncProvidedComponents,
-} from "./migrate.types";
-import type { RequestBaseConfig } from "./utils/request";
+} from "./migrate.types.js";
+import type { RequestBaseConfig } from "./utils/request.js";
 
 import {
     compare,
@@ -17,10 +17,10 @@ import {
     discoverManyByPackageName,
     LOOKUP_TYPE,
     SCOPE,
-} from "../../utils/discover";
-import Logger from "../../utils/logger";
-import { getFileContentWithRequire, isObjectEmpty } from "../../utils/main";
-import { createComponent, updateComponent } from "../mutateComponents";
+} from "../../utils/discover.js";
+import Logger from "../../utils/logger.js";
+import { getFileContentWithRequire, isObjectEmpty } from "../../utils/main.js";
+import { createComponent, updateComponent } from "../mutateComponents.js";
 
 import {
     createComponentsGroup,
@@ -28,9 +28,8 @@ import {
     getAllComponentsGroups,
     removeComponent,
     removeComponentGroup,
-} from "./components";
-import { _uniqueValuesFrom } from "./utils/helper-functions";
-
+} from "./components.js";
+import { _uniqueValuesFrom } from "./utils/helper-functions.js";
 
 const _checkAndPrepareGroups: CheckAndPrepareGroups = async (
     groupsToCheck,
