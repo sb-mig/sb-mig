@@ -12,7 +12,7 @@ import {
     getAllComponentsGroups,
     getComponent,
     getComponentsGroup,
-} from "../../api/v2/components";
+} from "../../api/v2/components.js";
 import { getAllPlugins, getPlugin } from "../../api/v2/plugins/plugins.js";
 import { getComponentPresets } from "../../api/v2/presets/componentPresets.js";
 import { getAllPresets, getPreset } from "../../api/v2/presets/presets.js";
