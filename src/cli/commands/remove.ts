@@ -1,11 +1,13 @@
+import type { RequestBaseConfig } from "../../api/v2/utils/request";
 import type { CLIOptions } from "../../utils/interfaces.js";
 
+import { sbApi } from "../../api/config";
+import { removeAllStories } from "../../api/migrate.js";
 import {
     removeAllComponents,
-    removeAllStories,
     removeSpecifiedComponents,
-    syncProvidedComponents,
-} from "../../api/migrate.js";
+} from "../../api/v2/migrate";
+import storyblokConfig from "../../config/config";
 import Logger from "../../utils/logger.js";
 import { unpackElements } from "../../utils/main.js";
 
@@ -19,6 +21,11 @@ const REMOVE_COMMANDS = {
 export const remove = async (props: CLIOptions) => {
     const { input, flags } = props;
 
+    const apiConfig: RequestBaseConfig = {
+        spaceId: storyblokConfig.spaceId,
+        sbApi: sbApi,
+    };
+
     const command = input[1];
 
     switch (command) {
@@ -26,16 +33,19 @@ export const remove = async (props: CLIOptions) => {
             if (flags["all"]) {
                 Logger.warning("Removing ALL components from storyblok...");
 
-                await removeAllComponents();
+                await removeAllComponents(apiConfig);
             }
 
             if (!flags["all"]) {
                 Logger.warning("Removing PROVIDED components...");
                 const componentToRemove = unpackElements(input);
 
-                removeSpecifiedComponents({
-                    components: componentToRemove,
-                });
+                removeSpecifiedComponents(
+                    {
+                        components: componentToRemove,
+                    },
+                    apiConfig
+                );
             }
 
             break;

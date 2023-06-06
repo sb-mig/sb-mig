@@ -26,7 +26,7 @@ export const createJsonFile = async (
     await fs.promises.writeFile(pathWithFilename, content, { flag: "w" });
 };
 
-export const createJSFile = async (
+export const createJSAllComponentsFile = async (
     content: string,
     pathWithFilename: string,
     timestamp = false
@@ -113,6 +113,12 @@ type CreateAndSaveToFile = (args: {
     res: any;
 }) => void;
 
+/*
+ *
+ * General function to create and save to file
+ * the most used one for many different purposes
+ *
+ * */
 export const createAndSaveToFile: CreateAndSaveToFile = async ({
     ext = "json",
     datestamp = false,
@@ -151,13 +157,12 @@ export const createAndSaveToFile: CreateAndSaveToFile = async ({
     }
 };
 
-interface CreateAndSaveToStoriesFile {
-    filename: string;
-    folder: string;
-    suffix?: string;
-    res: any;
-}
-
+/*
+ *
+ * Specific function for saving component list to file
+ * ef backpack related
+ *
+ * */
 export const createAndSaveComponentListToFile = async ({
     file,
     folder,
@@ -171,7 +176,7 @@ export const createAndSaveComponentListToFile = async ({
             ? `${storyblokConfig.sbmigWorkingDirectory}/${folder}/`
             : `${storyblokConfig.sbmigWorkingDirectory}/`
     );
-    await createJSFile(
+    await createJSAllComponentsFile(
         JSON.stringify(res, null, 2),
         folder
             ? `${storyblokConfig.sbmigWorkingDirectory}/${folder}/${filename}.ts`

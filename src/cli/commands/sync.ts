@@ -8,14 +8,16 @@ import {
     syncProvidedDatasources,
 } from "../../api/datasources/datasources.js";
 import {
-    removeAllComponents,
-    syncAllComponents,
     syncContent,
-    syncProvidedComponents,
     removeAllStories,
     syncProvidedPlugins,
 } from "../../api/migrate.js";
 import { backupStories } from "../../api/stories.js";
+import {
+    removeAllComponents,
+    syncAllComponents,
+    syncProvidedComponents,
+} from "../../api/v2/migrate";
 import { syncAllRoles, syncProvidedRoles } from "../../api/v2/roles/roles.js";
 import storyblokConfig from "../../config/config.js";
 import Logger from "../../utils/logger.js";
@@ -70,18 +72,19 @@ export const sync = async (props: CLIOptions) => {
 
                 const presets = flags["presets"] || false;
 
-                syncAllComponents({ presets });
+                syncAllComponents(presets, apiConfig);
             }
 
             if (isIt("empty")) {
                 Logger.warning("Synchronizing PROVIDED components...");
                 const componentsToSync = unpackElements(input);
 
-                syncProvidedComponents({
-                    components: componentsToSync,
-                    presets: Boolean(flags.presets),
-                    packageName: flags.packageName,
-                });
+                syncProvidedComponents(
+                    Boolean(flags.presets),
+                    componentsToSync,
+                    flags.packageName,
+                    apiConfig
+                );
             }
 
             if (isIt("allWithSSOT")) {
@@ -93,8 +96,8 @@ export const sync = async (props: CLIOptions) => {
                 await askForConfirmation(
                     "Are you sure you want to use Single Source of truth? It will remove all your components added in GUI and replace them 1 to 1 with code versions.",
                     async () => {
-                        await removeAllComponents();
-                        await syncAllComponents({ presets });
+                        await removeAllComponents(apiConfig);
+                        await syncAllComponents(presets, apiConfig);
                     },
                     () => {
                         Logger.success("Syncing components aborted.");

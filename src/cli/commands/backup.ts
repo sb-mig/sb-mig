@@ -1,18 +1,18 @@
 import type { RequestBaseConfig } from "../../api/v2/utils/request.js";
 import type { CLIOptions } from "../../utils/interfaces.js";
 
-import {
-    getAllComponents,
-    getAllComponentsGroups,
-    getComponent,
-    getComponentsGroup,
-} from "../../api/components.js";
 import { sbApi } from "../../api/config.js";
 import {
     getAllDatasources,
     getDatasource,
 } from "../../api/datasources/datasources.js";
 import { backupStories } from "../../api/stories.js";
+import {
+    getAllComponents,
+    getAllComponentsGroups,
+    getComponent,
+    getComponentsGroup,
+} from "../../api/v2/components";
 import { getAllPlugins, getPlugin } from "../../api/v2/plugins/plugins.js";
 import { getComponentPresets } from "../../api/v2/presets/componentPresets.js";
 import { getAllPresets, getPreset } from "../../api/v2/presets/presets.js";
@@ -66,7 +66,7 @@ export const backup = async (props: CLIOptions) => {
         case BACKUP_COMMANDS.components:
             Logger.warning(`back up components... with command: ${command}`);
             if (flags["all"]) {
-                getAllComponents()
+                getAllComponents(apiConfig)
                     .then(async (res: any) => {
                         await createAndSaveToFile({
                             ext: "json",
@@ -84,7 +84,7 @@ export const backup = async (props: CLIOptions) => {
             if (isIt("empty")) {
                 const componentToBackup = unpackOne(input);
 
-                getComponent(componentToBackup)
+                getComponent(componentToBackup, apiConfig)
                     .then(async (res: any) => {
                         if (res) {
                             await createAndSaveToFile({
@@ -117,7 +117,7 @@ export const backup = async (props: CLIOptions) => {
             break;
         case BACKUP_COMMANDS.componentGroups:
             if (flags["all"]) {
-                getAllComponentsGroups()
+                getAllComponentsGroups(apiConfig)
                     .then(async (res) => {
                         await createAndSaveToFile({
                             ext: "json",
@@ -135,7 +135,7 @@ export const backup = async (props: CLIOptions) => {
             if (isIt("empty")) {
                 const componentGroupToBackup = unpackOne(input);
 
-                getComponentsGroup(componentGroupToBackup)
+                getComponentsGroup(componentGroupToBackup, apiConfig)
                     .then(async (res: any) => {
                         await createAndSaveToFile({
                             ext: "json",
@@ -285,7 +285,7 @@ export const backup = async (props: CLIOptions) => {
                         Logger.error("error happened... :(");
                     });
             } else if (flags["all"]) {
-                const allRemoteComponents = await getAllComponents();
+                const allRemoteComponents = await getAllComponents(apiConfig);
                 let metadata = {};
 
                 if (flags["metadata"]) {
