@@ -10,6 +10,12 @@ export type UpdateComponent = (
     preset: boolean,
     config: RequestBaseConfig
 ) => Promise<any>;
+export type CreateComponent = (
+    component: any,
+    preset: boolean,
+    config: RequestBaseConfig
+) => Promise<any> | void;
+
 export type RemoveComponent = (
     component: any,
     config: RequestBaseConfig

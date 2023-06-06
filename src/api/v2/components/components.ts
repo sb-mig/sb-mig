@@ -1,4 +1,5 @@
 import type {
+    CreateComponent,
     CreateComponentsGroup,
     GetAllComponents,
     GetAllComponentsGroups,
@@ -60,6 +61,34 @@ export const getComponent: GetComponent = (componentName, config) => {
             return res;
         })
         .catch((err) => console.error(err));
+};
+
+// CREATE
+export const createComponent: CreateComponent = (
+    component,
+    presets,
+    config
+) => {
+    const { spaceId, sbApi } = config;
+    Logger.log(`Trying to create '${component.name}'`);
+    const componentWithPresets = component;
+    const { all_presets, ...componentWithoutPresets } = componentWithPresets;
+
+    sbApi
+        .post(`spaces/${spaceId}/components/`, {
+            component: componentWithoutPresets,
+        })
+        .then((res) => {
+            Logger.success(`Component '${component.name}' has been created.`);
+            if (presets) {
+                _resolvePresets(res, all_presets, component, config);
+            }
+        })
+        .catch((err) => {
+            Logger.error(
+                `${err.message} in migration of ${component.name} in createComponent function`
+            );
+        });
 };
 
 /*

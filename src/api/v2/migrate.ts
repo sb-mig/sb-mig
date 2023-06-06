@@ -20,7 +20,6 @@ import {
 } from "../../utils/discover.js";
 import Logger from "../../utils/logger.js";
 import { getFileContentWithRequire, isObjectEmpty } from "../../utils/main.js";
-import { createComponent, updateComponent } from "../mutateComponents.js";
 
 import { managementApi } from "./managementApi.js";
 import { _uniqueValuesFrom } from "./utils/helper-functions.js";
@@ -181,7 +180,11 @@ export const syncComponents: SyncComponents = async (
             Logger.log("Components to update after check: ");
             res.map((component) => {
                 Logger.warning(`   ${component.name}`);
-                updateComponent(component, presets);
+                managementApi.components.updateComponent(
+                    component,
+                    presets,
+                    config
+                );
             });
         });
 
@@ -199,7 +202,11 @@ export const syncComponents: SyncComponents = async (
             Logger.log("Components to create after check: ");
             res.map((component) => {
                 Logger.warning(`   ${component.name}`);
-                createComponent(component, presets);
+                managementApi.components.createComponent(
+                    component,
+                    presets,
+                    config
+                );
             });
         });
 };

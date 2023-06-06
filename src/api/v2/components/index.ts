@@ -7,4 +7,5 @@ export {
     removeComponentGroup,
     removeComponent,
     updateComponent,
+    createComponent,
 } from "./components.js";
