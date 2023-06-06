@@ -7,12 +7,7 @@ import {
     getDatasource,
 } from "../../api/datasources/datasources.js";
 import { backupStories } from "../../api/stories.js";
-import {
-    getAllComponents,
-    getAllComponentsGroups,
-    getComponent,
-    getComponentsGroup,
-} from "../../api/v2/components.js";
+import { managementApi } from "../../api/v2/managementApi.js";
 import { getAllPlugins, getPlugin } from "../../api/v2/plugins/plugins.js";
 import { getComponentPresets } from "../../api/v2/presets/componentPresets.js";
 import { getAllPresets, getPreset } from "../../api/v2/presets/presets.js";
@@ -66,7 +61,8 @@ export const backup = async (props: CLIOptions) => {
         case BACKUP_COMMANDS.components:
             Logger.warning(`back up components... with command: ${command}`);
             if (flags["all"]) {
-                getAllComponents(apiConfig)
+                managementApi.components
+                    .getAllComponents(apiConfig)
                     .then(async (res: any) => {
                         await createAndSaveToFile({
                             ext: "json",
@@ -84,7 +80,8 @@ export const backup = async (props: CLIOptions) => {
             if (isIt("empty")) {
                 const componentToBackup = unpackOne(input);
 
-                getComponent(componentToBackup, apiConfig)
+                managementApi.components
+                    .getComponent(componentToBackup, apiConfig)
                     .then(async (res: any) => {
                         if (res) {
                             await createAndSaveToFile({
@@ -117,7 +114,8 @@ export const backup = async (props: CLIOptions) => {
             break;
         case BACKUP_COMMANDS.componentGroups:
             if (flags["all"]) {
-                getAllComponentsGroups(apiConfig)
+                managementApi.components
+                    .getAllComponentsGroups(apiConfig)
                     .then(async (res) => {
                         await createAndSaveToFile({
                             ext: "json",
@@ -135,7 +133,8 @@ export const backup = async (props: CLIOptions) => {
             if (isIt("empty")) {
                 const componentGroupToBackup = unpackOne(input);
 
-                getComponentsGroup(componentGroupToBackup, apiConfig)
+                managementApi.components
+                    .getComponentsGroup(componentGroupToBackup, apiConfig)
                     .then(async (res: any) => {
                         await createAndSaveToFile({
                             ext: "json",
@@ -285,7 +284,8 @@ export const backup = async (props: CLIOptions) => {
                         Logger.error("error happened... :(");
                     });
             } else if (flags["all"]) {
-                const allRemoteComponents = await getAllComponents(apiConfig);
+                const allRemoteComponents =
+                    await managementApi.components.getAllComponents(apiConfig);
                 let metadata = {};
 
                 if (flags["metadata"]) {

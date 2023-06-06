@@ -113,5 +113,5 @@ const DEBUG = false;
 if (DEBUG) {
     replace("./path/to/an/esm/module/index.ts", "./out.ts", defaultOptions);
 } else {
-    await run("../.", defaultOptions);
+    await run("./src/", defaultOptions);
 }

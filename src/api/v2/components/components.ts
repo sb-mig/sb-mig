@@ -9,10 +9,10 @@ import type {
     UpdateComponent,
 } from "./components.types.js";
 
-import Logger from "../../utils/logger.js";
+import Logger from "../../../utils/logger.js";
 
-import _resolvePresets from "./presets/resolvePresets.js";
-import { getAllItemsWithPagination } from "./utils/request.js";
+import _resolvePresets from "./../presets/resolvePresets.js";
+import { getAllItemsWithPagination } from "./../utils/request.js";
 
 /*
  *

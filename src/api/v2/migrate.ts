@@ -2,7 +2,7 @@ import type {
     CheckAndPrepareGroups,
     RemoveSpecificComponents,
     ResolveGroups,
-} from "./components.types.js";
+} from "./components/components.types.js";
 import type {
     SyncAllComponents,
     SyncComponents,
@@ -22,20 +22,15 @@ import Logger from "../../utils/logger.js";
 import { getFileContentWithRequire, isObjectEmpty } from "../../utils/main.js";
 import { createComponent, updateComponent } from "../mutateComponents.js";
 
-import {
-    createComponentsGroup,
-    getAllComponents,
-    getAllComponentsGroups,
-    removeComponent,
-    removeComponentGroup,
-} from "./components.js";
+import { managementApi } from "./managementApi.js";
 import { _uniqueValuesFrom } from "./utils/helper-functions.js";
 
 const _checkAndPrepareGroups: CheckAndPrepareGroups = async (
     groupsToCheck,
     config
 ) => {
-    const componentsGroups = await getAllComponentsGroups(config);
+    const componentsGroups =
+        await managementApi.components.getAllComponentsGroups(config);
     console.log("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
     console.log(componentsGroups);
     console.log("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
@@ -44,21 +39,28 @@ const _checkAndPrepareGroups: CheckAndPrepareGroups = async (
 
     groupsToCheck.forEach(async (groupName: string) => {
         if (!groupExist(groupName)) {
-            await createComponentsGroup(groupName, config);
+            await managementApi.components.createComponentsGroup(
+                groupName,
+                config
+            );
         }
     });
 };
 
 export const removeAllComponents = async (config: RequestBaseConfig) => {
-    const components = await getAllComponents(config);
-    const component_groups = await getAllComponentsGroups(config);
+    const components = await managementApi.components.getAllComponents(config);
+    const component_groups =
+        await managementApi.components.getAllComponentsGroups(config);
 
     return Promise.all([
         ...components.map(async (component: any) => {
-            await removeComponent(component, config);
+            await managementApi.components.removeComponent(component, config);
         }),
         ...component_groups.map(async (componentGroup: any) => {
-            await removeComponentGroup(componentGroup, config);
+            await managementApi.components.removeComponentGroup(
+                componentGroup,
+                config
+            );
         }),
     ]);
 
@@ -69,7 +71,9 @@ export const removeSpecifiedComponents: RemoveSpecificComponents = async (
     components,
     config
 ) => {
-    const remoteComponents = await getAllComponents(config);
+    const remoteComponents = await managementApi.components.getAllComponents(
+        config
+    );
     const componentsToRemove: any = [];
 
     components.map((component: any) => {
@@ -83,7 +87,7 @@ export const removeSpecifiedComponents: RemoveSpecificComponents = async (
         componentsToRemove.length > 0 &&
         Promise.all(
             componentsToRemove.map((component: any) => {
-                removeComponent(component, config);
+                managementApi.components.removeComponent(component, config);
             })
         )
     );
@@ -136,7 +140,9 @@ export const syncComponents: SyncComponents = async (
     // happens async, so if one component will have the same group, as other one
     // it will be race of condition kinda issue - we will never now, if the group for current processed component
     // already exist or is being created by other request
-    const remoteComponents = await getAllComponents(config);
+    const remoteComponents = await managementApi.components.getAllComponents(
+        config
+    );
 
     const componentsToUpdate = [];
     const componentsToCreate = [];
@@ -158,7 +164,8 @@ export const syncComponents: SyncComponents = async (
         }
     }
 
-    const componentsGroups = await getAllComponentsGroups(config);
+    const componentsGroups =
+        await managementApi.components.getAllComponentsGroups(config);
 
     componentsToUpdate.length > 0 &&
         Promise.all(
