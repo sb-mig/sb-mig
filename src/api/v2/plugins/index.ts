@@ -4,4 +4,4 @@ export {
     updatePlugin,
     createPlugin,
     getPluginDetails,
-} from "./plugins";
+} from "./plugins.js";

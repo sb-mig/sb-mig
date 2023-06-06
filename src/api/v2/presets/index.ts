@@ -1,7 +1,7 @@
-export { getComponentPresets } from "./componentPresets";
+export { getComponentPresets } from "./componentPresets.js";
 export {
     getPreset,
     createPreset,
     getAllPresets,
     updatePreset,
-} from "./presets";
+} from "./presets.js";

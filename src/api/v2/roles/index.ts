@@ -6,4 +6,4 @@ export {
     syncProvidedRoles,
     syncRoles,
     updateRole,
-} from "./roles";
+} from "./roles.js";
