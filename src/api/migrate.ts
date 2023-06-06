@@ -3,12 +3,10 @@ import type { SyncDirection } from "../utils/sync-utils.js";
 
 import config from "../config/config.js";
 import {
-    discoverManyByPackageName,
     LOOKUP_TYPE,
     SCOPE,
     compare,
     discover,
-    discoverMany,
     discoverStories,
 } from "../utils/discover.js";
 import { dumpToFile, readFile } from "../utils/files.js";
