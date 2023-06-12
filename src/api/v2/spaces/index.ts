@@ -1,1 +1,1 @@
-export { getAllSpaces, getSpace, updateSpace } from "./spaces";
+export { getAllSpaces, getSpace, updateSpace } from "./spaces.js";

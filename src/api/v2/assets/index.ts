@@ -4,4 +4,4 @@ export {
     getAsset,
     getAssetById,
     getAssetByName,
-} from "./assets";
+} from "./assets.js";

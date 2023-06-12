@@ -168,7 +168,10 @@ export const syncDatasources: SyncDatasources = async (args, config) => {
                     datasource.name === remoteDatasource.name
             );
             if (datasourceToBeUpdated) {
-                return updateDatasource(datasource, datasourceToBeUpdated);
+                return updateDatasource(
+                    { datasource, datasourceToBeUpdated },
+                    config
+                );
             }
             return createDatasource({ datasource }, config);
         })

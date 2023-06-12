@@ -31,7 +31,6 @@ export const syncDescription = `
      
     FLAGS
         --all          - Sync all components, roles, datasources 
-        --packageName  - Sync based on package name, instead of file name (package can have multiple schema files to sync) *for components only
         --presets      - Pass it, if u want to sync also with presets (will take longer) *for components only
         
         Only when syncing 'content':
@@ -44,8 +43,6 @@ export const syncDescription = `
         $ sb-mig sync components --all --presets
         $ sb-mig sync components accordion accordion-item
         $ sb-mig sync components accordion accordion-item --presets
-        $ sb-mig sync components @storyblok-components/accordion --packageName
-        $ sb-mig sync components @storyblok-components/accordion --packageName --presets
         
         $ sb-mig sync roles --all
         

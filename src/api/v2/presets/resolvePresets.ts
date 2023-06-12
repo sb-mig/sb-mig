@@ -59,10 +59,6 @@ const _resolvePresets = async (
             })
         );
 
-        console.log("###########");
-        console.log([...presetsToCreateResult, presetsToUpdateResult]);
-        console.log("###########");
-
         return [...presetsToCreateResult, presetsToUpdateResult];
     } else {
         Logger.warning("There are no presets for this component.");

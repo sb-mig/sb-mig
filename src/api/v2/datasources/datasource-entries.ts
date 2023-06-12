@@ -96,6 +96,7 @@ export const createDatasourceEntries: CreateDatasourceEntries = (
     config
 ) => {
     const { datasource_entries, remoteDatasourceEntries, data } = args;
+
     Promise.all(
         datasource_entries.map((datasourceEntry: any) => {
             const datasourceToBeUpdated =
@@ -110,7 +111,7 @@ export const createDatasourceEntries: CreateDatasourceEntries = (
                     config
                 );
             }
-            return createDatasourceEntry(data, datasourceEntry);
+            return createDatasourceEntry({ data, datasourceEntry }, config);
         })
     )
         .then((_: any) => {
