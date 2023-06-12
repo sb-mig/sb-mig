@@ -1,4 +1,6 @@
+import type { SyncDirection } from "../../cli/sync.types.js";
 import type { RequestBaseConfig } from "../utils/request.js";
+
 
 export type AssetTypes = "image/png" | "image/jpg" | `${string}/${string}`;
 
@@ -73,9 +75,11 @@ export type MigrateAsset = (
     {
         migrateTo,
         payload,
+        syncDirection,
     }: {
         migrateTo: string;
         payload: AssetPayload;
+        syncDirection: SyncDirection;
     },
     config: RequestBaseConfig
 ) => Promise<boolean>;

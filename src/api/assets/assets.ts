@@ -174,19 +174,21 @@ const downloadAsset = async ({ payload }: { payload: AssetPayload }) => {
 };
 
 export const migrateAsset: MigrateAsset = async (
-    { migrateTo, payload },
+    { migrateTo, payload, syncDirection },
     config
 ) => {
     const pathToFile = await downloadAsset({ payload });
-    const signedResponseObject = await requestSignedUploadUrl(
-        {
-            spaceId: migrateTo,
-            payload,
-        },
-        config
-    );
-    if (pathToFile) {
-        await uploadFile({ signedResponseObject, pathToFile });
+    if (syncDirection === "fromSpaceToSpace") {
+        const signedResponseObject = await requestSignedUploadUrl(
+            {
+                spaceId: migrateTo,
+                payload,
+            },
+            config
+        );
+        if (pathToFile) {
+            await uploadFile({ signedResponseObject, pathToFile });
+        }
     }
 
     return true;

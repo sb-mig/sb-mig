@@ -58,6 +58,11 @@ export type SyncContentFunction = (
 ) => Promise<any>;
 
 export type SyncAssets = (
-    { transmission }: { transmission: SyncContent["transmission"] },
+    {
+        transmission,
+    }: {
+        transmission: SyncContent["transmission"];
+        syncDirection: SyncDirection;
+    },
     config: RequestBaseConfig
 ) => Promise<any>;

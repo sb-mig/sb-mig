@@ -300,7 +300,7 @@ export const syncProvidedComponents: SyncProvidedComponents = async (
 };
 
 export const syncAssets: SyncAssets = async (
-    { transmission: { from, to } },
+    { transmission: { from, to }, syncDirection },
     config
 ) => {
     Logger.log(`We would try to migrate Assets data from: ${from} to: ${to}`);
@@ -312,6 +312,7 @@ export const syncAssets: SyncAssets = async (
             {
                 migrateTo: to,
                 payload: newAssetPayload,
+                syncDirection,
             },
             config
         );
@@ -420,7 +421,8 @@ export const syncContent: SyncContentFunction = async (
 
         return true;
     } else if (type === "assets") {
-        await syncAssets({ transmission }, config);
+        await syncAssets({ transmission, syncDirection }, config);
+
         return true;
     } else {
         throw Error("This should never happen!");
