@@ -17,26 +17,27 @@ export const mainDescription = `
 
 export const syncDescription = `
     Usage
-        $ sb-mig sync [components|roles|datasources|plugins] [space separated file names] or --all --packageName
+        $ sb-mig sync [components|roles|datasources|plugins|content] [space separated file names] or --all
         
     Description
-        Synchronize components or roles with Storyblok space.
+        Synchronize components, roles, datasources, plugins, content with Storyblok space.
         
     COMMANDS
-        components     - sync components
-        roles          - sync roles
-        datasources    - sync datasources
-        plugins        - sync plugins
-        content        - sync content (stories, assets) - ! right now destructive, it will move content from 1 space to another, completelly overwriting it
+        components      - sync components
+        roles           - sync roles
+        datasources     - sync datasources
+        plugins         - sync plugins
+        content         - sync content (stories, assets) - ! right now destructive, it will move content from 1 space to another, completelly overwriting it
      
     FLAGS
-        --all          - Sync all components, roles, datasources 
-        --presets      - Pass it, if u want to sync also with presets (will take longer) *for components only
+        --all           - Sync all components, roles, datasources                            [components, roles, datasources]
+        --presets       - Pass it, if u want to sync also with presets (will take longer)    [components only]
         
-        Only when syncing 'content':
-        --yes          - Skip ask for confirmation (dangerous, but useful in CI/CD)
-        --from         - Space ID from which you want to sync content
-        --to           - Space ID to which you want to sync content
+        --yes           - Skip ask for confirmation (dangerous, but useful in CI/CD)         [content only]
+        --from          - Space ID from which you want to sync content                       [content only]
+        --to            - Space ID to which you want to sync content                         [content only]
+        --syncDirection [fromSpaceToFile|fromFileToSpace|fromSpaceToSpace|fromAWStoSpace]               
+                        - Sync direction (from, to)                                          [content only]
     
     EXAMPLES
         $ sb-mig sync components --all

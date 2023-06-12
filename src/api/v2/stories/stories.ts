@@ -16,7 +16,8 @@ import storyblokConfig from "../../../config/config.js";
 import Logger from "../../../utils/logger.js";
 import { getAllItemsWithPagination } from "../utils/request.js";
 
-export const removeStory: RemoveStory = (storyId, config) => {
+export const removeStory: RemoveStory = (args, config) => {
+    const { storyId } = args;
     const { spaceId, sbApi } = config;
     Logger.log(`Removing ${storyId} from ${spaceId}`);
     return sbApi

@@ -107,6 +107,7 @@ type CreateAndSaveToFile = (args: {
     ext?: string;
     datestamp?: boolean;
     prefix?: string;
+    suffix?: string;
     path?: string;
     filename?: string;
     folder?: string;
@@ -119,30 +120,33 @@ type CreateAndSaveToFile = (args: {
  * the most used one for many different purposes
  *
  * */
-export const createAndSaveToFile: CreateAndSaveToFile = async ({
-    ext = "json",
-    datestamp = false,
-    prefix = "",
-    path = null,
-    filename = "",
-    folder = "default",
-    res,
-}) => {
+export const createAndSaveToFile: CreateAndSaveToFile = async (args) => {
+    const {
+        ext = "json",
+        datestamp = false,
+        prefix = "",
+        suffix = "",
+        path = null,
+        filename = "",
+        folder = "default",
+        res,
+    } = args;
+    console.log(args);
     if (!path) {
         const timestamp = generateDatestamp(new Date());
         const finalFilename = `${prefix}${filename}${
             datestamp ? `__${timestamp}` : ""
         }`;
+        const fullPath = `${storyblokConfig.sbmigWorkingDirectory}/${folder}/${finalFilename}${suffix}.${ext}`;
 
         await createDir(`${storyblokConfig.sbmigWorkingDirectory}/${folder}/`);
-        await createJsonFile(
-            JSON.stringify(res, undefined, 2),
-            `${storyblokConfig.sbmigWorkingDirectory}/${folder}/${finalFilename}.${ext}`
-        );
+        if (ext === "json") {
+            await createJsonFile(JSON.stringify(res, undefined, 2), fullPath);
+        } else {
+            await createJsonFile(JSON.stringify(res, undefined, 2), fullPath);
+        }
 
-        Logger.success(
-            `All response written to a file:  ${storyblokConfig.sbmigWorkingDirectory}/${folder}/${finalFilename}.${ext}`
-        );
+        Logger.success(`All response written to a file:  ${fullPath}`);
     }
 
     if (path) {

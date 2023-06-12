@@ -219,6 +219,8 @@ export const sync = async (props: CLIOptions) => {
                     `Syncing using sync direction: ${syncDirection}`
                 );
 
+                console.log("Syncing only stories...");
+
                 console.log({
                     from,
                     to,
@@ -244,8 +246,11 @@ export const sync = async (props: CLIOptions) => {
                             );
 
                             // Remove all stories from 'to' space
-                            await removeAllStories(apiConfig);
-
+                            await removeAllStories({
+                                ...apiConfig,
+                                spaceId: to,
+                            });
+                            //
                             // Sync stories to 'to' space
                             await syncContent(
                                 {

@@ -34,7 +34,7 @@ export const traverseAndCreate: TraverseAndCreate = (input, config) => {
             const { parent, ...content } = node.story;
             const result = await createStory(
                 { ...content, parent_id: realParentId },
-                config
+                { ...config, spaceId }
             );
             const storyId: number = result.story.id;
             if (node.children) {

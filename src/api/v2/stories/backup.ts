@@ -14,8 +14,9 @@ export const backupStories: BackupStories = async (
         .then(async (res: any) => {
             await createAndSaveToFile({
                 ext: "cjs",
-                filename: `${filename}__${suffix}`,
+                filename: filename,
                 datestamp: true,
+                suffix,
                 folder: "stories",
                 res,
             });
