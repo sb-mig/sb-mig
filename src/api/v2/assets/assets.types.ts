@@ -1,3 +1,5 @@
+import type { RequestBaseConfig } from "../utils/request.js";
+
 export type AssetTypes = "image/png" | "image/jpg" | `${string}/${string}`;
 
 export interface SBAsset {
@@ -38,33 +40,45 @@ export interface SBAllAssetRequestResult {
 export type SignedResponseObject = any;
 export type AssetPayload = Omit<SBAsset, "updated_at" | "created_at" | "id">;
 
-export type GetAllAssets = ({
-    spaceId,
-}: {
-    spaceId: string;
-    search?: string;
-}) => Promise<SBAllAssetRequestResult>;
-export type GetAssetByName = ({
-    spaceId,
-    fileName,
-}: {
-    spaceId: string;
-    fileName: string;
-}) => Promise<SBAsset | undefined>;
-export type GetAssetById = ({
-    spaceId,
-    assetId,
-}: {
-    spaceId: string;
-    assetId: number;
-}) => Promise<(SBAsset & SBAssetById) | undefined>;
-export type MigrateAsset = ({
-    migrateTo,
-    payload,
-}: {
-    migrateTo: string;
-    payload: AssetPayload;
-}) => Promise<boolean>;
+export type GetAllAssets = (
+    {
+        spaceId,
+    }: {
+        spaceId: string;
+        search?: string;
+    },
+    config: RequestBaseConfig
+) => Promise<SBAllAssetRequestResult>;
+export type GetAssetByName = (
+    {
+        spaceId,
+        fileName,
+    }: {
+        spaceId: string;
+        fileName: string;
+    },
+    config: RequestBaseConfig
+) => Promise<SBAsset | undefined>;
+export type GetAssetById = (
+    {
+        spaceId,
+        assetId,
+    }: {
+        spaceId: string;
+        assetId: number;
+    },
+    config: RequestBaseConfig
+) => Promise<(SBAsset & SBAssetById) | undefined>;
+export type MigrateAsset = (
+    {
+        migrateTo,
+        payload,
+    }: {
+        migrateTo: string;
+        payload: AssetPayload;
+    },
+    config: RequestBaseConfig
+) => Promise<boolean>;
 export type UploadFile = ({
     signedResponseObject,
     pathToFile,
@@ -77,3 +91,14 @@ export type FinalizeUpload = ({
 }: {
     signedResponseObject: SignedResponseObject;
 }) => void;
+
+export type RequestSignedUploadUrl = (
+    {
+        spaceId,
+        payload,
+    }: {
+        spaceId: string;
+        payload: AssetPayload;
+    },
+    config: RequestBaseConfig
+) => Promise<any>;

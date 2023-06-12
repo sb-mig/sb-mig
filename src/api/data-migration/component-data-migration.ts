@@ -1,3 +1,5 @@
+import type { RequestBaseConfig } from "../v2/utils/request.js";
+
 import path from "path";
 
 import chalk from "chalk";
@@ -13,8 +15,7 @@ import { createAndSaveToFile } from "../../utils/files.js";
 import Logger from "../../utils/logger.js";
 import { getFilesContentWithRequire, isObjectEmpty } from "../../utils/main.js";
 import { modifyOrCreateAppliedMigrationsFile } from "../../utils/migrations.js";
-import { generateDatestamp } from "../../utils/others.js";
-import { getAllStories, updateStories } from "../stories.js";
+import { getAllStories, updateStories } from "../v2/stories/index.js";
 
 export type MigrateFrom = "file" | "space";
 
@@ -183,12 +184,15 @@ export const prepareMigrationConfig = ({ migrationConfig }: any) => {
     return migrationConfigFileContent;
 };
 
-export const migrateAllComponentsDataInStories = async ({
-    migrationConfig,
-    migrateFrom,
-    from,
-    to,
-}: Omit<MigrateStories, "componentsToMigrate">) => {
+export const migrateAllComponentsDataInStories = async (
+    {
+        migrationConfig,
+        migrateFrom,
+        from,
+        to,
+    }: Omit<MigrateStories, "componentsToMigrate">,
+    config: RequestBaseConfig
+) => {
     Logger.warning(
         `Trying to migrate all stories from ${migrateFrom}, ${from} to ${to}...`
     );
@@ -208,23 +212,29 @@ export const migrateAllComponentsDataInStories = async ({
         console.log(componentsToMigrate);
     }
 
-    await migrateProvidedComponentsDataInStories({
-        migrationConfig,
-        migrateFrom,
-        from,
-        to,
-        componentsToMigrate,
-    });
+    await migrateProvidedComponentsDataInStories(
+        {
+            migrationConfig,
+            migrateFrom,
+            from,
+            to,
+            componentsToMigrate,
+        },
+        config
+    );
 };
 
-export const doTheMigration = async ({
-    from,
-    storiesToMigrate,
-    componentsToMigrate,
-    migrationConfigFileContent,
-    migrationConfig,
-    to,
-}: any) => {
+export const doTheMigration = async (
+    {
+        from,
+        storiesToMigrate,
+        componentsToMigrate,
+        migrationConfigFileContent,
+        migrationConfig,
+        to,
+    }: any,
+    config: RequestBaseConfig
+) => {
     console.log(to);
     const arrayOfMaxDepths: number[] = [];
 
@@ -313,11 +323,14 @@ export const doTheMigration = async ({
 
     await modifyOrCreateAppliedMigrationsFile(migrationConfig);
 
-    await updateStories({
-        stories: migratedStories,
-        spaceId: to,
-        options: { publish: false },
-    });
+    await updateStories(
+        {
+            stories: migratedStories,
+            spaceId: to,
+            options: { publish: false },
+        },
+        config
+    );
 };
 
 type SaveBackupStoriesToFile = ({
@@ -343,13 +356,16 @@ const saveBackupStoriesToFile: SaveBackupStoriesToFile = async ({
     });
 };
 
-export const migrateProvidedComponentsDataInStories = async ({
-    migrationConfig,
-    migrateFrom,
-    from,
-    to,
-    componentsToMigrate,
-}: MigrateStories) => {
+export const migrateProvidedComponentsDataInStories = async (
+    {
+        migrationConfig,
+        migrateFrom,
+        from,
+        to,
+        componentsToMigrate,
+    }: MigrateStories,
+    config: RequestBaseConfig
+) => {
     const migrationConfigFileContent = prepareMigrationConfig({
         migrationConfig,
     });
@@ -359,15 +375,21 @@ export const migrateProvidedComponentsDataInStories = async ({
 
         // Get all stories to be migrated from file
         const storiesToMigrate = prepareStoriesFromLocalFile({ from });
-        await doTheMigration({
-            storiesToMigrate,
-            componentsToMigrate,
-            migrationConfigFileContent,
-            to,
-        });
+        await doTheMigration(
+            {
+                storiesToMigrate,
+                componentsToMigrate,
+                migrationConfigFileContent,
+                to,
+            },
+            config
+        );
     } else if (migrateFrom === "space") {
         // Get all stories to be migrated from storyblok space
-        const storiesToMigrate = await getAllStories({ spaceId: from });
+        const storiesToMigrate = await getAllStories({
+            ...config,
+            spaceId: from,
+        });
 
         const backupFolder = path.join("backup", "stories");
 
@@ -378,13 +400,16 @@ export const migrateProvidedComponentsDataInStories = async ({
             res: storiesToMigrate,
         });
 
-        await doTheMigration({
-            storiesToMigrate,
-            componentsToMigrate,
-            migrationConfigFileContent,
-            migrationConfig,
-            from,
-            to,
-        });
+        await doTheMigration(
+            {
+                storiesToMigrate,
+                componentsToMigrate,
+                migrationConfigFileContent,
+                migrationConfig,
+                from,
+                to,
+            },
+            config
+        );
     }
 };

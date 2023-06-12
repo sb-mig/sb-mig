@@ -17,7 +17,7 @@ import {
 } from "../../../utils/discover.js";
 import Logger from "../../../utils/logger.js";
 import { getFileContentWithRequire } from "../../../utils/main.js";
-import { getAllItemsWithPagination } from "../../stories.js";
+import { getAllItemsWithPagination } from "../utils/request.js";
 
 // POST
 export const createRole: CreateRole = (role: any, config) => {

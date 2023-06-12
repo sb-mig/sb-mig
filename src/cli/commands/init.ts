@@ -5,9 +5,10 @@ import * as fs from "fs";
 import StoryblokClient from "storyblok-js-client";
 import { v4 as uuidv4 } from "uuid";
 
-import { getSpace, updateSpace } from "../../api/spaces.js";
+import { getSpace, updateSpace } from "../../api/v2/spaces/index.js";
 import storyblokConfig from "../../config/config.js";
 import Logger from "../../utils/logger.js";
+import { apiConfig } from "../api-config.js";
 
 const INIT_COMMANDS = {
     project: "project",
@@ -39,7 +40,7 @@ export const init = async (props: CLIOptions) => {
                 storyblokApiUrl
             );
 
-            const spaceData = await getSpace({ spaceId, localSbApi });
+            const spaceData = await getSpace(spaceId, apiConfig);
 
             const STORYBLOK_SPACE_ID = spaceId;
             const STORYBLOK_OAUTH_TOKEN = oauthToken;
@@ -71,13 +72,15 @@ export const init = async (props: CLIOptions) => {
             }
 
             try {
-                await updateSpace({
-                    spaceId,
-                    params: {
-                        domain: `https://localhost:3000/api/preview/preview?secret=${STORYBLOK_PREVIEW_SECRET}&slug=`,
+                await updateSpace(
+                    {
+                        spaceId,
+                        params: {
+                            domain: `https://localhost:3000/api/preview/preview?secret=${STORYBLOK_PREVIEW_SECRET}&slug=`,
+                        },
                     },
-                    localSbApi,
-                });
+                    apiConfig
+                );
                 Logger.success("Successfully updated space domain");
             } catch (e) {
                 console.error("Something happened while updating space");

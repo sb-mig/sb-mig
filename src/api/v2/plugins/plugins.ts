@@ -6,9 +6,12 @@ import type {
     GetPluginDetails,
     UpdatePlugin,
 } from "./plugins.types.js";
+import type { SyncProvidedPlugins } from "./plugins.types.js";
 
+import { readFile } from "../../../utils/files.js";
 import Logger from "../../../utils/logger.js";
-import { getAllItemsWithPagination } from "../../stories.js";
+import { getAllItemsWithPagination } from "../utils/request.js";
+
 
 export const getAllPlugins: GetAllPlugins = (config) => {
     const { sbApi, spaceId } = config;
@@ -107,4 +110,31 @@ export const createPlugin: CreatePlugin = (pluginName: string, config) => {
             console.log(err);
             console.error("Error happened :()");
         });
+};
+
+export const syncProvidedPlugins: SyncProvidedPlugins = async (
+    { plugins },
+    config
+) => {
+    const body = await readFile("dist/export.js");
+    if (plugins.length === 1) {
+        const pluginName = plugins[0];
+        const plugin = await getPlugin(pluginName, config);
+        if (plugin) {
+            Logger.log("Plugin exist.");
+            Logger.log("Start updating plugin....");
+            return await updatePlugin(
+                { plugin: plugin.field_type, body },
+                config
+            );
+        } else {
+            Logger.log("Start creating plugin...");
+            const { field_type } = await createPlugin(
+                pluginName as string,
+                config
+            );
+            Logger.log("Start updating plugin...");
+            return await updatePlugin({ plugin: field_type, body }, config);
+        }
+    }
 };

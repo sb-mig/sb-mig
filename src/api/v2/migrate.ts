@@ -5,23 +5,39 @@ import type {
 } from "./components/components.types.js";
 import type {
     SyncAllComponents,
+    SyncAssets,
     SyncComponents,
+    SyncContentFunction,
     SyncProvidedComponents,
+    SyncStories,
 } from "./migrate.types.js";
 import type { RequestBaseConfig } from "./utils/request.js";
 
+import { apiConfig } from "../../cli/api-config.js";
+import storyblokConfig from "../../config/config.js";
 import {
     compare,
     discover,
     discoverMany,
     discoverManyByPackageName,
+    discoverStories,
     LOOKUP_TYPE,
     SCOPE,
 } from "../../utils/discover.js";
+import { dumpToFile } from "../../utils/files.js";
 import Logger from "../../utils/logger.js";
-import { getFileContentWithRequire, isObjectEmpty } from "../../utils/main.js";
+import {
+    getFileContentWithRequire,
+    getFilesContentWithRequire,
+    isObjectEmpty,
+} from "../../utils/main.js";
 
+import { getAllAssets, migrateAsset } from "./assets/assets.js";
+import { contentHubApi } from "./contentHubApi.js";
 import { managementApi } from "./managementApi.js";
+import { backupStories } from "./stories/backup.js";
+import { getAllStories } from "./stories/stories.js";
+import { createTree, traverseAndCreate } from "./stories/tree.js";
 import { _uniqueValuesFrom } from "./utils/helper-functions.js";
 
 const _checkAndPrepareGroups: CheckAndPrepareGroups = async (
@@ -280,5 +296,133 @@ export const syncProvidedComponents: SyncProvidedComponents = async (
         });
         // #4: sync - do all stuff already done (groups resolving, and so on)
         syncComponents([...local, ...external], presets, config);
+    }
+};
+
+export const syncAssets: SyncAssets = async (
+    { transmission: { from, to } },
+    config
+) => {
+    Logger.log(`We would try to migrate Assets data from: ${from} to: ${to}`);
+
+    const allAssets = await getAllAssets({ spaceId: from }, config);
+    allAssets.assets.map((asset) => {
+        const { id, created_at, updated_at, ...newAssetPayload } = asset;
+        migrateAsset(
+            {
+                migrateTo: to,
+                payload: newAssetPayload,
+            },
+            config
+        );
+    });
+};
+
+const syncStories: SyncStories = async (
+    { transmission: { from, to }, stories, toSpaceId },
+    config
+) => {
+    Logger.log(`We would try to migrate Stories data from: ${from} to: ${to}`);
+
+    const storiesToPass = stories
+        .map((item: any) => item.story)
+        .map((item: any) =>
+            item.parent_id === 0 ? { ...item, parent_id: null } : item
+        );
+
+    Logger.warning(`Amount of all stories to migrate: ${storiesToPass.length}`);
+
+    const storiesToPassJson = JSON.stringify(storiesToPass, null, 2);
+
+    if (storyblokConfig.debug) {
+        dumpToFile("storiesToPass.json", storiesToPassJson);
+    }
+
+    const tree = createTree(storiesToPass);
+    const jsonString = JSON.stringify(tree, null, 2);
+    if (storyblokConfig.debug) {
+        dumpToFile("tree.json", jsonString);
+    }
+
+    await traverseAndCreate(
+        { tree, realParentId: null, spaceId: toSpaceId },
+        config
+    );
+};
+
+export const syncContent: SyncContentFunction = async (
+    { type, transmission, syncDirection, filename },
+    config
+) => {
+    if (type === "stories") {
+        if (syncDirection === "fromSpaceToFile") {
+            await backupStories(
+                {
+                    filename: transmission.to,
+                    suffix: ".sb.stories",
+                    spaceId: transmission.from,
+                },
+                config
+            );
+        }
+
+        if (syncDirection === "fromSpaceToSpace") {
+            const stories = await getAllStories({
+                spaceId: transmission.from,
+                sbApi: config.sbApi,
+            });
+            await syncStories(
+                {
+                    transmission,
+                    stories,
+                    toSpaceId: transmission.to,
+                },
+                config
+            );
+        }
+
+        if (syncDirection === "fromFileToSpace") {
+            const allLocalStories = discoverStories({
+                scope: SCOPE.local,
+                type: LOOKUP_TYPE.fileName,
+                fileNames: [transmission.from],
+            });
+
+            const storiesFileContent = getFilesContentWithRequire({
+                files: allLocalStories,
+            });
+
+            await syncStories(
+                {
+                    transmission,
+                    stories: storiesFileContent[0],
+                    toSpaceId: transmission.to,
+                },
+                config
+            );
+        }
+
+        if (syncDirection === "fromAWSToSpace") {
+            const data = await contentHubApi.getAllStories(
+                { spaceId: transmission.from, storiesFilename: filename },
+                apiConfig
+            );
+
+            await syncStories(
+                {
+                    transmission,
+                    stories: data.stories,
+                    toSpaceId: transmission.to,
+                },
+                config
+            );
+        }
+
+        return true;
+    } else if (type === "assets") {
+        await syncAssets({ transmission }, config);
+        return true;
+    } else {
+        throw Error("This should never happen!");
     }
 };

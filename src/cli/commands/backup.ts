@@ -1,17 +1,15 @@
-import type { RequestBaseConfig } from "../../api/v2/utils/request.js";
 import type { CLIOptions } from "../../utils/interfaces.js";
 
-import { sbApi } from "../../api/config.js";
 import {
     getAllDatasources,
     getDatasource,
-} from "../../api/datasources/datasources.js";
-import { backupStories } from "../../api/stories.js";
+} from "../../api/v2/datasources/index.js";
 import { managementApi } from "../../api/v2/managementApi.js";
 import { getAllPlugins, getPlugin } from "../../api/v2/plugins/plugins.js";
 import { getComponentPresets } from "../../api/v2/presets/componentPresets.js";
 import { getAllPresets, getPreset } from "../../api/v2/presets/presets.js";
 import { getAllRoles, getRole } from "../../api/v2/roles/roles.js";
+import { backupStories } from "../../api/v2/stories/backup.js";
 import storyblokConfig from "../../config/config.js";
 import { createAndSaveToFile } from "../../utils/files.js";
 import Logger from "../../utils/logger.js";
@@ -21,6 +19,7 @@ import {
     isItFactory,
     unpackOne,
 } from "../../utils/main.js";
+import { apiConfig } from "../api-config.js";
 
 const BACKUP_COMMANDS = {
     components: "components",
@@ -35,11 +34,6 @@ const BACKUP_COMMANDS = {
 
 export const backup = async (props: CLIOptions) => {
     const { input, flags } = props;
-
-    const apiConfig: RequestBaseConfig = {
-        spaceId: storyblokConfig.spaceId,
-        sbApi: sbApi,
-    };
 
     const command = input[1];
 
@@ -104,11 +98,14 @@ export const backup = async (props: CLIOptions) => {
         case BACKUP_COMMANDS.stories:
             Logger.warning(`back up stories... with command: ${command}`);
             if (flags["all"]) {
-                backupStories({
-                    filename: "all-stories-backup",
-                    suffix: ".stories",
-                    spaceId: storyblokConfig.spaceId,
-                });
+                backupStories(
+                    {
+                        filename: "all-stories-backup",
+                        suffix: ".stories",
+                        spaceId: storyblokConfig.spaceId,
+                    },
+                    apiConfig
+                );
             }
 
             break;
@@ -153,7 +150,7 @@ export const backup = async (props: CLIOptions) => {
             break;
         case BACKUP_COMMANDS.datasources:
             if (flags["all"]) {
-                getAllDatasources()
+                getAllDatasources(apiConfig)
                     .then(async (res: any) => {
                         await createAndSaveToFile({
                             ext: "json",
@@ -171,7 +168,7 @@ export const backup = async (props: CLIOptions) => {
             if (isIt("empty")) {
                 const datasourceToBackup = unpackOne(input);
 
-                getDatasource(datasourceToBackup)
+                getDatasource({ datasourceName: datasourceToBackup }, apiConfig)
                     .then(async (res: any) => {
                         if (res) {
                             await createAndSaveToFile({

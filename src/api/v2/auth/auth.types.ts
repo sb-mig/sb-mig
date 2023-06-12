@@ -1,12 +1,10 @@
+import type { RequestBaseConfig } from "../utils/request.js";
 import type { ISbResult } from "storyblok-js-client/src/interfaces";
 
-import storyblokConfig from "../config/config.js";
+import { Space } from "../spaces/spaces.types.js";
 
-import { sbApi } from "./config.js";
-import { getAllSpaces } from "./spaces.js";
-
-interface Org {}
-interface CurrentUserResult extends ISbResult {
+export interface Org {}
+export interface CurrentUserResult extends ISbResult {
     data: {
         user: {
             userid: string;
@@ -42,29 +40,8 @@ interface CurrentUserResult extends ISbResult {
     };
 }
 
-export const getCurrentUser = async () => {
-    console.log("Trying to get current user current OAuthToken");
-
-    const currentUser = await sbApi
-        .get(`users/me`, {
-            per_page: 100,
-        })
-        .then((res: CurrentUserResult) => {
-            return res.data.user as CurrentUserResult["data"]["user"];
-        })
-        .catch((err) => {
-            console.error(err);
-            return err;
-        });
-
-    return currentUser;
-};
-
-export const hasAccessToSpace = async ({ spaceId }: { spaceId: string }) => {
-    const allSpaces = await getAllSpaces();
-    const hasAccess = allSpaces.find(
-        (space) => Number(space.id) === Number(spaceId)
-    );
-
-    return !!hasAccess;
-};
+export type GetCurrentUser = (config: RequestBaseConfig) => Promise<any>;
+export type HasAccessToSpace = (
+    args: { spaceId: string },
+    config: RequestBaseConfig
+) => Promise<boolean>;

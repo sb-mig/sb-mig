@@ -1,7 +1,7 @@
 import type { CLIOptions } from "../../utils/interfaces.js";
 
-import { discoverAllComponents } from "../../api/migrate.js";
 import storyblokConfig from "../../config/config.js";
+import { discoverAllComponents } from "../../utils/discover.js";
 import { createAndSaveComponentListToFile } from "../../utils/files.js";
 import Logger from "../../utils/logger.js";
 

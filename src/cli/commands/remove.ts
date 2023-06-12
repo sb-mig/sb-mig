@@ -1,15 +1,13 @@
-import type { RequestBaseConfig } from "../../api/v2/utils/request.js";
 import type { CLIOptions } from "../../utils/interfaces.js";
 
-import { sbApi } from "../../api/config.js";
-import { removeAllStories } from "../../api/migrate.js";
 import {
     removeAllComponents,
     removeSpecifiedComponents,
 } from "../../api/v2/migrate.js";
-import storyblokConfig from "../../config/config.js";
+import { removeAllStories } from "../../api/v2/stories/index.js";
 import Logger from "../../utils/logger.js";
 import { unpackElements } from "../../utils/main.js";
+import { apiConfig } from "../api-config.js";
 
 const REMOVE_COMMANDS = {
     story: "story",
@@ -20,11 +18,6 @@ const REMOVE_COMMANDS = {
 
 export const remove = async (props: CLIOptions) => {
     const { input, flags } = props;
-
-    const apiConfig: RequestBaseConfig = {
-        spaceId: storyblokConfig.spaceId,
-        sbApi: sbApi,
-    };
 
     const command = input[1];
 
@@ -63,7 +56,7 @@ export const remove = async (props: CLIOptions) => {
             Logger.warning(`Removing all stories from: ${flags.from}`);
 
             if (flags["all"] && flags["from"]) {
-                await removeAllStories({ spaceId: flags.from });
+                await removeAllStories({ ...apiConfig, spaceId: flags.from });
             }
 
             break;

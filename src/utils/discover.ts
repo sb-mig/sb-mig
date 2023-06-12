@@ -1316,3 +1316,23 @@ export const discoverManyRoles = async (
 
     return listOfFiles;
 };
+
+export const discoverAllComponents = async () => {
+    // #1: discover all external .sb.js files
+    const allLocalSbComponentsSchemaFiles = await discover({
+        scope: SCOPE.local,
+        type: LOOKUP_TYPE.fileName,
+    });
+    // #2: discover all local .sb.js files
+    const allExternalSbComponentsSchemaFiles = await discover({
+        scope: SCOPE.external,
+        type: LOOKUP_TYPE.fileName,
+    });
+    // #3: compare results, prefare local ones (so we have to create final external paths array and local array of things to sync from where)
+    const { local, external } = compare({
+        local: allLocalSbComponentsSchemaFiles,
+        external: allExternalSbComponentsSchemaFiles,
+    });
+
+    return { local, external };
+};

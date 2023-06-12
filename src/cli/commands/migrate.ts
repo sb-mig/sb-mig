@@ -5,10 +5,11 @@ import {
     migrateAllComponentsDataInStories,
     migrateProvidedComponentsDataInStories,
 } from "../../api/data-migration/component-data-migration.js";
-import { backupStories } from "../../api/stories.js";
+import { backupStories } from "../../api/v2/stories/backup.js";
 import Logger from "../../utils/logger.js";
 import { isItFactory, unpackElements } from "../../utils/main.js";
 import { askForConfirmation, getFrom, getTo } from "../../utils/others.js";
+import { apiConfig } from "../api-config.js";
 
 const MIGRATE_COMMANDS = {
     content: "content",
@@ -52,20 +53,26 @@ export const migrate = async (props: CLIOptions) => {
                     async () => {
                         Logger.warning("Preparing to migrate...");
 
-                        await backupStories({
-                            filename: `${from}--backup-before-migration___${migrationConfig}`,
-                            suffix: ".sb.stories",
-                            spaceId: from,
-                        });
+                        await backupStories(
+                            {
+                                filename: `${from}--backup-before-migration___${migrationConfig}`,
+                                suffix: ".sb.stories",
+                                spaceId: from,
+                            },
+                            apiConfig
+                        );
 
                         // Migrating provided components
-                        await migrateProvidedComponentsDataInStories({
-                            from,
-                            to,
-                            migrateFrom,
-                            componentsToMigrate,
-                            migrationConfig,
-                        });
+                        await migrateProvidedComponentsDataInStories(
+                            {
+                                from,
+                                to,
+                                migrateFrom,
+                                componentsToMigrate,
+                                migrationConfig,
+                            },
+                            apiConfig
+                        );
                     },
                     () => {
                         Logger.warning(
@@ -97,12 +104,15 @@ export const migrate = async (props: CLIOptions) => {
                         //     spaceId: from,
                         // });
 
-                        await migrateAllComponentsDataInStories({
-                            from,
-                            to,
-                            migrateFrom,
-                            migrationConfig,
-                        });
+                        await migrateAllComponentsDataInStories(
+                            {
+                                from,
+                                to,
+                                migrateFrom,
+                                migrationConfig,
+                            },
+                            apiConfig
+                        );
                     },
                     () => {
                         Logger.warning(

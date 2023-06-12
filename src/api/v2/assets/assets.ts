@@ -4,6 +4,7 @@ import type {
     GetAssetById,
     GetAssetByName,
     MigrateAsset,
+    RequestSignedUploadUrl,
     UploadFile,
 } from "./assets.types.js";
 
@@ -13,50 +14,17 @@ import path from "path";
 
 import FormData from "form-data";
 
-import storyblokConfig from "../config/config.js";
-import { createDir, isDirectoryExists } from "../utils/files.js";
-import Logger from "../utils/logger.js";
-
-import { sbApi } from "./config.js";
-
-const { spaceId } = storyblokConfig;
-
-// POST
-export const createRole = (role: any) => {
-    sbApi
-        .post(`spaces/${spaceId}/space_roles/`, {
-            space_role: role,
-        } as any)
-        .then(() => {
-            Logger.success(`Role '${role.role}' has been created.`);
-        })
-        .catch((err) => {
-            Logger.error("error happened... :(");
-            console.log(
-                `${err.message} in migration of ${role.role} in createRole function`
-            );
-        });
-};
-
-// PUT
-export const updateRole = (role: any) => {
-    sbApi
-        .put(`spaces/${spaceId}/space_roles/${role.id}`, {
-            space_role: role,
-        } as any)
-        .then(() => {
-            Logger.success(`Role '${role.role}' has been updated.`);
-        })
-        .catch((err) => {
-            Logger.error("error happened... :(");
-            console.log(
-                `${err.message} in migration of ${role.role} in updateRole function`
-            );
-        });
-};
+import storyblokConfig from "../../../config/config.js";
+import { createDir, isDirectoryExists } from "../../../utils/files.js";
+import Logger from "../../../utils/logger.js";
 
 // GET
-export const getAllAssets: GetAllAssets = async ({ spaceId, search }) => {
+export const getAllAssets: GetAllAssets = async (
+    { spaceId, search },
+    config
+) => {
+    const { sbApi } = config;
+
     return sbApi
         .get(`spaces/${spaceId}/assets/`, {
             // @ts-ignore TODO: have to submit ISSUE to storyblok-js-client (in documentation it is search, in typescript its search_term STORYBLOK_ISSUE
@@ -77,8 +45,11 @@ export const getAllAssets: GetAllAssets = async ({ spaceId, search }) => {
         });
 };
 
-export const getAssetByName: GetAssetByName = async ({ spaceId, fileName }) => {
-    const result = await getAllAssets({ spaceId, search: fileName });
+export const getAssetByName: GetAssetByName = async (
+    { spaceId, fileName },
+    config
+) => {
+    const result = await getAllAssets({ spaceId, search: fileName }, config);
     if (result.assets.length === 1) {
         return result.assets[0];
     } else {
@@ -86,13 +57,11 @@ export const getAssetByName: GetAssetByName = async ({ spaceId, fileName }) => {
     }
 };
 
-const requestSignedUploadUrl = ({
-    spaceId,
-    payload,
-}: {
-    spaceId: string;
-    payload: AssetPayload;
-}) => {
+const requestSignedUploadUrl: RequestSignedUploadUrl = (
+    { spaceId, payload },
+    config
+) => {
+    const { sbApi } = config;
     const {
         filename: _1,
         asset_folder_id,
@@ -204,12 +173,18 @@ const downloadAsset = async ({ payload }: { payload: AssetPayload }) => {
     });
 };
 
-export const migrateAsset: MigrateAsset = async ({ migrateTo, payload }) => {
+export const migrateAsset: MigrateAsset = async (
+    { migrateTo, payload },
+    config
+) => {
     const pathToFile = await downloadAsset({ payload });
-    const signedResponseObject = await requestSignedUploadUrl({
-        spaceId: migrateTo,
-        payload,
-    });
+    const signedResponseObject = await requestSignedUploadUrl(
+        {
+            spaceId: migrateTo,
+            payload,
+        },
+        config
+    );
     if (pathToFile) {
         await uploadFile({ signedResponseObject, pathToFile });
     }
@@ -218,7 +193,11 @@ export const migrateAsset: MigrateAsset = async ({ migrateTo, payload }) => {
 };
 
 // GET
-export const getAssetById: GetAssetById = async ({ spaceId, assetId }) => {
+export const getAssetById: GetAssetById = async (
+    { spaceId, assetId },
+    config
+) => {
+    const { sbApi } = config;
     Logger.log(`Trying to get '${assetId}' asset.`);
 
     return sbApi

@@ -1,10 +1,12 @@
 import type { CLIOptions } from "../../utils/interfaces.js";
 
-import { backupStories, updateStories } from "../../api/stories.js";
+import { backupStories } from "../../api/v2/stories/backup.js";
+import { updateStories } from "../../api/v2/stories/stories.js";
 import { discoverStories, LOOKUP_TYPE, SCOPE } from "../../utils/discover.js";
 import Logger from "../../utils/logger.js";
 import { getFilesContentWithRequire, isItFactory } from "../../utils/main.js";
 import { askForConfirmation, getFrom, getTo } from "../../utils/others.js";
+import { apiConfig } from "../api-config.js";
 
 const REVERT_COMMANDS = {
     content: "content",
@@ -37,11 +39,14 @@ export const revert = async (props: CLIOptions) => {
                     async () => {
                         Logger.warning("Preparing to migrate...");
 
-                        await backupStories({
-                            filename: `${to}--backup-before-revert`,
-                            suffix: ".sb.stories",
-                            spaceId: to,
-                        });
+                        await backupStories(
+                            {
+                                filename: `${to}--backup-before-revert`,
+                                suffix: ".sb.stories",
+                                spaceId: to,
+                            },
+                            apiConfig
+                        );
 
                         const allLocalStories = discoverStories({
                             scope: SCOPE.local,
@@ -53,11 +58,14 @@ export const revert = async (props: CLIOptions) => {
                             files: allLocalStories,
                         });
 
-                        await updateStories({
-                            stories,
-                            spaceId: to,
-                            options: { publish: false },
-                        });
+                        await updateStories(
+                            {
+                                stories,
+                                spaceId: to,
+                                options: { publish: false },
+                            },
+                            apiConfig
+                        );
                     },
                     () => {
                         Logger.warning(

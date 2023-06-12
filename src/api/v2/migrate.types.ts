@@ -1,5 +1,6 @@
 import type { RequestBaseConfig } from "./utils/request.js";
 import type { OneComponent } from "../../utils/discover.js";
+import type { SyncDirection } from "../../utils/sync-utils.js";
 
 export type SyncComponents = (
     specifiedComponents: OneComponent[],
@@ -27,3 +28,36 @@ export type SyncProvidedComponents = (
 //     components: string[];
 //     packageName: boolean;
 // }
+
+export type SyncStories = (
+    {
+        transmission,
+        stories,
+        toSpaceId,
+    }: {
+        transmission: SyncContent["transmission"];
+        stories: any[];
+        toSpaceId: string;
+    },
+    config: RequestBaseConfig
+) => Promise<any>;
+
+export interface SyncContent {
+    type: "stories" | "assets";
+    transmission: {
+        from: string;
+        to: string;
+    };
+    syncDirection: SyncDirection;
+    filename?: string;
+}
+
+export type SyncContentFunction = (
+    { type, transmission, syncDirection, filename }: SyncContent,
+    config: RequestBaseConfig
+) => Promise<any>;
+
+export type SyncAssets = (
+    { transmission }: { transmission: SyncContent["transmission"] },
+    config: RequestBaseConfig
+) => Promise<any>;

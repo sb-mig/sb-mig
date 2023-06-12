@@ -5,6 +5,9 @@ import Logger from "../../../utils/logger.js";
 export interface RequestBaseConfig {
     spaceId: string;
     sbApi: StoryblokClient;
+    debug?: boolean;
+    contentHubOriginUrl?: string;
+    contentHubAuthorizationToken?: string;
 }
 
 interface GetAllItemsWithPagination {

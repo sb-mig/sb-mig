@@ -1,13 +1,18 @@
-import config from "../config/config.js";
-import Logger from "../utils/logger.js";
+import type { RequestBaseConfig } from "./utils/request.js";
 
-const getAllStories = async ({
-    spaceId,
-    storiesFilename = "default",
-}: {
-    spaceId: string;
-    storiesFilename?: string;
-}) => {
+import Logger from "../../utils/logger.js";
+
+type GetAllStories = (
+    args: {
+        spaceId: string;
+        storiesFilename?: string;
+    },
+    config: RequestBaseConfig
+) => Promise<any>;
+
+const getAllStories: GetAllStories = async (args, config) => {
+    const { spaceId, storiesFilename } = args;
+
     Logger.warning("Trying to get all stories from Content Hub...");
     const queryParams = `spaceId=${spaceId}&storiesFilename=${storiesFilename}`;
     const url = `${config.contentHubOriginUrl}/getStories?${queryParams}`;
@@ -20,7 +25,7 @@ const getAllStories = async ({
         const response = await fetch(url, {
             method: "GET",
             headers: {
-                Authorization: authorizationToken,
+                Authorization: authorizationToken as string,
             },
         });
 

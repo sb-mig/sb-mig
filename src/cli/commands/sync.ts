@@ -1,29 +1,26 @@
-import type { RequestBaseConfig } from "../../api/v2/utils/request.js";
 import type { CLIOptions } from "../../utils/interfaces.js";
 import type { SyncDirection } from "../../utils/sync-utils.js";
 
-import { sbApi } from "../../api/config.js";
 import {
     syncAllDatasources,
     syncProvidedDatasources,
-} from "../../api/datasources/datasources.js";
-import {
-    syncContent,
-    removeAllStories,
-    syncProvidedPlugins,
-} from "../../api/migrate.js";
-import { backupStories } from "../../api/stories.js";
+} from "../../api/v2/datasources/index.js";
 import {
     removeAllComponents,
     syncAllComponents,
+    syncContent,
     syncProvidedComponents,
 } from "../../api/v2/migrate.js";
+import { syncProvidedPlugins } from "../../api/v2/plugins/plugins.js";
 import { syncAllRoles, syncProvidedRoles } from "../../api/v2/roles/roles.js";
+import { backupStories } from "../../api/v2/stories/backup.js";
+import { removeAllStories } from "../../api/v2/stories/index.js";
 import storyblokConfig from "../../config/config.js";
 import Logger from "../../utils/logger.js";
 import { isItFactory, unpackElements } from "../../utils/main.js";
 import { askForConfirmation, getFrom, getTo } from "../../utils/others.js";
 import { defineSyncDirection } from "../../utils/sync-utils.js";
+import { apiConfig } from "../api-config.js";
 
 const SYNC_COMMANDS = {
     content: "content",
@@ -35,11 +32,6 @@ const SYNC_COMMANDS = {
 
 export const sync = async (props: CLIOptions) => {
     const { input, flags } = props;
-
-    const apiConfig: RequestBaseConfig = {
-        spaceId: storyblokConfig.spaceId,
-        sbApi: sbApi,
-    };
 
     const command = input[1];
     const rules = {
@@ -124,14 +116,17 @@ export const sync = async (props: CLIOptions) => {
         case SYNC_COMMANDS.datasources:
             if (isIt("all")) {
                 Logger.log("Syncing all datasources with extension...");
-                syncAllDatasources();
+                syncAllDatasources(apiConfig);
             }
 
             if (!flags["all"]) {
                 Logger.log("Syncing provided datasources with extension...");
                 const datasourcesToSync = unpackElements(input);
 
-                syncProvidedDatasources({ datasources: datasourcesToSync });
+                syncProvidedDatasources(
+                    { datasources: datasourcesToSync },
+                    apiConfig
+                );
             }
             break;
         case SYNC_COMMANDS.content:
@@ -164,33 +159,40 @@ export const sync = async (props: CLIOptions) => {
                         );
 
                         // Backup all stories to file
-                        await syncContent({
-                            type: "stories",
-                            transmission: {
-                                from: to,
-                                to: `${to}_stories-backup`,
+                        await syncContent(
+                            {
+                                type: "stories",
+                                transmission: {
+                                    from: to,
+                                    to: `${to}_stories-backup`,
+                                },
+                                syncDirection: "fromSpaceToFile",
                             },
-                            syncDirection: "fromSpaceToFile",
-                        });
+                            apiConfig
+                        );
 
                         // Remove all stories from 'to' space
-                        await removeAllStories({
-                            spaceId: storyblokConfig.spaceId,
-                        });
+                        await removeAllStories(apiConfig);
 
                         // Sync stories from 'from' space to 'to' space
-                        await syncContent({
-                            type: "stories",
-                            transmission: { from, to },
-                            syncDirection,
-                        });
+                        await syncContent(
+                            {
+                                type: "stories",
+                                transmission: { from, to },
+                                syncDirection,
+                            },
+                            apiConfig
+                        );
 
                         // Sync assets from 'from' space to 'to' space
-                        await syncContent({
-                            type: "assets",
-                            transmission: { from, to },
-                            syncDirection,
-                        });
+                        await syncContent(
+                            {
+                                type: "assets",
+                                transmission: { from, to },
+                                syncDirection,
+                            },
+                            apiConfig
+                        );
                     },
                     () => {
                         Logger.success(
@@ -204,11 +206,14 @@ export const sync = async (props: CLIOptions) => {
                     `Syncing using sync direction: ${syncDirection}`
                 );
 
-                await syncContent({
-                    type: "assets",
-                    transmission: { from, to },
-                    syncDirection,
-                });
+                await syncContent(
+                    {
+                        type: "assets",
+                        transmission: { from, to },
+                        syncDirection,
+                    },
+                    apiConfig
+                );
             } else if (isIt("stories")) {
                 Logger.warning(
                     `Syncing using sync direction: ${syncDirection}`
@@ -229,24 +234,28 @@ export const sync = async (props: CLIOptions) => {
                             );
 
                             // Backup all stories to file
-                            await backupStories({
-                                spaceId: to,
-                                filename: `${to}_stories-backup`,
-                                suffix: ".sb.stories",
-                            });
+                            await backupStories(
+                                {
+                                    spaceId: to,
+                                    filename: `${to}_stories-backup`,
+                                    suffix: ".sb.stories",
+                                },
+                                apiConfig
+                            );
 
                             // Remove all stories from 'to' space
-                            await removeAllStories({
-                                spaceId: to,
-                            });
+                            await removeAllStories(apiConfig);
 
                             // Sync stories to 'to' space
-                            await syncContent({
-                                type: "stories",
-                                transmission: { from, to },
-                                syncDirection,
-                                filename: flags["filename"],
-                            });
+                            await syncContent(
+                                {
+                                    type: "stories",
+                                    transmission: { from, to },
+                                    syncDirection,
+                                    filename: flags["filename"],
+                                },
+                                apiConfig
+                            );
                         },
                         () => {
                             Logger.success(
@@ -257,11 +266,14 @@ export const sync = async (props: CLIOptions) => {
                     );
                 } else {
                     // Sync stories to 'to' space
-                    await syncContent({
-                        type: "stories",
-                        transmission: { from, to },
-                        syncDirection,
-                    });
+                    await syncContent(
+                        {
+                            type: "stories",
+                            transmission: { from, to },
+                            syncDirection,
+                        },
+                        apiConfig
+                    );
                 }
             } else {
                 Logger.error(
