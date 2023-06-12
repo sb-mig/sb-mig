@@ -1,5 +1,5 @@
 import type { CLIOptions } from "../../utils/interfaces.js";
-import type { SyncDirection } from "../../utils/sync-utils.js";
+import type { SyncDirection } from "../sync.types.js";
 
 import {
     syncAllDatasources,
@@ -19,7 +19,6 @@ import storyblokConfig from "../../config/config.js";
 import Logger from "../../utils/logger.js";
 import { isItFactory, unpackElements } from "../../utils/main.js";
 import { askForConfirmation, getFrom, getTo } from "../../utils/others.js";
-import { defineSyncDirection } from "../../utils/sync-utils.js";
 import { apiConfig } from "../api-config.js";
 
 const SYNC_COMMANDS = {
