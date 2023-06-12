@@ -45,10 +45,11 @@ export const defaultConfig = (
             pkg(packagePath).type === "module"
                 ? "sb.migration.js"
                 : "sb.migration.cjs",
-        storiesExt:
-            pkg(packagePath).type === "module"
-                ? "sb.stories.js"
-                : "sb.stories.cjs",
+        // storiesExt:
+        //     pkg(packagePath).type === "module"
+        //         ? "sb.stories.js"
+        //         : "sb.stories.cjs",
+        storiesExt: "sb.stories.json",
         storyblokApiUrl: "https://mapi.storyblok.com/v1", // should be mapi.storyblok.com ?
         storyblokDeliveryApiUrl: "https://api.storyblok.com/v2",
         oauthToken: env["STORYBLOK_OAUTH_TOKEN"] ?? "",

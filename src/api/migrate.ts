@@ -421,7 +421,20 @@ export const syncContent: SyncContentFunction = async (
 
         return true;
     } else if (type === "assets") {
-        await syncAssets({ transmission, syncDirection }, config);
+        if (syncDirection === "fromFileToSpace") {
+            Logger.warning(
+                `${syncDirection} with ${type} This is not implemented yet!`
+            );
+        } else if (
+            syncDirection === "fromSpaceToSpace" ||
+            syncDirection === "fromSpaceToFile"
+        ) {
+            await syncAssets({ transmission, syncDirection }, config);
+        } else {
+            Logger.warning(
+                `${syncDirection} with ${type} This is not implemented yet!`
+            );
+        }
 
         return true;
     } else {

@@ -149,11 +149,18 @@ export const sync = async (props: CLIOptions) => {
                 });
             }
 
+            console.log({
+                from,
+                to,
+                ...flags,
+                syncDirection,
+            });
+
             if (syncDirection) {
                 if (isIt("all")) {
                     if (syncDirection !== "fromSpaceToFile") {
                         await askForConfirmation(
-                            "Are you sure you want to delete all content (stories) in your space and then apply test ones ?",
+                            "Are you sure you want to delete all content (stories) in your space and then apply new ones ?",
                             async () => {
                                 Logger.warning(
                                     "Deleting all stories in your space and then applying migrated ones..."
@@ -173,7 +180,10 @@ export const sync = async (props: CLIOptions) => {
                                 );
 
                                 // Remove all stories from 'to' space
-                                await removeAllStories(apiConfig);
+                                await removeAllStories({
+                                    ...apiConfig,
+                                    spaceId: to,
+                                });
 
                                 // Sync stories from 'from' space to 'to' space
                                 await syncContent(
@@ -202,12 +212,12 @@ export const sync = async (props: CLIOptions) => {
                             flags["yes"]
                         );
                     } else {
-                        // Sync stories from 'from' space to 'to' space
-                        await backupStories(
+                        await syncContent(
                             {
-                                spaceId: from,
-                                filename: `${to}_stories-backup`,
-                                suffix: ".sb.stories",
+                                type: "stories",
+                                transmission: { from, to },
+                                syncDirection,
+                                filename: flags.to,
                             },
                             apiConfig
                         );
@@ -239,28 +249,23 @@ export const sync = async (props: CLIOptions) => {
                         `Syncing using sync direction: ${syncDirection}`
                     );
 
-                    console.log("Syncing only stories...");
-
-                    console.log({
-                        from,
-                        to,
-                        syncDirection,
-                    });
-
                     if (syncDirection !== "fromSpaceToFile") {
                         await askForConfirmation(
-                            "Are you sure you want to delete all stories in your space and then apply test ones ?",
+                            "Are you sure you want to delete all stories in your space and then apply new ones ?",
                             async () => {
                                 Logger.warning(
                                     "Deleting all stories in your space and then applying test ones..."
                                 );
 
                                 // Backup all stories to file
-                                await backupStories(
+                                await syncContent(
                                     {
-                                        spaceId: to,
-                                        filename: `${to}_stories-backup`,
-                                        suffix: ".sb.stories",
+                                        type: "stories",
+                                        transmission: {
+                                            from: to,
+                                            to: `${to}_stories-backup`,
+                                        },
+                                        syncDirection: "fromSpaceToFile",
                                     },
                                     apiConfig
                                 );
@@ -277,7 +282,6 @@ export const sync = async (props: CLIOptions) => {
                                         type: "stories",
                                         transmission: { from, to },
                                         syncDirection,
-                                        filename: flags["filename"],
                                     },
                                     apiConfig
                                 );

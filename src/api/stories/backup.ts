@@ -13,7 +13,7 @@ export const backupStories: BackupStories = async (
     await getAllStories({ spaceId, sbApi: config.sbApi })
         .then(async (res: any) => {
             await createAndSaveToFile({
-                ext: "cjs",
+                ext: "json",
                 filename: filename,
                 datestamp: true,
                 suffix,

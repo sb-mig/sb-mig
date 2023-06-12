@@ -706,6 +706,9 @@ export const discoverStories = (
                 }`
             );
 
+            console.log("Discover stories pattern: ");
+            console.log(pattern);
+
             listOfFiles = glob.sync(pattern.replace(/\\/g, "/"), {
                 follow: true,
             });
