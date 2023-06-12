@@ -14,9 +14,9 @@ import path from "path";
 
 import FormData from "form-data";
 
-import storyblokConfig from "../../../config/config.js";
-import { createDir, isDirectoryExists } from "../../../utils/files.js";
-import Logger from "../../../utils/logger.js";
+import storyblokConfig from "../../config/config.js";
+import { createDir, isDirectoryExists } from "../../utils/files.js";
+import Logger from "../../utils/logger.js";
 
 // GET
 export const getAllAssets: GetAllAssets = async (

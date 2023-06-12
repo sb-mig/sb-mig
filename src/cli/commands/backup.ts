@@ -3,13 +3,13 @@ import type { CLIOptions } from "../../utils/interfaces.js";
 import {
     getAllDatasources,
     getDatasource,
-} from "../../api/v2/datasources/index.js";
-import { managementApi } from "../../api/v2/managementApi.js";
-import { getAllPlugins, getPlugin } from "../../api/v2/plugins/plugins.js";
-import { getComponentPresets } from "../../api/v2/presets/componentPresets.js";
-import { getAllPresets, getPreset } from "../../api/v2/presets/presets.js";
-import { getAllRoles, getRole } from "../../api/v2/roles/roles.js";
-import { backupStories } from "../../api/v2/stories/backup.js";
+} from "../../api/datasources/index.js";
+import { managementApi } from "../../api/managementApi.js";
+import { getAllPlugins, getPlugin } from "../../api/plugins/plugins.js";
+import { getComponentPresets } from "../../api/presets/componentPresets.js";
+import { getAllPresets, getPreset } from "../../api/presets/presets.js";
+import { getAllRoles, getRole } from "../../api/roles/roles.js";
+import { backupStories } from "../../api/stories/backup.js";
 import storyblokConfig from "../../config/config.js";
 import { createAndSaveToFile } from "../../utils/files.js";
 import Logger from "../../utils/logger.js";

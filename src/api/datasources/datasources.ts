@@ -13,9 +13,9 @@ import {
     discoverManyDatasources,
     LOOKUP_TYPE,
     SCOPE,
-} from "../../../utils/discover.js";
-import Logger from "../../../utils/logger.js";
-import { getFilesContentWithRequire } from "../../../utils/main.js";
+} from "../../utils/discover.js";
+import Logger from "../../utils/logger.js";
+import { getFilesContentWithRequire } from "../../utils/main.js";
 import { getAllItemsWithPagination } from "../utils/request.js";
 
 import {

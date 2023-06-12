@@ -14,9 +14,9 @@ import {
     compare,
     discoverRoles,
     discoverManyRoles,
-} from "../../../utils/discover.js";
-import Logger from "../../../utils/logger.js";
-import { getFileContentWithRequire } from "../../../utils/main.js";
+} from "../../utils/discover.js";
+import Logger from "../../utils/logger.js";
+import { getFileContentWithRequire } from "../../utils/main.js";
 import { getAllItemsWithPagination } from "../utils/request.js";
 
 // POST

@@ -1,7 +1,7 @@
 import type { BackupStories } from "./stories.types.js";
 
-import { createAndSaveToFile } from "../../../utils/files.js";
-import Logger from "../../../utils/logger.js";
+import { createAndSaveToFile } from "../../utils/files.js";
+import Logger from "../../utils/logger.js";
 
 import { getAllStories } from "./stories.js";
 

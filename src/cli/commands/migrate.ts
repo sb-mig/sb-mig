@@ -5,7 +5,7 @@ import {
     migrateAllComponentsDataInStories,
     migrateProvidedComponentsDataInStories,
 } from "../../api/data-migration/component-data-migration.js";
-import { backupStories } from "../../api/v2/stories/backup.js";
+import { backupStories } from "../../api/stories/backup.js";
 import Logger from "../../utils/logger.js";
 import { isItFactory, unpackElements } from "../../utils/main.js";
 import { askForConfirmation, getFrom, getTo } from "../../utils/others.js";

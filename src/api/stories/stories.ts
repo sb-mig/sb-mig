@@ -12,8 +12,8 @@ import type { GetStoryBySlug } from "./stories.types.js";
 
 import chalk from "chalk";
 
-import storyblokConfig from "../../../config/config.js";
-import Logger from "../../../utils/logger.js";
+import storyblokConfig from "../../config/config.js";
+import Logger from "../../utils/logger.js";
 import { getAllItemsWithPagination } from "../utils/request.js";
 
 export const removeStory: RemoveStory = (args, config) => {

@@ -5,7 +5,7 @@ import * as fs from "fs";
 import StoryblokClient from "storyblok-js-client";
 import { v4 as uuidv4 } from "uuid";
 
-import { getSpace, updateSpace } from "../../api/v2/spaces/index.js";
+import { getSpace, updateSpace } from "../../api/spaces/index.js";
 import storyblokConfig from "../../config/config.js";
 import Logger from "../../utils/logger.js";
 import { apiConfig } from "../api-config.js";

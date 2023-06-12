@@ -3,8 +3,8 @@ import type { CLIOptions } from "../../utils/interfaces.js";
 import {
     removeAllComponents,
     removeSpecifiedComponents,
-} from "../../api/v2/migrate.js";
-import { removeAllStories } from "../../api/v2/stories/index.js";
+} from "../../api/migrate.js";
+import { removeAllStories } from "../../api/stories/index.js";
 import Logger from "../../utils/logger.js";
 import { unpackElements } from "../../utils/main.js";
 import { apiConfig } from "../api-config.js";

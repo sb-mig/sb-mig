@@ -8,10 +8,9 @@ import type {
 } from "./plugins.types.js";
 import type { SyncProvidedPlugins } from "./plugins.types.js";
 
-import { readFile } from "../../../utils/files.js";
-import Logger from "../../../utils/logger.js";
+import { readFile } from "../../utils/files.js";
+import Logger from "../../utils/logger.js";
 import { getAllItemsWithPagination } from "../utils/request.js";
-
 
 export const getAllPlugins: GetAllPlugins = (config) => {
     const { sbApi, spaceId } = config;

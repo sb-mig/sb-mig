@@ -1,4 +1,4 @@
-import type { RequestBaseConfig } from "../v2/utils/request.js";
+import type { RequestBaseConfig } from "../utils/request.js";
 
 import path from "path";
 
@@ -15,7 +15,7 @@ import { createAndSaveToFile } from "../../utils/files.js";
 import Logger from "../../utils/logger.js";
 import { getFilesContentWithRequire, isObjectEmpty } from "../../utils/main.js";
 import { modifyOrCreateAppliedMigrationsFile } from "../../utils/migrations.js";
-import { getAllStories, updateStories } from "../v2/stories/index.js";
+import { getAllStories, updateStories } from "../stories/index.js";
 
 export type MigrateFrom = "file" | "space";
 

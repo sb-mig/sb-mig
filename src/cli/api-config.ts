@@ -1,4 +1,4 @@
-import type { RequestBaseConfig } from "../api/v2/utils/request.js";
+import type { RequestBaseConfig } from "../api/utils/request.js";
 
 import StoryblokClient from "storyblok-js-client";
 

@@ -1,4 +1,9 @@
-import type { GetAllSpaces, GetSpace, Space, UpdateSpace } from "./spaces.types.js";
+import type {
+    GetAllSpaces,
+    GetSpace,
+    Space,
+    UpdateSpace,
+} from "./spaces.types.js";
 
 export const getSpace: GetSpace = (args, config) => {
     const { sbApi } = config;

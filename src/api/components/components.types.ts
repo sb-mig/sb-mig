@@ -1,4 +1,4 @@
-import type { RequestBaseConfig } from "./../utils/request.js";
+import type { RequestBaseConfig } from "../utils/request.js";
 
 export type GetAllComponents = (config: RequestBaseConfig) => Promise<any>;
 export type GetComponent = (

@@ -1,6 +1,6 @@
 import type { TraverseAndCreate, TreeNode } from "./tree.types.js";
 
-import Logger from "../../../utils/logger.js";
+import Logger from "../../utils/logger.js";
 
 import { createStory } from "./stories.js";
 

@@ -4,17 +4,17 @@ import type { SyncDirection } from "../../utils/sync-utils.js";
 import {
     syncAllDatasources,
     syncProvidedDatasources,
-} from "../../api/v2/datasources/index.js";
+} from "../../api/datasources/index.js";
 import {
     removeAllComponents,
     syncAllComponents,
     syncContent,
     syncProvidedComponents,
-} from "../../api/v2/migrate.js";
-import { syncProvidedPlugins } from "../../api/v2/plugins/plugins.js";
-import { syncAllRoles, syncProvidedRoles } from "../../api/v2/roles/roles.js";
-import { backupStories } from "../../api/v2/stories/backup.js";
-import { removeAllStories } from "../../api/v2/stories/index.js";
+} from "../../api/migrate.js";
+import { syncProvidedPlugins } from "../../api/plugins/plugins.js";
+import { syncAllRoles, syncProvidedRoles } from "../../api/roles/roles.js";
+import { backupStories } from "../../api/stories/backup.js";
+import { removeAllStories } from "../../api/stories/index.js";
 import storyblokConfig from "../../config/config.js";
 import Logger from "../../utils/logger.js";
 import { isItFactory, unpackElements } from "../../utils/main.js";

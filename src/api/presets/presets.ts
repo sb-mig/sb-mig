@@ -1,6 +1,6 @@
 import type { RequestBaseConfig } from "../utils/request.js";
 
-import Logger from "../../../utils/logger.js";
+import Logger from "../../utils/logger.js";
 import { getAllItemsWithPagination } from "../utils/request.js";
 
 // GET

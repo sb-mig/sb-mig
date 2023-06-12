@@ -1,7 +1,7 @@
 import type { CLIOptions } from "../../utils/interfaces.js";
 
-import { backupStories } from "../../api/v2/stories/backup.js";
-import { updateStories } from "../../api/v2/stories/stories.js";
+import { backupStories } from "../../api/stories/backup.js";
+import { updateStories } from "../../api/stories/stories.js";
 import { discoverStories, LOOKUP_TYPE, SCOPE } from "../../utils/discover.js";
 import Logger from "../../utils/logger.js";
 import { getFilesContentWithRequire, isItFactory } from "../../utils/main.js";

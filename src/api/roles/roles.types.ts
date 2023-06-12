@@ -1,4 +1,4 @@
-import type { OneComponent } from "../../../utils/discover.js";
+import type { OneComponent } from "../../utils/discover.js";
 import type { RequestBaseConfig } from "../utils/request.js";
 
 export type GetRole = (

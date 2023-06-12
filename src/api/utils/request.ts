@@ -1,6 +1,6 @@
 import type StoryblokClient from "storyblok-js-client";
 
-import Logger from "../../../utils/logger.js";
+import Logger from "../../utils/logger.js";
 
 export interface RequestBaseConfig {
     spaceId: string;
