@@ -45,6 +45,8 @@ export const discover = async (props: CLIOptions) => {
                         file: flags["file"] || undefined,
                         res: content,
                     });
+                } else {
+                    console.log(allComponents);
                 }
             }
 
