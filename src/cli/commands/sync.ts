@@ -151,56 +151,76 @@ export const sync = async (props: CLIOptions) => {
 
             if (syncDirection) {
                 if (isIt("all")) {
-                    await askForConfirmation(
-                        "Are you sure you want to delete all content (stories) in your space and then apply test ones ?",
-                        async () => {
-                            Logger.warning(
-                                "Deleting all stories in your space and then applying migrated ones..."
-                            );
+                    if (syncDirection !== "fromSpaceToFile") {
+                        await askForConfirmation(
+                            "Are you sure you want to delete all content (stories) in your space and then apply test ones ?",
+                            async () => {
+                                Logger.warning(
+                                    "Deleting all stories in your space and then applying migrated ones..."
+                                );
 
-                            // Backup all stories to file
-                            await syncContent(
-                                {
-                                    type: "stories",
-                                    transmission: {
-                                        from: to,
-                                        to: `${to}_stories-backup`,
+                                // Backup all stories to file
+                                await syncContent(
+                                    {
+                                        type: "stories",
+                                        transmission: {
+                                            from: to,
+                                            to: `${to}_stories-backup`,
+                                        },
+                                        syncDirection: "fromSpaceToFile",
                                     },
-                                    syncDirection: "fromSpaceToFile",
-                                },
-                                apiConfig
-                            );
+                                    apiConfig
+                                );
 
-                            // Remove all stories from 'to' space
-                            await removeAllStories(apiConfig);
+                                // Remove all stories from 'to' space
+                                await removeAllStories(apiConfig);
 
-                            // Sync stories from 'from' space to 'to' space
-                            await syncContent(
-                                {
-                                    type: "stories",
-                                    transmission: { from, to },
-                                    syncDirection,
-                                },
-                                apiConfig
-                            );
+                                // Sync stories from 'from' space to 'to' space
+                                await syncContent(
+                                    {
+                                        type: "stories",
+                                        transmission: { from, to },
+                                        syncDirection,
+                                    },
+                                    apiConfig
+                                );
 
-                            // Sync assets from 'from' space to 'to' space
-                            await syncContent(
-                                {
-                                    type: "assets",
-                                    transmission: { from, to },
-                                    syncDirection,
-                                },
-                                apiConfig
-                            );
-                        },
-                        () => {
-                            Logger.success(
-                                "Stories not deleted, exiting the program..."
-                            );
-                        },
-                        flags["yes"]
-                    );
+                                await syncContent(
+                                    {
+                                        type: "assets",
+                                        transmission: { from, to },
+                                        syncDirection,
+                                    },
+                                    apiConfig
+                                );
+                            },
+                            () => {
+                                Logger.success(
+                                    "Stories not deleted, exiting the program..."
+                                );
+                            },
+                            flags["yes"]
+                        );
+                    } else {
+                        // Sync stories from 'from' space to 'to' space
+                        await backupStories(
+                            {
+                                spaceId: from,
+                                filename: `${to}_stories-backup`,
+                                suffix: ".sb.stories",
+                            },
+                            apiConfig
+                        );
+
+                        await syncContent(
+                            {
+                                type: "assets",
+                                transmission: { from, to },
+                                syncDirection,
+                            },
+                            apiConfig
+                        );
+                    }
                 } else if (isIt("assets")) {
                     Logger.warning(
                         `Syncing using sync direction: ${syncDirection}`
