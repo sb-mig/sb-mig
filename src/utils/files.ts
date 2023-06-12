@@ -131,6 +131,7 @@ export const createAndSaveToFile: CreateAndSaveToFile = async (args) => {
         folder = "default",
         res,
     } = args;
+    console.log("DUPA DUPA DUPA DUPA DUPA DUPA DUPA DUPA DUPA DUPA ");
     console.log(args);
     if (!path) {
         const timestamp = generateDatestamp(new Date());

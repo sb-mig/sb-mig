@@ -349,7 +349,9 @@ const saveBackupStoriesToFile: SaveBackupStoriesToFile = async ({
     filename,
 }) => {
     await createAndSaveToFile({
+        ext: "json",
         datestamp: true,
+        suffix: ".sb.stories",
         filename,
         folder,
         res: res,
