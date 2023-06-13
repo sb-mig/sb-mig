@@ -1,4 +1,4 @@
-name: Release Beta
+name: Release
 on:
   push:
     branches:
@@ -30,7 +30,6 @@ jobs:
 
       - name: Build
         env:
-          GH_PACKAGES_TOKEN: ${{ secrets.GH_PACKAGES_TOKEN }}
           NODE_AUTH_TOKEN: ${{secrets.GITHUB_TOKEN}}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -40,7 +39,6 @@ jobs:
 
       - name: Test
         env:
-          GH_PACKAGES_TOKEN: ${{ secrets.GH_PACKAGES_TOKEN }}
           NODE_AUTH_TOKEN: ${{secrets.GITHUB_TOKEN}}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -51,11 +49,17 @@ jobs:
         run: sleep 30s
         shell: bash
 
-      - name: Release
+      - name: Retry Release
+        uses: nick-fields/retry@v2
         env:
           NO_HUSKY: 1
-          GH_PACKAGES_TOKEN: ${{ secrets.GH_PACKAGES_TOKEN }}
           NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npx semantic-release
+          NODE_OPTIONS: "--max_old_space_size=8192"
+        with:
+          command: |
+            npx semantic-release
+          max_attempts: 3
+          retry_wait_seconds: 300
+          timeout_minutes: 10
