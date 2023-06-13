@@ -1,3 +1,11 @@
+## [5.0.5-beta.2](https://github.com/sb-mig/sb-mig/compare/v5.0.5-beta.1...v5.0.5-beta.2) (2023-06-13)
+
+
+### Bug Fixes
+
+* remove usage - just run sb-mig --help ([eeb937e](https://github.com/sb-mig/sb-mig/commit/eeb937eaa3fce6681a51662be17ac5e6b385504b))
+* remove usage from begginign of readme ([804b331](https://github.com/sb-mig/sb-mig/commit/804b331150822080dfc0c32ccc774fd4a120093a))
+
 ## [5.0.5-beta.1](https://github.com/sb-mig/sb-mig/compare/v5.0.4...v5.0.5-beta.1) (2023-06-13)
 
 
