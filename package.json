@@ -47,7 +47,6 @@
     "test": "mocha ./dist-tests/__tests__ --require esm",
     "start": "yarn build && ./dist/cli/index.js",
     "debug": "yarn build && ./dist/cli/index.js sync components accordion accordion-item",
-    "version": "conventional-changelog -p eslint -i CHANGELOG.md -s",
     "semantic-release": "semantic-release",
     "prepare": "husky install"
   },
@@ -88,7 +87,6 @@
     "@typescript-eslint/parser": "^5.59.11",
     "chai": "^4.3.7",
     "chokidar-cli": "^3.0.0",
-    "conventional-changelog-cli": "^3.0.0",
     "eslint": "^8.42.0",
     "eslint-config-prettier": "^8.8.0",
     "eslint-plugin-import": "^2.27.5",
