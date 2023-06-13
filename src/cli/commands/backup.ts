@@ -1,14 +1,6 @@
 import type { CLIOptions } from "../../utils/interfaces.js";
 
-import {
-    getAllDatasources,
-    getDatasource,
-} from "../../api/datasources/index.js";
 import { managementApi } from "../../api/managementApi.js";
-import { getAllPlugins, getPlugin } from "../../api/plugins/plugins.js";
-import { getComponentPresets } from "../../api/presets/componentPresets.js";
-import { getAllPresets, getPreset } from "../../api/presets/presets.js";
-import { getAllRoles, getRole } from "../../api/roles/roles.js";
 import { backupStories } from "../../api/stories/backup.js";
 import storyblokConfig from "../../config/config.js";
 import { createAndSaveToFile } from "../../utils/files.js";
@@ -150,7 +142,8 @@ export const backup = async (props: CLIOptions) => {
             break;
         case BACKUP_COMMANDS.datasources:
             if (flags["all"]) {
-                getAllDatasources(apiConfig)
+                managementApi.datasources
+                    .getAllDatasources(apiConfig)
                     .then(async (res: any) => {
                         await createAndSaveToFile({
                             ext: "json",
@@ -168,7 +161,11 @@ export const backup = async (props: CLIOptions) => {
             if (isIt("empty")) {
                 const datasourceToBackup = unpackOne(input);
 
-                getDatasource({ datasourceName: datasourceToBackup }, apiConfig)
+                managementApi.datasources
+                    .getDatasource(
+                        { datasourceName: datasourceToBackup },
+                        apiConfig
+                    )
                     .then(async (res: any) => {
                         if (res) {
                             await createAndSaveToFile({
@@ -189,7 +186,8 @@ export const backup = async (props: CLIOptions) => {
             break;
         case BACKUP_COMMANDS.roles:
             if (flags["all"]) {
-                getAllRoles(apiConfig)
+                managementApi.roles
+                    .getAllRoles(apiConfig)
                     .then(async (res: any) => {
                         await createAndSaveToFile({
                             ext: "json",
@@ -207,7 +205,8 @@ export const backup = async (props: CLIOptions) => {
             if (isIt("empty")) {
                 const roleToBackup = unpackOne(input);
 
-                getRole(roleToBackup, apiConfig)
+                managementApi.roles
+                    .getRole(roleToBackup, apiConfig)
                     .then(async (res: any) => {
                         if (res) {
                             await createAndSaveToFile({
@@ -228,7 +227,8 @@ export const backup = async (props: CLIOptions) => {
             break;
         case BACKUP_COMMANDS.presets:
             if (flags["all"]) {
-                getAllPresets(apiConfig)
+                managementApi.presets
+                    .getAllPresets(apiConfig)
                     .then(async (res: any) => {
                         await createAndSaveToFile({
                             ext: "json",
@@ -246,7 +246,8 @@ export const backup = async (props: CLIOptions) => {
             if (isIt("empty")) {
                 const presetToBackup = unpackOne(input);
 
-                getPreset(presetToBackup, apiConfig)
+                managementApi.presets
+                    .getPreset(presetToBackup, apiConfig)
                     .then(async (res: any) => {
                         await createAndSaveToFile({
                             ext: "json",
@@ -267,7 +268,8 @@ export const backup = async (props: CLIOptions) => {
             if (isIt("empty")) {
                 const componentPresetToBackup = unpackOne(input);
 
-                getComponentPresets(componentPresetToBackup, apiConfig)
+                managementApi.presets
+                    .getComponentPresets(componentPresetToBackup, apiConfig)
                     .then(async (res: any) => {
                         await createAndSaveToFile({
                             ext: "json",
@@ -296,7 +298,8 @@ export const backup = async (props: CLIOptions) => {
                 }
 
                 allRemoteComponents.forEach(async (component: any) => {
-                    getComponentPresets(component.name, apiConfig)
+                    managementApi.presets
+                        .getComponentPresets(component.name, apiConfig)
                         .then(async (res: any) => {
                             if (res) {
                                 await createAndSaveToFile({
@@ -318,7 +321,8 @@ export const backup = async (props: CLIOptions) => {
             if (isIt("empty")) {
                 const pluginToBackup = unpackOne(input);
 
-                getPlugin(pluginToBackup, apiConfig)
+                managementApi.plugins
+                    .getPlugin(pluginToBackup, apiConfig)
                     .then(async (res: any) => {
                         if (res) {
                             await createAndSaveToFile({
@@ -340,7 +344,8 @@ export const backup = async (props: CLIOptions) => {
             }
 
             if (flags["all"]) {
-                getAllPlugins(apiConfig)
+                managementApi.plugins
+                    .getAllPlugins(apiConfig)
                     .then(async (res: any) => {
                         await createAndSaveToFile({
                             ext: "json",
