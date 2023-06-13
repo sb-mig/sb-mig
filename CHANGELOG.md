@@ -1,3 +1,24 @@
+# [4.1.0-beta.83](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.82...v4.1.0-beta.83) (2023-06-13)
+
+
+### feat
+
+* improve release process with semantic-release ([4201e84](https://github.com/sb-mig/sb-mig/commit/4201e847781fe0568757c6fadc1fa2bbba3d786f))
+* trigger release ([731e19a](https://github.com/sb-mig/sb-mig/commit/731e19a2d2dcd2b3b558f4f8a2bc92295ada3dcf))
+* trigger release: ([faec399](https://github.com/sb-mig/sb-mig/commit/faec3996b445cd4167212366aaa85c7b196df8c8))
+
+
+
+# [4.1.0-beta.83](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.82...v4.1.0-beta.83) (2023-06-13)
+
+
+### Features
+
+* improve release process with semantic-release ([4201e84](https://github.com/sb-mig/sb-mig/commit/4201e847781fe0568757c6fadc1fa2bbba3d786f))
+* **release:** remove not needed retry ([92489eb](https://github.com/sb-mig/sb-mig/commit/92489ebf92058fcd78d663d6a399818b789491a1))
+* trigger release ([731e19a](https://github.com/sb-mig/sb-mig/commit/731e19a2d2dcd2b3b558f4f8a2bc92295ada3dcf))
+* trigger release: ([faec399](https://github.com/sb-mig/sb-mig/commit/faec3996b445cd4167212366aaa85c7b196df8c8))
+
 # [4.1.0-beta.82](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.81...v4.1.0-beta.82) (2023-06-13)
 
 

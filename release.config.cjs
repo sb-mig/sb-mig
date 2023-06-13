@@ -27,16 +27,6 @@ module.exports = {
             {
                 assets: ['CHANGELOG.md', 'package.json'],
             },
-        ],
-        [
-            'semantic-release-slack-bot',
-            {
-                notifyOnSuccess: true,
-                notifyOnFail: true,
-                markdownReleaseNotes: true,
-                slackWebhook:
-                    'https://hooks.slack.com/services/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',
-            },
-        ],
+        ]
     ],
 };
