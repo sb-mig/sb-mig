@@ -1,7 +1,6 @@
 import type { CLIOptions } from "../../utils/interfaces.js";
 
-import { backupStories } from "../../api/stories/backup.js";
-import { updateStories } from "../../api/stories/stories.js";
+import { managementApi } from "../../api/managementApi.js";
 import { discoverStories, LOOKUP_TYPE, SCOPE } from "../../utils/discover.js";
 import Logger from "../../utils/logger.js";
 import { getFilesContentWithRequire, isItFactory } from "../../utils/main.js";
@@ -39,7 +38,7 @@ export const revert = async (props: CLIOptions) => {
                     async () => {
                         Logger.warning("Preparing to migrate...");
 
-                        await backupStories(
+                        await managementApi.stories.backupStories(
                             {
                                 filename: `${to}--backup-before-revert`,
                                 suffix: ".sb.stories",
@@ -58,7 +57,7 @@ export const revert = async (props: CLIOptions) => {
                             files: allLocalStories,
                         });
 
-                        await updateStories(
+                        await managementApi.stories.updateStories(
                             {
                                 stories,
                                 spaceId: to,

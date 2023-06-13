@@ -8,3 +8,5 @@ export {
     getAllStories,
     removeAllStories,
 } from "./stories.js";
+
+export { backupStories } from "./backup.js";

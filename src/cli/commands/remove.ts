@@ -1,10 +1,10 @@
 import type { CLIOptions } from "../../utils/interfaces.js";
 
+import { managementApi } from "../../api/managementApi.js";
 import {
     removeAllComponents,
     removeSpecifiedComponents,
 } from "../../api/migrate.js";
-import { removeAllStories } from "../../api/stories/index.js";
 import Logger from "../../utils/logger.js";
 import { unpackElements } from "../../utils/main.js";
 import { apiConfig } from "../api-config.js";
@@ -56,7 +56,10 @@ export const remove = async (props: CLIOptions) => {
             Logger.warning(`Removing all stories from: ${flags.from}`);
 
             if (flags["all"] && flags["from"]) {
-                await removeAllStories({ ...apiConfig, spaceId: flags.from });
+                await managementApi.stories.removeAllStories({
+                    ...apiConfig,
+                    spaceId: flags.from,
+                });
             }
 
             break;

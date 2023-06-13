@@ -1,20 +1,13 @@
 import type { CLIOptions } from "../../utils/interfaces.js";
 import type { SyncDirection } from "../sync.types.js";
 
-import {
-    syncAllDatasources,
-    syncProvidedDatasources,
-} from "../../api/datasources/index.js";
+import { managementApi } from "../../api/managementApi.js";
 import {
     removeAllComponents,
     syncAllComponents,
     syncContent,
     syncProvidedComponents,
 } from "../../api/migrate.js";
-import { syncProvidedPlugins } from "../../api/plugins/plugins.js";
-import { syncAllRoles, syncProvidedRoles } from "../../api/roles/roles.js";
-import { backupStories } from "../../api/stories/backup.js";
-import { removeAllStories } from "../../api/stories/index.js";
 import storyblokConfig from "../../config/config.js";
 import Logger from "../../utils/logger.js";
 import { isItFactory, unpackElements } from "../../utils/main.js";
@@ -102,27 +95,30 @@ export const sync = async (props: CLIOptions) => {
             if (isIt("all")) {
                 Logger.log("Syncing all roles...");
 
-                syncAllRoles(apiConfig);
+                managementApi.roles.syncAllRoles(apiConfig);
             }
 
             if (isIt("empty")) {
                 Logger.log("Syncing provided roles...");
                 const rolesToSync = unpackElements(input);
 
-                syncProvidedRoles({ roles: rolesToSync }, apiConfig);
+                managementApi.roles.syncProvidedRoles(
+                    { roles: rolesToSync },
+                    apiConfig
+                );
             }
             break;
         case SYNC_COMMANDS.datasources:
             if (isIt("all")) {
                 Logger.log("Syncing all datasources with extension...");
-                syncAllDatasources(apiConfig);
+                managementApi.datasources.syncAllDatasources(apiConfig);
             }
 
             if (!flags["all"]) {
                 Logger.log("Syncing provided datasources with extension...");
                 const datasourcesToSync = unpackElements(input);
 
-                syncProvidedDatasources(
+                managementApi.datasources.syncProvidedDatasources(
                     { datasources: datasourcesToSync },
                     apiConfig
                 );
@@ -180,7 +176,7 @@ export const sync = async (props: CLIOptions) => {
                                 );
 
                                 // Remove all stories from 'to' space
-                                await removeAllStories({
+                                await managementApi.stories.removeAllStories({
                                     ...apiConfig,
                                     spaceId: to,
                                 });
@@ -271,7 +267,7 @@ export const sync = async (props: CLIOptions) => {
                                 );
 
                                 // Remove all stories from 'to' space
-                                await removeAllStories({
+                                await managementApi.stories.removeAllStories({
                                     ...apiConfig,
                                     spaceId: to,
                                 });
@@ -325,7 +321,7 @@ export const sync = async (props: CLIOptions) => {
                 Logger.warning("Synchronizing PROVIDED plugins...");
                 const pluginsToSync = unpackElements(input);
 
-                await syncProvidedPlugins(
+                await managementApi.plugins.syncProvidedPlugins(
                     {
                         plugins: pluginsToSync,
                     },

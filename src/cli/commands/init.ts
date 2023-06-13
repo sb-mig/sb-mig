@@ -5,7 +5,7 @@ import * as fs from "fs";
 import StoryblokClient from "storyblok-js-client";
 import { v4 as uuidv4 } from "uuid";
 
-import { getSpace, updateSpace } from "../../api/spaces/index.js";
+import { managementApi } from "../../api/managementApi.js";
 import storyblokConfig from "../../config/config.js";
 import Logger from "../../utils/logger.js";
 import { apiConfig } from "../api-config.js";
@@ -40,7 +40,10 @@ export const init = async (props: CLIOptions) => {
                 storyblokApiUrl
             );
 
-            const spaceData = await getSpace(spaceId, apiConfig);
+            const spaceData = await managementApi.spaces.getSpace(
+                spaceId,
+                apiConfig
+            );
 
             const STORYBLOK_SPACE_ID = spaceId;
             const STORYBLOK_OAUTH_TOKEN = oauthToken;
@@ -72,7 +75,7 @@ export const init = async (props: CLIOptions) => {
             }
 
             try {
-                await updateSpace(
+                await managementApi.spaces.updateSpace(
                     {
                         spaceId,
                         params: {

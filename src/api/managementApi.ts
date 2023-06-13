@@ -5,6 +5,7 @@ import * as datasources from "./datasources/index.js";
 import * as plugins from "./plugins/index.js";
 import * as presets from "./presets/index.js";
 import * as roles from "./roles/index.js";
+import * as spaces from "./spaces/index.js";
 import * as stories from "./stories/index.js";
 
 export const managementApi = {
@@ -16,4 +17,5 @@ export const managementApi = {
     presets: { ...presets },
     roles: { ...roles },
     stories: { ...stories },
+    spaces: { ...spaces },
 };
