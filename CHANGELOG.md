@@ -1,3 +1,84 @@
+# [4.1.0-beta.82](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.81...v4.1.0-beta.82) (2023-06-13)
+
+
+### clean
+
+* remove not needed functions, simplify to use more simple functions ([bd565c2](https://github.com/sb-mig/sb-mig/commit/bd565c214147e04cce7f943b169964fe98c7699f))
+
+### eslint
+
+* add rule about extensions ([5275f15](https://github.com/sb-mig/sb-mig/commit/5275f1597e497806000ba9d8bea1838faaead0c6))
+
+### feat
+
+* finish refactor ([634170e](https://github.com/sb-mig/sb-mig/commit/634170ecd340feea6d44f6741bfce2e1fcfd435a))
+* move files related only to cli to cli folder ([273c6c9](https://github.com/sb-mig/sb-mig/commit/273c6c9ff4fa2cae61948c4cc2a0dd8d89981f97))
+* rewrite presets to v2 ([fc0722b](https://github.com/sb-mig/sb-mig/commit/fc0722b95c8eda3c91ca67bc979649bfd16eb94e))
+* rewrite roles to v2 ([2e01cc2](https://github.com/sb-mig/sb-mig/commit/2e01cc274f72306dd89aa7ec2c26f0cce1b7d349))
+
+### fix
+
+* add script to fix lack of .js esm extensions in typescript ([96940c7](https://github.com/sb-mig/sb-mig/commit/96940c7fdcfb89f1bc43ea0b52b008a50404c697))
+* datasources issue after refactor ([19c07a6](https://github.com/sb-mig/sb-mig/commit/19c07a697fe1ade4239b826a6429dc236cfcfa82))
+* discover without write to file ([aba25a6](https://github.com/sb-mig/sb-mig/commit/aba25a6be0bae4eb23d3ee533828c7d654e12205))
+* download assets, and upload the assets if proper direction set ([735a932](https://github.com/sb-mig/sb-mig/commit/735a93205c2049d0857da7571c2a5621ae3ae381))
+* improve syncing all fromSpaceToFile ([adfc046](https://github.com/sb-mig/sb-mig/commit/adfc0462de36fe1f45acf2743e3e0ff2f45bd0cd))
+* migration script and backup creation ([9e06bf1](https://github.com/sb-mig/sb-mig/commit/9e06bf17c565a692abf5460aaaa61cfcfc2069c7))
+* move v2 api to normal folder ([a78599c](https://github.com/sb-mig/sb-mig/commit/a78599c12ffacfbd1908e3f1c41b94332e4af89f))
+* remove not needed define sync direction and move type ([ba158f8](https://github.com/sb-mig/sb-mig/commit/ba158f85867294ca42cf0eada08f6e1aae0cd6f4))
+* syncing content after refactor ([6a19793](https://github.com/sb-mig/sb-mig/commit/6a197934e5f3baef8ae1184a638ab3d052f66faa))
+* syncing stories, content, assets ([a43ed64](https://github.com/sb-mig/sb-mig/commit/a43ed6424a29f7a3ef2674802abd234579f64bf1))
+* update deps ([fa95ac2](https://github.com/sb-mig/sb-mig/commit/fa95ac2764b7825651b41c01bd9e5cf306d4fa97))
+* update dev deps ([b7bce65](https://github.com/sb-mig/sb-mig/commit/b7bce6569980c551c3e77bc99774359f3cd45b88))
+* update package.json scripts ([4c07904](https://github.com/sb-mig/sb-mig/commit/4c07904598568f16d560263e839a0481082ec939))
+* use single source managementApi object for requests ([b5e86ec](https://github.com/sb-mig/sb-mig/commit/b5e86ecef4810e80f70d8e30961543c268ddf3a8))
+* use single source managementApi object for requests ([dc9d289](https://github.com/sb-mig/sb-mig/commit/dc9d289f9332af5f5128b71c09db579bcfc090f6))
+* wrap syncdirection and remove pseudo auto discovering of direction ([467a6e2](https://github.com/sb-mig/sb-mig/commit/467a6e2664b86521babb20bc3d177075be98190a))
+
+### refactor
+
+* all sb-mig sync command to be in  v2 api ([da9e9fb](https://github.com/sb-mig/sb-mig/commit/da9e9fb6e2e8998541e23ebfaab3119e268a7aff))
+* backup command fixed ([71b2242](https://github.com/sb-mig/sb-mig/commit/71b224222a2704d03924ab960d62262a696047ce))
+* create managementApi object with components, presets, plugins to gather requests ([9789413](https://github.com/sb-mig/sb-mig/commit/9789413d341e2b478cfad75899a3d8774a9d4b81))
+* move a lot of things, update packages, improve createFileAndSave function ([e0d5d2b](https://github.com/sb-mig/sb-mig/commit/e0d5d2b45d9477e7cda5c913f9de8b8d7663baff))
+* remove not needed files, already refactored into v2 ([5a289bd](https://github.com/sb-mig/sb-mig/commit/5a289bd02ef3e2e1501c9a3c4edecdfb36bfa4e5))
+* remove not needed files, already refactored into v2 ([1b4998b](https://github.com/sb-mig/sb-mig/commit/1b4998bd586f0bf15f2b35df5011194cf8be1f34))
+* remove not needed files, already refactored into v2 ([7e10f63](https://github.com/sb-mig/sb-mig/commit/7e10f6365ba79dfc600e628aec511bfd78e538b5))
+* remove not needed files, already refactored into v2 ([fa7378a](https://github.com/sb-mig/sb-mig/commit/fa7378a35797eeb778d04bd6ce26ac30e5c84357))
+* remove not needed files, already refactored into v2 ([a353cec](https://github.com/sb-mig/sb-mig/commit/a353cec0b7c8fd27831eb9a7a3d083f0555c1025))
+
+
+
+# [4.1.0-beta.82](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.81...v4.1.0-beta.82) (2023-06-13)
+
+
+### Bug Fixes
+
+* add script to fix lack of .js esm extensions in typescript ([96940c7](https://github.com/sb-mig/sb-mig/commit/96940c7fdcfb89f1bc43ea0b52b008a50404c697))
+* datasources issue after refactor ([19c07a6](https://github.com/sb-mig/sb-mig/commit/19c07a697fe1ade4239b826a6429dc236cfcfa82))
+* discover without write to file ([aba25a6](https://github.com/sb-mig/sb-mig/commit/aba25a6be0bae4eb23d3ee533828c7d654e12205))
+* download assets, and upload the assets if proper direction set ([735a932](https://github.com/sb-mig/sb-mig/commit/735a93205c2049d0857da7571c2a5621ae3ae381))
+* improve syncing all fromSpaceToFile ([adfc046](https://github.com/sb-mig/sb-mig/commit/adfc0462de36fe1f45acf2743e3e0ff2f45bd0cd))
+* migration script and backup creation ([9e06bf1](https://github.com/sb-mig/sb-mig/commit/9e06bf17c565a692abf5460aaaa61cfcfc2069c7))
+* move v2 api to normal folder ([a78599c](https://github.com/sb-mig/sb-mig/commit/a78599c12ffacfbd1908e3f1c41b94332e4af89f))
+* remove not needed define sync direction and move type ([ba158f8](https://github.com/sb-mig/sb-mig/commit/ba158f85867294ca42cf0eada08f6e1aae0cd6f4))
+* syncing content after refactor ([6a19793](https://github.com/sb-mig/sb-mig/commit/6a197934e5f3baef8ae1184a638ab3d052f66faa))
+* syncing stories, content, assets ([a43ed64](https://github.com/sb-mig/sb-mig/commit/a43ed6424a29f7a3ef2674802abd234579f64bf1))
+* update deps ([fa95ac2](https://github.com/sb-mig/sb-mig/commit/fa95ac2764b7825651b41c01bd9e5cf306d4fa97))
+* update dev deps ([b7bce65](https://github.com/sb-mig/sb-mig/commit/b7bce6569980c551c3e77bc99774359f3cd45b88))
+* update package.json scripts ([4c07904](https://github.com/sb-mig/sb-mig/commit/4c07904598568f16d560263e839a0481082ec939))
+* use single source managementApi object for requests ([b5e86ec](https://github.com/sb-mig/sb-mig/commit/b5e86ecef4810e80f70d8e30961543c268ddf3a8))
+* use single source managementApi object for requests ([dc9d289](https://github.com/sb-mig/sb-mig/commit/dc9d289f9332af5f5128b71c09db579bcfc090f6))
+* wrap syncdirection and remove pseudo auto discovering of direction ([467a6e2](https://github.com/sb-mig/sb-mig/commit/467a6e2664b86521babb20bc3d177075be98190a))
+
+
+### Features
+
+* finish refactor ([634170e](https://github.com/sb-mig/sb-mig/commit/634170ecd340feea6d44f6741bfce2e1fcfd435a))
+* move files related only to cli to cli folder ([273c6c9](https://github.com/sb-mig/sb-mig/commit/273c6c9ff4fa2cae61948c4cc2a0dd8d89981f97))
+* rewrite presets to v2 ([fc0722b](https://github.com/sb-mig/sb-mig/commit/fc0722b95c8eda3c91ca67bc979649bfd16eb94e))
+* rewrite roles to v2 ([2e01cc2](https://github.com/sb-mig/sb-mig/commit/2e01cc274f72306dd89aa7ec2c26f0cce1b7d349))
+
 # [4.1.0-beta.81](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.80...v4.1.0-beta.81) (2023-05-31)
 
 
