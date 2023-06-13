@@ -26,25 +26,7 @@ export const createJsonFile = async (
     await fs.promises.writeFile(pathWithFilename, content, { flag: "w" });
 };
 
-export const createJSFile2 = async (
-    content: string,
-    pathWithFilename: string
-) => {
-    const finalContent = `/*
-
-Auto-generated file by sb-mig
-
-Do not edit manually
-
-*/
-const stories = ${content};
-
-module.exports = stories;
-`;
-    await fs.promises.writeFile(pathWithFilename, finalContent, { flag: "w" });
-};
-
-export const createJSFile = async (
+export const createJSAllComponentsFile = async (
     content: string,
     pathWithFilename: string,
     timestamp = false
@@ -103,11 +85,11 @@ export const copyFile = async (src: string, dest: string) => {
     });
 };
 
-interface CreateAndSaveToFile {
-    prefix: string;
-    folder: string;
-    res: any;
-}
+// interface CreateAndSaveToFile {
+//     prefix: string;
+//     folder: string;
+//     res: any;
+// }
 
 interface CreateAndSavePresetToFile {
     filename: string;
@@ -121,60 +103,71 @@ interface CreateAndSaveComponentListToFile {
     timestamp?: boolean;
 }
 
-export const createAndSaveToFile = async ({
-    prefix,
-    folder,
-    res,
-}: CreateAndSaveToFile): Promise<void> => {
-    const datestamp = new Date();
-    const filename = `${prefix}${generateDatestamp(datestamp)}`;
-    await createDir(`${storyblokConfig.sbmigWorkingDirectory}/${folder}/`);
-    await createJsonFile(
-        JSON.stringify(res, undefined, 2),
-        `${storyblokConfig.sbmigWorkingDirectory}/${folder}/${filename}.json`
-    );
-    Logger.success(`All response written to a file:  ${filename}`);
-};
-
-export const createAndSavePresetToFile = async ({
-    filename,
-    res,
-}: CreateAndSavePresetToFile): Promise<void> => {
-    await createDir(`${storyblokConfig.presetsBackupDirectory}`);
-    await createJsonFile(
-        JSON.stringify(res, undefined, 2),
-        path.join(storyblokConfig.presetsBackupDirectory, filename)
-    );
-    Logger.success(`All response written to a file:  ${filename}`);
-};
-
-interface CreateAndSaveToStoriesFile {
-    filename: string;
-    folder: string;
+type CreateAndSaveToFile = (args: {
+    ext?: string;
+    datestamp?: boolean;
+    prefix?: string;
     suffix?: string;
+    path?: string;
+    filename?: string;
+    folder?: string;
     res: any;
-}
+}) => void;
 
-export const createAndSaveToStoriesFile = async ({
-    filename,
-    folder,
-    suffix,
-    res,
-}: CreateAndSaveToStoriesFile): Promise<void> => {
-    await createDir(`${storyblokConfig.sbmigWorkingDirectory}/${folder}/`);
-    await createJSFile2(
-        JSON.stringify(res, undefined, 2),
-        `${storyblokConfig.sbmigWorkingDirectory}/${folder}/${filename}${
-            suffix ? suffix : ""
-        }.cjs`
-    );
-    Logger.success(
-        `All response written to a file:  ${filename}${
-            suffix ? suffix : ""
-        }.cjs`
-    );
+/*
+ *
+ * General function to create and save to file
+ * the most used one for many different purposes
+ *
+ * */
+export const createAndSaveToFile: CreateAndSaveToFile = async (args) => {
+    const {
+        ext = "json",
+        datestamp = false,
+        prefix = "",
+        suffix = "",
+        path = null,
+        filename = "",
+        folder = "default",
+        res,
+    } = args;
+    console.log("DUPA DUPA DUPA DUPA DUPA DUPA DUPA DUPA DUPA DUPA ");
+    console.log(args);
+    if (!path) {
+        const timestamp = generateDatestamp(new Date());
+        const finalFilename = `${prefix}${filename}${
+            datestamp ? `__${timestamp}` : ""
+        }`;
+        const fullPath = `${storyblokConfig.sbmigWorkingDirectory}/${folder}/${finalFilename}${suffix}.${ext}`;
+
+        await createDir(`${storyblokConfig.sbmigWorkingDirectory}/${folder}/`);
+        if (ext === "json") {
+            await createJsonFile(JSON.stringify(res, undefined, 2), fullPath);
+        } else {
+            await createJsonFile(JSON.stringify(res, undefined, 2), fullPath);
+        }
+
+        Logger.success(`All response written to a file:  ${fullPath}`);
+    }
+
+    if (path) {
+        const folderPath = path
+            .split("/")
+            .slice(0, path.split("/").length - 1)
+            .join("/");
+        await createDir(folderPath);
+        await createJsonFile(JSON.stringify(res, undefined, 2), path);
+
+        Logger.success(`All response written to a file:  ${path}`);
+    }
 };
 
+/*
+ *
+ * Specific function for saving component list to file
+ * ef backpack related
+ *
+ * */
 export const createAndSaveComponentListToFile = async ({
     file,
     folder,
@@ -188,7 +181,7 @@ export const createAndSaveComponentListToFile = async ({
             ? `${storyblokConfig.sbmigWorkingDirectory}/${folder}/`
             : `${storyblokConfig.sbmigWorkingDirectory}/`
     );
-    await createJSFile(
+    await createJSAllComponentsFile(
         JSON.stringify(res, null, 2),
         folder
             ? `${storyblokConfig.sbmigWorkingDirectory}/${folder}/${filename}.ts`

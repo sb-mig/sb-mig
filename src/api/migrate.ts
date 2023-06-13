@@ -1,17 +1,30 @@
-import type { OneComponent } from "../utils/discover.js";
-import type { SyncDirection } from "../utils/sync-utils";
+import type {
+    CheckAndPrepareGroups,
+    RemoveSpecificComponents,
+    ResolveGroups,
+} from "./components/components.types.js";
+import type {
+    SyncAllComponents,
+    SyncAssets,
+    SyncComponents,
+    SyncContentFunction,
+    SyncProvidedComponents,
+    SyncStories,
+} from "./migrate.types.js";
+import type { RequestBaseConfig } from "./utils/request.js";
 
-import config from "../config/config.js";
+import { apiConfig } from "../cli/api-config.js";
+import storyblokConfig from "../config/config.js";
 import {
-    discoverManyByPackageName,
-    LOOKUP_TYPE,
-    SCOPE,
     compare,
     discover,
     discoverMany,
+    discoverManyByPackageName,
     discoverStories,
+    LOOKUP_TYPE,
+    SCOPE,
 } from "../utils/discover.js";
-import { dumpToFile, readFile } from "../utils/files.js";
+import { dumpToFile } from "../utils/files.js";
 import Logger from "../utils/logger.js";
 import {
     getFileContentWithRequire,
@@ -19,30 +32,20 @@ import {
     isObjectEmpty,
 } from "../utils/main.js";
 
-import { migrateAsset, getAllAssets } from "./assets.js";
-import {
-    getAllComponentsGroups,
-    createComponentsGroup,
-    getAllComponents,
-    removeComponent,
-    removeComponentGroup,
-} from "./components.js";
+import { getAllAssets, migrateAsset } from "./assets/assets.js";
 import { contentHubApi } from "./contentHubApi.js";
-import { updateComponent, createComponent } from "./mutateComponents.js";
-import { createPlugin, getPlugin, updatePlugin } from "./plugins.js";
-import {
-    backupStories,
-    createTree,
-    getAllStories,
-    removeStory,
-    traverseAndCreate,
-} from "./stories.js";
+import { managementApi } from "./managementApi.js";
+import { backupStories } from "./stories/backup.js";
+import { getAllStories } from "./stories/stories.js";
+import { createTree, traverseAndCreate } from "./stories/tree.js";
+import { _uniqueValuesFrom } from "./utils/helper-functions.js";
 
-
-const _uniqueValuesFrom = (array: any[]) => [...new Set(array)];
-
-const _checkAndPrepareGroups = async (groupsToCheck: any) => {
-    const componentsGroups = await getAllComponentsGroups();
+const _checkAndPrepareGroups: CheckAndPrepareGroups = async (
+    groupsToCheck,
+    config
+) => {
+    const componentsGroups =
+        await managementApi.components.getAllComponentsGroups(config);
     console.log("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
     console.log(componentsGroups);
     console.log("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
@@ -51,15 +54,64 @@ const _checkAndPrepareGroups = async (groupsToCheck: any) => {
 
     groupsToCheck.forEach(async (groupName: string) => {
         if (!groupExist(groupName)) {
-            await createComponentsGroup(groupName);
+            await managementApi.components.createComponentsGroup(
+                groupName,
+                config
+            );
         }
     });
 };
 
-const _resolveGroups = async (
-    component: any,
-    existedGroups: any,
-    remoteComponentsGroups: any
+export const removeAllComponents = async (config: RequestBaseConfig) => {
+    const components = await managementApi.components.getAllComponents(config);
+    const component_groups =
+        await managementApi.components.getAllComponentsGroups(config);
+
+    return Promise.all([
+        ...components.map(async (component: any) => {
+            await managementApi.components.removeComponent(component, config);
+        }),
+        ...component_groups.map(async (componentGroup: any) => {
+            await managementApi.components.removeComponentGroup(
+                componentGroup,
+                config
+            );
+        }),
+    ]);
+
+    return [];
+};
+
+export const removeSpecifiedComponents: RemoveSpecificComponents = async (
+    components,
+    config
+) => {
+    const remoteComponents = await managementApi.components.getAllComponents(
+        config
+    );
+    const componentsToRemove: any = [];
+
+    components.map((component: any) => {
+        const shouldBeRemoved = remoteComponents.find(
+            (remoteComponent: any) => component === remoteComponent.name
+        );
+        shouldBeRemoved && componentsToRemove.push(shouldBeRemoved);
+    });
+
+    return (
+        componentsToRemove.length > 0 &&
+        Promise.all(
+            componentsToRemove.map((component: any) => {
+                managementApi.components.removeComponent(component, config);
+            })
+        )
+    );
+};
+
+const _resolveGroups: ResolveGroups = async (
+    component,
+    existedGroups,
+    remoteComponentsGroups
 ) => {
     if (!component.component_group_name) {
         return { ...component, component_group_uuid: null };
@@ -77,15 +129,11 @@ const _resolveGroups = async (
     }
 };
 
-interface SyncComponents {
-    specifiedComponents: OneComponent[];
-    presets: boolean;
-}
-
-export const syncComponents = async ({
+export const syncComponents: SyncComponents = async (
     specifiedComponents,
     presets,
-}: SyncComponents) => {
+    config
+) => {
     Logger.log("sync2Components: ");
 
     const specifiedComponentsContent = await Promise.all(
@@ -100,14 +148,16 @@ export const syncComponents = async ({
             .map((component) => component.component_group_name)
     );
 
-    await _checkAndPrepareGroups(groupsToCheck);
+    await _checkAndPrepareGroups(groupsToCheck, config);
 
     // after checkAndPrepareGroups remoteComponents will have synced groups with local groups
     // updates of the groups had to happen before creation of them, cause creation/updates of components
     // happens async, so if one component will have the same group, as other one
     // it will be race of condition kinda issue - we will never now, if the group for current processed component
     // already exist or is being created by other request
-    const remoteComponents = await getAllComponents();
+    const remoteComponents = await managementApi.components.getAllComponents(
+        config
+    );
 
     const componentsToUpdate = [];
     const componentsToCreate = [];
@@ -129,54 +179,83 @@ export const syncComponents = async ({
         }
     }
 
-    const componentsGroups = await getAllComponentsGroups();
+    const componentsGroups =
+        await managementApi.components.getAllComponentsGroups(config);
 
     componentsToUpdate.length > 0 &&
         Promise.all(
             componentsToUpdate.map((component) =>
-                _resolveGroups(component, groupsToCheck, componentsGroups)
+                _resolveGroups(
+                    component,
+                    groupsToCheck,
+                    componentsGroups,
+                    config
+                )
             )
         ).then((res) => {
             Logger.log("Components to update after check: ");
             res.map((component) => {
                 Logger.warning(`   ${component.name}`);
-                updateComponent(component, presets);
+                managementApi.components.updateComponent(
+                    component,
+                    presets,
+                    config
+                );
             });
         });
 
     componentsToCreate.length > 0 &&
         Promise.all(
             componentsToCreate.map((component) =>
-                _resolveGroups(component, groupsToCheck, componentsGroups)
+                _resolveGroups(
+                    component,
+                    groupsToCheck,
+                    componentsGroups,
+                    config
+                )
             )
         ).then((res) => {
             Logger.log("Components to create after check: ");
             res.map((component) => {
                 Logger.warning(`   ${component.name}`);
-                createComponent(component, presets);
+                managementApi.components.createComponent(
+                    component,
+                    presets,
+                    config
+                );
             });
         });
 };
 
-interface SyncAllComponents {
-    presets: boolean;
-}
+export const syncAllComponents: SyncAllComponents = async (presets, config) => {
+    // #1: discover all external .sb.js files
+    const allLocalSbComponentsSchemaFiles = await discover({
+        scope: SCOPE.local,
+        type: LOOKUP_TYPE.fileName,
+    });
 
-interface SyncProvidedComponents {
-    presets: boolean;
-    components: string[];
-    packageName: boolean;
-}
+    // #2: discover all local .sb.js files
+    const allExternalSbComponentsSchemaFiles = await discover({
+        scope: SCOPE.external,
+        type: LOOKUP_TYPE.fileName,
+    });
 
-interface SyncProvidedPlugins {
-    plugins: string[];
-}
+    // // #3: compare results, prefare local ones (so we have to create final external paths array and local array of things to sync from where)
+    const { local, external } = compare({
+        local: allLocalSbComponentsSchemaFiles,
+        external: allExternalSbComponentsSchemaFiles,
+    });
 
-export const syncProvidedComponents = async ({
-    components,
+    // #4: sync - do all stuff already done (groups resolving, and so on)
+    syncComponents([...local, ...external], presets, config);
+};
+
+export const syncProvidedComponents: SyncProvidedComponents = async (
     presets,
+    components,
     packageName,
-}: SyncProvidedComponents) => {
+    config
+) => {
     if (!packageName) {
         // #1: discover all external .sb.js files
         const allLocalSbComponentsSchemaFiles = await discoverMany({
@@ -197,10 +276,7 @@ export const syncProvidedComponents = async ({
         });
 
         // #4: sync - do all stuff already done (groups resolving, and so on)
-        syncComponents({
-            presets,
-            specifiedComponents: [...local, ...external],
-        });
+        syncComponents([...local, ...external], presets, config);
     } else {
         // implement discovering and syncrhonizing with packageName
         // #1: discover all external .sb.js files
@@ -219,121 +295,34 @@ export const syncProvidedComponents = async ({
             external: allExternalSbComponentsSchemaFiles,
         });
         // #4: sync - do all stuff already done (groups resolving, and so on)
-        syncComponents({
-            presets,
-            specifiedComponents: [...local, ...external],
-        });
+        syncComponents([...local, ...external], presets, config);
     }
 };
 
-export const discoverAllComponents = async () => {
-    // #1: discover all external .sb.js files
-    const allLocalSbComponentsSchemaFiles = await discover({
-        scope: SCOPE.local,
-        type: LOOKUP_TYPE.fileName,
-    });
-    // #2: discover all local .sb.js files
-    const allExternalSbComponentsSchemaFiles = await discover({
-        scope: SCOPE.external,
-        type: LOOKUP_TYPE.fileName,
-    });
-    // #3: compare results, prefare local ones (so we have to create final external paths array and local array of things to sync from where)
-    const { local, external } = compare({
-        local: allLocalSbComponentsSchemaFiles,
-        external: allExternalSbComponentsSchemaFiles,
-    });
+export const syncAssets: SyncAssets = async (
+    { transmission: { from, to }, syncDirection },
+    config
+) => {
+    Logger.log(`We would try to migrate Assets data from: ${from} to: ${to}`);
 
-    return { local, external };
-};
-
-export const syncAllComponents = async ({ presets }: SyncAllComponents) => {
-    // #1: discover all external .sb.js files
-    const allLocalSbComponentsSchemaFiles = await discover({
-        scope: SCOPE.local,
-        type: LOOKUP_TYPE.fileName,
-    });
-
-    // #2: discover all local .sb.js files
-    const allExternalSbComponentsSchemaFiles = await discover({
-        scope: SCOPE.external,
-        type: LOOKUP_TYPE.fileName,
-    });
-
-    // // #3: compare results, prefare local ones (so we have to create final external paths array and local array of things to sync from where)
-    const { local, external } = compare({
-        local: allLocalSbComponentsSchemaFiles,
-        external: allExternalSbComponentsSchemaFiles,
-    });
-
-    // #4: sync - do all stuff already done (groups resolving, and so on)
-    syncComponents({
-        presets,
-        specifiedComponents: [...local, ...external],
-    });
-};
-
-export const removeAllComponents = async () => {
-    const components = await getAllComponents();
-    const component_groups = await getAllComponentsGroups();
-
-    return Promise.all([
-        ...components.map(async (component: any) => {
-            await removeComponent({ component });
-        }),
-        ...component_groups.map(async (componentGroup: any) => {
-            await removeComponentGroup({ componentGroup });
-        }),
-    ]);
-
-    return [];
-};
-
-export const removeSpecifiedComponents = async ({
-    components,
-}: {
-    components: any;
-}) => {
-    const remoteComponents = await getAllComponents();
-    const componentsToRemove: any = [];
-
-    components.map((component: any) => {
-        const shouldBeRemoved = remoteComponents.find(
-            (remoteComponent: any) => component === remoteComponent.name
+    const allAssets = await getAllAssets({ spaceId: from }, config);
+    allAssets.assets.map((asset) => {
+        const { id, created_at, updated_at, ...newAssetPayload } = asset;
+        migrateAsset(
+            {
+                migrateTo: to,
+                payload: newAssetPayload,
+                syncDirection,
+            },
+            config
         );
-        shouldBeRemoved && componentsToRemove.push(shouldBeRemoved);
     });
-
-    return (
-        componentsToRemove.length > 0 &&
-        Promise.all(
-            componentsToRemove.map((component: any) => {
-                removeComponent({ component });
-            })
-        )
-    );
 };
 
-interface SyncContent {
-    type: "stories" | "assets";
-    transmission: {
-        from: string;
-        to: string;
-    };
-    syncDirection: SyncDirection;
-    filename?: string;
-}
-
-interface SyncStories {
-    transmission: SyncContent["transmission"];
-    stories: any[];
-    toSpaceId: string;
-}
-
-const syncStories = async ({
-    transmission: { from, to },
-    stories,
-    toSpaceId,
-}: SyncStories) => {
+const syncStories: SyncStories = async (
+    { transmission: { from, to }, stories, toSpaceId },
+    config
+) => {
     Logger.log(`We would try to migrate Stories data from: ${from} to: ${to}`);
 
     const storiesToPass = stories
@@ -346,58 +335,51 @@ const syncStories = async ({
 
     const storiesToPassJson = JSON.stringify(storiesToPass, null, 2);
 
-    if (config.debug) {
+    if (storyblokConfig.debug) {
         dumpToFile("storiesToPass.json", storiesToPassJson);
     }
 
     const tree = createTree(storiesToPass);
     const jsonString = JSON.stringify(tree, null, 2);
-    if (config.debug) {
+    if (storyblokConfig.debug) {
         dumpToFile("tree.json", jsonString);
     }
 
-    await traverseAndCreate({ tree, realParentId: null, spaceId: toSpaceId });
+    await traverseAndCreate(
+        { tree, realParentId: null, spaceId: toSpaceId },
+        config
+    );
 };
 
-interface SyncAssets {
-    transmission: SyncContent["transmission"];
-}
-
-const syncAssets = async ({ transmission: { from, to } }: SyncAssets) => {
-    Logger.log(`We would try to migrate Assets data from: ${from} to: ${to}`);
-
-    const allAssets = await getAllAssets({ spaceId: from });
-    allAssets.assets.map((asset) => {
-        const { id, created_at, updated_at, ...newAssetPayload } = asset;
-        migrateAsset({
-            migrateTo: to,
-            payload: newAssetPayload,
-        });
-    });
-};
-
-export const syncContent = async ({
-    type,
-    transmission,
-    syncDirection,
-    filename,
-}: SyncContent) => {
+export const syncContent: SyncContentFunction = async (
+    { type, transmission, syncDirection, filename },
+    config
+) => {
     if (type === "stories") {
         if (syncDirection === "fromSpaceToFile") {
-            await backupStories({
-                filename: transmission.to,
-                suffix: ".sb.stories",
-                spaceId: transmission.from,
-            });
+            await backupStories(
+                {
+                    filename: transmission.to,
+                    suffix: ".sb.stories",
+                    spaceId: transmission.from,
+                },
+                config
+            );
         }
 
         if (syncDirection === "fromSpaceToSpace") {
-            const stories = await getAllStories({ spaceId: transmission.from });
-            await syncStories({
-                transmission,
-                stories,
-                toSpaceId: transmission.to,
+            const stories = await getAllStories({
+                spaceId: transmission.from,
+                sbApi: config.sbApi,
             });
+            await syncStories(
+                {
+                    transmission,
+                    stories,
+                    toSpaceId: transmission.to,
+                },
+                config
+            );
         }
 
         if (syncDirection === "fromFileToSpace") {
@@ -411,70 +393,51 @@ export const syncContent = async ({
                 files: allLocalStories,
             });
 
-            await syncStories({
-                transmission,
-                stories: storiesFileContent[0],
-                toSpaceId: transmission.to,
-            });
+            await syncStories(
+                {
+                    transmission,
+                    stories: storiesFileContent[0],
+                    toSpaceId: transmission.to,
+                },
+                config
+            );
         }
 
         if (syncDirection === "fromAWSToSpace") {
-            const data = await contentHubApi.getAllStories({
-                spaceId: transmission.from,
-                storiesFilename: filename,
-            });
+            const data = await contentHubApi.getAllStories(
+                { spaceId: transmission.from, storiesFilename: filename },
+                apiConfig
+            );
 
-            await syncStories({
-                transmission,
-                stories: data.stories,
-                toSpaceId: transmission.to,
-            });
+            await syncStories(
+                {
+                    transmission,
+                    stories: data.stories,
+                    toSpaceId: transmission.to,
+                },
+                config
+            );
         }
 
         return true;
     } else if (type === "assets") {
-        await syncAssets({ transmission });
+        if (syncDirection === "fromFileToSpace") {
+            Logger.warning(
+                `${syncDirection} with ${type} This is not implemented yet!`
+            );
+        } else if (
+            syncDirection === "fromSpaceToSpace" ||
+            syncDirection === "fromSpaceToFile"
+        ) {
+            await syncAssets({ transmission, syncDirection }, config);
+        } else {
+            Logger.warning(
+                `${syncDirection} with ${type} This is not implemented yet!`
+            );
+        }
+
         return true;
     } else {
         throw Error("This should never happen!");
-    }
-};
-
-export const removeAllStories = async ({ spaceId }: { spaceId: string }) => {
-    Logger.warning(
-        `Trying to remove all stories from space with spaceId: ${spaceId}`
-    );
-    const stories = await getAllStories({ spaceId });
-
-    const onlyRootStories = (story: any) =>
-        story.story.parent_id === 0 || story.story.parent_id === null;
-
-    const allResponses = Promise.all(
-        stories
-            .filter(onlyRootStories)
-            .map(
-                async (story: any) =>
-                    await removeStory({ spaceId, storyId: story?.story?.id })
-            )
-    );
-
-    return allResponses;
-};
-
-export const syncProvidedPlugins = async ({ plugins }: SyncProvidedPlugins) => {
-    const body = await readFile("dist/export.js");
-    if (plugins.length === 1) {
-        const pluginName = plugins[0];
-        const plugin = await getPlugin(pluginName);
-        if (plugin) {
-            Logger.log("Plugin exist.");
-            Logger.log("Start updating plugin....");
-            return await updatePlugin({ plugin: plugin.field_type, body });
-        } else {
-            Logger.log("Start creating plugin...");
-            const { field_type } = await createPlugin(pluginName as string);
-            Logger.log("Start updating plugin...");
-            return await updatePlugin({ plugin: field_type, body });
-        }
     }
 };

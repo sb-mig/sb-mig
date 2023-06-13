@@ -1,19 +1,26 @@
+import type {
+    _CreateDatasourceEntry,
+    _UpdateDatasourceEntry,
+    CreateDatasourceEntries,
+    CreateDatasourceEntry,
+    GetDatasourceEntries,
+    UpdateDatasourceEntry,
+    _DecorateWithDimensions,
+} from "./datasources.types.js";
+
 import chalk from "chalk";
 
-import storyblokConfig from "../../config/config.js";
 import Logger from "../../utils/logger.js";
 import { isObjectEmpty } from "../../utils/main.js";
-import { sbApi } from "../config.js";
 
 import { getDatasource } from "./datasources.js";
 
-const { spaceId } = storyblokConfig;
-
-const _decorateWithDimensions = async (
-    currentDatasource: any,
-    dimensionsData: any,
-    _callback: any
+const _decorateWithDimensions: _DecorateWithDimensions = async (
+    args,
+    config
 ) => {
+    const { currentDatasource, dimensionsData, _callback } = args;
+    const { spaceId, sbApi } = config;
     // callback for create or update
     await _callback();
 
@@ -58,10 +65,15 @@ const _decorateWithDimensions = async (
     });
 };
 
-export const getDatasourceEntries = async (datasourceName: string) => {
+export const getDatasourceEntries: GetDatasourceEntries = async (
+    args,
+    config
+) => {
+    const { datasourceName } = args;
+    const { spaceId, sbApi } = config;
     Logger.log(`Trying to get '${datasourceName}' datasource entries.`);
 
-    const data = await getDatasource(datasourceName); // TODO: maybe this step is not needed, i think we can retrieve entries directly using slug (but using delivery api, not management)
+    const data = await getDatasource({ datasourceName }, config); // TODO: maybe this step is not needed, i think we can retrieve entries directly using slug (but using delivery api, not management)
 
     if (data) {
         return sbApi
@@ -79,27 +91,27 @@ export const getDatasourceEntries = async (datasourceName: string) => {
     }
 };
 
-export const createDatasourceEntries = (
-    data: any,
-    datasource_entries: any,
-    remoteDatasourceEntries: any
+export const createDatasourceEntries: CreateDatasourceEntries = (
+    args,
+    config
 ) => {
+    const { datasource_entries, remoteDatasourceEntries, data } = args;
+
     Promise.all(
         datasource_entries.map((datasourceEntry: any) => {
-            const datasourceEntriesToBeUpdated =
+            const datasourceToBeUpdated =
                 remoteDatasourceEntries.datasource_entries.find(
                     (remoteDatasourceEntry: any) =>
                         remoteDatasourceEntry.name ===
                         Object.values(datasourceEntry)[0]
                 );
-            if (datasourceEntriesToBeUpdated) {
+            if (datasourceToBeUpdated) {
                 return updateDatasourceEntry(
-                    data,
-                    datasourceEntry,
-                    datasourceEntriesToBeUpdated
+                    { data, datasourceEntry, datasourceToBeUpdated },
+                    config
                 );
             }
-            return createDatasourceEntry(data, datasourceEntry);
+            return createDatasourceEntry({ data, datasourceEntry }, config);
         })
     )
         .then((_: any) => {
@@ -111,10 +123,9 @@ export const createDatasourceEntries = (
         .catch((err) => Logger.error(err));
 };
 
-const _createDatasourceEntry = (
-    currentDatasource: any,
-    finalDatasource_entry: any
-) => {
+const _createDatasourceEntry: _CreateDatasourceEntry = (args, config) => {
+    const { currentDatasource, finalDatasource_entry } = args;
+    const { spaceId, sbApi } = config;
     return sbApi
         .post(`spaces/${spaceId}/datasource_entries/`, {
             datasource_entry: finalDatasource_entry,
@@ -134,7 +145,8 @@ const _createDatasourceEntry = (
         });
 };
 
-export const createDatasourceEntry = (data: any, datasourceEntry: any) => {
+export const createDatasourceEntry: CreateDatasourceEntry = (args, config) => {
+    const { datasourceEntry, data } = args;
     const finalDatasource_entry = {
         name: datasourceEntry.name,
         value: datasourceEntry.value,
@@ -142,24 +154,33 @@ export const createDatasourceEntry = (data: any, datasourceEntry: any) => {
     };
 
     if (isObjectEmpty(datasourceEntry.dimension_values)) {
-        return _createDatasourceEntry(data, finalDatasource_entry);
+        return _createDatasourceEntry(
+            { currentDatasource: data, finalDatasource_entry },
+            config
+        );
     } else {
         return _decorateWithDimensions(
-            data,
             {
-                finalDatasource_entry,
-                dimensionValues: datasourceEntry.dimension_values,
-                datasourceDimensions: data.datasource.dimensions,
+                currentDatasource: data,
+                dimensionsData: {
+                    finalDatasource_entry,
+                    dimensionValues: datasourceEntry.dimension_values,
+                    datasourceDimensions: data.datasource.dimensions,
+                },
+                _callback: () =>
+                    _createDatasourceEntry(
+                        { currentDatasource: data, finalDatasource_entry },
+                        config
+                    ),
             },
-            () => _createDatasourceEntry(data, finalDatasource_entry)
+            config
         );
     }
 };
 
-const _updateDatasourceEntry = (
-    currentDatasource: any,
-    finalDatasource_entry: any
-) => {
+const _updateDatasourceEntry: _UpdateDatasourceEntry = (args, config) => {
+    const { currentDatasource, finalDatasource_entry } = args;
+    const { spaceId, sbApi } = config;
     return sbApi
         .put(
             `spaces/${spaceId}/datasource_entries/${finalDatasource_entry.id}`,
@@ -181,11 +202,8 @@ const _updateDatasourceEntry = (
             Logger.error(err);
         });
 };
-export const updateDatasourceEntry = (
-    data: any,
-    datasourceEntry: any,
-    datasourceToBeUpdated: any
-) => {
+export const updateDatasourceEntry: UpdateDatasourceEntry = (args, config) => {
+    const { datasourceEntry, datasourceToBeUpdated, data } = args;
     const finalDatasource_entry = {
         name: datasourceEntry.name,
         value: datasourceEntry.value,
@@ -194,16 +212,29 @@ export const updateDatasourceEntry = (
     };
 
     if (isObjectEmpty(datasourceEntry.dimension_values)) {
-        return _updateDatasourceEntry(data, finalDatasource_entry);
+        return _updateDatasourceEntry(
+            { currentDatasource: data, finalDatasource_entry },
+            config
+        );
     } else {
         return _decorateWithDimensions(
-            data,
             {
-                finalDatasource_entry,
-                dimensionValues: datasourceEntry.dimension_values,
-                datasourceDimensions: data.datasource.dimensions,
+                currentDatasource: data,
+                _callback: () =>
+                    _updateDatasourceEntry(
+                        {
+                            currentDatasource: data,
+                            finalDatasource_entry,
+                        },
+                        config
+                    ),
+                dimensionsData: {
+                    finalDatasource_entry,
+                    dimensionValues: datasourceEntry.dimension_values,
+                    datasourceDimensions: data.datasource.dimensions,
+                },
             },
-            () => _updateDatasourceEntry(data, finalDatasource_entry)
+            config
         );
     }
 };

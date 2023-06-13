@@ -1,24 +1,31 @@
-import storyblokConfig from "../../config/config.js";
+import type {
+    CreateDatasource,
+    GetAllDatasources,
+    GetDatasource,
+    SyncAllDatasources,
+    SyncDatasources,
+    SyncProvidedDatasources,
+    UpdateDatasource,
+} from "./datasources.types.js";
+
 import {
+    discoverDatasources,
+    discoverManyDatasources,
     LOOKUP_TYPE,
     SCOPE,
-    discoverManyDatasources,
-    discoverDatasources,
 } from "../../utils/discover.js";
 import Logger from "../../utils/logger.js";
 import { getFilesContentWithRequire } from "../../utils/main.js";
-import { sbApi } from "../config.js";
-import { getAllItemsWithPagination } from "../stories.js";
+import { getAllItemsWithPagination } from "../utils/request.js";
 
 import {
     createDatasourceEntries,
     getDatasourceEntries,
 } from "./datasource-entries.js";
 
-const { spaceId } = storyblokConfig;
-
 // GET
-export const getAllDatasources = () => {
+export const getAllDatasources: GetAllDatasources = (config) => {
+    const { sbApi, spaceId } = config;
     Logger.log("Trying to get all Datasources.");
 
     return getAllItemsWithPagination({
@@ -48,10 +55,11 @@ export const getAllDatasources = () => {
     });
 };
 
-export const getDatasource = (datasourceName: string | undefined) => {
+export const getDatasource: GetDatasource = (args, config) => {
+    const { datasourceName } = args;
     Logger.log(`Trying to get '${datasourceName}' datasource.`);
 
-    return getAllDatasources()
+    return getAllDatasources(config)
         .then((res) => {
             if (res) {
                 return res.filter(
@@ -74,7 +82,10 @@ export const getDatasource = (datasourceName: string | undefined) => {
 };
 
 // POST
-export const createDatasource = (datasource: any) => {
+export const createDatasource: CreateDatasource = (args, config) => {
+    const { datasource } = args;
+    const { sbApi, spaceId } = config;
+
     const finalDatasource = {
         name: datasource.name,
         slug: datasource.slug,
@@ -98,10 +109,10 @@ export const createDatasource = (datasource: any) => {
         .catch((err) => Logger.error(err));
 };
 
-export const updateDatasource = (
-    datasource: any,
-    datasourceToBeUpdated: any
-) => {
+export const updateDatasource: UpdateDatasource = (args, config) => {
+    const { datasource, datasourceToBeUpdated } = args;
+    const { sbApi, spaceId } = config;
+
     const dimensionsToCreate = datasource.dimensions.filter(
         (dimension: { name: string; entry_value: string }) => {
             const isDimensionInRemoteDatasource =
@@ -141,19 +152,14 @@ export const updateDatasource = (
         .catch((err) => Logger.error(err));
 };
 
-interface SyncDatasources {
-    providedDatasources: string[];
-}
-
-export const syncDatasources = async ({
-    providedDatasources,
-}: SyncDatasources) => {
+export const syncDatasources: SyncDatasources = async (args, config) => {
+    const { providedDatasources } = args;
     Logger.log(`Trying to sync provided datasources: `);
 
     const providedDatasourcesContent = getFilesContentWithRequire({
         files: providedDatasources,
     });
-    const remoteDatasources = await getAllDatasources();
+    const remoteDatasources = await getAllDatasources(config);
 
     Promise.all(
         providedDatasourcesContent.map((datasource: any) => {
@@ -162,16 +168,22 @@ export const syncDatasources = async ({
                     datasource.name === remoteDatasource.name
             );
             if (datasourceToBeUpdated) {
-                return updateDatasource(datasource, datasourceToBeUpdated);
+                return updateDatasource(
+                    { datasource, datasourceToBeUpdated },
+                    config
+                );
             }
-            return createDatasource(datasource);
+            return createDatasource({ datasource }, config);
         })
     )
         .then((res) => {
             // After create or after update datasource
             res.map(async ({ data, datasource_entries }: any) => {
                 const remoteDatasourceEntries = await getDatasourceEntries(
-                    data.datasource.name
+                    {
+                        datasourceName: data.datasource.name,
+                    },
+                    config
                 );
 
                 console.log(" ");
@@ -179,9 +191,12 @@ export const syncDatasources = async ({
                     `Start async syncing of '${data.datasource.name}' datasource entries.`
                 );
                 createDatasourceEntries(
-                    data,
-                    datasource_entries,
-                    remoteDatasourceEntries
+                    {
+                        data,
+                        datasource_entries,
+                        remoteDatasourceEntries,
+                    },
+                    config
                 );
             });
             return res;
@@ -193,13 +208,11 @@ export const syncDatasources = async ({
         });
 };
 
-interface SyncProvidedDatasources {
-    datasources: string[];
-}
-
-export const syncProvidedDatasources = async ({
-    datasources,
-}: SyncProvidedDatasources) => {
+export const syncProvidedDatasources: SyncProvidedDatasources = async (
+    args,
+    config
+) => {
+    const { datasources } = args;
     const allLocalDatasources = await discoverManyDatasources({
         scope: SCOPE.local,
         type: LOOKUP_TYPE.fileName,
@@ -212,15 +225,18 @@ export const syncProvidedDatasources = async ({
         fileNames: datasources,
     });
 
-    syncDatasources({
-        providedDatasources: [
-            ...allLocalDatasources,
-            ...allExternalDatasources,
-        ],
-    });
+    syncDatasources(
+        {
+            providedDatasources: [
+                ...allLocalDatasources,
+                ...allExternalDatasources,
+            ],
+        },
+        config
+    );
 };
 
-export const syncAllDatasources = () => {
+export const syncAllDatasources: SyncAllDatasources = (config) => {
     const allLocalDatasources = discoverDatasources({
         scope: SCOPE.local,
         type: LOOKUP_TYPE.fileName,
@@ -231,10 +247,13 @@ export const syncAllDatasources = () => {
         type: LOOKUP_TYPE.fileName,
     });
 
-    syncDatasources({
-        providedDatasources: [
-            ...allLocalDatasources,
-            ...allExternalDatasources,
-        ],
-    });
+    syncDatasources(
+        {
+            providedDatasources: [
+                ...allLocalDatasources,
+                ...allExternalDatasources,
+            ],
+        },
+        config
+    );
 };
