@@ -45,10 +45,6 @@ jobs:
         run: |
           yarn test
 
-      - name: Sleep for 30 seconds
-        run: sleep 30s
-        shell: bash
-
       - name: Retry Release
         uses: nick-fields/retry@v2
         env:
