@@ -19,6 +19,27 @@ https://docs.sb-mig.com/
 | ------------- | ------------- |
 | Node          | LTS (18.x.x)  |
 
+# 5.x.x version released!
+
+## Important Updates
+- Complete codebase overhaul to facilitate the utilization of features and requests to Storyblok. This development decreases the tight coupling with CLI, while improving folder and file structure.
+- New feature: Content synchronization (including stories and assets) in various directions, ranging from space to space, from space to file, and from file to space.
+- New feature: Introduced support for TypeScript Schema, with the added ability to precompile them on-the-fly before synchronization, improving usage with sb-mig.
+- New feature: Plugin synchronization capabilities.
+- New feature: 'Discover' command.
+- New feature: 'Migrate' command (tailored for Storyblok's Site Builder).
+- Upgraded eslint configuration for more efficient coding practices.
+- Updated all dependencies to their latest stable versions.
+- Refreshed Github Actions workflows to enhance development practices.
+- Expanded test coverage (with more additions anticipated).
+
+## Breaking changes
+- Please note that sb-mig no longer extends support for Node versions older than 18.x.x, as part of its adoption of native ESM support.
+- The sb-mig backup command has now been aligned with all other commands, causing minor changes in its execution (although functionalities have been preserved).
+
+Do not hesitate to get in touch if you encounter any issues or require further clarification on any points.
+
+
 # 4.x.x version released!
 
 - Whole deployment now, is handled by [semantic-release](https://github.com/semantic-release/semantic-release). And is just normal repository, instead of Lerna monorepo which is not needed anymore, and it was recently unmaintained (now it was passed to `nrwl` to maintain (https://github.com/lerna/lerna/issues/3121) will see what will happen in future with it :)
