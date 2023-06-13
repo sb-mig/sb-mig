@@ -57,7 +57,6 @@ Do not hesitate to get in touch if you encounter any issues or require further c
 ## Contents
 
 - [How to install and configure](#how-to-install-and-configure)
-- [Usage](#usage)
 - [Schema documentation:](#schema-documentation)
   - [Basics](#basics)
   - [Syncing components](#syncing-components)
