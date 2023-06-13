@@ -19,6 +19,27 @@ https://docs.sb-mig.com/
 | ------------- | ------------- |
 | Node          | LTS (18.x.x)  |
 
+# 5.x.x version released!
+
+## Important Updates
+- Complete codebase overhaul to facilitate the utilization of features and requests to Storyblok. This development decreases the tight coupling with CLI, while improving folder and file structure.
+- New feature: Content synchronization (including stories and assets) in various directions, ranging from space to space, from space to file, and from file to space.
+- New feature: Introduced support for TypeScript Schema, with the added ability to precompile them on-the-fly before synchronization, improving usage with sb-mig.
+- New feature: Plugin synchronization capabilities.
+- New feature: 'Discover' command.
+- New feature: 'Migrate' command (tailored for Storyblok's Site Builder).
+- Upgraded eslint configuration for more efficient coding practices.
+- Updated all dependencies to their latest stable versions.
+- Refreshed Github Actions workflows to enhance development practices.
+- Expanded test coverage (with more additions anticipated).
+
+## Breaking changes
+- Please note that sb-mig no longer extends support for Node versions older than 18.x.x, as part of its adoption of native ESM support.
+- The sb-mig backup command has now been aligned with all other commands, causing minor changes in its execution (although functionalities have been preserved).
+
+Do not hesitate to get in touch if you encounter any issues or require further clarification on any points.
+
+
 # 4.x.x version released!
 
 - Whole deployment now, is handled by [semantic-release](https://github.com/semantic-release/semantic-release). And is just normal repository, instead of Lerna monorepo which is not needed anymore, and it was recently unmaintained (now it was passed to `nrwl` to maintain (https://github.com/lerna/lerna/issues/3121) will see what will happen in future with it :)
@@ -36,7 +57,6 @@ https://docs.sb-mig.com/
 ## Contents
 
 - [How to install and configure](#how-to-install-and-configure)
-- [Usage](#usage)
 - [Schema documentation:](#schema-documentation)
   - [Basics](#basics)
   - [Syncing components](#syncing-components)
@@ -94,142 +114,6 @@ You don't need to pass everything to the config file, just add what you need and
 module.exports = {
   componentsDirectories: ["src", "storyblok", "@storyblok-components"],
 };
-```
-
-# Usage
-
-```sh-session
-$ sb-mig --help
-  CLI to rule the world. (and handle stuff related to Storyblok CMS)
-
-  USAGE
-    $ sb-mig [command]
-
-  COMMANDS
-      sync    Synchronize components, datasources or roles with Storyblok space.
-      backup  Command for backing up anything related to Storyblok
-      debug   Output extra debugging information
-      help    This screen
-
-  Examples
-    $ sb-mig sync components --all
-    $ sb-mig debug
-```
-
-# Commands
-
-* [`sb-mig --version`](#sb-mig-version)
-* [`sb-mig backup`](#sb-mig-backup)
-* [`sb-mig debug`](#sb-mig-debug)
-* [`sb-mig sync`](#sb-mig-sync)
-
-## `sb-mig version`
-```
-$ sb-mig --version
-
-4.0.4
-```
-
-## `sb-mig backup`
-
-Command for backing up anything related to Storyblok
-
-```
-$ sb-mig backup --help
-
-
-
-CLI to rule the world. (and handle stuff related to Storyblok CMS)
-
-  Usage
-      $ sb-mig backup [components|component-groups|roles|datasources|presets|component-presets] component-name --one or --all
-  Description
-      Command for backing up anything related to Storyblok
-
-  COMMANDS
-      components        - backup components
-      component-groups  - backuo component-groups
-      roles             - backup components
-      datasources       - backup components
-      presets           - backup presets
-      component-presets - backup component presets
-
-  FLAGS
-      --all  - Backup all
-      --one  - Backup one
-
-  EXAMPLES
-      $ sb-mig backup components --all
-      $ sb-mig backup components accordion accordion-item carousel text-block
-      $ sb-mig backup datasources --all
-      $ sb-mig backup roles admin normal-user
-```
-
-## `sb-mig debug`
-
-Output extra debugging.
-
-```
-$ sb-mig debug
-
-✓ Found storyblok.config.js!
-storyblok.config.js:  {
-  componentsMatchFile: 'src/components/components.js',
-  storyblokComponentsListfile: 'src/components/storyblok-components.componentList.js',
-  storyblokComponentsLocalDirectory: 'src/@storyblok-components',
-  componentsStylesMatchFile: 'src/@storyblok-components/_storyblok-components.scss',
-  boilerplateUrl: 'git@github.com:storyblok-components/gatsby-storyblok-boilerplate.git',
-  sbmigWorkingDirectory: 'sbmig',
-  componentDirectory: 'storyblok',
-  datasourcesDirectory: 'storyblok',
-  componentsDirectories: [ 'src', 'storyblok' ],
-  schemaFileExt: 'sb.js',
-  datasourceExt: 'sb.datasource.js',
-  rolesExt: 'sb.roles.js',
-  storyblokApiUrl: 'https://api.storyblok.com/v1',
-  oauthToken: '',
-  spaceId: '',
-  accessToken: ''
-}
-```
-
-
-
-## `sb-mig sync`
-
-Synchronize components, datasources or roles with Storyblok space.
-
-```
-$ sb-mig sync --help
-
-CLI to rule the world. (and handle stuff related to Storyblok CMS)
-
-  Usage
-      $ sb-mig-v3 sync [components|roles|datasources] [space separated file names] or --all --packageName
-
-  Description
-      Synchronize components or roles with Storyblok space.
-
-  COMMANDS
-      components    - sync components
-      roles         - sync roles
-      datasources   - sync datasources
-
-  FLAGS
-      --all         - Sync all components
-      --packageName - Sync based on package name, instead of file name (package can have multiple schema files to sync)
-      --presets     - Pass it, if u want to sync also with presets (will take longer)
-
-  EXAMPLES
-      $ sb-mig sync components --all
-      $ sb-mig sync components --all --presets
-      $ sb-mig sync components accordion accordion-item
-      $ sb-mig sync components accordion accordion-item --presets
-      $ sb-mig sync components @storyblok-components/accordion --packageName
-      $ sb-mig sync components @storyblok-components/accordion --packageName --presets
-      $ sb-mig sync roles --all
-      $ sb-mig sync datasources --all
-
 ```
 
 # Schema documentation:
@@ -500,8 +384,8 @@ sb-mig debug
 
 ## Roadmap
 
-- [ ] Sync / Migrate content (stories)
-- [ ] Improve preset creation/update
+- [x] Sync / Migrate content (stories)
+- [x] Improve preset creation/update
 - [x] Sync Roles
 - [x] Sync / Migrate datasources
 - [x] Sync components with extensions
