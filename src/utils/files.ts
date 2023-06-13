@@ -1,8 +1,13 @@
 import * as fs from "fs";
+import { writeFile } from "fs";
+import path from "path";
+
 import pkg from "ncp";
-import { generateDatestamp } from "./others.js";
+
 import storyblokConfig from "../config/config.js";
+
 import Logger from "./logger.js";
+import { generateDatestamp } from "./others.js";
 
 const { ncp } = pkg;
 
@@ -19,6 +24,28 @@ export const createJsonFile = async (
     pathWithFilename: string
 ) => {
     await fs.promises.writeFile(pathWithFilename, content, { flag: "w" });
+};
+
+export const createJSAllComponentsFile = async (
+    content: string,
+    pathWithFilename: string,
+    timestamp = false
+) => {
+    const datestamp = new Date();
+    const finalContent = `/*
+
+Auto-generated file by sb-mig discovery
+${timestamp ? `Generated on: ${generateDatestamp(datestamp)}` : ""}
+
+Do not edit manually (use yarn components:discover instead)
+
+*/
+export const componentList = ${content} as const;
+
+export type Components = typeof componentList[number];
+`;
+
+    await fs.promises.writeFile(pathWithFilename, finalContent, { flag: "w" });
 };
 
 export const copyFolder = async (src: string, dest: string) => {
@@ -58,23 +85,131 @@ export const copyFile = async (src: string, dest: string) => {
     });
 };
 
-interface CreateAndSaveToFile {
-    prefix: string;
-    folder: string;
+// interface CreateAndSaveToFile {
+//     prefix: string;
+//     folder: string;
+//     res: any;
+// }
+
+interface CreateAndSavePresetToFile {
+    filename: string;
     res: any;
 }
 
-export const createAndSaveToFile = async ({
-    prefix,
+interface CreateAndSaveComponentListToFile {
+    file?: string;
+    folder?: string;
+    res: any;
+    timestamp?: boolean;
+}
+
+type CreateAndSaveToFile = (args: {
+    ext?: string;
+    datestamp?: boolean;
+    prefix?: string;
+    suffix?: string;
+    path?: string;
+    filename?: string;
+    folder?: string;
+    res: any;
+}) => void;
+
+/*
+ *
+ * General function to create and save to file
+ * the most used one for many different purposes
+ *
+ * */
+export const createAndSaveToFile: CreateAndSaveToFile = async (args) => {
+    const {
+        ext = "json",
+        datestamp = false,
+        prefix = "",
+        suffix = "",
+        path = null,
+        filename = "",
+        folder = "default",
+        res,
+    } = args;
+    console.log("DUPA DUPA DUPA DUPA DUPA DUPA DUPA DUPA DUPA DUPA ");
+    console.log(args);
+    if (!path) {
+        const timestamp = generateDatestamp(new Date());
+        const finalFilename = `${prefix}${filename}${
+            datestamp ? `__${timestamp}` : ""
+        }`;
+        const fullPath = `${storyblokConfig.sbmigWorkingDirectory}/${folder}/${finalFilename}${suffix}.${ext}`;
+
+        await createDir(`${storyblokConfig.sbmigWorkingDirectory}/${folder}/`);
+        if (ext === "json") {
+            await createJsonFile(JSON.stringify(res, undefined, 2), fullPath);
+        } else {
+            await createJsonFile(JSON.stringify(res, undefined, 2), fullPath);
+        }
+
+        Logger.success(`All response written to a file:  ${fullPath}`);
+    }
+
+    if (path) {
+        const folderPath = path
+            .split("/")
+            .slice(0, path.split("/").length - 1)
+            .join("/");
+        await createDir(folderPath);
+        await createJsonFile(JSON.stringify(res, undefined, 2), path);
+
+        Logger.success(`All response written to a file:  ${path}`);
+    }
+};
+
+/*
+ *
+ * Specific function for saving component list to file
+ * ef backpack related
+ *
+ * */
+export const createAndSaveComponentListToFile = async ({
+    file,
     folder,
     res,
-}: CreateAndSaveToFile): Promise<void> => {
+    timestamp = false,
+}: CreateAndSaveComponentListToFile): Promise<void> => {
     const datestamp = new Date();
-    const filename = `${prefix}${generateDatestamp(datestamp)}`;
-    await createDir(`${storyblokConfig.sbmigWorkingDirectory}/${folder}/`);
-    await createJsonFile(
-        JSON.stringify(res, undefined, 2),
-        `${storyblokConfig.sbmigWorkingDirectory}/${folder}/${filename}.json`
+    const filename = file ?? `all-components__${generateDatestamp(datestamp)}`;
+    await createDir(
+        folder
+            ? `${storyblokConfig.sbmigWorkingDirectory}/${folder}/`
+            : `${storyblokConfig.sbmigWorkingDirectory}/`
     );
-    Logger.success(`All groups written to a file:  ${filename}`);
+    await createJSAllComponentsFile(
+        JSON.stringify(res, null, 2),
+        folder
+            ? `${storyblokConfig.sbmigWorkingDirectory}/${folder}/${filename}.ts`
+            : `${storyblokConfig.sbmigWorkingDirectory}/${filename}.ts`,
+        timestamp
+    );
+    Logger.success(`All components written to a file:  ${filename}`);
+};
+
+export const readFile = async (pathToFile: string) => {
+    const absolutePath = path.join(process.cwd(), pathToFile);
+
+    try {
+        const result = await fs.promises.readFile(absolutePath);
+        return result.toString();
+    } catch (e) {
+        console.log(e);
+        console.error("Error happened while reading file.");
+        return;
+    }
+};
+
+export const dumpToFile = async (path: string, content: string) => {
+    writeFile(path, content, (err) => {
+        if (err) {
+            console.error("Error writing to file:", err);
+        } else {
+            console.log("Successfully wrote to file");
+        }
+    });
 };

@@ -1,11 +1,17 @@
 {
   "extends": "@sindresorhus/tsconfig",
   "compilerOptions": {
-    "module": "es2022",
+    "module": "esnext",
     "esModuleInterop": true,
     "moduleResolution": "node",
+    "target": "ESNext",
     "outDir": "dist",
-    "noUnusedLocals": false
+    "noUnusedLocals": false,
+    "lib": [
+      "DOM",
+      "DOM.Iterable",
+      "ESNext"
+    ]
   },
   "include": ["src"]
 }

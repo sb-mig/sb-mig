@@ -1,0 +1,33 @@
+### Space
+GET https://mapi.storyblok.com/v1/spaces/171771
+Content-Type: application/json
+Authorization: QHbbhhZmQ2rzxcUOshURPwtt-57603-xDFNEpiVNCckSUjxCyNd
+
+### Field Types
+GET https://mapi.storyblok.com/v1/field_types?per_page=100
+Content-Type: application/json
+Authorization: QHbbhhZmQ2rzxcUOshURPwtt-57603-xDFNEpiVNCckSUjxCyNd
+
+
+
+### Get specific Field Type
+GET https://mapi.storyblok.com/v1/field_types/6419
+Content-Type: application/json
+Authorization: QHbbhhZmQ2rzxcUOshURPwtt-57603-xDFNEpiVNCckSUjxCyNd
+
+### Get specific Field Type
+GET https://mapi.storyblok.com/v1/field_types/1766
+Content-Type: application/json
+Authorization: QHbbhhZmQ2rzxcUOshURPwtt-57603-xDFNEpiVNCckSUjxCyNd
+
+### Get specific Field Type
+GET https://mapi.storyblok.com/v1/field_types/33189
+Content-Type: application/json
+Authorization: QHbbhhZmQ2rzxcUOshURPwtt-57603-xDFNEpiVNCckSUjxCyNd
+
+### DELETE specific Field Type
+DELETE https://mapi.storyblok.com/v1/field_types/30827
+Content-Type: application/json
+Authorization: QHbbhhZmQ2rzxcUOshURPwtt-57603-xDFNEpiVNCckSUjxCyNd
+
+

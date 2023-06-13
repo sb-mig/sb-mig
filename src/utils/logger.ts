@@ -20,4 +20,12 @@ export default class Logger {
             console.log(chalk.red(`✘ ${content}`));
         }
     }
+
+    static upload(content: any) {
+        console.log(chalk.blue(`↑ ${content}`));
+    }
+
+    static download(content: any) {
+        console.log(chalk.yellow(`↓ ${content}`));
+    }
 }
