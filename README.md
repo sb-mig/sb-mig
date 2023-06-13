@@ -13,13 +13,6 @@ If you've found an issue or you have feature request - <a href="https://github.c
 https://docs.sb-mig.com/
 
 
-# Requirements: 
-
-|               |               |
-| ------------- | ------------- |
-| Node          | LTS (18.x.x)  |
-
-
 # Requirements:
 
 |               |               |
