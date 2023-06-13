@@ -1,3 +1,10 @@
+## [5.0.5-beta.1](https://github.com/sb-mig/sb-mig/compare/v5.0.4...v5.0.5-beta.1) (2023-06-13)
+
+
+### Bug Fixes
+
+* update readme with short info about 5.0.0 release ([b0ceb2c](https://github.com/sb-mig/sb-mig/commit/b0ceb2c8c105a045dc269c5b8ce4042d185a1879))
+
 ## [5.0.4](https://github.com/sb-mig/sb-mig/compare/v5.0.3...v5.0.4) (2023-06-13)
 
 
