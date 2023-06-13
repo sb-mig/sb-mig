@@ -1,3 +1,10 @@
+## [5.0.5-beta.3](https://github.com/sb-mig/sb-mig/compare/v5.0.5-beta.2...v5.0.5-beta.3) (2023-06-13)
+
+
+### Bug Fixes
+
+* check mark on roadmap ([ba0c5d7](https://github.com/sb-mig/sb-mig/commit/ba0c5d7383c934737b98e42a7a7d3d60bd9e2557))
+
 ## [5.0.5-beta.2](https://github.com/sb-mig/sb-mig/compare/v5.0.5-beta.1...v5.0.5-beta.2) (2023-06-13)
 
 
