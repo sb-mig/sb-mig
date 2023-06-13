@@ -10,6 +10,7 @@ export const debug = async () => {
     Logger.log(" ");
     Logger.log(" ");
     Logger.log(" ");
+    Logger.log(" ");
 
     try {
         const fileContent = await getFileContentWithRequire({
