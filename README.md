@@ -384,8 +384,8 @@ sb-mig debug
 
 ## Roadmap
 
-- [ ] Sync / Migrate content (stories)
-- [ ] Improve preset creation/update
+- [x] Sync / Migrate content (stories)
+- [x] Improve preset creation/update
 - [x] Sync Roles
 - [x] Sync / Migrate datasources
 - [x] Sync components with extensions
