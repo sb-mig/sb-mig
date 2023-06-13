@@ -1,3 +1,18 @@
+# [5.0.0](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.82...v5.0.0) (2023-06-13)
+
+
+### feat
+
+* improve release process with semantic-release ([4201e84](https://github.com/sb-mig/sb-mig/commit/4201e847781fe0568757c6fadc1fa2bbba3d786f))
+* trigger release ([731e19a](https://github.com/sb-mig/sb-mig/commit/731e19a2d2dcd2b3b558f4f8a2bc92295ada3dcf))
+* trigger release: ([faec399](https://github.com/sb-mig/sb-mig/commit/faec3996b445cd4167212366aaa85c7b196df8c8))
+
+### fix
+
+* release ([ec5cf8c](https://github.com/sb-mig/sb-mig/commit/ec5cf8c237addcbbb066418eabf1807c6c881ded))
+
+
+
 # [4.1.0-beta.83](https://github.com/sb-mig/sb-mig/compare/v4.1.0-beta.82...v4.1.0-beta.83) (2023-06-13)
 
 
