@@ -13,13 +13,6 @@ If you've found an issue or you have feature request - <a href="https://github.c
 https://docs.sb-mig.com/
 
 
-# Requirements: 
-
-|               |               |
-| ------------- | ------------- |
-| Node          | LTS (18.x.x)  |
-
-
 # Requirements:
 
 |               |               |
@@ -491,6 +484,19 @@ And then you can use it like that:
 ```
 sb-mig debug
 ```
+
+
+# Releasing
+
+## Flow of branching out and merging
+- Before creating feature branch from beta, make sure you have newest beta. (by `git pull origin beta`).
+- Create feature branch from beta
+- Do your changes
+- Create PR from feature branch to beta (it will run checks on your feature branch)
+- Merge PR to beta (it will release beta channel)
+- Create PR from beta to master (it will run checks on beta branch)
+- Merge PR to master (it will release stable channel)
+- After release properly done, make sure to pull master to beta (by `git pull origin master`), Push directly, resolve conflicts in favor of master.
 
 ## Roadmap
 

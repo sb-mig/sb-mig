@@ -1,3 +1,17 @@
+## [5.0.4-beta.2](https://github.com/sb-mig/sb-mig/compare/v5.0.4-beta.1...v5.0.4-beta.2) (2023-06-13)
+
+
+### Bug Fixes
+
+* update releasing flow instruction in readme ([b82c941](https://github.com/sb-mig/sb-mig/commit/b82c941348c88fafab04ec346552fdb24b38eb04))
+
+## [5.0.4-beta.1](https://github.com/sb-mig/sb-mig/compare/v5.0.3...v5.0.4-beta.1) (2023-06-13)
+
+
+### Bug Fixes
+
+* update readme: ([30ed345](https://github.com/sb-mig/sb-mig/commit/30ed34547755bbf9b2b7aa2189ab19d50d8dec27))
+
 ## [5.0.2](https://github.com/sb-mig/sb-mig/compare/v5.0.1...v5.0.2) (2023-06-13)
 
 
@@ -1770,7 +1784,3 @@
 
 
 ## 0.0.4 (2020-01-06)
-
-
-
-
