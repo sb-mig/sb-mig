@@ -1,0 +1,6 @@
+import type { RequestBaseConfig } from "../utils/request.js";
+
+export type UpdatePresets = (
+    args: { presets: any; options: { publish?: boolean }; spaceId: string },
+    config: RequestBaseConfig
+) => Promise<any>;
