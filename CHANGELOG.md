@@ -1,3 +1,10 @@
+## [5.0.7-beta.2](https://github.com/sb-mig/sb-mig/compare/v5.0.7-beta.1...v5.0.7-beta.2) (2023-06-15)
+
+
+### Bug Fixes
+
+* make backups stories and presets before migrating both ([18ea8fd](https://github.com/sb-mig/sb-mig/commit/18ea8fd517bc32b9e8639563edf03d2c5a8c2232))
+
 ## [5.0.7-beta.1](https://github.com/sb-mig/sb-mig/compare/v5.0.6...v5.0.7-beta.1) (2023-06-15)
 
 
