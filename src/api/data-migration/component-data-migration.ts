@@ -325,8 +325,9 @@ export const doTheMigration = async (
 
     // Saving result with migrated version of stories into file
     await createAndSaveToFile({
-        ext: "cjs",
-        filename: `${from}---migrated`,
+        datestamp: true,
+        ext: "json",
+        filename: `${from}---to-migrate`,
         folder: "migrations",
         res: notNullMigratedItems,
     });
