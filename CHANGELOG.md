@@ -1,3 +1,10 @@
+## [5.0.7-beta.1](https://github.com/sb-mig/sb-mig/compare/v5.0.6...v5.0.7-beta.1) (2023-06-15)
+
+
+### Bug Fixes
+
+* update swc/core ([7eff0c5](https://github.com/sb-mig/sb-mig/commit/7eff0c543a4df1bb16aaca085b224e8aafe5475e))
+
 ## [5.0.6](https://github.com/sb-mig/sb-mig/compare/v5.0.5...v5.0.6) (2023-06-15)
 
 
