@@ -1,3 +1,10 @@
+## [5.0.8-beta.1](https://github.com/sb-mig/sb-mig/compare/v5.0.7...v5.0.8-beta.1) (2023-06-15)
+
+
+### Bug Fixes
+
+* downgrade swc ([82e434f](https://github.com/sb-mig/sb-mig/commit/82e434f76e5e18ea647cab2299f44372579103d0))
+
 ## [5.0.7](https://github.com/sb-mig/sb-mig/compare/v5.0.6...v5.0.7) (2023-06-15)
 
 
