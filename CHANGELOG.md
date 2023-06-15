@@ -1,3 +1,13 @@
+## [5.0.7](https://github.com/sb-mig/sb-mig/compare/v5.0.6...v5.0.7) (2023-06-15)
+
+
+### Bug Fixes
+
+* improve recognize migrations script ([e2c81d1](https://github.com/sb-mig/sb-mig/commit/e2c81d18c0eff545f77334227b15a829ee0f4426))
+* make backups stories and presets before migrating both ([18ea8fd](https://github.com/sb-mig/sb-mig/commit/18ea8fd517bc32b9e8639563edf03d2c5a8c2232))
+* modify creation of file in between migration ([9d88b20](https://github.com/sb-mig/sb-mig/commit/9d88b207824e06b950c56b48e4c71377efb8c8dc))
+* update swc/core ([7eff0c5](https://github.com/sb-mig/sb-mig/commit/7eff0c543a4df1bb16aaca085b224e8aafe5475e))
+
 ## [5.0.7-beta.4](https://github.com/sb-mig/sb-mig/compare/v5.0.7-beta.3...v5.0.7-beta.4) (2023-06-15)
 
 
