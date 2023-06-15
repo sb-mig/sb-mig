@@ -1,9 +1,8 @@
-import type { UpdatePresets } from "./presets.types.js";
+import type { UpdatePreset, UpdatePresets } from "./presets.types.js";
 import type { RequestBaseConfig } from "../utils/request.js";
 
 import Logger from "../../utils/logger.js";
 import { getAllItemsWithPagination } from "../utils/request.js";
-
 
 // GET
 export const getPreset = (
@@ -73,7 +72,8 @@ export const createPreset = (p: any, config: RequestBaseConfig) => {
 };
 
 // UPDATE
-export const updatePreset = (p: any, config: RequestBaseConfig) => {
+export const updatePreset: UpdatePreset = (args, config: RequestBaseConfig) => {
+    const { p } = args;
     const { spaceId, sbApi } = config;
 
     return sbApi
@@ -101,7 +101,9 @@ export const updatePresets: UpdatePresets = (args, config) => {
         presets.map(async (item: any) => {
             return updatePreset(
                 {
-                    preset: item,
+                    p: {
+                        preset: item,
+                    },
                 },
                 { sbApi, spaceId }
             );
