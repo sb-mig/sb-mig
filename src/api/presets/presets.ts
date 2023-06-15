@@ -1,13 +1,16 @@
+import type {
+    GetPresetById,
+    UpdatePreset,
+    UpdatePresets,
+} from "./presets.types.js";
 import type { RequestBaseConfig } from "../utils/request.js";
 
 import Logger from "../../utils/logger.js";
 import { getAllItemsWithPagination } from "../utils/request.js";
 
 // GET
-export const getPreset = (
-    presetId: string | undefined,
-    config: RequestBaseConfig
-) => {
+export const getPreset: GetPresetById = (args, config) => {
+    const { presetId } = args;
     const { spaceId, sbApi } = config;
     Logger.log(`Trying to get preset by id: ${presetId}`);
 
@@ -71,8 +74,10 @@ export const createPreset = (p: any, config: RequestBaseConfig) => {
 };
 
 // UPDATE
-export const updatePreset = (p: any, config: RequestBaseConfig) => {
+export const updatePreset: UpdatePreset = (args, config: RequestBaseConfig) => {
+    const { p } = args;
     const { spaceId, sbApi } = config;
+
     return sbApi
         .put(`spaces/${spaceId}/presets/${p.preset.id}`, {
             preset: p.preset,
@@ -88,4 +93,22 @@ export const updatePreset = (p: any, config: RequestBaseConfig) => {
                 `Error happened. Preset: '${p.preset.name}' with '${p.preset.id}' id has been not updated.`
             );
         });
+};
+
+export const updatePresets: UpdatePresets = (args, config) => {
+    const { sbApi } = config;
+    const { presets, spaceId } = args;
+
+    return Promise.allSettled(
+        presets.map(async (item: any) => {
+            return updatePreset(
+                {
+                    p: {
+                        preset: item,
+                    },
+                },
+                { sbApi, spaceId }
+            );
+        })
+    );
 };

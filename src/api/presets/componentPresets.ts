@@ -3,8 +3,6 @@ import type { RequestBaseConfig } from "../utils/request.js";
 import Logger from "../../utils/logger.js";
 import { managementApi } from "../managementApi.js";
 
-import { getPreset } from "./presets.js";
-
 export const getComponentPresets = (
     componentName: string | undefined,
     config: RequestBaseConfig
@@ -27,9 +25,9 @@ export const getComponentPresets = (
                 }
                 return Promise.all(
                     componentPresets[0].all_presets.map((preset: any) =>
-                        getPreset(preset.id, config).catch((err: any) =>
-                            Logger.error(err)
-                        )
+                        managementApi.presets
+                            .getPreset({ presetId: preset.id }, config)
+                            .catch((err: any) => Logger.error(err))
                     )
                 );
             }

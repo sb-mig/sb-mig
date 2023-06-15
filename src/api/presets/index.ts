@@ -4,4 +4,5 @@ export {
     createPreset,
     getAllPresets,
     updatePreset,
+    updatePresets,
 } from "./presets.js";

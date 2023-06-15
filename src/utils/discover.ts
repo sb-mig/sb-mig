@@ -706,9 +706,6 @@ export const discoverStories = (
                 }`
             );
 
-            console.log("Discover stories pattern: ");
-            console.log(pattern);
-
             listOfFiles = glob.sync(pattern.replace(/\\/g, "/"), {
                 follow: true,
             });
@@ -747,8 +744,6 @@ export const discoverMigrationConfig = (
                     storyblokConfig.migrationConfigExt
                 }`
             );
-
-            console.log(pattern);
 
             listOfFiles = glob.sync(pattern.replace(/\\/g, "/"), {
                 follow: true,
@@ -1326,6 +1321,7 @@ export const discoverAllComponents = async () => {
         scope: SCOPE.local,
         type: LOOKUP_TYPE.fileName,
     });
+
     // #2: discover all local .sb.js files
     const allExternalSbComponentsSchemaFiles = await discover({
         scope: SCOPE.external,

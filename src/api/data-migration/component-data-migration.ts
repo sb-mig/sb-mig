@@ -15,11 +15,12 @@ import { createAndSaveToFile } from "../../utils/files.js";
 import Logger from "../../utils/logger.js";
 import { getFilesContentWithRequire, isObjectEmpty } from "../../utils/main.js";
 import { modifyOrCreateAppliedMigrationsFile } from "../../utils/migrations.js";
-import { getAllStories, updateStories } from "../stories/index.js";
+import { managementApi } from "../managementApi.js";
 
 export type MigrateFrom = "file" | "space";
 
-interface MigrateStories {
+interface MigrateItems {
+    itemType: "story" | "preset";
     from: string;
     to: string;
     migrateFrom: MigrateFrom;
@@ -186,15 +187,16 @@ export const prepareMigrationConfig = ({ migrationConfig }: any) => {
 
 export const migrateAllComponentsDataInStories = async (
     {
+        itemType,
         migrationConfig,
         migrateFrom,
         from,
         to,
-    }: Omit<MigrateStories, "componentsToMigrate">,
+    }: Omit<MigrateItems, "componentsToMigrate">,
     config: RequestBaseConfig
 ) => {
     Logger.warning(
-        `Trying to migrate all stories from ${migrateFrom}, ${from} to ${to}...`
+        `Trying to migrate all ${itemType} from ${migrateFrom}, ${from} to ${to}...`
     );
 
     const migrationConfigFileContent = prepareMigrationConfig({
@@ -203,7 +205,6 @@ export const migrateAllComponentsDataInStories = async (
 
     // Taking every component defined in const config = {} in migration config file
     const componentsToMigrate = Object.keys(migrationConfigFileContent);
-    console.log(componentsToMigrate);
 
     if (storyblokConfig.debug) {
         Logger.warning(
@@ -214,6 +215,7 @@ export const migrateAllComponentsDataInStories = async (
 
     await migrateProvidedComponentsDataInStories(
         {
+            itemType,
             migrationConfig,
             migrateFrom,
             from,
@@ -226,8 +228,9 @@ export const migrateAllComponentsDataInStories = async (
 
 export const doTheMigration = async (
     {
+        itemType = "story",
         from,
-        storiesToMigrate,
+        itemsToMigrate,
         componentsToMigrate,
         migrationConfigFileContent,
         migrationConfig,
@@ -235,63 +238,68 @@ export const doTheMigration = async (
     }: any,
     config: RequestBaseConfig
 ) => {
-    console.log(to);
     const arrayOfMaxDepths: number[] = [];
 
-    const migratedStories = storiesToMigrate.map(
-        (stories: any, index: number) => {
-            const sumOfReplacing: any = {};
+    const migratedItems = itemsToMigrate.map((item: any, index: number) => {
+        const sumOfReplacing: any = {};
 
-            if (storyblokConfig.debug) {
-                Logger.success(`#   ${index}   #`);
-            }
-
-            const json = stories.story.content;
-            const maxDepth = replaceComponentData({
-                parent: { root: json },
-                key: "root",
-                components: componentsToMigrate,
-                mapper: migrationConfigFileContent,
-                depth: 0,
-                maxDepth: 0,
-                sumOfReplacing,
-            });
-
-            arrayOfMaxDepths.push(maxDepth);
-
-            if (Object.keys(sumOfReplacing).length > 0) {
-                console.log("  ");
-                console.log(
-                    `Migration in ${chalk.magenta(
-                        stories.story.full_slug
-                    )} page: `
-                );
-                componentsToMigrate.forEach((component: any) => {
-                    if (sumOfReplacing[component]) {
-                        console.log(
-                            `${chalk.blue(
-                                component
-                            )} component data was replaced: ${
-                                sumOfReplacing[component]
-                            } times.`
-                        );
-                    }
-                });
-            }
-
-            if (Object.keys(sumOfReplacing).length > 0) {
-                return {
-                    ...stories,
-                    story: {
-                        ...stories.story,
-                        content: json,
-                    },
-                };
-            } else {
-                return null;
-            }
+        if (storyblokConfig.debug) {
+            Logger.success(`#   ${index}   #`);
         }
-    );
+
+        const json =
+            itemType === "story" ? item[itemType].content : item[itemType];
+        const maxDepth = replaceComponentData({
+            parent: { root: json },
+            key: "root",
+            components: componentsToMigrate,
+            mapper: migrationConfigFileContent,
+            depth: 0,
+            maxDepth: 0,
+            sumOfReplacing,
+        });
+
+        arrayOfMaxDepths.push(maxDepth);
+
+        if (Object.keys(sumOfReplacing).length > 0) {
+            console.log("  ");
+            console.log(
+                `Migration in ${chalk.magenta(
+                    itemType === "story"
+                        ? item[itemType].full_slug
+                        : item[itemType].name
+                )} page: `
+            );
+            componentsToMigrate.forEach((component: any) => {
+                if (sumOfReplacing[component]) {
+                    console.log(
+                        `${chalk.blue(
+                            component
+                        )} component data was replaced: ${
+                            sumOfReplacing[component]
+                        } times.`
+                    );
+                }
+            });
+        }
+
+        if (Object.keys(sumOfReplacing).length > 0) {
+            return {
+                ...item,
+                [itemType]:
+                    itemType === "story"
+                        ? {
+                              ...item[itemType],
+                              content: json,
+                          }
+                        : {
+                              ...json,
+                          },
+            };
+        } else {
+            return null;
+        }
+    });
 
     const maxDepth = Math.max(...arrayOfMaxDepths);
 
@@ -307,30 +315,43 @@ export const doTheMigration = async (
 
     const isListEmpty = (list: any[]) => list.filter((item) => item).length;
 
-    if (!isListEmpty(migratedStories)) {
+    if (!isListEmpty(migratedItems)) {
         console.log("# No Stories to update #");
     } else {
-        console.log(`${migratedStories.length} stories to migrate`);
+        console.log(`${migratedItems.length} stories to migrate`);
     }
+
+    const notNullMigratedItems = migratedItems.filter((item: any) => item);
 
     // Saving result with migrated version of stories into file
     await createAndSaveToFile({
         ext: "cjs",
         filename: `${from}---migrated`,
         folder: "migrations",
-        res: migratedStories.filter((item: any) => item),
+        res: notNullMigratedItems,
     });
 
     await modifyOrCreateAppliedMigrationsFile(migrationConfig);
 
-    await updateStories(
-        {
-            stories: migratedStories,
-            spaceId: to,
-            options: { publish: false },
-        },
-        config
-    );
+    if (itemType === "story") {
+        await managementApi.stories.updateStories(
+            {
+                stories: notNullMigratedItems,
+                spaceId: to,
+                options: { publish: false },
+            },
+            config
+        );
+    } else if (itemType === "preset") {
+        await managementApi.presets.updatePresets(
+            {
+                presets: notNullMigratedItems,
+                spaceId: to,
+                options: {},
+            },
+            config
+        );
+    }
 };
 
 type SaveBackupStoriesToFile = ({
@@ -360,12 +381,13 @@ const saveBackupStoriesToFile: SaveBackupStoriesToFile = async ({
 
 export const migrateProvidedComponentsDataInStories = async (
     {
+        itemType,
         migrationConfig,
         migrateFrom,
         from,
         to,
         componentsToMigrate,
-    }: MigrateStories,
+    }: MigrateItems,
     config: RequestBaseConfig
 ) => {
     const migrationConfigFileContent = prepareMigrationConfig({
@@ -376,10 +398,10 @@ export const migrateProvidedComponentsDataInStories = async (
         Logger.log("Migrating using file....");
 
         // Get all stories to be migrated from file
-        const storiesToMigrate = prepareStoriesFromLocalFile({ from });
+        const itemsToMigrate = prepareStoriesFromLocalFile({ from });
         await doTheMigration(
             {
-                storiesToMigrate,
+                itemsToMigrate,
                 componentsToMigrate,
                 migrationConfigFileContent,
                 to,
@@ -388,10 +410,18 @@ export const migrateProvidedComponentsDataInStories = async (
         );
     } else if (migrateFrom === "space") {
         // Get all stories to be migrated from storyblok space
-        const storiesToMigrate = await getAllStories({
-            ...config,
-            spaceId: from,
-        });
+        let itemsToMigrate: any[] = [];
+        if (itemType === "story") {
+            itemsToMigrate = await managementApi.stories.getAllStories({
+                ...config,
+                spaceId: from,
+            });
+        } else if (itemType === "preset") {
+            itemsToMigrate = await managementApi.presets.getAllPresets({
+                ...config,
+                spaceId: from,
+            });
+        }
 
         const backupFolder = path.join("backup", "stories");
 
@@ -399,12 +429,13 @@ export const migrateProvidedComponentsDataInStories = async (
         await saveBackupStoriesToFile({
             filename: `before__${migrationConfig}__${from}`,
             folder: backupFolder,
-            res: storiesToMigrate,
+            res: itemsToMigrate,
         });
 
         await doTheMigration(
             {
-                storiesToMigrate,
+                itemType,
+                itemsToMigrate,
                 componentsToMigrate,
                 migrationConfigFileContent,
                 migrationConfig,
