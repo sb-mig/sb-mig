@@ -247,7 +247,7 @@ export const backup = async (props: CLIOptions) => {
                 const presetToBackup = unpackOne(input);
 
                 managementApi.presets
-                    .getPreset(presetToBackup, apiConfig)
+                    .getPreset({ presetId: presetToBackup }, apiConfig)
                     .then(async (res: any) => {
                         await createAndSaveToFile({
                             ext: "json",
