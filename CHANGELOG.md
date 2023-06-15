@@ -1,3 +1,10 @@
+## [5.0.7-beta.3](https://github.com/sb-mig/sb-mig/compare/v5.0.7-beta.2...v5.0.7-beta.3) (2023-06-15)
+
+
+### Bug Fixes
+
+* modify creation of file in between migration ([9d88b20](https://github.com/sb-mig/sb-mig/commit/9d88b207824e06b950c56b48e4c71377efb8c8dc))
+
 ## [5.0.7-beta.2](https://github.com/sb-mig/sb-mig/compare/v5.0.7-beta.1...v5.0.7-beta.2) (2023-06-15)
 
 
