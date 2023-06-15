@@ -321,12 +321,14 @@ export const doTheMigration = async (
         console.log(`${migratedItems.length} stories to migrate`);
     }
 
+    const notNullMigratedItems = migratedItems.filter((item: any) => item);
+
     // Saving result with migrated version of stories into file
     await createAndSaveToFile({
         ext: "cjs",
         filename: `${from}---migrated`,
         folder: "migrations",
-        res: migratedItems.filter((item: any) => item),
+        res: notNullMigratedItems,
     });
 
     await modifyOrCreateAppliedMigrationsFile(migrationConfig);
@@ -334,17 +336,16 @@ export const doTheMigration = async (
     if (itemType === "story") {
         await managementApi.stories.updateStories(
             {
-                stories: migratedItems.filter((item: any) => item),
+                stories: notNullMigratedItems,
                 spaceId: to,
                 options: { publish: false },
             },
             config
         );
     } else if (itemType === "preset") {
-        const notNulMigratedItems = migratedItems.filter((item: any) => item);
         await managementApi.presets.updatePresets(
             {
-                presets: notNulMigratedItems,
+                presets: notNullMigratedItems,
                 spaceId: to,
                 options: {},
             },
