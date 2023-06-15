@@ -1,3 +1,10 @@
+## [5.0.7-beta.4](https://github.com/sb-mig/sb-mig/compare/v5.0.7-beta.3...v5.0.7-beta.4) (2023-06-15)
+
+
+### Bug Fixes
+
+* improve recognize migrations script ([e2c81d1](https://github.com/sb-mig/sb-mig/commit/e2c81d18c0eff545f77334227b15a829ee0f4426))
+
 ## [5.0.7-beta.3](https://github.com/sb-mig/sb-mig/compare/v5.0.7-beta.2...v5.0.7-beta.3) (2023-06-15)
 
 
