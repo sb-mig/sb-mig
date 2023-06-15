@@ -8,12 +8,6 @@ type MigrationNames =
 
 type VersionMapping = Record<string, MigrationNames[]>;
 
-const versionMapping: VersionMapping = {
-    "1.6.0": ["transitionsOnEnter"],
-    "1.6.1": ["otherMigration"],
-    "1.7.0": ["cardsMigration", "hideToVisibility"],
-};
-
 export const preselectMigrations = (
     currentVersion: string,
     installedVersion: string,
@@ -45,6 +39,13 @@ export const preselectMigrations = (
         // @ts-ignore
         final.preset.push(versionMapping[version]);
     });
+
+    if (Array.isArray(alreadyApplied)) {
+        alreadyApplied = {
+            story: alreadyApplied,
+            preset: [],
+        };
+    }
 
     const storyFlatted = final.story
         .flatMap((item) => item)
@@ -80,6 +81,13 @@ export const modifyOrCreateAppliedMigrationsFile = async (
         console.log("Will create one now.");
         alreadyApplied = {
             story: [],
+            preset: [],
+        };
+    }
+
+    if (Array.isArray(alreadyApplied)) {
+        alreadyApplied = {
+            story: alreadyApplied,
             preset: [],
         };
     }
