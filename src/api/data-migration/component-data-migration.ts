@@ -28,14 +28,6 @@ interface MigrateItems {
     componentsToMigrate: string[];
 }
 
-interface MigratePresets {
-    from: string;
-    to: string;
-    migrateFrom: MigrateFrom;
-    migrationConfig: string;
-    presetsToMigrate: string[];
-}
-
 interface ReplaceComponentData {
     parent: any;
     key: any;
