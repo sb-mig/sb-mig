@@ -1,3 +1,14 @@
+## [5.0.6](https://github.com/sb-mig/sb-mig/compare/v5.0.5...v5.0.6) (2023-06-15)
+
+
+### Bug Fixes
+
+* improve getPreset types ([b386df0](https://github.com/sb-mig/sb-mig/commit/b386df0d73ac13fbc483c78c9ba41e71fded4fa2))
+* improve types for presets ([f0bac81](https://github.com/sb-mig/sb-mig/commit/f0bac81bbef3be58bfd2e5235ffe925e0f5c25fb))
+* remove not needed interface ([a335751](https://github.com/sb-mig/sb-mig/commit/a33575113aa88e494ad6369bfaae53e6aeefd218))
+* remove null from migrated items array ([f5e41d8](https://github.com/sb-mig/sb-mig/commit/f5e41d89fd5f0b5e63cdce5e1b7ec46fe675576e))
+* update function to migrate stories to also migrate presets ([e7d41cf](https://github.com/sb-mig/sb-mig/commit/e7d41cf0dc63e922ebd7de6c2d5b24d222399f87))
+
 ## [5.0.6-beta.1](https://github.com/sb-mig/sb-mig/compare/v5.0.5...v5.0.6-beta.1) (2023-06-15)
 
 
