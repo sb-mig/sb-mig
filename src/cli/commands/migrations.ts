@@ -100,14 +100,24 @@ export const migrations = async (props: CLIOptions) => {
                 console.log(
                     "Command you have to run to migrate (the best in that order): "
                 );
-                if (whatToMigrate.length > 0) {
-                    whatToMigrate.forEach((migration) => {
+                if (whatToMigrate.story.length > 0) {
+                    whatToMigrate.story.forEach((migration) => {
                         console.log(
                             `yarn sb-mig migrate content --all --migration ${migration} --yes`
                         );
                     });
                 } else {
-                    console.log("Nothing to migrate. You are up to date.");
+                    console.log("No story to migrate. You are up to date.");
+                }
+
+                if (whatToMigrate.preset.length > 0) {
+                    whatToMigrate.preset.forEach((migration) => {
+                        console.log(
+                            `yarn sb-mig migrate presets --all --migration ${migration} --yes`
+                        );
+                    });
+                } else {
+                    console.log("No story to migrate. You are up to date.");
                 }
             }
 

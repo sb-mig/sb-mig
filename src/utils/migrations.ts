@@ -8,19 +8,22 @@ type MigrationNames =
 
 type VersionMapping = Record<string, MigrationNames[]>;
 
-const versionMapping: VersionMapping = {
-    "1.6.0": ["transitionsOnEnter"],
-    "1.6.1": ["otherMigration"],
-    "1.7.0": ["cardsMigration", "hideToVisibility"],
-};
-
 export const preselectMigrations = (
     currentVersion: string,
     installedVersion: string,
     versionMapping: VersionMapping,
-    alreadyApplied: string[] = []
+    alreadyApplied: {
+        story: string[];
+        preset: string[];
+    } = {
+        story: [],
+        preset: [],
+    }
 ) => {
-    const final: (string | undefined)[] = [];
+    const final = {
+        story: [],
+        preset: [],
+    };
 
     const versionThatApplies = Object.keys(versionMapping).filter((version) => {
         if (version <= installedVersion && version > currentVersion) {
@@ -32,20 +35,39 @@ export const preselectMigrations = (
 
     versionThatApplies.map((version) => {
         // @ts-ignore
-        final.push(versionMapping[version]);
+        final.story.push(versionMapping[version]);
+        // @ts-ignore
+        final.preset.push(versionMapping[version]);
     });
 
-    return final
+    if (Array.isArray(alreadyApplied)) {
+        alreadyApplied = {
+            story: alreadyApplied,
+            preset: [],
+        };
+    }
+
+    const storyFlatted = final.story
         .flatMap((item) => item)
-        .filter((migration) => !alreadyApplied.includes(migration as string));
+        .filter(
+            (migration) => !alreadyApplied.story.includes(migration as string)
+        );
+
+    const presetFlatted = final.preset
+        .flatMap((item) => item)
+        .filter(
+            (migration) => !alreadyApplied.preset.includes(migration as string)
+        );
+
+    return {
+        story: storyFlatted,
+        preset: presetFlatted,
+    };
 };
 
-// const migrations = preselectMigrations('1.6.1', '1.7.0', versionMapping);
-//
-// const commands = (list: MigrationNames[]) => list.map(migration => `yarn sb-mig migrate content --all --migration ${migration} --yes`);
-
 export const modifyOrCreateAppliedMigrationsFile = async (
-    migrationApplied: string
+    migrationApplied: string,
+    itemType: "story" | "preset"
 ) => {
     const fileName = "applied-backpack-migrations.json";
 
@@ -57,10 +79,29 @@ export const modifyOrCreateAppliedMigrationsFile = async (
     } catch (e) {
         console.log(`No file named: ${fileName}`);
         console.log("Will create one now.");
-        alreadyApplied = [];
+        alreadyApplied = {
+            story: [],
+            preset: [],
+        };
     }
 
-    const migrations = [...new Set([...alreadyApplied, migrationApplied])];
+    if (Array.isArray(alreadyApplied)) {
+        alreadyApplied = {
+            story: alreadyApplied,
+            preset: [],
+        };
+    }
+
+    const migrations = {
+        story:
+            itemType === "story"
+                ? [...new Set([...alreadyApplied.story, migrationApplied])]
+                : alreadyApplied.story,
+        preset:
+            itemType === "preset"
+                ? [...new Set([...alreadyApplied.preset, migrationApplied])]
+                : alreadyApplied.preset,
+    };
 
     const appliedMigrationsFileContent = JSON.stringify({
         migrations,
