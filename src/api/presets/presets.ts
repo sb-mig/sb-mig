@@ -1,14 +1,16 @@
-import type { UpdatePreset, UpdatePresets } from "./presets.types.js";
+import type {
+    GetPresetById,
+    UpdatePreset,
+    UpdatePresets,
+} from "./presets.types.js";
 import type { RequestBaseConfig } from "../utils/request.js";
 
 import Logger from "../../utils/logger.js";
 import { getAllItemsWithPagination } from "../utils/request.js";
 
 // GET
-export const getPreset = (
-    presetId: string | undefined,
-    config: RequestBaseConfig
-) => {
+export const getPreset: GetPresetById = (args, config) => {
+    const { presetId } = args;
     const { spaceId, sbApi } = config;
     Logger.log(`Trying to get preset by id: ${presetId}`);
 

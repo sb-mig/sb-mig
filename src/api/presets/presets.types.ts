@@ -9,3 +9,8 @@ export type UpdatePreset = (
     args: { p: any },
     config: RequestBaseConfig
 ) => Promise<any>;
+
+export type GetPresetById = (
+    args: { presetId: string | undefined },
+    config: RequestBaseConfig
+) => Promise<any>;
