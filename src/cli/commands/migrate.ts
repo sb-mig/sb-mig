@@ -94,12 +94,6 @@ export const migrate = async (props: CLIOptions) => {
                     async () => {
                         Logger.warning("Preparing to migrate...");
 
-                        // await backupStories({
-                        //     filename: `${from}--backup-before-migration___${migrationConfig}`,
-                        //     suffix: ".sb.stories",
-                        //     spaceId: from,
-                        // }, apiConfig);
-
                         await migrateAllComponentsDataInStories(
                             {
                                 itemType: "story",
@@ -144,12 +138,6 @@ export const migrate = async (props: CLIOptions) => {
                     "Are you sure you want to MIGRATE presets in your space ? (it will overwrite them)",
                     async () => {
                         Logger.warning("Preparing to migrate...");
-
-                        // backupPresets({
-                        //     filename: `${from}--backup-before-migration___${migrationConfig}`,
-                        //     suffix: ".sb.presets",
-                        //     spaceId: from,
-                        // }, apiConfig)
 
                         const response =
                             await managementApi.presets.getAllPresets(

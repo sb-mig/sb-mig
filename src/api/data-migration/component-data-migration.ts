@@ -359,12 +359,14 @@ type SaveBackupStoriesToFile = ({
     folder,
     res,
 }: {
+    itemType: "story" | "preset";
     filename: string;
     folder: string;
     res: any;
 }) => Promise<void>;
 
-const saveBackupStoriesToFile: SaveBackupStoriesToFile = async ({
+const saveBackupToFile: SaveBackupStoriesToFile = async ({
+    itemType,
     res,
     folder,
     filename,
@@ -372,7 +374,7 @@ const saveBackupStoriesToFile: SaveBackupStoriesToFile = async ({
     await createAndSaveToFile({
         ext: "json",
         datestamp: true,
-        suffix: ".sb.stories",
+        suffix: itemType === "story" ? ".sb.stories" : ".sb.presets",
         filename,
         folder,
         res: res,
@@ -423,10 +425,11 @@ export const migrateProvidedComponentsDataInStories = async (
             });
         }
 
-        const backupFolder = path.join("backup", "stories");
+        const backupFolder = path.join("backup", itemType);
 
         // save stories to file as backup
-        await saveBackupStoriesToFile({
+        await saveBackupToFile({
+            itemType,
             filename: `before__${migrationConfig}__${from}`,
             folder: backupFolder,
             res: itemsToMigrate,
