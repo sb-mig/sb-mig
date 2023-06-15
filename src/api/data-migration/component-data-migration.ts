@@ -327,12 +327,12 @@ export const doTheMigration = async (
     await createAndSaveToFile({
         datestamp: true,
         ext: "json",
-        filename: `${from}---to-migrate`,
+        filename: `${from}---${itemType}-to-migrate`,
         folder: "migrations",
         res: notNullMigratedItems,
     });
 
-    await modifyOrCreateAppliedMigrationsFile(migrationConfig);
+    await modifyOrCreateAppliedMigrationsFile(migrationConfig, itemType);
 
     if (itemType === "story") {
         await managementApi.stories.updateStories(
