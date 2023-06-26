@@ -6,10 +6,9 @@ import path from "path";
 
 import glob from "glob";
 
-import storyblokConfig, { SCHEMA } from "../config/config.js";
-import { buildOnTheFly } from "../rollup/build-on-the-fly.js";
-
-import { getFileContentWithRequire } from "./main.js";
+import storyblokConfig, { SCHEMA } from "../../config/config.js";
+import { buildOnTheFly } from "../../rollup/build-on-the-fly.js";
+import { getFileContentWithRequire } from "../../utils/main.js";
 
 export enum SCOPE {
     local = "local",

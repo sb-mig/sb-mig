@@ -10,8 +10,9 @@ import { backupStories } from "../../api/stories/backup.js";
 import { createAndSaveToFile } from "../../utils/files.js";
 import Logger from "../../utils/logger.js";
 import { isItFactory, unpackElements } from "../../utils/main.js";
-import { askForConfirmation, getFrom, getTo } from "../../utils/others.js";
+import { getFrom, getTo } from "../../utils/others.js";
 import { apiConfig } from "../api-config.js";
+import { askForConfirmation } from "../helpers.js";
 
 const MIGRATE_COMMANDS = {
     content: "content",
@@ -42,8 +43,8 @@ export const migrate = async (props: CLIOptions) => {
         case MIGRATE_COMMANDS.content: {
             Logger.log(`Migrating content with command: ${command}`);
 
-            const from = getFrom(flags);
-            const to = getTo(flags);
+            const from = getFrom(flags, apiConfig);
+            const to = getTo(flags, apiConfig);
             const migrationConfig = flags["migration"];
 
             if (isIt("empty")) {
@@ -125,8 +126,8 @@ export const migrate = async (props: CLIOptions) => {
         case MIGRATE_COMMANDS.presets: {
             Logger.log(`Migrating content with command: ${command}`);
 
-            const from = getFrom(flags);
-            const to = getTo(flags);
+            const from = getFrom(flags, apiConfig);
+            const to = getTo(flags, apiConfig);
             const migrationConfig = flags["migration"];
             console.log("Migrating with presets");
 
@@ -144,10 +145,13 @@ export const migrate = async (props: CLIOptions) => {
                                 apiConfig
                             );
 
-                        await createAndSaveToFile({
-                            filename: "presets-backup",
-                            res: response,
-                        });
+                        await createAndSaveToFile(
+                            {
+                                filename: "presets-backup",
+                                res: response,
+                            },
+                            apiConfig
+                        );
 
                         await migrateAllComponentsDataInStories(
                             {

@@ -6,16 +6,13 @@ import dotenv from "dotenv";
 
 import { pkg } from "../utils/pkg.js";
 
-import { defaultConfig, getStoryblokConfigContent } from "./helper.js";
+import { defaultConfig, getStoryblokConfigContent, SCHEMA } from "./helper.js";
 
 dotenv.config();
 
-export const SCHEMA = {
-    TS: "ts",
-    JS: "js",
-} as const;
-
 type SchemaType = (typeof SCHEMA)[keyof typeof SCHEMA];
+
+export { SCHEMA };
 
 export interface IStoryblokConfig {
     storyblokComponentsLocalDirectory: string;
@@ -47,7 +44,7 @@ export interface IStoryblokConfig {
     cacheDir: string;
     debug: boolean;
     rateLimit: number;
-    sbApi?: () => StoryblokClient;
+    sbApi?: () => StoryblokClient | StoryblokClient;
 }
 
 const filePath = path.resolve(process.cwd(), "storyblok.config");

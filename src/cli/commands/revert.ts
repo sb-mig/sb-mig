@@ -1,11 +1,12 @@
 import type { CLIOptions } from "../../utils/interfaces.js";
 
 import { managementApi } from "../../api/managementApi.js";
-import { discoverStories, LOOKUP_TYPE, SCOPE } from "../../utils/discover.js";
 import Logger from "../../utils/logger.js";
 import { getFilesContentWithRequire, isItFactory } from "../../utils/main.js";
-import { askForConfirmation, getFrom, getTo } from "../../utils/others.js";
+import { getFrom, getTo } from "../../utils/others.js";
 import { apiConfig } from "../api-config.js";
+import { askForConfirmation } from "../helpers.js";
+import { discoverStories, LOOKUP_TYPE, SCOPE } from "../utils/discover.js";
 
 const REVERT_COMMANDS = {
     content: "content",
@@ -30,8 +31,8 @@ export const revert = async (props: CLIOptions) => {
             if (isIt("empty")) {
                 Logger.log(`Revert content migration with command: ${command}`);
 
-                const from = getFrom(flags);
-                const to = getTo(flags);
+                const from = getFrom(flags, apiConfig);
+                const to = getTo(flags, apiConfig);
 
                 await askForConfirmation(
                     "Are you sure you want to revert migration of content (stories) in your space ? (it will overwrite stories)",

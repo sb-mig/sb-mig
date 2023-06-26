@@ -11,8 +11,14 @@ import {
 import storyblokConfig from "../../config/config.js";
 import Logger from "../../utils/logger.js";
 import { isItFactory, unpackElements } from "../../utils/main.js";
-import { askForConfirmation, getFrom, getTo } from "../../utils/others.js";
+import { getFrom, getTo } from "../../utils/others.js";
 import { apiConfig } from "../api-config.js";
+import {
+    syncAllDatasources,
+    syncProvidedDatasources,
+} from "../datasources/sync.js";
+import { askForConfirmation } from "../helpers.js";
+import { syncAllRoles, syncProvidedRoles } from "../roles/sync.js";
 
 const SYNC_COMMANDS = {
     content: "content",
@@ -95,30 +101,27 @@ export const sync = async (props: CLIOptions) => {
             if (isIt("all")) {
                 Logger.log("Syncing all roles...");
 
-                managementApi.roles.syncAllRoles(apiConfig);
+                syncAllRoles(apiConfig);
             }
 
             if (isIt("empty")) {
                 Logger.log("Syncing provided roles...");
                 const rolesToSync = unpackElements(input);
 
-                managementApi.roles.syncProvidedRoles(
-                    { roles: rolesToSync },
-                    apiConfig
-                );
+                syncProvidedRoles({ roles: rolesToSync }, apiConfig);
             }
             break;
         case SYNC_COMMANDS.datasources:
             if (isIt("all")) {
                 Logger.log("Syncing all datasources with extension...");
-                managementApi.datasources.syncAllDatasources(apiConfig);
+                syncAllDatasources(apiConfig);
             }
 
             if (!flags["all"]) {
                 Logger.log("Syncing provided datasources with extension...");
                 const datasourcesToSync = unpackElements(input);
 
-                managementApi.datasources.syncProvidedDatasources(
+                syncProvidedDatasources(
                     { datasources: datasourcesToSync },
                     apiConfig
                 );
@@ -127,8 +130,8 @@ export const sync = async (props: CLIOptions) => {
         case SYNC_COMMANDS.content:
             Logger.log(`Syncing content with command: ${command}`);
 
-            const from = getFrom(flags);
-            const to = getTo(flags);
+            const from = getFrom(flags, apiConfig);
+            const to = getTo(flags, apiConfig);
 
             Logger.warning(
                 `sync story... from ${from} to working dir spaceid: ${to} with command: ${command}`

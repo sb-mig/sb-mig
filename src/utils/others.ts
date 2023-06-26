@@ -1,8 +1,8 @@
+import type { RequestBaseConfig } from "../api/utils/request.js";
+
 import readline from "node:readline/promises";
 
 import chalk from "chalk";
-
-import storyblokConfig from "../config/config.js";
 
 export const generateDatestamp = (datestamp: Date) => {
     const year = datestamp.getFullYear();
@@ -14,49 +14,7 @@ export const generateDatestamp = (datestamp: Date) => {
     return `${year}-${month}-${day}_${hours}-${minutes}`;
 };
 
-export const askForConfirmation = async (
-    message: string,
-    resolveYes: () => void,
-    resolveNo: () => void,
-    ci?: boolean
-) => {
-    if (ci) {
-        resolveYes();
-        return;
-    }
-    // This section has to be changed, it was fast solution to asking for confirmation
-    // need to reimplement it better
-    await new Promise((resolve) => {
-        setTimeout(() => {
-            console.log(" ");
-            console.log(" ");
-            resolve(true);
-        }, 3000);
-    });
-
-    const rl = readline.createInterface({
-        input: process.stdin,
-        output: process.stdout,
-        prompt: chalk.red(`${message} (y/n) > `),
-    });
-
-    rl.prompt();
-    for await (const deletionConfirmation of rl) {
-        if (deletionConfirmation.trim() !== "y") {
-            resolveNo();
-            process.exit(0);
-        } else {
-            if (deletionConfirmation) {
-                resolveYes();
-
-                break;
-            }
-        }
-        rl.prompt();
-    }
-};
-
-export const getFrom = (flags: any): string =>
-    (flags["from"] ? flags["from"] : storyblokConfig.spaceId).toString();
-export const getTo = (flags: any): string =>
-    (flags["to"] ? flags["to"] : storyblokConfig.spaceId).toString();
+export const getFrom = (flags: any, config: RequestBaseConfig): string =>
+    (flags["from"] ? flags["from"] : config.spaceId).toString();
+export const getTo = (flags: any, config: RequestBaseConfig): string =>
+    (flags["to"] ? flags["to"] : config.spaceId).toString();

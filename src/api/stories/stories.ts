@@ -175,7 +175,6 @@ export const updateStory: UpdateStory = (content, storyId, options, config) => {
 };
 
 export const updateStories: UpdateStories = (args, config) => {
-    const { sbApi } = config;
     const { stories, options, spaceId } = args;
 
     return Promise.allSettled(
@@ -185,7 +184,7 @@ export const updateStories: UpdateStories = (args, config) => {
                 stories.story,
                 stories.story.id,
                 { publish: options.publish },
-                { sbApi, spaceId }
+                { ...config, spaceId }
             );
         })
     );

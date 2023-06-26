@@ -1,10 +1,10 @@
+import type { RequestBaseConfig } from "../api/utils/request.js";
+
 import * as fs from "fs";
 import { writeFile } from "fs";
 import path from "path";
 
 import pkg from "ncp";
-
-import storyblokConfig from "../config/config.js";
 
 import Logger from "./logger.js";
 import { generateDatestamp } from "./others.js";
@@ -96,23 +96,29 @@ interface CreateAndSavePresetToFile {
     res: any;
 }
 
-interface CreateAndSaveComponentListToFile {
-    file?: string;
-    folder?: string;
-    res: any;
-    timestamp?: boolean;
-}
+type CreateAndSaveComponentListToFile = (
+    args: {
+        file?: string;
+        folder?: string;
+        res: any;
+        timestamp?: boolean;
+    },
+    config: RequestBaseConfig
+) => Promise<void>;
 
-type CreateAndSaveToFile = (args: {
-    ext?: string;
-    datestamp?: boolean;
-    prefix?: string;
-    suffix?: string;
-    path?: string;
-    filename?: string;
-    folder?: string;
-    res: any;
-}) => void;
+type CreateAndSaveToFile = (
+    args: {
+        ext?: string;
+        datestamp?: boolean;
+        prefix?: string;
+        suffix?: string;
+        path?: string;
+        filename?: string;
+        folder?: string;
+        res: any;
+    },
+    config: RequestBaseConfig
+) => void;
 
 /*
  *
@@ -120,7 +126,11 @@ type CreateAndSaveToFile = (args: {
  * the most used one for many different purposes
  *
  * */
-export const createAndSaveToFile: CreateAndSaveToFile = async (args) => {
+export const createAndSaveToFile: CreateAndSaveToFile = async (
+    args,
+    config
+) => {
+    const { sbmigWorkingDirectory } = config;
     const {
         ext = "json",
         datestamp = false,
@@ -136,9 +146,9 @@ export const createAndSaveToFile: CreateAndSaveToFile = async (args) => {
         const finalFilename = `${prefix}${filename}${
             datestamp ? `__${timestamp}` : ""
         }`;
-        const fullPath = `${storyblokConfig.sbmigWorkingDirectory}/${folder}/${finalFilename}${suffix}.${ext}`;
+        const fullPath = `${sbmigWorkingDirectory}/${folder}/${finalFilename}${suffix}.${ext}`;
 
-        await createDir(`${storyblokConfig.sbmigWorkingDirectory}/${folder}/`);
+        await createDir(`${sbmigWorkingDirectory}/${folder}/`);
         if (ext === "json") {
             await createJsonFile(JSON.stringify(res, undefined, 2), fullPath);
         } else {
@@ -166,28 +176,26 @@ export const createAndSaveToFile: CreateAndSaveToFile = async (args) => {
  * ef backpack related
  *
  * */
-export const createAndSaveComponentListToFile = async ({
-    file,
-    folder,
-    res,
-    timestamp = false,
-}: CreateAndSaveComponentListToFile): Promise<void> => {
-    const datestamp = new Date();
-    const filename = file ?? `all-components__${generateDatestamp(datestamp)}`;
-    await createDir(
-        folder
-            ? `${storyblokConfig.sbmigWorkingDirectory}/${folder}/`
-            : `${storyblokConfig.sbmigWorkingDirectory}/`
-    );
-    await createJSAllComponentsFile(
-        JSON.stringify(res, null, 2),
-        folder
-            ? `${storyblokConfig.sbmigWorkingDirectory}/${folder}/${filename}.ts`
-            : `${storyblokConfig.sbmigWorkingDirectory}/${filename}.ts`,
-        timestamp
-    );
-    Logger.success(`All components written to a file:  ${filename}`);
-};
+export const createAndSaveComponentListToFile: CreateAndSaveComponentListToFile =
+    async ({ file, folder, res, timestamp = false }, config) => {
+        const { sbmigWorkingDirectory } = config;
+        const datestamp = new Date();
+        const filename =
+            file ?? `all-components__${generateDatestamp(datestamp)}`;
+        await createDir(
+            folder
+                ? `${sbmigWorkingDirectory}/${folder}/`
+                : `${sbmigWorkingDirectory}/`
+        );
+        await createJSAllComponentsFile(
+            JSON.stringify(res, null, 2),
+            folder
+                ? `${sbmigWorkingDirectory}/${folder}/${filename}.ts`
+                : `${sbmigWorkingDirectory}/${filename}.ts`,
+            timestamp
+        );
+        Logger.success(`All components written to a file:  ${filename}`);
+    };
 
 export const readFile = async (pathToFile: string) => {
     const absolutePath = path.join(process.cwd(), pathToFile);

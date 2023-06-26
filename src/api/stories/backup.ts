@@ -10,16 +10,19 @@ export const backupStories: BackupStories = async (
     config
 ) => {
     Logger.log(`Making backup of your stories.`);
-    await getAllStories({ spaceId, sbApi: config.sbApi })
+    await getAllStories({ ...config, spaceId })
         .then(async (res: any) => {
-            await createAndSaveToFile({
-                ext: "json",
-                filename: filename,
-                datestamp: true,
-                suffix,
-                folder: "stories",
-                res,
-            });
+            await createAndSaveToFile(
+                {
+                    ext: "json",
+                    filename: filename,
+                    datestamp: true,
+                    suffix,
+                    folder: "stories",
+                    res,
+                },
+                config
+            );
         })
         .catch((err: any) => {
             Logger.error(err);
