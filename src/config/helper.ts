@@ -1,7 +1,7 @@
 import Logger from "../utils/logger.js";
 
-export { defaultConfig } from "./defaultConfig";
-export { SCHEMA } from "./constants";
+export { defaultConfig } from "./defaultConfig.js";
+export { SCHEMA } from "./constants.js";
 
 export const getStoryblokConfigContent = (data: {
     filePath: string;
