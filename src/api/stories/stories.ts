@@ -12,7 +12,6 @@ import type { GetStoryBySlug } from "./stories.types.js";
 
 import chalk from "chalk";
 
-import storyblokConfig from "../../config/config.js";
 import Logger from "../../utils/logger.js";
 import { getAllItemsWithPagination } from "../utils/request.js";
 
@@ -101,8 +100,8 @@ export const getAllStories: GetAllStories = async (config) => {
 
 // GET
 export const getStoryById: GetStoryById = (storyId, config) => {
-    const { spaceId, sbApi } = config;
-    if (storyblokConfig.debug) {
+    const { spaceId, sbApi, debug } = config;
+    if (debug) {
         console.log(
             `Trying to get Story with id: ${storyId} from space: ${spaceId}, to fill content field.`
         );
@@ -110,7 +109,7 @@ export const getStoryById: GetStoryById = (storyId, config) => {
     return sbApi
         .get(`spaces/${spaceId}/stories/${storyId}`)
         .then((res: any) => {
-            if (storyblokConfig.debug) {
+            if (debug) {
                 Logger.success(
                     `Successfuly fetched story with content, with id: ${storyId} from space: ${spaceId}.`
                 );
