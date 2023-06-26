@@ -1,3 +1,13 @@
+## [5.0.8-beta.2](https://github.com/sb-mig/sb-mig/compare/v5.0.8-beta.1...v5.0.8-beta.2) (2023-06-26)
+
+
+### Bug Fixes
+
+* js extension ([1c72988](https://github.com/sb-mig/sb-mig/commit/1c72988cfc20999c7307cc844f0169a38c8f5e50))
+* js extension ([8b6ab1b](https://github.com/sb-mig/sb-mig/commit/8b6ab1bdc1502902e330ed8b9229b47ff0f86609))
+* one more batch of refactored files - move discover functionalities to different files ([4f9a562](https://github.com/sb-mig/sb-mig/commit/4f9a562d45c954c7c306c0b0351bb059c1aceeb8))
+* remove storyblokConfig.debug reference ([d3b751b](https://github.com/sb-mig/sb-mig/commit/d3b751b794228426bd49b171552ce9a1d5a2debb))
+
 ## [5.0.8-beta.1](https://github.com/sb-mig/sb-mig/compare/v5.0.7...v5.0.8-beta.1) (2023-06-15)
 
 
