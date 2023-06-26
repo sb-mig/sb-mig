@@ -26,6 +26,7 @@ export const sbApi = generateApi(
 );
 
 export const apiConfig: RequestBaseConfig = {
+    ...storyblokConfig,
     spaceId: storyblokConfig.spaceId,
     sbApi: sbApi,
 };

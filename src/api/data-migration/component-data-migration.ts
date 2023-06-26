@@ -4,13 +4,13 @@ import path from "path";
 
 import chalk from "chalk";
 
-import storyblokConfig from "../../config/config.js";
 import {
     discoverMigrationConfig,
     discoverStories,
     LOOKUP_TYPE,
     SCOPE,
-} from "../../utils/discover.js";
+} from "../../cli/utils/discover.js";
+import storyblokConfig from "../../config/config.js";
 import { createAndSaveToFile } from "../../utils/files.js";
 import Logger from "../../utils/logger.js";
 import { getFilesContentWithRequire, isObjectEmpty } from "../../utils/main.js";
@@ -324,13 +324,16 @@ export const doTheMigration = async (
     const notNullMigratedItems = migratedItems.filter((item: any) => item);
 
     // Saving result with migrated version of stories into file
-    await createAndSaveToFile({
-        datestamp: true,
-        ext: "json",
-        filename: `${from}---${itemType}-to-migrate`,
-        folder: "migrations",
-        res: notNullMigratedItems,
-    });
+    await createAndSaveToFile(
+        {
+            datestamp: true,
+            ext: "json",
+            filename: `${from}---${itemType}-to-migrate`,
+            folder: "migrations",
+            res: notNullMigratedItems,
+        },
+        config
+    );
 
     await modifyOrCreateAppliedMigrationsFile(migrationConfig, itemType);
 
@@ -355,31 +358,31 @@ export const doTheMigration = async (
     }
 };
 
-type SaveBackupStoriesToFile = ({
-    filename,
-    folder,
-    res,
-}: {
-    itemType: "story" | "preset";
-    filename: string;
-    folder: string;
-    res: any;
-}) => Promise<void>;
+type SaveBackupStoriesToFile = (
+    args: {
+        itemType: "story" | "preset";
+        filename: string;
+        folder: string;
+        res: any;
+    },
+    config: RequestBaseConfig
+) => Promise<void>;
 
-const saveBackupToFile: SaveBackupStoriesToFile = async ({
-    itemType,
-    res,
-    folder,
-    filename,
-}) => {
-    await createAndSaveToFile({
-        ext: "json",
-        datestamp: true,
-        suffix: itemType === "story" ? ".sb.stories" : ".sb.presets",
-        filename,
-        folder,
-        res: res,
-    });
+const saveBackupToFile: SaveBackupStoriesToFile = async (
+    { itemType, res, folder, filename },
+    config
+) => {
+    await createAndSaveToFile(
+        {
+            ext: "json",
+            datestamp: true,
+            suffix: itemType === "story" ? ".sb.stories" : ".sb.presets",
+            filename,
+            folder,
+            res: res,
+        },
+        config
+    );
 };
 
 export const migrateProvidedComponentsDataInStories = async (
@@ -429,12 +432,15 @@ export const migrateProvidedComponentsDataInStories = async (
         const backupFolder = path.join("backup", itemType);
 
         // save stories to file as backup
-        await saveBackupToFile({
-            itemType,
-            filename: `before__${migrationConfig}__${from}`,
-            folder: backupFolder,
-            res: itemsToMigrate,
-        });
+        await saveBackupToFile(
+            {
+                itemType,
+                filename: `before__${migrationConfig}__${from}`,
+                folder: backupFolder,
+                res: itemsToMigrate,
+            },
+            config
+        );
 
         await doTheMigration(
             {

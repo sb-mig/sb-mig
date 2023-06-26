@@ -1,9 +1,10 @@
 import type { CLIOptions } from "../../utils/interfaces.js";
 
 import storyblokConfig from "../../config/config.js";
-import { discoverAllComponents } from "../../utils/discover.js";
 import { createAndSaveComponentListToFile } from "../../utils/files.js";
 import Logger from "../../utils/logger.js";
+import { apiConfig } from "../api-config.js";
+import { discoverAllComponents } from "../utils/discover.js";
 
 const DISCOVER_COMMANDS = {
     components: "components",
@@ -41,10 +42,13 @@ export const discover = async (props: CLIOptions) => {
                 ];
 
                 if (flags["write"]) {
-                    await createAndSaveComponentListToFile({
-                        file: flags["file"] || undefined,
-                        res: content,
-                    });
+                    await createAndSaveComponentListToFile(
+                        {
+                            file: flags["file"] || undefined,
+                            res: content,
+                        },
+                        apiConfig
+                    );
                 } else {
                     console.log(allComponents);
                 }

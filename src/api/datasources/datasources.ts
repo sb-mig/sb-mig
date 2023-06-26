@@ -2,18 +2,10 @@ import type {
     CreateDatasource,
     GetAllDatasources,
     GetDatasource,
-    SyncAllDatasources,
     SyncDatasources,
-    SyncProvidedDatasources,
     UpdateDatasource,
 } from "./datasources.types.js";
 
-import {
-    discoverDatasources,
-    discoverManyDatasources,
-    LOOKUP_TYPE,
-    SCOPE,
-} from "../../utils/discover.js";
 import Logger from "../../utils/logger.js";
 import { getFilesContentWithRequire } from "../../utils/main.js";
 import { getAllItemsWithPagination } from "../utils/request.js";
@@ -206,54 +198,4 @@ export const syncDatasources: SyncDatasources = async (args, config) => {
             Logger.warning("There is error inside promise.all from datasource");
             return false;
         });
-};
-
-export const syncProvidedDatasources: SyncProvidedDatasources = async (
-    args,
-    config
-) => {
-    const { datasources } = args;
-    const allLocalDatasources = await discoverManyDatasources({
-        scope: SCOPE.local,
-        type: LOOKUP_TYPE.fileName,
-        fileNames: datasources,
-    });
-
-    const allExternalDatasources = await discoverManyDatasources({
-        scope: SCOPE.external,
-        type: LOOKUP_TYPE.fileName,
-        fileNames: datasources,
-    });
-
-    syncDatasources(
-        {
-            providedDatasources: [
-                ...allLocalDatasources,
-                ...allExternalDatasources,
-            ],
-        },
-        config
-    );
-};
-
-export const syncAllDatasources: SyncAllDatasources = (config) => {
-    const allLocalDatasources = discoverDatasources({
-        scope: SCOPE.local,
-        type: LOOKUP_TYPE.fileName,
-    });
-
-    const allExternalDatasources = discoverDatasources({
-        scope: SCOPE.external,
-        type: LOOKUP_TYPE.fileName,
-    });
-
-    syncDatasources(
-        {
-            providedDatasources: [
-                ...allLocalDatasources,
-                ...allExternalDatasources,
-            ],
-        },
-        config
-    );
 };

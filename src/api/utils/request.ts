@@ -1,13 +1,11 @@
+import type { IStoryblokConfig } from "../../config/config.js";
 import type StoryblokClient from "storyblok-js-client";
 
 import Logger from "../../utils/logger.js";
 
-export interface RequestBaseConfig {
+export interface RequestBaseConfig extends Omit<IStoryblokConfig, "sbApi"> {
     spaceId: string;
     sbApi: StoryblokClient;
-    debug?: boolean;
-    contentHubOriginUrl?: string;
-    contentHubAuthorizationToken?: string;
 }
 
 interface GetAllItemsWithPagination {

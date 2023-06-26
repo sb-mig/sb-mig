@@ -96,7 +96,6 @@ export const updatePreset: UpdatePreset = (args, config: RequestBaseConfig) => {
 };
 
 export const updatePresets: UpdatePresets = (args, config) => {
-    const { sbApi } = config;
     const { presets, spaceId } = args;
 
     return Promise.allSettled(
@@ -107,7 +106,7 @@ export const updatePresets: UpdatePresets = (args, config) => {
                         preset: item,
                     },
                 },
-                { sbApi, spaceId }
+                { ...config, spaceId }
             );
         })
     );
