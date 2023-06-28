@@ -1,3 +1,10 @@
+## [5.0.8-beta.3](https://github.com/sb-mig/sb-mig/compare/v5.0.8-beta.2...v5.0.8-beta.3) (2023-06-28)
+
+
+### Bug Fixes
+
+* init command ([16c26f7](https://github.com/sb-mig/sb-mig/commit/16c26f7ccf0dc9e8204ee67930f79e11d36f48f1))
+
 ## [5.0.8-beta.2](https://github.com/sb-mig/sb-mig/compare/v5.0.8-beta.1...v5.0.8-beta.2) (2023-06-26)
 
 
