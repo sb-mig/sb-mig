@@ -418,10 +418,13 @@ export const migrateProvidedComponentsDataInStories = async (
         // Get all stories to be migrated from storyblok space
         let itemsToMigrate: any[] = [];
         if (itemType === "story") {
-            itemsToMigrate = await managementApi.stories.getAllStories({
-                ...config,
-                spaceId: from,
-            });
+            itemsToMigrate = await managementApi.stories.getAllStories(
+                {},
+                {
+                    ...config,
+                    spaceId: from,
+                }
+            );
         } else if (itemType === "preset") {
             itemsToMigrate = await managementApi.presets.getAllPresets({
                 ...config,

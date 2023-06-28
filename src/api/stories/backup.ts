@@ -10,7 +10,7 @@ export const backupStories: BackupStories = async (
     config
 ) => {
     Logger.log(`Making backup of your stories.`);
-    await getAllStories({ ...config, spaceId })
+    await getAllStories({}, { ...config, spaceId })
         .then(async (res: any) => {
             await createAndSaveToFile(
                 {

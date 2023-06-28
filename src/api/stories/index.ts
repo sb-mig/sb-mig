@@ -7,6 +7,7 @@ export {
     updateStories,
     getAllStories,
     removeAllStories,
+    upsertStory,
 } from "./stories.js";
 
 export { backupStories } from "./backup.js";

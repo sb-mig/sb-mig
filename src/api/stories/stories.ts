@@ -7,12 +7,15 @@ import type {
     UpdateStory,
     UpdateStories,
     RemoveAllStories,
+    UpsertStory,
+    DeepUpsertStory,
 } from "./stories.types.js";
 import type { GetStoryBySlug } from "./stories.types.js";
 
 import chalk from "chalk";
 
 import Logger from "../../utils/logger.js";
+import { managementApi } from "../managementApi.js";
 import { getAllItemsWithPagination } from "../utils/request.js";
 
 export const removeStory: RemoveStory = (args, config) => {
@@ -37,7 +40,7 @@ export const removeAllStories: RemoveAllStories = async (config) => {
     Logger.warning(
         `Trying to remove all stories from space with spaceId: ${spaceId}`
     );
-    const stories = await getAllStories(config);
+    const stories = await getAllStories({}, config);
 
     const onlyRootStories = (story: any) =>
         story.story.parent_id === 0 || story.story.parent_id === null;
@@ -55,7 +58,8 @@ export const removeAllStories: RemoveAllStories = async (config) => {
 };
 
 // GET
-export const getAllStories: GetAllStories = async (config) => {
+export const getAllStories: GetAllStories = async (args, config) => {
+    const { options } = args;
     const { spaceId, sbApi } = config;
     Logger.log(`Trying to get all Stories from: ${spaceId}`);
 
@@ -64,6 +68,7 @@ export const getAllStories: GetAllStories = async (config) => {
             sbApi.get(`spaces/${spaceId}/stories/`, {
                 per_page,
                 page,
+                starts_with: options?.starts_with,
             }),
         params: {
             spaceId,
@@ -188,4 +193,84 @@ export const updateStories: UpdateStories = (args, config) => {
             );
         })
     );
+};
+
+export const upsertStory: UpsertStory = async (args, config) => {
+    console.log("Modifying story... in space with id:");
+    console.log(config.spaceId);
+    const { storyId, storySlug, content } = args;
+
+    console.log("This are args passed: ");
+    console.log(args);
+
+    if (storyId) {
+        // if this exist than we update story with this id
+        console.log("You've selected storyid!");
+    } else if (storySlug) {
+        // if this exist than we update story with this slug (probably when we try to add story from one space to another,
+        console.log("You've selected slug!");
+        const foundStory = await managementApi.stories.getStoryBySlug(
+            storySlug,
+            config
+        );
+        console.log("This is story");
+        console.log(foundStory);
+
+        if (foundStory) {
+            // then update the story
+        } else {
+            const {
+                story: { parent_id, id, parent, ...rest },
+            } = content;
+            console.log("We are going to create story");
+            const response = await managementApi.stories.createStory(
+                rest,
+                config
+            );
+            console.log("This is response");
+            console.log(response);
+        }
+    } else {
+        // if this exist than we create new story
+        console.log("Nothing passed, creating story...");
+    }
+};
+
+export const deepUpsertStory: DeepUpsertStory = async (args, config) => {
+    console.log("Modifying story... in space with id:");
+    console.log(config.spaceId);
+    const { storyId, storySlug, content } = args;
+
+    console.log("This are args passed: ");
+    console.log(args);
+
+    if (storyId) {
+        // if this exist than we update story with this id
+        console.log("You've selected storyid!");
+    } else if (storySlug) {
+        // if this exist than we update story with this slug (probably when we try to add story from one space to another,
+        console.log("You've selected slug!");
+        const slugs = storySlug.split("/");
+        console.log(
+            "Slugs for which we need to check for existence of stories"
+        );
+        console.log(slugs);
+
+        // const foundStory = await managementApi.stories.getStoryBySlug(storySlug, config)
+        // console.log("This is story")
+        // console.log(foundStory)
+
+        // if(foundStory) {
+        //     // then update the story
+        // } else {
+        //     const {story: {parent_id, id, parent,...rest}} = content
+        //     console.log("We are going to create story")
+        //     const response = await managementApi.stories.createStory(rest, config)
+        //     console.log("This is response")
+        //     console.log(response)
+        // }
+    } else {
+        // if this exist than we create new story
+        console.log("Nothing passed, creating story...");
+    }
 };

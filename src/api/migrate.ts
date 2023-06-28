@@ -367,11 +367,14 @@ export const syncContent: SyncContentFunction = async (
         }
 
         if (syncDirection === "fromSpaceToSpace") {
-            const stories = await getAllStories({
-                ...config,
-                spaceId: transmission.from,
-                sbApi: config.sbApi,
-            });
+            const stories = await getAllStories(
+                {},
+                {
+                    ...config,
+                    spaceId: transmission.from,
+                    sbApi: config.sbApi,
+                }
+            );
             await syncStories(
                 {
                     transmission,

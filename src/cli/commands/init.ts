@@ -23,7 +23,11 @@ export const init = async (props: CLIOptions) => {
         case INIT_COMMANDS.project:
             Logger.warning(`init project... with command: ${command}`);
 
-            const { spaceId, oauthToken, gtmToken } = flags;
+            const { spaceId, oauthToken, gtmToken } = flags as {
+                spaceId: string;
+                oauthToken: string;
+                gtmToken: string | undefined;
+            };
             const { storyblokApiUrl } = storyblokConfig;
 
             Logger.warning(
@@ -40,9 +44,12 @@ export const init = async (props: CLIOptions) => {
                 storyblokApiUrl
             );
 
+            console.log("This is api config: ");
+            console.log({ ...apiConfig, oauthToken });
+
             const spaceData = await managementApi.spaces.getSpace(
-                spaceId,
-                apiConfig
+                { spaceId },
+                { ...apiConfig, sbApi: localSbApi }
             );
 
             const STORYBLOK_SPACE_ID = spaceId;
@@ -82,7 +89,7 @@ export const init = async (props: CLIOptions) => {
                             domain: `https://localhost:3000/api/preview/preview?secret=${STORYBLOK_PREVIEW_SECRET}&slug=`,
                         },
                     },
-                    apiConfig
+                    { ...apiConfig, sbApi: localSbApi }
                 );
                 Logger.success("Successfully updated space domain");
             } catch (e) {
