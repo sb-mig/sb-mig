@@ -1,7 +1,13 @@
 import type { RequestBaseConfig } from "../utils/request.js";
+import type { ISbStoriesParams } from "storyblok-js-client";
+
+export interface ExtendedISbStoriesParams extends ISbStoriesParams {
+    with_slug?: string;
+}
 
 interface ModifyStoryOptions {
     publish?: boolean;
+    force_update?: boolean;
 }
 
 export type RemoveStory = (
@@ -22,7 +28,7 @@ export type GetStoryBySlug = (
 ) => Promise<any>;
 
 export type GetAllStories = (
-    args: { options?: { starts_with: string } },
+    args: { options?: ExtendedISbStoriesParams },
     config: RequestBaseConfig
 ) => Promise<any>;
 

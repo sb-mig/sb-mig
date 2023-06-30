@@ -9,14 +9,24 @@ import type {
     RemoveAllStories,
     UpsertStory,
     DeepUpsertStory,
+    ExtendedISbStoriesParams,
+    GetStoryBySlug,
 } from "./stories.types.js";
-import type { GetStoryBySlug } from "./stories.types.js";
 
 import chalk from "chalk";
 
 import Logger from "../../utils/logger.js";
 import { managementApi } from "../managementApi.js";
 import { getAllItemsWithPagination } from "../utils/request.js";
+
+const notNullish = <T extends Record<string, any>>(params: T): T => {
+    return Object.keys(params).reduce((acc, key) => {
+        if (params[key] !== null && params[key] !== undefined) {
+            acc[key] = params[key];
+        }
+        return acc;
+    }, {} as any);
+};
 
 export const removeStory: RemoveStory = (args, config) => {
     const { storyId } = args;
@@ -63,13 +73,22 @@ export const getAllStories: GetAllStories = async (args, config) => {
     const { spaceId, sbApi } = config;
     Logger.log(`Trying to get all Stories from: ${spaceId}`);
 
+    const params = notNullish<ExtendedISbStoriesParams>({
+        with_slug: options?.with_slug,
+        starts_with: options?.starts_with,
+        language: options?.language,
+    });
+
+    console.log("These are params i will use: ");
+    console.log(params);
+
     const allStoriesWithoutContent = await getAllItemsWithPagination({
         apiFn: ({ per_page, page }) =>
             sbApi.get(`spaces/${spaceId}/stories/`, {
+                ...params,
                 per_page,
                 page,
-                starts_with: options?.starts_with,
-            }),
+            } as ExtendedISbStoriesParams),
         params: {
             spaceId,
         },
@@ -167,10 +186,15 @@ export const updateStory: UpdateStory = (content, storyId, options, config) => {
     Logger.log(
         `Updating story with name: ${content.name} in space: ${spaceId}`
     );
+
+    console.log("THis is content to update: ");
+    console.log(JSON.stringify(content, null, 2));
+
     return sbApi
         .put(`spaces/${spaceId}/stories/${storyId}`, {
             story: content,
             publish: options.publish ? 1 : 0,
+            force_update: options.force_update ? 1 : 0,
         })
         .then((res: any) => {
             console.log(`${chalk.green(res.data.story.full_slug)} updated.`);

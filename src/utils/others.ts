@@ -1,9 +1,5 @@
 import type { RequestBaseConfig } from "../api/utils/request.js";
 
-import readline from "node:readline/promises";
-
-import chalk from "chalk";
-
 export const generateDatestamp = (datestamp: Date) => {
     const year = datestamp.getFullYear();
     const month = datestamp.getMonth() + 1;
