@@ -24,6 +24,7 @@ import { migrations } from "./commands/migrations.js";
 import { remove } from "./commands/remove.js";
 import { revert } from "./commands/revert.js";
 import { sync } from "./commands/sync.js";
+import { testCommand } from "./commands/test.js";
 
 const app = () => ({
     cli: meow(mainDescription, {
@@ -133,6 +134,16 @@ app.init = () => ({
     }),
     action: (cli: any) => {
         init(cli);
+    },
+});
+
+app.test = () => ({
+    cli: meow("nothing", {
+        importMeta: import.meta,
+        booleanDefault: undefined,
+    }),
+    action: (cli: any) => {
+        testCommand(cli);
     },
 });
 
