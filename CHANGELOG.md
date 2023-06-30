@@ -1,3 +1,10 @@
+## [5.0.8-beta.4](https://github.com/sb-mig/sb-mig/compare/v5.0.8-beta.3...v5.0.8-beta.4) (2023-06-30)
+
+
+### Bug Fixes
+
+* add test command for easier testing functionalities ([1407ad2](https://github.com/sb-mig/sb-mig/commit/1407ad2b640ac543f64d8b3e4818b623510cb02a))
+
 ## [5.0.8-beta.3](https://github.com/sb-mig/sb-mig/compare/v5.0.8-beta.2...v5.0.8-beta.3) (2023-06-28)
 
 
