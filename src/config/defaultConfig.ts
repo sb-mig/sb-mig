@@ -48,8 +48,11 @@ export const defaultConfig = (
         //         ? "sb.stories.js"
         //         : "sb.stories.cjs",
         storiesExt: "sb.stories.json",
-        storyblokApiUrl: "https://mapi.storyblok.com/v1", // should be mapi.storyblok.com ?
-        storyblokDeliveryApiUrl: "https://api.storyblok.com/v2",
+        storyblokApiUrl:
+            env["STORYBLOK_MANAGEMENT_API_URL"] ||
+            "https://mapi.storyblok.com/v1", // should be mapi.storyblok.com ?
+        storyblokDeliveryApiUrl:
+            env["STORYBLOK_DELIVERY_API_URL"] || "https://api.storyblok.com/v2",
         oauthToken: env["STORYBLOK_OAUTH_TOKEN"] ?? "",
         spaceId: env["STORYBLOK_SPACE_ID"] ?? "",
         accessToken:
