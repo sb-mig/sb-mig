@@ -11,11 +11,11 @@ import { apiConfig } from "../api-config.js";
 
 const storyblokApiMapping = {
     eu: {
-        managementApi: "https://mapi.storyblok.com",
+        managementApi: "https://mapi.storyblok.com/v1",
         deliveryApi: "https://api.storyblok.com/v2",
     },
     us: {
-        managementApi: "https://api-us.storyblok.com",
+        managementApi: "https://api-us.storyblok.com/v1",
         deliveryApi: "https://api-us.storyblok.com/v2",
     },
     cn: {
