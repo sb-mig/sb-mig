@@ -1,3 +1,10 @@
+# [5.1.0-beta.3](https://github.com/sb-mig/sb-mig/compare/v5.1.0-beta.2...v5.1.0-beta.3) (2023-07-03)
+
+
+### Bug Fixes
+
+* add graphql url to envs and to config ([ff0bd99](https://github.com/sb-mig/sb-mig/commit/ff0bd999dd5f6cc003b57858017bfe7a02211ea7))
+
 # [5.1.0-beta.2](https://github.com/sb-mig/sb-mig/compare/v5.1.0-beta.1...v5.1.0-beta.2) (2023-07-03)
 
 
