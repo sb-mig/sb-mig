@@ -35,6 +35,7 @@ export interface IStoryblokConfig {
     migrationConfigExt: string;
     storyblokApiUrl: string;
     storyblokDeliveryApiUrl: string;
+    storyblokGraphqlApiUrl: string;
     oauthToken: string;
     spaceId: string;
     accessToken: string;

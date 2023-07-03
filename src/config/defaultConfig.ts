@@ -53,6 +53,9 @@ export const defaultConfig = (
             "https://mapi.storyblok.com/v1", // should be mapi.storyblok.com ?
         storyblokDeliveryApiUrl:
             env["STORYBLOK_DELIVERY_API_URL"] || "https://api.storyblok.com/v2",
+        storyblokGraphqlApiUrl:
+            env["STORYBLOK_GRAPHQL_API_URL"] ||
+            "https://gapi.storyblok.com/v1/api",
         oauthToken: env["STORYBLOK_OAUTH_TOKEN"] ?? "",
         spaceId: env["STORYBLOK_SPACE_ID"] ?? "",
         accessToken:

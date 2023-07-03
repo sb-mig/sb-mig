@@ -13,14 +13,17 @@ const storyblokApiMapping = {
     eu: {
         managementApi: "https://mapi.storyblok.com/v1",
         deliveryApi: "https://api.storyblok.com/v2",
+        graphql: "https://gapi.storyblok.com/v1/api",
     },
     us: {
         managementApi: "https://api-us.storyblok.com/v1",
         deliveryApi: "https://api-us.storyblok.com/v2",
+        graphql: "https://gapi-us.storyblok.com/v1/api",
     },
     cn: {
         managementApi: "https://app.storyblokchina.cn",
         deliveryApi: "https://app.storyblokchina.cn",
+        graphql: "",
     },
 };
 
@@ -48,6 +51,7 @@ export const init = async (props: CLIOptions) => {
                 storyblokApiMapping[region].managementApi;
             const storyblokDeliveryApiUrl =
                 storyblokApiMapping[region].deliveryApi;
+            const storyblokGraphqlApiUrl = storyblokApiMapping[region].graphql;
 
             Logger.warning(
                 "Updating space and creating .env file with provided options"
@@ -72,9 +76,8 @@ export const init = async (props: CLIOptions) => {
                 { ...apiConfig, sbApi: localSbApi }
             );
 
-            // storyblokApiUrl: env["STORYBLOK_MANAGEMENT_API_URL"] || "https://mapi.storyblok.com/v1", // should be mapi.storyblok.com ?
-            //     storyblokDeliveryApiUrl: env["STORYBLOK_DELIVERY_API_URL"] || "https://api.storyblok.com/v2",
-
+            const STORYBLOK_REGION = region;
+            const STORYBLOK_GRAPHQL_API_URL = storyblokGraphqlApiUrl;
             const STORYBLOK_DELIVERY_API_URL = storyblokDeliveryApiUrl;
             const STORYBLOK_MANAGEMENT_API_URL = storyblokManagementApiUrl;
             const STORYBLOK_SPACE_ID = spaceId;
@@ -85,6 +88,8 @@ export const init = async (props: CLIOptions) => {
             const STORYBLOK_PREVIEW_SECRET = uuidv4();
 
             const envFileContent =
+                `STORYBLOK_REGION=${STORYBLOK_REGION}\n` +
+                `STORYBLOK_GRAPHQL_API_URL=${STORYBLOK_GRAPHQL_API_URL}\n` +
                 `STORYBLOK_DELIVERY_API_URL=${STORYBLOK_DELIVERY_API_URL}\n` +
                 `STORYBLOK_MANAGEMENT_API_URL=${STORYBLOK_MANAGEMENT_API_URL}\n` +
                 `STORYBLOK_SPACE_ID=${STORYBLOK_SPACE_ID}\n` +
