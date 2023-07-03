@@ -1,11 +1,11 @@
 import type {
-    AssetPayload,
     GetAllAssets,
     GetAssetById,
     GetAssetByName,
     MigrateAsset,
     RequestSignedUploadUrl,
     UploadFile,
+    DownloadAsset,
 } from "./assets.types.js";
 
 import fs from "fs";
@@ -14,15 +14,12 @@ import path from "path";
 
 import FormData from "form-data";
 
-import storyblokConfig from "../../config/config.js";
 import { createDir, isDirectoryExists } from "../../utils/files.js";
 import Logger from "../../utils/logger.js";
 
 // GET
-export const getAllAssets: GetAllAssets = async (
-    { spaceId, search },
-    config
-) => {
+export const getAllAssets: GetAllAssets = async (args, config) => {
+    const { spaceId, search } = args;
     const { sbApi } = config;
 
     return sbApi
@@ -61,7 +58,7 @@ const requestSignedUploadUrl: RequestSignedUploadUrl = (
     { spaceId, payload },
     config
 ) => {
-    const { sbApi } = config;
+    const { sbApi, debug } = config;
     const {
         filename: _1,
         asset_folder_id,
@@ -78,7 +75,7 @@ const requestSignedUploadUrl: RequestSignedUploadUrl = (
             ...restPayload,
         })
         .then((signedResponseObject) => {
-            if (storyblokConfig.debug) {
+            if (debug) {
                 Logger.log(
                     `Signed upload URL has been requested for ${filename}.`
                 );
@@ -128,18 +125,18 @@ const getSizeFromURL = (fileUrl: string) => {
     return data[sizePos];
 };
 
-const downloadAsset = async ({ payload }: { payload: AssetPayload }) => {
+const downloadAsset: DownloadAsset = async (args, config) => {
+    const { debug, sbmigWorkingDirectory } = config;
+    const { payload } = args;
     const fileName = getFileName(payload.filename);
     const fileUrl = payload.filename;
     const downloadedAssetsFolder = path.join(
-        storyblokConfig.sbmigWorkingDirectory,
+        sbmigWorkingDirectory,
         "downloadedAssets"
     );
     Logger.log(
         `Downloading ${fileName} asset ${
-            storyblokConfig.debug
-                ? `from ${fileUrl} to ${downloadedAssetsFolder}`
-                : ""
+            debug ? `from ${fileUrl} to ${downloadedAssetsFolder}` : ""
         }`
     );
 
@@ -177,7 +174,7 @@ export const migrateAsset: MigrateAsset = async (
     { migrateTo, payload, syncDirection },
     config
 ) => {
-    const pathToFile = await downloadAsset({ payload });
+    const pathToFile = await downloadAsset({ payload }, config);
     if (syncDirection === "fromSpaceToSpace") {
         const signedResponseObject = await requestSignedUploadUrl(
             {

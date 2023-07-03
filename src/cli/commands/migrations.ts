@@ -2,11 +2,6 @@ import type { CLIOptions } from "../../utils/interfaces.js";
 
 import path from "path";
 
-import {
-    discoverVersionMapping,
-    LOOKUP_TYPE,
-    SCOPE,
-} from "../../utils/discover.js";
 import { readFile } from "../../utils/files.js";
 import Logger from "../../utils/logger.js";
 import {
@@ -15,6 +10,11 @@ import {
     isItFactory,
 } from "../../utils/main.js";
 import { preselectMigrations } from "../../utils/migrations.js";
+import {
+    discoverVersionMapping,
+    LOOKUP_TYPE,
+    SCOPE,
+} from "../utils/discover.js";
 
 const MIGRATIONS_COMMANDS = {
     recognize: "recognize",

@@ -6,9 +6,26 @@ import StoryblokClient from "storyblok-js-client";
 import { v4 as uuidv4 } from "uuid";
 
 import { managementApi } from "../../api/managementApi.js";
-import storyblokConfig from "../../config/config.js";
 import Logger from "../../utils/logger.js";
 import { apiConfig } from "../api-config.js";
+
+const storyblokApiMapping = {
+    eu: {
+        managementApi: "https://mapi.storyblok.com/v1",
+        deliveryApi: "https://api.storyblok.com/v2",
+        graphql: "https://gapi.storyblok.com/v1/api",
+    },
+    us: {
+        managementApi: "https://api-us.storyblok.com/v1",
+        deliveryApi: "https://api-us.storyblok.com/v2",
+        graphql: "https://gapi-us.storyblok.com/v1/api",
+    },
+    cn: {
+        managementApi: "https://app.storyblokchina.cn",
+        deliveryApi: "https://app.storyblokchina.cn",
+        graphql: "",
+    },
+};
 
 const INIT_COMMANDS = {
     project: "project",
@@ -23,8 +40,18 @@ export const init = async (props: CLIOptions) => {
         case INIT_COMMANDS.project:
             Logger.warning(`init project... with command: ${command}`);
 
-            const { spaceId, oauthToken, gtmToken } = flags;
-            const { storyblokApiUrl } = storyblokConfig;
+            const { spaceId, oauthToken, gtmToken, region } = flags as {
+                spaceId: string;
+                oauthToken: string;
+                gtmToken: string | undefined;
+                region: "us" | "eu" | "cn";
+            };
+
+            const storyblokManagementApiUrl =
+                storyblokApiMapping[region].managementApi;
+            const storyblokDeliveryApiUrl =
+                storyblokApiMapping[region].deliveryApi;
+            const storyblokGraphqlApiUrl = storyblokApiMapping[region].graphql;
 
             Logger.warning(
                 "Updating space and creating .env file with provided options"
@@ -33,18 +60,26 @@ export const init = async (props: CLIOptions) => {
                 spaceId,
                 oauthToken,
                 gtmToken,
+                region,
             });
 
             const localSbApi = new StoryblokClient(
                 { oauthToken },
-                storyblokApiUrl
+                storyblokManagementApiUrl
             );
+
+            console.log("This is api config: ");
+            console.log({ ...apiConfig, oauthToken });
 
             const spaceData = await managementApi.spaces.getSpace(
-                spaceId,
-                apiConfig
+                { spaceId },
+                { ...apiConfig, sbApi: localSbApi }
             );
 
+            const STORYBLOK_REGION = region;
+            const STORYBLOK_GRAPHQL_API_URL = storyblokGraphqlApiUrl;
+            const STORYBLOK_DELIVERY_API_URL = storyblokDeliveryApiUrl;
+            const STORYBLOK_MANAGEMENT_API_URL = storyblokManagementApiUrl;
             const STORYBLOK_SPACE_ID = spaceId;
             const STORYBLOK_OAUTH_TOKEN = oauthToken;
             const NEXT_PUBLIC_GTM_ID = gtmToken ?? "put-your-gtm-token-here";
@@ -53,6 +88,10 @@ export const init = async (props: CLIOptions) => {
             const STORYBLOK_PREVIEW_SECRET = uuidv4();
 
             const envFileContent =
+                `STORYBLOK_REGION=${STORYBLOK_REGION}\n` +
+                `STORYBLOK_GRAPHQL_API_URL=${STORYBLOK_GRAPHQL_API_URL}\n` +
+                `STORYBLOK_DELIVERY_API_URL=${STORYBLOK_DELIVERY_API_URL}\n` +
+                `STORYBLOK_MANAGEMENT_API_URL=${STORYBLOK_MANAGEMENT_API_URL}\n` +
                 `STORYBLOK_SPACE_ID=${STORYBLOK_SPACE_ID}\n` +
                 `NEXT_PUBLIC_STORYBLOK_ACCESS_TOKEN=${NEXT_PUBLIC_STORYBLOK_ACCESS_TOKEN}\n` +
                 `STORYBLOK_PREVIEW_SECRET=${STORYBLOK_PREVIEW_SECRET}\n` +
@@ -82,7 +121,7 @@ export const init = async (props: CLIOptions) => {
                             domain: `https://localhost:3000/api/preview/preview?secret=${STORYBLOK_PREVIEW_SECRET}&slug=`,
                         },
                     },
-                    apiConfig
+                    { ...apiConfig, sbApi: localSbApi }
                 );
                 Logger.success("Successfully updated space domain");
             } catch (e) {

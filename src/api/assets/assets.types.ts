@@ -1,7 +1,6 @@
 import type { SyncDirection } from "../../cli/sync.types.js";
 import type { RequestBaseConfig } from "../utils/request.js";
 
-
 export type AssetTypes = "image/png" | "image/jpg" | `${string}/${string}`;
 
 export interface SBAsset {
@@ -106,3 +105,8 @@ export type RequestSignedUploadUrl = (
     },
     config: RequestBaseConfig
 ) => Promise<any>;
+
+export type DownloadAsset = (
+    args: { payload: AssetPayload },
+    config: RequestBaseConfig
+) => Promise<string>;

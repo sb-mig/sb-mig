@@ -1,6 +1,7 @@
 import type { RequestBaseConfig } from "../utils/request.js";
 
 export interface TreeNode {
+    action: "update" | "create";
     id: number;
     parent_id: number | null;
     children?: TreeNode[];

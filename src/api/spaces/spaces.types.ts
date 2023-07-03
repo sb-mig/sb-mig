@@ -17,7 +17,7 @@ export interface Space {
 
 export type GetSpace = (
     args: {
-        spaceId: number;
+        spaceId: string;
     },
     config: RequestBaseConfig
 ) => Promise<any>;
@@ -26,7 +26,7 @@ export type GetAllSpaces = (config: RequestBaseConfig) => Promise<Space[]>;
 
 export type UpdateSpace = (
     args: {
-        spaceId: number;
+        spaceId: string;
         params: any;
     },
     config: RequestBaseConfig

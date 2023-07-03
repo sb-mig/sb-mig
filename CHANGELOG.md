@@ -1,9 +1,47 @@
-## [5.0.8](https://github.com/sb-mig/sb-mig/compare/v5.0.7...v5.0.8) (2023-06-15)
+# [5.1.0-beta.3](https://github.com/sb-mig/sb-mig/compare/v5.1.0-beta.2...v5.1.0-beta.3) (2023-07-03)
 
 
 ### Bug Fixes
 
-* downgrade swc ([82e434f](https://github.com/sb-mig/sb-mig/commit/82e434f76e5e18ea647cab2299f44372579103d0))
+* add graphql url to envs and to config ([ff0bd99](https://github.com/sb-mig/sb-mig/commit/ff0bd999dd5f6cc003b57858017bfe7a02211ea7))
+
+# [5.1.0-beta.2](https://github.com/sb-mig/sb-mig/compare/v5.1.0-beta.1...v5.1.0-beta.2) (2023-07-03)
+
+
+### Bug Fixes
+
+* update sb-mig with proper urls to management apis for different regions ([a6f3629](https://github.com/sb-mig/sb-mig/commit/a6f36291c9cea4dfec3907ef3cc11512fa3bd0e2))
+
+# [5.1.0-beta.1](https://github.com/sb-mig/sb-mig/compare/v5.0.8-beta.4...v5.1.0-beta.1) (2023-07-03)
+
+
+### Features
+
+* add storyblok mapping to specicif urls for specific countries ([a2eb8e3](https://github.com/sb-mig/sb-mig/commit/a2eb8e313f4f431c5441ae256f2c760aad8604b2))
+
+## [5.0.8-beta.4](https://github.com/sb-mig/sb-mig/compare/v5.0.8-beta.3...v5.0.8-beta.4) (2023-06-30)
+
+
+### Bug Fixes
+
+* add test command for easier testing functionalities ([1407ad2](https://github.com/sb-mig/sb-mig/commit/1407ad2b640ac543f64d8b3e4818b623510cb02a))
+
+## [5.0.8-beta.3](https://github.com/sb-mig/sb-mig/compare/v5.0.8-beta.2...v5.0.8-beta.3) (2023-06-28)
+
+
+### Bug Fixes
+
+* init command ([16c26f7](https://github.com/sb-mig/sb-mig/commit/16c26f7ccf0dc9e8204ee67930f79e11d36f48f1))
+
+## [5.0.8-beta.2](https://github.com/sb-mig/sb-mig/compare/v5.0.8-beta.1...v5.0.8-beta.2) (2023-06-26)
+
+
+### Bug Fixes
+
+* js extension ([1c72988](https://github.com/sb-mig/sb-mig/commit/1c72988cfc20999c7307cc844f0169a38c8f5e50))
+* js extension ([8b6ab1b](https://github.com/sb-mig/sb-mig/commit/8b6ab1bdc1502902e330ed8b9229b47ff0f86609))
+* one more batch of refactored files - move discover functionalities to different files ([4f9a562](https://github.com/sb-mig/sb-mig/commit/4f9a562d45c954c7c306c0b0351bb059c1aceeb8))
+* remove storyblokConfig.debug reference ([d3b751b](https://github.com/sb-mig/sb-mig/commit/d3b751b794228426bd49b171552ce9a1d5a2debb))
 
 ## [5.0.8-beta.1](https://github.com/sb-mig/sb-mig/compare/v5.0.7...v5.0.8-beta.1) (2023-06-15)
 

@@ -1,6 +1,6 @@
 import type { RequestBaseConfig } from "./utils/request.js";
 import type { SyncDirection } from "../cli/sync.types.js";
-import type { OneComponent } from "../utils/discover.js";
+import type { OneComponent } from "../cli/utils/discover.js";
 
 export type SyncComponents = (
     specifiedComponents: OneComponent[],

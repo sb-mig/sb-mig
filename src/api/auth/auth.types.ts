@@ -1,8 +1,6 @@
 import type { RequestBaseConfig } from "../utils/request.js";
 import type { ISbResult } from "storyblok-js-client/src/interfaces";
 
-import { Space } from "../spaces/spaces.types.js";
-
 export interface Org {}
 export interface CurrentUserResult extends ISbResult {
     data: {

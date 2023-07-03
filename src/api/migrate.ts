@@ -14,7 +14,6 @@ import type {
 import type { RequestBaseConfig } from "./utils/request.js";
 
 import { apiConfig } from "../cli/api-config.js";
-import storyblokConfig from "../config/config.js";
 import {
     compare,
     discover,
@@ -23,7 +22,7 @@ import {
     discoverStories,
     LOOKUP_TYPE,
     SCOPE,
-} from "../utils/discover.js";
+} from "../cli/utils/discover.js";
 import { dumpToFile } from "../utils/files.js";
 import Logger from "../utils/logger.js";
 import {
@@ -335,13 +334,13 @@ const syncStories: SyncStories = async (
 
     const storiesToPassJson = JSON.stringify(storiesToPass, null, 2);
 
-    if (storyblokConfig.debug) {
+    if (config.debug) {
         dumpToFile("storiesToPass.json", storiesToPassJson);
     }
 
     const tree = createTree(storiesToPass);
     const jsonString = JSON.stringify(tree, null, 2);
-    if (storyblokConfig.debug) {
+    if (config.debug) {
         dumpToFile("tree.json", jsonString);
     }
 
@@ -368,10 +367,14 @@ export const syncContent: SyncContentFunction = async (
         }
 
         if (syncDirection === "fromSpaceToSpace") {
-            const stories = await getAllStories({
-                spaceId: transmission.from,
-                sbApi: config.sbApi,
-            });
+            const stories = await getAllStories(
+                {},
+                {
+                    ...config,
+                    spaceId: transmission.from,
+                    sbApi: config.sbApi,
+                }
+            );
             await syncStories(
                 {
                     transmission,
