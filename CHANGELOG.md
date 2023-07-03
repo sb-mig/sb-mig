@@ -1,3 +1,11 @@
+# [5.1.0-beta.4](https://github.com/sb-mig/sb-mig/compare/v5.1.0-beta.3...v5.1.0-beta.4) (2023-07-03)
+
+
+### Bug Fixes
+
+* make RequestBaseConfig mostly partial, because its not that required ([cdb99b4](https://github.com/sb-mig/sb-mig/commit/cdb99b40792e29194426bd7cd7cf3159c3b6ea30))
+* make sure assets getting sbmigWorkingDirectory passed ([9bd0790](https://github.com/sb-mig/sb-mig/commit/9bd0790a3898038ce128d5b5b278aab2c2e0c05c))
+
 # [5.1.0-beta.3](https://github.com/sb-mig/sb-mig/compare/v5.1.0-beta.2...v5.1.0-beta.3) (2023-07-03)
 
 
