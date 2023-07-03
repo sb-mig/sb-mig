@@ -6,9 +6,23 @@ import StoryblokClient from "storyblok-js-client";
 import { v4 as uuidv4 } from "uuid";
 
 import { managementApi } from "../../api/managementApi.js";
-import storyblokConfig from "../../config/config.js";
 import Logger from "../../utils/logger.js";
 import { apiConfig } from "../api-config.js";
+
+const storyblokApiMapping = {
+    eu: {
+        managementApi: "https://mapi.storyblok.com",
+        deliveryApi: "https://api.storyblok.com/v2",
+    },
+    us: {
+        managementApi: "https://api-us.storyblok.com",
+        deliveryApi: "https://api-us.storyblok.com/v2",
+    },
+    cn: {
+        managementApi: "https://app.storyblokchina.cn",
+        deliveryApi: "https://app.storyblokchina.cn",
+    },
+};
 
 const INIT_COMMANDS = {
     project: "project",
@@ -23,12 +37,17 @@ export const init = async (props: CLIOptions) => {
         case INIT_COMMANDS.project:
             Logger.warning(`init project... with command: ${command}`);
 
-            const { spaceId, oauthToken, gtmToken } = flags as {
+            const { spaceId, oauthToken, gtmToken, region } = flags as {
                 spaceId: string;
                 oauthToken: string;
                 gtmToken: string | undefined;
+                region: "us" | "eu" | "cn";
             };
-            const { storyblokApiUrl } = storyblokConfig;
+
+            const storyblokManagementApiUrl =
+                storyblokApiMapping[region].managementApi;
+            const storyblokDeliveryApiUrl =
+                storyblokApiMapping[region].deliveryApi;
 
             Logger.warning(
                 "Updating space and creating .env file with provided options"
@@ -37,11 +56,12 @@ export const init = async (props: CLIOptions) => {
                 spaceId,
                 oauthToken,
                 gtmToken,
+                region,
             });
 
             const localSbApi = new StoryblokClient(
                 { oauthToken },
-                storyblokApiUrl
+                storyblokManagementApiUrl
             );
 
             console.log("This is api config: ");
@@ -52,6 +72,11 @@ export const init = async (props: CLIOptions) => {
                 { ...apiConfig, sbApi: localSbApi }
             );
 
+            // storyblokApiUrl: env["STORYBLOK_MANAGEMENT_API_URL"] || "https://mapi.storyblok.com/v1", // should be mapi.storyblok.com ?
+            //     storyblokDeliveryApiUrl: env["STORYBLOK_DELIVERY_API_URL"] || "https://api.storyblok.com/v2",
+
+            const STORYBLOK_DELIVERY_API_URL = storyblokDeliveryApiUrl;
+            const STORYBLOK_MANAGEMENT_API_URL = storyblokManagementApiUrl;
             const STORYBLOK_SPACE_ID = spaceId;
             const STORYBLOK_OAUTH_TOKEN = oauthToken;
             const NEXT_PUBLIC_GTM_ID = gtmToken ?? "put-your-gtm-token-here";
@@ -60,6 +85,8 @@ export const init = async (props: CLIOptions) => {
             const STORYBLOK_PREVIEW_SECRET = uuidv4();
 
             const envFileContent =
+                `STORYBLOK_DELIVERY_API_URL=${STORYBLOK_DELIVERY_API_URL}\n` +
+                `STORYBLOK_MANAGEMENT_API_URL=${STORYBLOK_MANAGEMENT_API_URL}\n` +
                 `STORYBLOK_SPACE_ID=${STORYBLOK_SPACE_ID}\n` +
                 `NEXT_PUBLIC_STORYBLOK_ACCESS_TOKEN=${NEXT_PUBLIC_STORYBLOK_ACCESS_TOKEN}\n` +
                 `STORYBLOK_PREVIEW_SECRET=${STORYBLOK_PREVIEW_SECRET}\n` +
