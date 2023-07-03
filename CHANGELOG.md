@@ -1,3 +1,10 @@
+# [5.1.0-beta.1](https://github.com/sb-mig/sb-mig/compare/v5.0.8-beta.4...v5.1.0-beta.1) (2023-07-03)
+
+
+### Features
+
+* add storyblok mapping to specicif urls for specific countries ([a2eb8e3](https://github.com/sb-mig/sb-mig/commit/a2eb8e313f4f431c5441ae256f2c760aad8604b2))
+
 ## [5.0.8-beta.4](https://github.com/sb-mig/sb-mig/compare/v5.0.8-beta.3...v5.0.8-beta.4) (2023-06-30)
 
 
