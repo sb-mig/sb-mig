@@ -1,3 +1,10 @@
+# [5.1.0-beta.2](https://github.com/sb-mig/sb-mig/compare/v5.1.0-beta.1...v5.1.0-beta.2) (2023-07-03)
+
+
+### Bug Fixes
+
+* update sb-mig with proper urls to management apis for different regions ([a6f3629](https://github.com/sb-mig/sb-mig/commit/a6f36291c9cea4dfec3907ef3cc11512fa3bd0e2))
+
 # [5.1.0-beta.1](https://github.com/sb-mig/sb-mig/compare/v5.0.8-beta.4...v5.1.0-beta.1) (2023-07-03)
 
 
