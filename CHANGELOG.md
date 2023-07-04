@@ -1,3 +1,10 @@
+## [5.1.2-beta.1](https://github.com/sb-mig/sb-mig/compare/v5.1.1...v5.1.2-beta.1) (2023-07-04)
+
+
+### Bug Fixes
+
+* update save to file function not working correctly in backup component presets ([b1d4e38](https://github.com/sb-mig/sb-mig/commit/b1d4e38f7a96db8fd080f641daaab2350744b9e6))
+
 ## [5.1.1](https://github.com/sb-mig/sb-mig/compare/v5.1.0...v5.1.1) (2023-07-04)
 
 
