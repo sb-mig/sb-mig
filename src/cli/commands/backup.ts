@@ -342,7 +342,7 @@ export const backup = async (props: CLIOptions) => {
                                         res: { allPresets: res, ...metadata },
                                         folder: storyblokConfig.presetsBackupDirectory,
                                     },
-                                    apiConfig
+                                    { ...apiConfig, sbmigWorkingDirectory: "" }
                                 );
                             }
                         })
