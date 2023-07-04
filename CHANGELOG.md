@@ -1,3 +1,12 @@
+## [5.1.1-beta.1](https://github.com/sb-mig/sb-mig/compare/v5.1.0...v5.1.1-beta.1) (2023-07-04)
+
+
+### Bug Fixes
+
+* make RequestBaseConfig mostly partial, because its not that required ([cdb99b4](https://github.com/sb-mig/sb-mig/commit/cdb99b40792e29194426bd7cd7cf3159c3b6ea30))
+* make sure assets getting sbmigWorkingDirectory passed ([9bd0790](https://github.com/sb-mig/sb-mig/commit/9bd0790a3898038ce128d5b5b278aab2c2e0c05c))
+* update backup component-presets with proper save to file function arguments ([985988c](https://github.com/sb-mig/sb-mig/commit/985988c39fde49e8be21c407db7a35dc8d79e37a))
+
 # [5.1.0](https://github.com/sb-mig/sb-mig/compare/v5.0.8...v5.1.0) (2023-07-03)
 
 
