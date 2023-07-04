@@ -128,6 +128,9 @@ const getSizeFromURL = (fileUrl: string) => {
 const downloadAsset: DownloadAsset = async (args, config) => {
     const { debug, sbmigWorkingDirectory } = config;
     const { payload } = args;
+    if (!sbmigWorkingDirectory) {
+        throw Error("sbmigWorkingDirectory is not defined");
+    }
     const fileName = getFileName(payload.filename);
     const fileUrl = payload.filename;
     const downloadedAssetsFolder = path.join(

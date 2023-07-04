@@ -3,7 +3,8 @@ import type StoryblokClient from "storyblok-js-client";
 
 import Logger from "../../utils/logger.js";
 
-export interface RequestBaseConfig extends Omit<IStoryblokConfig, "sbApi"> {
+export interface RequestBaseConfig
+    extends Partial<Omit<IStoryblokConfig, "sbApi">> {
     spaceId: string;
     sbApi: StoryblokClient;
 }
