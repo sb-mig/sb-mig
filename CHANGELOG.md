@@ -1,3 +1,10 @@
+## [5.1.2-beta.4](https://github.com/sb-mig/sb-mig/compare/v5.1.2-beta.3...v5.1.2-beta.4) (2023-07-13)
+
+
+### Bug Fixes
+
+* broken updatePreset due to change of api ([f0bf2df](https://github.com/sb-mig/sb-mig/commit/f0bf2df5b957778fb680da5623f67785a6428e2b))
+
 ## [5.1.2-beta.3](https://github.com/sb-mig/sb-mig/compare/v5.1.2-beta.2...v5.1.2-beta.3) (2023-07-13)
 
 
