@@ -1,3 +1,10 @@
+## [5.1.2-beta.3](https://github.com/sb-mig/sb-mig/compare/v5.1.2-beta.2...v5.1.2-beta.3) (2023-07-13)
+
+
+### Bug Fixes
+
+* bump eslint deps ([f7cc032](https://github.com/sb-mig/sb-mig/commit/f7cc032ba90a5a2dcc72dbab64ddb8763c20eb8e))
+
 ## [5.1.2-beta.2](https://github.com/sb-mig/sb-mig/compare/v5.1.2-beta.1...v5.1.2-beta.2) (2023-07-13)
 
 
