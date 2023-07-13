@@ -9,7 +9,7 @@ const _resolvePresets = async (
     res: any,
     all_presets: any,
     component: any,
-    config: RequestBaseConfig
+    config: RequestBaseConfig,
 ) => {
     const componentId = res.data.component.id;
 
@@ -21,7 +21,7 @@ const _resolvePresets = async (
 
         const allRemoteComponentPresets = await getComponentPresets(
             component.name,
-            config
+            config,
         );
 
         const presetsToUpdate = [];
@@ -32,7 +32,8 @@ const _resolvePresets = async (
                 allRemoteComponentPresets &&
                 allRemoteComponentPresets.find(
                     (remotePreset: any) =>
-                        componentPreset.preset.name === remotePreset.preset.name
+                        componentPreset.preset.name ===
+                        remotePreset.preset.name,
                 );
             if (shouldBeUpdated) {
                 presetsToUpdate.push({
@@ -49,14 +50,14 @@ const _resolvePresets = async (
 
         const presetsToUpdateResult = await Promise.all(
             presetsToUpdate.map((preset) => {
-                return updatePreset(preset, config);
-            })
+                return updatePreset({ p: preset }, config);
+            }),
         );
 
         const presetsToCreateResult = await Promise.all(
             presetsToCreate.map((preset) => {
                 return createPreset(preset, config);
-            })
+            }),
         );
 
         return [...presetsToCreateResult, presetsToUpdateResult];
