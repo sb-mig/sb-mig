@@ -1,3 +1,11 @@
+## [5.1.2-beta.2](https://github.com/sb-mig/sb-mig/compare/v5.1.2-beta.1...v5.1.2-beta.2) (2023-07-13)
+
+
+### Bug Fixes
+
+* udpate tsconfig for tests ([9c357d7](https://github.com/sb-mig/sb-mig/commit/9c357d7edf704a2d2c882ea7bce3a76d00460059))
+* update deps ([77edc6d](https://github.com/sb-mig/sb-mig/commit/77edc6d50acb86fc499b566609adfc61972f7e53))
+
 ## [5.1.2-beta.1](https://github.com/sb-mig/sb-mig/compare/v5.1.1...v5.1.2-beta.1) (2023-07-04)
 
 
