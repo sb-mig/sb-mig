@@ -1,3 +1,10 @@
+## [5.1.2-beta.5](https://github.com/sb-mig/sb-mig/compare/v5.1.2-beta.4...v5.1.2-beta.5) (2023-07-17)
+
+
+### Bug Fixes
+
+* update eslint ([666ef41](https://github.com/sb-mig/sb-mig/commit/666ef41d876cb3d4219b7ce779c266e2fc733319))
+
 ## [5.1.2-beta.4](https://github.com/sb-mig/sb-mig/compare/v5.1.2-beta.3...v5.1.2-beta.4) (2023-07-13)
 
 
