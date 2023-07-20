@@ -1,3 +1,10 @@
+## [5.1.2-beta.6](https://github.com/sb-mig/sb-mig/compare/v5.1.2-beta.5...v5.1.2-beta.6) (2023-07-20)
+
+
+### Bug Fixes
+
+* move storyblokApiMapping to constant to be available to import from outside ([353f02b](https://github.com/sb-mig/sb-mig/commit/353f02be0321a978c61527b3fee0e476d8db4f22))
+
 ## [5.1.2-beta.5](https://github.com/sb-mig/sb-mig/compare/v5.1.2-beta.4...v5.1.2-beta.5) (2023-07-17)
 
 
