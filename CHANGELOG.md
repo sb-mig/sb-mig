@@ -1,3 +1,10 @@
+## [5.1.2-beta.8](https://github.com/sb-mig/sb-mig/compare/v5.1.2-beta.7...v5.1.2-beta.8) (2023-08-08)
+
+
+### Bug Fixes
+
+* semver wrong import ([163c5a0](https://github.com/sb-mig/sb-mig/commit/163c5a0454c2d80b417fa0396c2f717063a6eb65))
+
 ## [5.1.2-beta.7](https://github.com/sb-mig/sb-mig/compare/v5.1.2-beta.6...v5.1.2-beta.7) (2023-08-08)
 
 
