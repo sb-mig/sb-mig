@@ -1,3 +1,10 @@
+## [5.1.2-beta.7](https://github.com/sb-mig/sb-mig/compare/v5.1.2-beta.6...v5.1.2-beta.7) (2023-08-08)
+
+
+### Bug Fixes
+
+* migrations check script not working for multiple number versions ([0975e76](https://github.com/sb-mig/sb-mig/commit/0975e760898e53c80c88ba9831eda9672a6032d9))
+
 ## [5.1.2-beta.6](https://github.com/sb-mig/sb-mig/compare/v5.1.2-beta.5...v5.1.2-beta.6) (2023-07-20)
 
 
