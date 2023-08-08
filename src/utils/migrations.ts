@@ -1,3 +1,5 @@
+import semver from "semver/preload";
+
 import { createJsonFile, readFile } from "./files.js";
 
 type MigrationNames =
@@ -18,7 +20,7 @@ export const preselectMigrations = (
     } = {
         story: [],
         preset: [],
-    }
+    },
 ) => {
     const final = {
         story: [],
@@ -26,7 +28,10 @@ export const preselectMigrations = (
     };
 
     const versionThatApplies = Object.keys(versionMapping).filter((version) => {
-        if (version <= installedVersion && version > currentVersion) {
+        if (
+            semver.lte(version, installedVersion) &&
+            semver.gt(version, currentVersion)
+        ) {
             return version;
         } else {
             return false;
@@ -50,13 +55,13 @@ export const preselectMigrations = (
     const storyFlatted = final.story
         .flatMap((item) => item)
         .filter(
-            (migration) => !alreadyApplied.story.includes(migration as string)
+            (migration) => !alreadyApplied.story.includes(migration as string),
         );
 
     const presetFlatted = final.preset
         .flatMap((item) => item)
         .filter(
-            (migration) => !alreadyApplied.preset.includes(migration as string)
+            (migration) => !alreadyApplied.preset.includes(migration as string),
         );
 
     return {
@@ -67,7 +72,7 @@ export const preselectMigrations = (
 
 export const modifyOrCreateAppliedMigrationsFile = async (
     migrationApplied: string,
-    itemType: "story" | "preset"
+    itemType: "story" | "preset",
 ) => {
     const fileName = "applied-backpack-migrations.json";
 
@@ -109,6 +114,6 @@ export const modifyOrCreateAppliedMigrationsFile = async (
 
     await createJsonFile(
         appliedMigrationsFileContent,
-        "applied-backpack-migrations.json"
+        "applied-backpack-migrations.json",
     );
 };
