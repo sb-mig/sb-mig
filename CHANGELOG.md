@@ -1,3 +1,18 @@
+## [5.1.2](https://github.com/sb-mig/sb-mig/compare/v5.1.1...v5.1.2) (2023-08-09)
+
+
+### Bug Fixes
+
+* broken updatePreset due to change of api ([f0bf2df](https://github.com/sb-mig/sb-mig/commit/f0bf2df5b957778fb680da5623f67785a6428e2b))
+* bump eslint deps ([f7cc032](https://github.com/sb-mig/sb-mig/commit/f7cc032ba90a5a2dcc72dbab64ddb8763c20eb8e))
+* migrations check script not working for multiple number versions ([0975e76](https://github.com/sb-mig/sb-mig/commit/0975e760898e53c80c88ba9831eda9672a6032d9))
+* move storyblokApiMapping to constant to be available to import from outside ([353f02b](https://github.com/sb-mig/sb-mig/commit/353f02be0321a978c61527b3fee0e476d8db4f22))
+* semver wrong import ([163c5a0](https://github.com/sb-mig/sb-mig/commit/163c5a0454c2d80b417fa0396c2f717063a6eb65))
+* udpate tsconfig for tests ([9c357d7](https://github.com/sb-mig/sb-mig/commit/9c357d7edf704a2d2c882ea7bce3a76d00460059))
+* update deps ([77edc6d](https://github.com/sb-mig/sb-mig/commit/77edc6d50acb86fc499b566609adfc61972f7e53))
+* update eslint ([666ef41](https://github.com/sb-mig/sb-mig/commit/666ef41d876cb3d4219b7ce779c266e2fc733319))
+* update save to file function not working correctly in backup component presets ([b1d4e38](https://github.com/sb-mig/sb-mig/commit/b1d4e38f7a96db8fd080f641daaab2350744b9e6))
+
 ## [5.1.2-beta.8](https://github.com/sb-mig/sb-mig/compare/v5.1.2-beta.7...v5.1.2-beta.8) (2023-08-08)
 
 
