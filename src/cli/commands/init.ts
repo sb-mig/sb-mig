@@ -6,26 +6,9 @@ import StoryblokClient from "storyblok-js-client";
 import { v4 as uuidv4 } from "uuid";
 
 import { managementApi } from "../../api/managementApi.js";
+import { storyblokApiMapping } from "../../config/constants.js";
 import Logger from "../../utils/logger.js";
 import { apiConfig } from "../api-config.js";
-
-const storyblokApiMapping = {
-    eu: {
-        managementApi: "https://mapi.storyblok.com/v1",
-        deliveryApi: "https://api.storyblok.com/v2",
-        graphql: "https://gapi.storyblok.com/v1/api",
-    },
-    us: {
-        managementApi: "https://api-us.storyblok.com/v1",
-        deliveryApi: "https://api-us.storyblok.com/v2",
-        graphql: "https://gapi-us.storyblok.com/v1/api",
-    },
-    cn: {
-        managementApi: "https://app.storyblokchina.cn",
-        deliveryApi: "https://app.storyblokchina.cn",
-        graphql: "",
-    },
-};
 
 const INIT_COMMANDS = {
     project: "project",
@@ -54,7 +37,7 @@ export const init = async (props: CLIOptions) => {
             const storyblokGraphqlApiUrl = storyblokApiMapping[region].graphql;
 
             Logger.warning(
-                "Updating space and creating .env file with provided options"
+                "Updating space and creating .env file with provided options",
             );
             console.log({
                 spaceId,
@@ -65,7 +48,7 @@ export const init = async (props: CLIOptions) => {
 
             const localSbApi = new StoryblokClient(
                 { oauthToken },
-                storyblokManagementApiUrl
+                storyblokManagementApiUrl,
             );
 
             console.log("This is api config: ");
@@ -73,7 +56,7 @@ export const init = async (props: CLIOptions) => {
 
             const spaceData = await managementApi.spaces.getSpace(
                 { spaceId },
-                { ...apiConfig, sbApi: localSbApi }
+                { ...apiConfig, sbApi: localSbApi },
             );
 
             const STORYBLOK_REGION = region;
@@ -105,7 +88,7 @@ export const init = async (props: CLIOptions) => {
             try {
                 const response = await fs.promises.writeFile(
                     ".env",
-                    envFileContent
+                    envFileContent,
                 );
                 Logger.success("Successfully created .env file");
             } catch (e) {
@@ -121,7 +104,7 @@ export const init = async (props: CLIOptions) => {
                             domain: `https://localhost:3000/api/preview/preview?secret=${STORYBLOK_PREVIEW_SECRET}&slug=`,
                         },
                     },
-                    { ...apiConfig, sbApi: localSbApi }
+                    { ...apiConfig, sbApi: localSbApi },
                 );
                 Logger.success("Successfully updated space domain");
             } catch (e) {

@@ -1,3 +1,60 @@
+## [5.1.2-beta.8](https://github.com/sb-mig/sb-mig/compare/v5.1.2-beta.7...v5.1.2-beta.8) (2023-08-08)
+
+
+### Bug Fixes
+
+* semver wrong import ([163c5a0](https://github.com/sb-mig/sb-mig/commit/163c5a0454c2d80b417fa0396c2f717063a6eb65))
+
+## [5.1.2-beta.7](https://github.com/sb-mig/sb-mig/compare/v5.1.2-beta.6...v5.1.2-beta.7) (2023-08-08)
+
+
+### Bug Fixes
+
+* migrations check script not working for multiple number versions ([0975e76](https://github.com/sb-mig/sb-mig/commit/0975e760898e53c80c88ba9831eda9672a6032d9))
+
+## [5.1.2-beta.6](https://github.com/sb-mig/sb-mig/compare/v5.1.2-beta.5...v5.1.2-beta.6) (2023-07-20)
+
+
+### Bug Fixes
+
+* move storyblokApiMapping to constant to be available to import from outside ([353f02b](https://github.com/sb-mig/sb-mig/commit/353f02be0321a978c61527b3fee0e476d8db4f22))
+
+## [5.1.2-beta.5](https://github.com/sb-mig/sb-mig/compare/v5.1.2-beta.4...v5.1.2-beta.5) (2023-07-17)
+
+
+### Bug Fixes
+
+* update eslint ([666ef41](https://github.com/sb-mig/sb-mig/commit/666ef41d876cb3d4219b7ce779c266e2fc733319))
+
+## [5.1.2-beta.4](https://github.com/sb-mig/sb-mig/compare/v5.1.2-beta.3...v5.1.2-beta.4) (2023-07-13)
+
+
+### Bug Fixes
+
+* broken updatePreset due to change of api ([f0bf2df](https://github.com/sb-mig/sb-mig/commit/f0bf2df5b957778fb680da5623f67785a6428e2b))
+
+## [5.1.2-beta.3](https://github.com/sb-mig/sb-mig/compare/v5.1.2-beta.2...v5.1.2-beta.3) (2023-07-13)
+
+
+### Bug Fixes
+
+* bump eslint deps ([f7cc032](https://github.com/sb-mig/sb-mig/commit/f7cc032ba90a5a2dcc72dbab64ddb8763c20eb8e))
+
+## [5.1.2-beta.2](https://github.com/sb-mig/sb-mig/compare/v5.1.2-beta.1...v5.1.2-beta.2) (2023-07-13)
+
+
+### Bug Fixes
+
+* udpate tsconfig for tests ([9c357d7](https://github.com/sb-mig/sb-mig/commit/9c357d7edf704a2d2c882ea7bce3a76d00460059))
+* update deps ([77edc6d](https://github.com/sb-mig/sb-mig/commit/77edc6d50acb86fc499b566609adfc61972f7e53))
+
+## [5.1.2-beta.1](https://github.com/sb-mig/sb-mig/compare/v5.1.1...v5.1.2-beta.1) (2023-07-04)
+
+
+### Bug Fixes
+
+* update save to file function not working correctly in backup component presets ([b1d4e38](https://github.com/sb-mig/sb-mig/commit/b1d4e38f7a96db8fd080f641daaab2350744b9e6))
+
 ## [5.1.1](https://github.com/sb-mig/sb-mig/compare/v5.1.0...v5.1.1) (2023-07-04)
 
 

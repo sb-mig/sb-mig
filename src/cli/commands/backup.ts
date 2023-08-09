@@ -338,11 +338,11 @@ export const backup = async (props: CLIOptions) => {
                                 await createAndSaveToFile(
                                     {
                                         ext: "json",
-                                        filename: `${component.name}.presets.sb.json`,
+                                        filename: `${component.name}.presets.sb`,
                                         res: { allPresets: res, ...metadata },
                                         folder: storyblokConfig.presetsBackupDirectory,
                                     },
-                                    { ...apiConfig, sbmigWorkingDirectory: "" }
+                                    { ...apiConfig, sbmigWorkingDirectory: "." }
                                 );
                             }
                         })
