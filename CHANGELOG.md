@@ -1,3 +1,10 @@
+## [5.1.3-beta.1](https://github.com/sb-mig/sb-mig/compare/v5.1.2...v5.1.3-beta.1) (2023-08-12)
+
+
+### Bug Fixes
+
+* upd deps: ([bf37203](https://github.com/sb-mig/sb-mig/commit/bf372034143ef99d4ab2546756e6e545a9c9c6d4))
+
 ## [5.1.2](https://github.com/sb-mig/sb-mig/compare/v5.1.1...v5.1.2) (2023-08-09)
 
 
