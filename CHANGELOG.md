@@ -1,3 +1,10 @@
+## [5.1.4-beta.1](https://github.com/sb-mig/sb-mig/compare/v5.1.3...v5.1.4-beta.1) (2023-08-12)
+
+
+### Bug Fixes
+
+* update rollup deps ([88a59f3](https://github.com/sb-mig/sb-mig/commit/88a59f37a9bcc22b211ee4b049d0ba5a14519ae8))
+
 ## [5.1.3](https://github.com/sb-mig/sb-mig/compare/v5.1.2...v5.1.3) (2023-08-12)
 
 
