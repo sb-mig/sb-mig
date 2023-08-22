@@ -44,13 +44,13 @@ export const syncProvidedDatasources: SyncProvidedDatasources = async (
     );
 };
 
-export const syncAllDatasources: SyncAllDatasources = (config) => {
-    const allLocalDatasources = discoverDatasources({
+export const syncAllDatasources: SyncAllDatasources = async (config) => {
+    const allLocalDatasources = await discoverDatasources({
         scope: SCOPE.local,
         type: LOOKUP_TYPE.fileName,
     });
 
-    const allExternalDatasources = discoverDatasources({
+    const allExternalDatasources = await discoverDatasources({
         scope: SCOPE.external,
         type: LOOKUP_TYPE.fileName,
     });

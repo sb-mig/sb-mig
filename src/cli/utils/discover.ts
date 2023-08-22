@@ -783,9 +783,9 @@ export const discoverVersionMapping = (
     return listOfFiles;
 };
 
-export const discoverDatasources = (
+export const discoverDatasources = async (
     request: DiscoverRequest,
-): DiscoverResult => {
+): Promise<DiscoverResult> => {
     const rootDirectory = "./";
     const directory = path.resolve(process.cwd(), rootDirectory);
     let pattern;
@@ -794,10 +794,49 @@ export const discoverDatasources = (
     switch (request.scope) {
         case SCOPE.local:
             // ### ALL - LOCAL - fileName ###
+            let listOFSchemaTSFilesCompiled: string[] = [];
+
             const onlyLocalComponentsDirectories =
                 storyblokConfig.componentsDirectories.filter(
                     (p: string) => !p.includes("node_modules"),
                 );
+
+            if (storyblokConfig.schemaType === SCHEMA.TS) {
+                pattern = path.join(
+                    `${directory}`,
+                    `${normalizeDiscover({
+                        segments: onlyLocalComponentsDirectories,
+                    })}`,
+                    "**",
+                    `[^_]*.sb.datasource.${storyblokConfig.schemaType}`, // all files with 'ext' extension, without files beggining with _
+                );
+
+                const listOfFilesToCompile = glob.sync(
+                    pattern.replace(/\\/g, "/"),
+                    {
+                        follow: true,
+                    },
+                );
+
+                await buildOnTheFly({ files: listOfFilesToCompile });
+
+                pattern = path.join(
+                    directory,
+                    ".next",
+                    "cache",
+                    "sb-mig",
+                    "**",
+                    `[^_]*.sb.datasource.${storyblokConfig.schemaType}`, // all files with 'ext' extension, without files beggining with _
+                );
+
+                listOFSchemaTSFilesCompiled = glob.sync(
+                    pattern.replace(/\\/g, "/"),
+                    {
+                        follow: true,
+                    },
+                );
+            }
+
             pattern = path.join(
                 `${directory}`,
                 `${normalizeDiscover({
@@ -810,6 +849,8 @@ export const discoverDatasources = (
             listOfFiles = glob.sync(pattern.replace(/\\/g, "/"), {
                 follow: true,
             });
+
+            listOfFiles = [...listOfFiles, ...listOFSchemaTSFilesCompiled];
             break;
         case SCOPE.external:
             // ### ALL - EXTERNAL - fileName ###
