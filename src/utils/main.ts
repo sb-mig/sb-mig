@@ -42,16 +42,7 @@ export const getFileContentWithRequire = (data: { file: string }) => {
 };
 
 export const getFilesContentWithRequire = (data: { files: string[] }) => {
-    const require = createRequire(import.meta.url);
-    return data.files.map((file) => {
-        const requiredFile = require(file);
-
-        if ("default" in requiredFile) {
-            return requiredFile.default;
-        } else {
-            return requiredFile;
-        }
-    });
+    return data.files.map((file) => getFileContentWithRequire({ file }));
 };
 
 export const isObjectEmpty = (obj: any) => {
