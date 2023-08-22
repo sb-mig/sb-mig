@@ -41,7 +41,7 @@ import { _uniqueValuesFrom } from "./utils/helper-functions.js";
 
 const _checkAndPrepareGroups: CheckAndPrepareGroups = async (
     groupsToCheck,
-    config
+    config,
 ) => {
     const componentsGroups =
         await managementApi.components.getAllComponentsGroups(config);
@@ -55,7 +55,7 @@ const _checkAndPrepareGroups: CheckAndPrepareGroups = async (
         if (!groupExist(groupName)) {
             await managementApi.components.createComponentsGroup(
                 groupName,
-                config
+                config,
             );
         }
     });
@@ -73,7 +73,7 @@ export const removeAllComponents = async (config: RequestBaseConfig) => {
         ...component_groups.map(async (componentGroup: any) => {
             await managementApi.components.removeComponentGroup(
                 componentGroup,
-                config
+                config,
             );
         }),
     ]);
@@ -83,16 +83,16 @@ export const removeAllComponents = async (config: RequestBaseConfig) => {
 
 export const removeSpecifiedComponents: RemoveSpecificComponents = async (
     components,
-    config
+    config,
 ) => {
     const remoteComponents = await managementApi.components.getAllComponents(
-        config
+        config,
     );
     const componentsToRemove: any = [];
 
     components.map((component: any) => {
         const shouldBeRemoved = remoteComponents.find(
-            (remoteComponent: any) => component === remoteComponent.name
+            (remoteComponent: any) => component === remoteComponent.name,
         );
         shouldBeRemoved && componentsToRemove.push(shouldBeRemoved);
     });
@@ -102,7 +102,7 @@ export const removeSpecifiedComponents: RemoveSpecificComponents = async (
         Promise.all(
             componentsToRemove.map((component: any) => {
                 managementApi.components.removeComponent(component, config);
-            })
+            }),
         )
     );
 };
@@ -110,18 +110,18 @@ export const removeSpecifiedComponents: RemoveSpecificComponents = async (
 const _resolveGroups: ResolveGroups = async (
     component,
     existedGroups,
-    remoteComponentsGroups
+    remoteComponentsGroups,
 ) => {
     if (!component.component_group_name) {
         return { ...component, component_group_uuid: null };
     }
     const componentsGroup = existedGroups.find(
-        (group: any) => component.component_group_name === group
+        (group: any) => component.component_group_name === group,
     );
     if (componentsGroup) {
         const component_group_uuid = remoteComponentsGroups.find(
             (remoteComponentsGroup: any) =>
-                remoteComponentsGroup.name === componentsGroup
+                remoteComponentsGroup.name === componentsGroup,
         ).uuid;
 
         return { ...component, component_group_uuid };
@@ -131,20 +131,20 @@ const _resolveGroups: ResolveGroups = async (
 export const syncComponents: SyncComponents = async (
     specifiedComponents,
     presets,
-    config
+    config,
 ) => {
     Logger.log("sync2Components: ");
 
     const specifiedComponentsContent = await Promise.all(
         specifiedComponents.map((component) => {
             return getFileContentWithRequire({ file: component.p });
-        })
+        }),
     );
 
     const groupsToCheck = _uniqueValuesFrom(
         specifiedComponentsContent
             .filter((component) => component.component_group_name)
-            .map((component) => component.component_group_name)
+            .map((component) => component.component_group_name),
     );
 
     await _checkAndPrepareGroups(groupsToCheck, config);
@@ -155,7 +155,7 @@ export const syncComponents: SyncComponents = async (
     // it will be race of condition kinda issue - we will never now, if the group for current processed component
     // already exist or is being created by other request
     const remoteComponents = await managementApi.components.getAllComponents(
-        config
+        config,
     );
 
     const componentsToUpdate = [];
@@ -165,7 +165,7 @@ export const syncComponents: SyncComponents = async (
         if (!isObjectEmpty(component)) {
             const shouldBeUpdated = remoteComponents.find(
                 (remoteComponent: any) =>
-                    component.name === remoteComponent.name
+                    component.name === remoteComponent.name,
             );
             if (shouldBeUpdated) {
                 componentsToUpdate.push({
@@ -188,9 +188,9 @@ export const syncComponents: SyncComponents = async (
                     component,
                     groupsToCheck,
                     componentsGroups,
-                    config
-                )
-            )
+                    config,
+                ),
+            ),
         ).then((res) => {
             Logger.log("Components to update after check: ");
             res.map((component) => {
@@ -198,7 +198,7 @@ export const syncComponents: SyncComponents = async (
                 managementApi.components.updateComponent(
                     component,
                     presets,
-                    config
+                    config,
                 );
             });
         });
@@ -210,9 +210,9 @@ export const syncComponents: SyncComponents = async (
                     component,
                     groupsToCheck,
                     componentsGroups,
-                    config
-                )
-            )
+                    config,
+                ),
+            ),
         ).then((res) => {
             Logger.log("Components to create after check: ");
             res.map((component) => {
@@ -220,7 +220,7 @@ export const syncComponents: SyncComponents = async (
                 managementApi.components.createComponent(
                     component,
                     presets,
-                    config
+                    config,
                 );
             });
         });
@@ -253,7 +253,7 @@ export const syncProvidedComponents: SyncProvidedComponents = async (
     presets,
     components,
     packageName,
-    config
+    config,
 ) => {
     if (!packageName) {
         // #1: discover all external .sb.js files
@@ -268,6 +268,7 @@ export const syncProvidedComponents: SyncProvidedComponents = async (
             type: LOOKUP_TYPE.fileName,
             fileNames: components,
         });
+
         // #3: compare results, prefer local ones (so we have to create final external paths array and local array of things to sync from where)
         const { local, external } = compare({
             local: allLocalSbComponentsSchemaFiles,
@@ -300,7 +301,7 @@ export const syncProvidedComponents: SyncProvidedComponents = async (
 
 export const syncAssets: SyncAssets = async (
     { transmission: { from, to }, syncDirection },
-    config
+    config,
 ) => {
     Logger.log(`We would try to migrate Assets data from: ${from} to: ${to}`);
 
@@ -313,21 +314,21 @@ export const syncAssets: SyncAssets = async (
                 payload: newAssetPayload,
                 syncDirection,
             },
-            config
+            config,
         );
     });
 };
 
 const syncStories: SyncStories = async (
     { transmission: { from, to }, stories, toSpaceId },
-    config
+    config,
 ) => {
     Logger.log(`We would try to migrate Stories data from: ${from} to: ${to}`);
 
     const storiesToPass = stories
         .map((item: any) => item.story)
         .map((item: any) =>
-            item.parent_id === 0 ? { ...item, parent_id: null } : item
+            item.parent_id === 0 ? { ...item, parent_id: null } : item,
         );
 
     Logger.warning(`Amount of all stories to migrate: ${storiesToPass.length}`);
@@ -346,13 +347,13 @@ const syncStories: SyncStories = async (
 
     await traverseAndCreate(
         { tree, realParentId: null, spaceId: toSpaceId },
-        config
+        config,
     );
 };
 
 export const syncContent: SyncContentFunction = async (
     { type, transmission, syncDirection, filename },
-    config
+    config,
 ) => {
     if (type === "stories") {
         if (syncDirection === "fromSpaceToFile") {
@@ -362,7 +363,7 @@ export const syncContent: SyncContentFunction = async (
                     suffix: ".sb.stories",
                     spaceId: transmission.from,
                 },
-                config
+                config,
             );
         }
 
@@ -373,7 +374,7 @@ export const syncContent: SyncContentFunction = async (
                     ...config,
                     spaceId: transmission.from,
                     sbApi: config.sbApi,
-                }
+                },
             );
             await syncStories(
                 {
@@ -381,7 +382,7 @@ export const syncContent: SyncContentFunction = async (
                     stories,
                     toSpaceId: transmission.to,
                 },
-                config
+                config,
             );
         }
 
@@ -402,14 +403,14 @@ export const syncContent: SyncContentFunction = async (
                     stories: storiesFileContent[0],
                     toSpaceId: transmission.to,
                 },
-                config
+                config,
             );
         }
 
         if (syncDirection === "fromAWSToSpace") {
             const data = await contentHubApi.getAllStories(
                 { spaceId: transmission.from, storiesFilename: filename },
-                apiConfig
+                apiConfig,
             );
 
             await syncStories(
@@ -418,7 +419,7 @@ export const syncContent: SyncContentFunction = async (
                     stories: data.stories,
                     toSpaceId: transmission.to,
                 },
-                config
+                config,
             );
         }
 
@@ -426,7 +427,7 @@ export const syncContent: SyncContentFunction = async (
     } else if (type === "assets") {
         if (syncDirection === "fromFileToSpace") {
             Logger.warning(
-                `${syncDirection} with ${type} This is not implemented yet!`
+                `${syncDirection} with ${type} This is not implemented yet!`,
             );
         } else if (
             syncDirection === "fromSpaceToSpace" ||
@@ -435,7 +436,7 @@ export const syncContent: SyncContentFunction = async (
             await syncAssets({ transmission, syncDirection }, config);
         } else {
             Logger.warning(
-                `${syncDirection} with ${type} This is not implemented yet!`
+                `${syncDirection} with ${type} This is not implemented yet!`,
             );
         }
 

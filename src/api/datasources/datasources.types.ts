@@ -1,34 +1,36 @@
+import type { OneFileElement } from "../../cli/utils/discover.js";
 import type { RequestBaseConfig } from "../utils/request.js";
+
 
 export type GetAllDatasources = (config: RequestBaseConfig) => Promise<any>;
 export type GetDatasource = (
     args: { datasourceName: string | undefined },
-    config: RequestBaseConfig
+    config: RequestBaseConfig,
 ) => Promise<any>;
 
 export type CreateDatasource = (
     args: { datasource: any },
-    config: RequestBaseConfig
+    config: RequestBaseConfig,
 ) => Promise<any>;
 export type UpdateDatasource = (
     args: { datasource: any; datasourceToBeUpdated: any },
-    config: RequestBaseConfig
+    config: RequestBaseConfig,
 ) => Promise<any>;
 
 export type SyncDatasources = (
-    args: { providedDatasources: string[] },
-    config: RequestBaseConfig
+    args: { providedDatasources: OneFileElement[] },
+    config: RequestBaseConfig,
 ) => Promise<any>;
 export type SyncProvidedDatasources = (
     args: { datasources: string[] },
-    config: RequestBaseConfig
+    config: RequestBaseConfig,
 ) => void;
 export type SyncAllDatasources = (config: RequestBaseConfig) => void;
 
 // Datasource Entries
 export type GetDatasourceEntries = (
     args: { datasourceName: string },
-    config: RequestBaseConfig
+    config: RequestBaseConfig,
 ) => Promise<any>;
 export type CreateDatasourceEntries = (
     args: {
@@ -36,14 +38,14 @@ export type CreateDatasourceEntries = (
         datasource_entries: any;
         remoteDatasourceEntries: any;
     },
-    config: RequestBaseConfig
+    config: RequestBaseConfig,
 ) => Promise<any> | void;
 export type CreateDatasourceEntry = (
     args: {
         data: any;
         datasourceEntry: any;
     },
-    config: RequestBaseConfig
+    config: RequestBaseConfig,
 ) => Promise<any>;
 export type UpdateDatasourceEntry = (
     args: {
@@ -51,7 +53,7 @@ export type UpdateDatasourceEntry = (
         datasourceEntry: any;
         datasourceToBeUpdated: any;
     },
-    config: RequestBaseConfig
+    config: RequestBaseConfig,
 ) => Promise<any>;
 
 export type _UpdateDatasourceEntry = (
@@ -59,7 +61,7 @@ export type _UpdateDatasourceEntry = (
         currentDatasource: any;
         finalDatasource_entry: any;
     },
-    config: RequestBaseConfig
+    config: RequestBaseConfig,
 ) => Promise<any>;
 
 export type _CreateDatasourceEntry = _UpdateDatasourceEntry;
@@ -70,5 +72,5 @@ export type _DecorateWithDimensions = (
         dimensionsData: any;
         _callback: any;
     },
-    config: RequestBaseConfig
+    config: RequestBaseConfig,
 ) => Promise<any>;

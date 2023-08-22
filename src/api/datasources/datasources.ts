@@ -7,7 +7,10 @@ import type {
 } from "./datasources.types.js";
 
 import Logger from "../../utils/logger.js";
-import { getFilesContentWithRequire } from "../../utils/main.js";
+import {
+    getFileContentWithRequire,
+    getFilesContentWithRequire,
+} from "../../utils/main.js";
 import { getAllItemsWithPagination } from "../utils/request.js";
 
 import {
@@ -32,7 +35,7 @@ export const getAllDatasources: GetAllDatasources = (config) => {
                 .catch((err) => {
                     if (err.response.status === 404) {
                         Logger.error(
-                            `There is no datasources in your Storyblok ${spaceId} space.`
+                            `There is no datasources in your Storyblok ${spaceId} space.`,
                         );
                         return true;
                     } else {
@@ -55,7 +58,7 @@ export const getDatasource: GetDatasource = (args, config) => {
         .then((res) => {
             if (res) {
                 return res.filter(
-                    (datasource: any) => datasource.name === datasourceName
+                    (datasource: any) => datasource.name === datasourceName,
                 );
             } else {
                 return [];
@@ -64,7 +67,7 @@ export const getDatasource: GetDatasource = (args, config) => {
         .then((res) => {
             if (Array.isArray(res) && res.length === 0) {
                 Logger.warning(
-                    `There is no datasource named '${datasourceName}'`
+                    `There is no datasource named '${datasourceName}'`,
                 );
                 return false;
             }
@@ -91,7 +94,7 @@ export const createDatasource: CreateDatasource = (args, config) => {
         } as any)
         .then(({ data }: any) => {
             Logger.success(
-                `Datasource '${data.datasource.name}' with id '${data.datasource.id}' created.`
+                `Datasource '${data.datasource.name}' with id '${data.datasource.id}' created.`,
             );
             return {
                 data,
@@ -110,10 +113,10 @@ export const updateDatasource: UpdateDatasource = (args, config) => {
             const isDimensionInRemoteDatasource =
                 datasourceToBeUpdated.dimensions.find(
                     (d: { name: string; entry_value: string }) =>
-                        dimension.name === d.name
+                        dimension.name === d.name,
                 );
             return !isDimensionInRemoteDatasource;
-        }
+        },
     );
 
     return sbApi
@@ -134,7 +137,7 @@ export const updateDatasource: UpdateDatasource = (args, config) => {
         } as any)
         .then(({ data }: any) => {
             Logger.success(
-                `Datasource '${data.datasource.name}' with id '${data.datasource.id}' created.`
+                `Datasource '${data.datasource.name}' with id '${data.datasource.id}' created.`,
             );
             return {
                 data,
@@ -148,25 +151,28 @@ export const syncDatasources: SyncDatasources = async (args, config) => {
     const { providedDatasources } = args;
     Logger.log(`Trying to sync provided datasources: `);
 
-    const providedDatasourcesContent = getFilesContentWithRequire({
-        files: providedDatasources,
-    });
+    const providedDatasourcesContent = await Promise.all(
+        providedDatasources.map((datasource) => {
+            return getFileContentWithRequire({ file: datasource.p });
+        }),
+    );
+
     const remoteDatasources = await getAllDatasources(config);
 
     Promise.all(
         providedDatasourcesContent.map((datasource: any) => {
             const datasourceToBeUpdated = remoteDatasources.find(
                 (remoteDatasource: any) =>
-                    datasource.name === remoteDatasource.name
+                    datasource.name === remoteDatasource.name,
             );
             if (datasourceToBeUpdated) {
                 return updateDatasource(
-                    { datasource, datasourceToBeUpdated },
-                    config
+                    { datasource: datasource, datasourceToBeUpdated },
+                    config,
                 );
             }
-            return createDatasource({ datasource }, config);
-        })
+            return createDatasource({ datasource: datasource }, config);
+        }),
     )
         .then((res) => {
             // After create or after update datasource
@@ -175,12 +181,12 @@ export const syncDatasources: SyncDatasources = async (args, config) => {
                     {
                         datasourceName: data.datasource.name,
                     },
-                    config
+                    config,
                 );
 
                 console.log(" ");
                 Logger.warning(
-                    `Start async syncing of '${data.datasource.name}' datasource entries.`
+                    `Start async syncing of '${data.datasource.name}' datasource entries.`,
                 );
                 createDatasourceEntries(
                     {
@@ -188,7 +194,7 @@ export const syncDatasources: SyncDatasources = async (args, config) => {
                         datasource_entries,
                         remoteDatasourceEntries,
                     },
-                    config
+                    config,
                 );
             });
             return res;
