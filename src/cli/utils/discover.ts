@@ -818,6 +818,16 @@ export const discoverDatasources = async (
                     },
                 );
 
+                if (storyblokConfig.debug) {
+                    console.log(
+                        "############# listOfFileToCompile #############",
+                    );
+                    console.log(listOfFilesToCompile);
+                    console.log(
+                        "###############################################",
+                    );
+                }
+
                 await buildOnTheFly({ files: listOfFilesToCompile });
 
                 pattern = path.join(
@@ -826,7 +836,7 @@ export const discoverDatasources = async (
                     "cache",
                     "sb-mig",
                     "**",
-                    `[^_]*.sb.datasource.${storyblokConfig.schemaType}`, // all files with 'ext' extension, without files beggining with _
+                    `[^_]*.${storyblokConfig.datasourceExt}`, // all files with 'ext' extension, without files beggining with _
                 );
 
                 listOFSchemaTSFilesCompiled = glob.sync(

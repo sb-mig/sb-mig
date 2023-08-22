@@ -10,6 +10,7 @@ import type {
 
 import chalk from "chalk";
 
+import storyblokConfig from "../../config/config.js";
 import Logger from "../../utils/logger.js";
 import { isObjectEmpty } from "../../utils/main.js";
 
@@ -17,7 +18,7 @@ import { getDatasource } from "./datasources.js";
 
 const _decorateWithDimensions: _DecorateWithDimensions = async (
     args,
-    config
+    config,
 ) => {
     const { currentDatasource, dimensionsData, _callback } = args;
     const { spaceId, sbApi } = config;
@@ -25,12 +26,12 @@ const _decorateWithDimensions: _DecorateWithDimensions = async (
     await _callback();
 
     const dimensionValueEntries = Object.entries(
-        dimensionsData.dimensionValues
+        dimensionsData.dimensionValues,
     );
 
     return dimensionValueEntries.map(([name, value]) => {
         const data = dimensionsData.datasourceDimensions.find(
-            (dimension: any) => dimension.name === name
+            (dimension: any) => dimension.name === name,
         );
 
         const params = {
@@ -45,17 +46,17 @@ const _decorateWithDimensions: _DecorateWithDimensions = async (
         return sbApi
             .put(
                 `spaces/${spaceId}/datasource_entries/${dimensionsData.finalDatasource_entry.id}`,
-                params as any
+                params as any,
             )
             .then((_: any) => {
                 console.log(
                     `${chalk.green(
-                        "✓ Datasource Entry Dimension value for"
+                        "✓ Datasource Entry Dimension value for",
                     )} ${chalk.blue(
-                        dimensionsData.finalDatasource_entry.name
+                        dimensionsData.finalDatasource_entry.name,
                     )} and dimension ${chalk.blue(name)} in ${chalk.red(
-                        currentDatasource.datasource.name
-                    )} datasource ${chalk.green("was successfully updated.")}`
+                        currentDatasource.datasource.name,
+                    )} datasource ${chalk.green("was successfully updated.")}`,
                 );
                 return true;
             })
@@ -67,7 +68,7 @@ const _decorateWithDimensions: _DecorateWithDimensions = async (
 
 export const getDatasourceEntries: GetDatasourceEntries = async (
     args,
-    config
+    config,
 ) => {
     const { datasourceName } = args;
     const { spaceId, sbApi } = config;
@@ -82,7 +83,7 @@ export const getDatasourceEntries: GetDatasourceEntries = async (
             } as any)
             .then(async (response: any) => {
                 Logger.success(
-                    `Datasource Entries for '${datasourceName}' datasource successfully retrieved.`
+                    `Datasource Entries for '${datasourceName}' datasource successfully retrieved.`,
                 );
                 const { data } = response;
                 return data;
@@ -93,7 +94,7 @@ export const getDatasourceEntries: GetDatasourceEntries = async (
 
 export const createDatasourceEntries: CreateDatasourceEntries = (
     args,
-    config
+    config,
 ) => {
     const { datasource_entries, remoteDatasourceEntries, data } = args;
 
@@ -103,20 +104,20 @@ export const createDatasourceEntries: CreateDatasourceEntries = (
                 remoteDatasourceEntries.datasource_entries.find(
                     (remoteDatasourceEntry: any) =>
                         remoteDatasourceEntry.name ===
-                        Object.values(datasourceEntry)[0]
+                        Object.values(datasourceEntry)[0],
                 );
             if (datasourceToBeUpdated) {
                 return updateDatasourceEntry(
                     { data, datasourceEntry, datasourceToBeUpdated },
-                    config
+                    config,
                 );
             }
             return createDatasourceEntry({ data, datasourceEntry }, config);
-        })
+        }),
     )
         .then((_: any) => {
             Logger.success(
-                `Datasource entries for ${data.datasource.id} datasource id has been successfully synced.`
+                `Datasource entries for ${data.datasource.id} datasource id has been successfully synced.`,
             );
             return data;
         })
@@ -126,6 +127,12 @@ export const createDatasourceEntries: CreateDatasourceEntries = (
 const _createDatasourceEntry: _CreateDatasourceEntry = (args, config) => {
     const { currentDatasource, finalDatasource_entry } = args;
     const { spaceId, sbApi } = config;
+
+    if (storyblokConfig.debug) {
+        console.log("############# Entity to Create: ");
+        console.log(finalDatasource_entry);
+        console.log("################################");
+    }
     return sbApi
         .post(`spaces/${spaceId}/datasource_entries/`, {
             datasource_entry: finalDatasource_entry,
@@ -133,15 +140,21 @@ const _createDatasourceEntry: _CreateDatasourceEntry = (args, config) => {
         .then(({ data }: any) => {
             console.log(
                 `${chalk.green("✓ Datasource Entry")} ${chalk.blue(
-                    data.datasource_entry.name
+                    data.datasource_entry.name,
                 )} in ${chalk.red(
-                    currentDatasource.datasource.name
-                )} datasource ${chalk.green("was successfully created.")}`
+                    currentDatasource.datasource.name,
+                )} datasource ${chalk.green("was successfully created.")}`,
             );
             return data;
         })
         .catch((err) => {
-            Logger.error(err);
+            if (storyblokConfig.debug) {
+                console.log("Full Create error: ");
+                console.log(err);
+            }
+            Logger.error(
+                `Unable to create datasource entry in ${currentDatasource.datasource.name} datasource.`,
+            );
         });
 };
 
@@ -156,7 +169,7 @@ export const createDatasourceEntry: CreateDatasourceEntry = (args, config) => {
     if (isObjectEmpty(datasourceEntry.dimension_values)) {
         return _createDatasourceEntry(
             { currentDatasource: data, finalDatasource_entry },
-            config
+            config,
         );
     } else {
         return _decorateWithDimensions(
@@ -170,10 +183,10 @@ export const createDatasourceEntry: CreateDatasourceEntry = (args, config) => {
                 _callback: () =>
                     _createDatasourceEntry(
                         { currentDatasource: data, finalDatasource_entry },
-                        config
+                        config,
                     ),
             },
-            config
+            config,
         );
     }
 };
@@ -186,20 +199,26 @@ const _updateDatasourceEntry: _UpdateDatasourceEntry = (args, config) => {
             `spaces/${spaceId}/datasource_entries/${finalDatasource_entry.id}`,
             {
                 datasource_entry: finalDatasource_entry,
-            } as any
+            } as any,
         )
         .then((_: any) => {
             console.log(
                 `${chalk.green("✓ Datasource Entry")} ${chalk.blue(
-                    finalDatasource_entry.name
+                    finalDatasource_entry.name,
                 )} in ${chalk.red(
-                    currentDatasource.datasource.name
-                )} datasource ${chalk.green("was successfully updated.")}`
+                    currentDatasource.datasource.name,
+                )} datasource ${chalk.green("was successfully updated.")}`,
             );
             return true;
         })
         .catch((err) => {
-            Logger.error(err);
+            if (storyblokConfig.debug) {
+                console.log("Full update error: ");
+                console.log(err);
+            }
+            Logger.error(
+                `Unable to update datasource entry in ${currentDatasource.datasource.name} datasource.`,
+            );
         });
 };
 export const updateDatasourceEntry: UpdateDatasourceEntry = (args, config) => {
@@ -214,7 +233,7 @@ export const updateDatasourceEntry: UpdateDatasourceEntry = (args, config) => {
     if (isObjectEmpty(datasourceEntry.dimension_values)) {
         return _updateDatasourceEntry(
             { currentDatasource: data, finalDatasource_entry },
-            config
+            config,
         );
     } else {
         return _decorateWithDimensions(
@@ -226,7 +245,7 @@ export const updateDatasourceEntry: UpdateDatasourceEntry = (args, config) => {
                             currentDatasource: data,
                             finalDatasource_entry,
                         },
-                        config
+                        config,
                     ),
                 dimensionsData: {
                     finalDatasource_entry,
@@ -234,7 +253,7 @@ export const updateDatasourceEntry: UpdateDatasourceEntry = (args, config) => {
                     datasourceDimensions: data.datasource.dimensions,
                 },
             },
-            config
+            config,
         );
     }
 };

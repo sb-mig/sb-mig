@@ -60,6 +60,10 @@ export const syncAllDatasources: SyncAllDatasources = async (config) => {
         external: allExternalDatasources,
     });
 
+    console.log("############");
+    console.log({ local, external });
+    console.log("############");
+
     managementApi.datasources.syncDatasources(
         {
             providedDatasources: [...local, ...external],
