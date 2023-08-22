@@ -14,12 +14,12 @@ import {
 
 export const syncAllRoles: SyncAllRoles = async (config) => {
     // #1: discover all external .roles.sb.js files
-    const allLocalSbComponentsSchemaFiles = discoverRoles({
+    const allLocalSbComponentsSchemaFiles = await discoverRoles({
         scope: SCOPE.local,
         type: LOOKUP_TYPE.fileName,
     });
     // #2: discover all local .roles.sb.js files
-    const allExternalSbComponentsSchemaFiles = discoverRoles({
+    const allExternalSbComponentsSchemaFiles = await discoverRoles({
         scope: SCOPE.external,
         type: LOOKUP_TYPE.fileName,
     });
@@ -32,13 +32,13 @@ export const syncAllRoles: SyncAllRoles = async (config) => {
     // #4: sync - do all stuff already done (groups resolving, and so on)
     await managementApi.roles.syncRoles(
         { specifiedRoles: [...local, ...external] },
-        config
+        config,
     );
 };
 
 export const syncProvidedRoles: SyncProvidedRoles = async (
     { roles }: { roles: string[] },
-    config
+    config,
 ) => {
     // #1: discover all external .sb.js files
     const allLocalSbComponentsSchemaFiles = await discoverManyRoles({
@@ -58,9 +58,11 @@ export const syncProvidedRoles: SyncProvidedRoles = async (
         external: allExternalSbComponentsSchemaFiles,
     });
 
+    console.log({ local, external });
+
     // #4: sync - do all stuff already done (groups resolving, and so on)
     await managementApi.roles.syncRoles(
         { specifiedRoles: [...local, ...external] },
-        config
+        config,
     );
 };

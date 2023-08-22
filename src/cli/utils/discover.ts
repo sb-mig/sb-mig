@@ -1025,7 +1025,9 @@ export const discover = async (
     return listOfFiles;
 };
 
-export const discoverRoles = (request: DiscoverRequest): DiscoverResult => {
+export const discoverRoles = async (
+    request: DiscoverRequest,
+): Promise<DiscoverResult> => {
     const rootDirectory = ".";
     const directory = path.resolve(process.cwd(), rootDirectory);
     let pattern;
@@ -1034,10 +1036,49 @@ export const discoverRoles = (request: DiscoverRequest): DiscoverResult => {
     switch (request.scope) {
         case SCOPE.local:
             // ### ALL - LOCAL - fileName ###
+            let listOFSchemaTSFilesCompiled: string[] = [];
+
             const onlyLocalComponentsDirectories =
                 storyblokConfig.componentsDirectories.filter(
                     (p: string) => !p.includes("node_modules"),
                 );
+
+            if (storyblokConfig.schemaType === SCHEMA.TS) {
+                pattern = path.join(
+                    `${directory}`,
+                    `${normalizeDiscover({
+                        segments: onlyLocalComponentsDirectories,
+                    })}`,
+                    "**",
+                    `[^_]*.sb.roles.${storyblokConfig.schemaType}`, // all files with 'ext' extension, without files beggining with _
+                );
+
+                const listOfFilesToCompile = glob.sync(
+                    pattern.replace(/\\/g, "/"),
+                    {
+                        follow: true,
+                    },
+                );
+
+                await buildOnTheFly({ files: listOfFilesToCompile });
+
+                pattern = path.join(
+                    directory,
+                    ".next",
+                    "cache",
+                    "sb-mig",
+                    "**",
+                    `[^_]*.${storyblokConfig.rolesExt}`, // all files with 'ext' extension, without files beggining with _
+                );
+
+                listOFSchemaTSFilesCompiled = glob.sync(
+                    pattern.replace(/\\/g, "/"),
+                    {
+                        follow: true,
+                    },
+                );
+            }
+
             pattern = path.join(
                 `${directory}`,
                 `${normalizeDiscover({
@@ -1050,6 +1091,9 @@ export const discoverRoles = (request: DiscoverRequest): DiscoverResult => {
             listOfFiles = glob.sync(pattern.replace(/\\/g, "/"), {
                 follow: true,
             });
+
+            listOfFiles = [...listOfFiles, ...listOFSchemaTSFilesCompiled];
+
             break;
         case SCOPE.external:
             // ### ALL - EXTERNAL - fileName ###
