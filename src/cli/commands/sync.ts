@@ -57,7 +57,7 @@ export const sync = async (props: CLIOptions) => {
 
             if (isIt("all")) {
                 Logger.log(
-                    `Syncing ALL components with ${storyblokConfig.schemaFileExt} extension...`
+                    `Syncing ALL components with ${storyblokConfig.schemaFileExt} extension...`,
                 );
 
                 const presets = flags["presets"] || false;
@@ -73,13 +73,13 @@ export const sync = async (props: CLIOptions) => {
                     Boolean(flags.presets),
                     componentsToSync,
                     flags.packageName,
-                    apiConfig
+                    apiConfig,
                 );
             }
 
             if (isIt("allWithSSOT")) {
                 Logger.warning(
-                    "Synchronizing ALL components as Single Source of Truth..."
+                    "Synchronizing ALL components as Single Source of Truth...",
                 );
                 const presets = flags["presets"] || false;
 
@@ -92,7 +92,7 @@ export const sync = async (props: CLIOptions) => {
                     () => {
                         Logger.success("Syncing components aborted.");
                     },
-                    flags["yes"]
+                    flags["yes"],
                 );
             }
 
@@ -123,7 +123,7 @@ export const sync = async (props: CLIOptions) => {
 
                 syncProvidedDatasources(
                     { datasources: datasourcesToSync },
-                    apiConfig
+                    apiConfig,
                 );
             }
             break;
@@ -134,7 +134,7 @@ export const sync = async (props: CLIOptions) => {
             const to = getTo(flags, apiConfig);
 
             Logger.warning(
-                `sync story... from ${from} to working dir spaceid: ${to} with command: ${command}`
+                `sync story... from ${from} to working dir spaceid: ${to} with command: ${command}`,
             );
 
             const syncDirection: SyncDirection = flags["syncDirection"];
@@ -162,7 +162,7 @@ export const sync = async (props: CLIOptions) => {
                             "Are you sure you want to delete all content (stories) in your space and then apply new ones ?",
                             async () => {
                                 Logger.warning(
-                                    "Deleting all stories in your space and then applying migrated ones..."
+                                    "Deleting all stories in your space and then applying migrated ones...",
                                 );
 
                                 // Backup all stories to file
@@ -175,7 +175,7 @@ export const sync = async (props: CLIOptions) => {
                                         },
                                         syncDirection: "fromSpaceToFile",
                                     },
-                                    apiConfig
+                                    apiConfig,
                                 );
 
                                 // Remove all stories from 'to' space
@@ -191,7 +191,7 @@ export const sync = async (props: CLIOptions) => {
                                         transmission: { from, to },
                                         syncDirection,
                                     },
-                                    apiConfig
+                                    apiConfig,
                                 );
 
                                 await syncContent(
@@ -200,15 +200,15 @@ export const sync = async (props: CLIOptions) => {
                                         transmission: { from, to },
                                         syncDirection,
                                     },
-                                    apiConfig
+                                    apiConfig,
                                 );
                             },
                             () => {
                                 Logger.success(
-                                    "Stories not deleted, exiting the program..."
+                                    "Stories not deleted, exiting the program...",
                                 );
                             },
-                            flags["yes"]
+                            flags["yes"],
                         );
                     } else {
                         await syncContent(
@@ -218,7 +218,7 @@ export const sync = async (props: CLIOptions) => {
                                 syncDirection,
                                 filename: flags.to,
                             },
-                            apiConfig
+                            apiConfig,
                         );
 
                         await syncContent(
@@ -227,12 +227,12 @@ export const sync = async (props: CLIOptions) => {
                                 transmission: { from, to },
                                 syncDirection,
                             },
-                            apiConfig
+                            apiConfig,
                         );
                     }
                 } else if (isIt("assets")) {
                     Logger.warning(
-                        `Syncing using sync direction: ${syncDirection}`
+                        `Syncing using sync direction: ${syncDirection}`,
                     );
 
                     await syncContent(
@@ -241,11 +241,11 @@ export const sync = async (props: CLIOptions) => {
                             transmission: { from, to },
                             syncDirection,
                         },
-                        apiConfig
+                        apiConfig,
                     );
                 } else if (isIt("stories")) {
                     Logger.warning(
-                        `Syncing using sync direction: ${syncDirection}`
+                        `Syncing using sync direction: ${syncDirection}`,
                     );
 
                     if (syncDirection !== "fromSpaceToFile") {
@@ -253,7 +253,7 @@ export const sync = async (props: CLIOptions) => {
                             "Are you sure you want to delete all stories in your space and then apply new ones ?",
                             async () => {
                                 Logger.warning(
-                                    "Deleting all stories in your space and then applying test ones..."
+                                    "Deleting all stories in your space and then applying test ones...",
                                 );
 
                                 // Backup all stories to file
@@ -266,7 +266,7 @@ export const sync = async (props: CLIOptions) => {
                                         },
                                         syncDirection: "fromSpaceToFile",
                                     },
-                                    apiConfig
+                                    apiConfig,
                                 );
 
                                 // Remove all stories from 'to' space
@@ -282,15 +282,15 @@ export const sync = async (props: CLIOptions) => {
                                         transmission: { from, to },
                                         syncDirection,
                                     },
-                                    apiConfig
+                                    apiConfig,
                                 );
                             },
                             () => {
                                 Logger.success(
-                                    "Stories not deleted, exiting the program..."
+                                    "Stories not deleted, exiting the program...",
                                 );
                             },
-                            flags["yes"]
+                            flags["yes"],
                         );
                     } else {
                         // Sync stories to 'to' space
@@ -300,19 +300,19 @@ export const sync = async (props: CLIOptions) => {
                                 transmission: { from, to },
                                 syncDirection,
                             },
-                            apiConfig
+                            apiConfig,
                         );
                     }
                 } else {
                     Logger.error(
-                        "Wrong combination of flags. check help for more info."
+                        "Wrong combination of flags. check help for more info.",
                     );
                     console.log("Passed flags: ");
                     console.log(flags);
                 }
             } else {
                 console.log(
-                    "You need to provide --syncDirection flag. With one of the following values:  fromSpaceToFile, fromFileToSpace, fromSpaceToSpace \n"
+                    "You need to provide --syncDirection flag. With one of the following values:  fromSpaceToFile, fromFileToSpace, fromSpaceToSpace \n",
                 );
             }
 
@@ -328,7 +328,7 @@ export const sync = async (props: CLIOptions) => {
                     {
                         plugins: pluginsToSync,
                     },
-                    apiConfig
+                    apiConfig,
                 );
             }
 

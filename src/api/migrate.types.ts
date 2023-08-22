@@ -1,22 +1,22 @@
 import type { RequestBaseConfig } from "./utils/request.js";
 import type { SyncDirection } from "../cli/sync.types.js";
-import type { OneComponent } from "../cli/utils/discover.js";
+import type { OneFileElement } from "../cli/utils/discover.js";
 
 export type SyncComponents = (
-    specifiedComponents: OneComponent[],
+    specifiedComponents: OneFileElement[],
     presets: boolean,
-    config: RequestBaseConfig
+    config: RequestBaseConfig,
 ) => Promise<any>;
 
 export type SyncAllComponents = (
     presets: boolean,
-    config: RequestBaseConfig
+    config: RequestBaseConfig,
 ) => Promise<any>;
 export type SyncProvidedComponents = (
     presets: boolean,
     components: string[],
     packageName: boolean,
-    config: RequestBaseConfig
+    config: RequestBaseConfig,
 ) => Promise<any>;
 
 // interface SyncAllComponents {
@@ -39,7 +39,7 @@ export type SyncStories = (
         stories: any[];
         toSpaceId: string;
     },
-    config: RequestBaseConfig
+    config: RequestBaseConfig,
 ) => Promise<any>;
 
 export interface SyncContent {
@@ -54,7 +54,7 @@ export interface SyncContent {
 
 export type SyncContentFunction = (
     { type, transmission, syncDirection, filename }: SyncContent,
-    config: RequestBaseConfig
+    config: RequestBaseConfig,
 ) => Promise<any>;
 
 export type SyncAssets = (
@@ -64,5 +64,5 @@ export type SyncAssets = (
         transmission: SyncContent["transmission"];
         syncDirection: SyncDirection;
     },
-    config: RequestBaseConfig
+    config: RequestBaseConfig,
 ) => Promise<any>;
