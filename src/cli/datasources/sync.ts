@@ -5,6 +5,7 @@ import type {
 
 import { managementApi } from "../../api/managementApi.js";
 import {
+    compare,
     discoverDatasources,
     discoverManyDatasources,
     LOOKUP_TYPE,
@@ -13,9 +14,10 @@ import {
 
 export const syncProvidedDatasources: SyncProvidedDatasources = async (
     args,
-    config
+    config,
 ) => {
     const { datasources } = args;
+
     const allLocalDatasources = await discoverManyDatasources({
         scope: SCOPE.local,
         type: LOOKUP_TYPE.fileName,
@@ -28,14 +30,17 @@ export const syncProvidedDatasources: SyncProvidedDatasources = async (
         fileNames: datasources,
     });
 
+    // #3: compare results, prefer local ones (so we have to create final external paths array and local array of things to sync from where)
+    const { local, external } = compare({
+        local: allLocalDatasources,
+        external: allExternalDatasources,
+    });
+
     managementApi.datasources.syncDatasources(
         {
-            providedDatasources: [
-                ...allLocalDatasources,
-                ...allExternalDatasources,
-            ],
+            providedDatasources: [...local, ...external],
         },
-        config
+        config,
     );
 };
 
@@ -50,13 +55,15 @@ export const syncAllDatasources: SyncAllDatasources = (config) => {
         type: LOOKUP_TYPE.fileName,
     });
 
+    const { local, external } = compare({
+        local: allLocalDatasources,
+        external: allExternalDatasources,
+    });
+
     managementApi.datasources.syncDatasources(
         {
-            providedDatasources: [
-                ...allLocalDatasources,
-                ...allExternalDatasources,
-            ],
+            providedDatasources: [...local, ...external],
         },
-        config
+        config,
     );
 };

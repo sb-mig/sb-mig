@@ -13,7 +13,8 @@ export const _extractComponentName = (filePath: string): string => {
     const sP = filePath.split(separator);
     const lastElement = sP[sP.length - 1] as string;
 
-    return lastElement.replaceAll(".ts", "").replaceAll(".sb", "");
+    // return lastElement.replaceAll(".ts", "").replaceAll(".sb", "");
+    return lastElement.replaceAll(".ts", "");
 };
 
 interface BuildOnTheFly {
@@ -24,11 +25,14 @@ export const buildOnTheFly = async ({ files }: BuildOnTheFly) => {
         await remove(path.join(`${storyblokConfig.cacheDir}`, `sb-mig`));
     }
 
+    console.log("Building on the fly: ");
+    console.log(files);
+
     const projectDir = process.cwd();
     const cacheDir = path.join(
         `${projectDir}`,
         `${storyblokConfig.cacheDir}`,
-        `sb-mig`
+        `sb-mig`,
     );
 
     await Promise.all(
@@ -47,21 +51,21 @@ export const buildOnTheFly = async ({ files }: BuildOnTheFly) => {
                 {
                     file: path.join(
                         `${cacheDir}`,
-                        `${_extractComponentName(filePath)}.sb.cjs`
+                        `${_extractComponentName(filePath)}.cjs`,
                     ),
                     format: "cjs",
                 },
                 {
                     file: path.join(
                         `${cacheDir}`,
-                        `${_extractComponentName(filePath)}.sb.js`
+                        `${_extractComponentName(filePath)}.js`,
                     ),
                     format: "es",
                 },
             ];
 
             await build({ inputOptions, outputOptionsList });
-        })
+        }),
     );
 
     Logger.success("Precompile successfull!.");
