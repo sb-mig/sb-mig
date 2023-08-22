@@ -1,3 +1,22 @@
+# [5.2.0-beta.1](https://github.com/sb-mig/sb-mig/compare/v5.1.4-beta.1...v5.2.0-beta.1) (2023-08-22)
+
+
+### Bug Fixes
+
+* add better error handling and loggin for datasource syncingf ([23246e3](https://github.com/sb-mig/sb-mig/commit/23246e32294d311a275ac2cb723d7b0567443f12))
+* add precompiling datasources with syncing all datasources ([38bde04](https://github.com/sb-mig/sb-mig/commit/38bde04fa263aefb9c58c3517cc7a565dabcdaab))
+* precompile for roles and sync all roles ([12f1b62](https://github.com/sb-mig/sb-mig/commit/12f1b62d14acaf64cbf377ac096a22e39d2d5ff2))
+* remove not needed comments ([d991bc5](https://github.com/sb-mig/sb-mig/commit/d991bc524f43280f9f1f3bac121dee2f5d138aba))
+* remove not needed comments ([a218cfd](https://github.com/sb-mig/sb-mig/commit/a218cfdc632e69a26baae90bd9c042c5fdb82e64))
+* reuse function to get file content with requier ([17d4542](https://github.com/sb-mig/sb-mig/commit/17d45421901db91377c1b549f2b736dbff2eff28))
+* update dev deps ([2c45f7a](https://github.com/sb-mig/sb-mig/commit/2c45f7a19ea6ccab122fbb784ea2d59756e7734e))
+* update tests ([3c5dce6](https://github.com/sb-mig/sb-mig/commit/3c5dce66fedabcc1f1ccc904a377655a24ac29b0))
+
+
+### Features
+
+* make sure datasource discovering and overwriting works ([412c307](https://github.com/sb-mig/sb-mig/commit/412c30725306fc0da988c3ac86e76b9232c6c092))
+
 ## [5.1.4-beta.1](https://github.com/sb-mig/sb-mig/compare/v5.1.3...v5.1.4-beta.1) (2023-08-12)
 
 
