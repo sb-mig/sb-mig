@@ -13,7 +13,6 @@ export const _extractComponentName = (filePath: string): string => {
     const sP = filePath.split(separator);
     const lastElement = sP[sP.length - 1] as string;
 
-    // return lastElement.replaceAll(".ts", "").replaceAll(".sb", "");
     return lastElement.replaceAll(".ts", "");
 };
 
@@ -24,9 +23,6 @@ export const buildOnTheFly = async ({ files }: BuildOnTheFly) => {
     if (storyblokConfig.flushCache) {
         await remove(path.join(`${storyblokConfig.cacheDir}`, `sb-mig`));
     }
-
-    console.log("Building on the fly: ");
-    console.log(files);
 
     const projectDir = process.cwd();
     const cacheDir = path.join(

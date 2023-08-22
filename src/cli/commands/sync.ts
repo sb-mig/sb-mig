@@ -118,7 +118,6 @@ export const sync = async (props: CLIOptions) => {
             }
 
             if (!flags["all"]) {
-                console.log("jhaskdjhaskdjhaskdjhaskjdhakjsdhk");
                 Logger.log("Syncing provided datasources with extension...");
                 const datasourcesToSync = unpackElements(input);
 

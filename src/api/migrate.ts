@@ -269,26 +269,11 @@ export const syncProvidedComponents: SyncProvidedComponents = async (
             fileNames: components,
         });
 
-        console.log("******************");
-        console.log("******************");
-        console.log("******************");
-        console.log({
-            allLocalSbComponentsSchemaFiles,
-            allExternalSbComponentsSchemaFiles,
-        });
-        console.log("******************");
-        console.log("******************");
-        console.log("******************");
-
         // #3: compare results, prefer local ones (so we have to create final external paths array and local array of things to sync from where)
         const { local, external } = compare({
             local: allLocalSbComponentsSchemaFiles,
             external: allExternalSbComponentsSchemaFiles,
         });
-
-        console.log("@ @ @ @ @ @ @ @ @ @ @ @ @ @ @ @ @ @ @ @");
-        console.log({ local, external });
-        console.log("@ @ @ @ @ @ @ @ @ @ @ @ @ @ @ @ @ @ @ @");
 
         // #4: sync - do all stuff already done (groups resolving, and so on)
         syncComponents([...local, ...external], presets, config);
