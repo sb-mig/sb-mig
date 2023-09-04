@@ -23,11 +23,18 @@ export const init = async (props: CLIOptions) => {
         case INIT_COMMANDS.project:
             Logger.warning(`init project... with command: ${command}`);
 
-            const { spaceId, oauthToken, gtmToken, region } = flags as {
+            const {
+                spaceId,
+                oauthToken,
+                gtmToken,
+                region,
+                translationStrategy,
+            } = flags as {
                 spaceId: string;
                 oauthToken: string;
                 gtmToken: string | undefined;
                 region: "us" | "eu" | "cn";
+                translationStrategy: "folder" | "field";
             };
 
             const storyblokManagementApiUrl =
@@ -44,6 +51,7 @@ export const init = async (props: CLIOptions) => {
                 oauthToken,
                 gtmToken,
                 region,
+                translationStrategy,
             });
 
             const localSbApi = new StoryblokClient(
@@ -69,6 +77,7 @@ export const init = async (props: CLIOptions) => {
             const NEXT_PUBLIC_STORYBLOK_ACCESS_TOKEN =
                 spaceData.space.first_token;
             const STORYBLOK_PREVIEW_SECRET = uuidv4();
+            const NEXT_PUBLIC_TRANSLATION_STRATEGY = translationStrategy;
 
             const envFileContent =
                 `STORYBLOK_REGION=${STORYBLOK_REGION}\n` +
@@ -80,7 +89,7 @@ export const init = async (props: CLIOptions) => {
                 `STORYBLOK_PREVIEW_SECRET=${STORYBLOK_PREVIEW_SECRET}\n` +
                 `STORYBLOK_OAUTH_TOKEN=${STORYBLOK_OAUTH_TOKEN}\n` +
                 `NEXT_PUBLIC_GTM_ID=${NEXT_PUBLIC_GTM_ID}\n` +
-                `NEXT_PUBLIC_TRANSLATION_STRATEGY=folder\n`;
+                `NEXT_PUBLIC_TRANSLATION_STRATEGY=${NEXT_PUBLIC_TRANSLATION_STRATEGY}\n`;
 
             console.log("Envs that we will create: ");
             console.log(envFileContent);
