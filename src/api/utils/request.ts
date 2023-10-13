@@ -20,14 +20,25 @@ export const getAllItemsWithPagination = async ({
     params,
     itemsKey,
 }: GetAllItemsWithPagination) => {
+    console.log("these are params: ");
+    console.log(params);
+    console.log("Itemskey: ");
+    console.log(itemsKey);
+
     const per_page = 100;
     const allItems = [];
     let page = 1;
     let totalPages;
     let amountOfFetchedItems = 0;
 
+    console.log("Stuff we pass: ");
+    console.log({ per_page, page, ...params });
+
     do {
         const response = await apiFn({ per_page, page, ...params });
+
+        console.log("This is response motherfucker: ");
+        console.log(response);
 
         if (!totalPages) {
             totalPages = Math.ceil(response.total / response.perPage);
@@ -39,7 +50,7 @@ export const getAllItemsWithPagination = async ({
                 : response.total - amountOfFetchedItems;
 
         Logger.success(
-            `${amountOfFetchedItems} of ${response.total} items fetched.`
+            `${amountOfFetchedItems} of ${response.total} items fetched.`,
         );
 
         allItems.push(...response.data[itemsKey]);

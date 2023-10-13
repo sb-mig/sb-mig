@@ -23,26 +23,35 @@ export const getAllDatasources: GetAllDatasources = (config) => {
     const { sbApi, spaceId } = config;
     Logger.log("Trying to get all Datasources.");
 
-    return getAllItemsWithPagination({
-        apiFn: ({ per_page, page }) =>
-            sbApi
-                .get(`spaces/${spaceId}/datasources/`, { per_page, page })
-                .then((res) => {
-                    Logger.log(`Amount of datasources: ${res.total}`);
+    console.log("This is sbApi: ");
+    console.log(sbApi);
 
-                    return res;
-                })
-                .catch((err) => {
-                    if (err.response.status === 404) {
-                        Logger.error(
-                            `There is no datasources in your Storyblok ${spaceId} space.`,
-                        );
-                        return true;
-                    } else {
-                        Logger.error(err);
-                        return false;
-                    }
-                }),
+    return getAllItemsWithPagination({
+        apiFn: ({ per_page, page }) => {
+            console.log("make request: ");
+            console.log(`spaces/${spaceId}/datasources/`);
+            console.log({ per_page, page });
+            return sbApi.get(`spaces/${spaceId}/datasources/`).then((res) => {
+                console.log("WTF ?");
+                console.log(res);
+                Logger.log(`Amount of datasources: ${res.total}`);
+
+                return res;
+            });
+            // .catch((err) => {
+            //     if (err.response.status === 404) {
+            //         Logger.error(
+            //             `There is no datasources in your Storyblok ${spaceId} space.`,
+            //         );
+            //         return true;
+            //     } else {
+            //         console.log("Thbiks is eerorr")
+            //         console.log(err)
+            //         Logger.error(err);
+            //         return false;
+            //     }
+            // });
+        },
         params: {
             spaceId,
         },
@@ -156,6 +165,9 @@ export const syncDatasources: SyncDatasources = async (args, config) => {
             return getFileContentWithRequire({ file: datasource.p });
         }),
     );
+
+    console.log("asjdhbkajshdkjashd");
+    console.log(providedDatasources);
 
     const remoteDatasources = await getAllDatasources(config);
 

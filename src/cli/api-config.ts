@@ -6,6 +6,17 @@ import storyblokConfig from "../config/config.js";
 
 const { accessToken, oauthToken, storyblokApiUrl, rateLimit } = storyblokConfig;
 
+console.log("Ble ble ble");
+console.log({
+    accessToken,
+    oauthToken,
+    rateLimit: rateLimit,
+    cache: {
+        clear: "auto",
+        type: "none",
+    },
+});
+
 const globalSbapi = new StoryblokClient(
     {
         accessToken,
@@ -16,13 +27,13 @@ const globalSbapi = new StoryblokClient(
             type: "none",
         },
     },
-    storyblokApiUrl
+    storyblokApiUrl,
 );
 
 const generateApi = (custom: StoryblokClient) => custom;
 
 export const sbApi = generateApi(
-    storyblokConfig.sbApi ? storyblokConfig.sbApi() : globalSbapi
+    storyblokConfig.sbApi ? storyblokConfig.sbApi() : globalSbapi,
 );
 
 export const apiConfig: RequestBaseConfig = {
