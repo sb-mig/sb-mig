@@ -31,14 +31,8 @@ export const getAllItemsWithPagination = async ({
     let totalPages;
     let amountOfFetchedItems = 0;
 
-    console.log("Stuff we pass: ");
-    console.log({ per_page, page, ...params });
-
     do {
         const response = await apiFn({ per_page, page, ...params });
-
-        console.log("This is response motherfucker: ");
-        console.log(response);
 
         if (!totalPages) {
             totalPages = Math.ceil(response.total / response.perPage);

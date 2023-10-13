@@ -19,6 +19,7 @@ import {
     discover,
     discoverMany,
     discoverManyByPackageName,
+    discoverResolvers,
     discoverStories,
     LOOKUP_TYPE,
     SCOPE,
@@ -38,6 +39,7 @@ import { backupStories } from "./stories/backup.js";
 import { getAllStories } from "./stories/stories.js";
 import { createTree, traverseAndCreate } from "./stories/tree.js";
 import { _uniqueValuesFrom } from "./utils/helper-functions.js";
+import { resolverTransformations } from "./utils/resolverTransformations.js";
 
 const _checkAndPrepareGroups: CheckAndPrepareGroups = async (
     groupsToCheck,
@@ -85,9 +87,8 @@ export const removeSpecifiedComponents: RemoveSpecificComponents = async (
     components,
     config,
 ) => {
-    const remoteComponents = await managementApi.components.getAllComponents(
-        config,
-    );
+    const remoteComponents =
+        await managementApi.components.getAllComponents(config);
     const componentsToRemove: any = [];
 
     components.map((component: any) => {
@@ -141,8 +142,24 @@ export const syncComponents: SyncComponents = async (
         }),
     );
 
+    const resolversFilenames = await discoverResolvers({
+        scope: SCOPE.local,
+        type: LOOKUP_TYPE.fileName,
+    });
+
+    const resolverFilesContent = await Promise.all(
+        resolversFilenames.map((filename) => {
+            return getFileContentWithRequire({ file: filename });
+        }),
+    );
+
+    const resolvedSpecifiedComponentsContent = resolverTransformations(
+        specifiedComponentsContent,
+        resolverFilesContent,
+    );
+
     const groupsToCheck = _uniqueValuesFrom(
-        specifiedComponentsContent
+        resolvedSpecifiedComponentsContent
             .filter((component) => component.component_group_name)
             .map((component) => component.component_group_name),
     );
@@ -154,9 +171,8 @@ export const syncComponents: SyncComponents = async (
     // happens async, so if one component will have the same group, as other one
     // it will be race of condition kinda issue - we will never now, if the group for current processed component
     // already exist or is being created by other request
-    const remoteComponents = await managementApi.components.getAllComponents(
-        config,
-    );
+    const remoteComponents =
+        await managementApi.components.getAllComponents(config);
 
     const componentsToUpdate = [];
     const componentsToCreate = [];

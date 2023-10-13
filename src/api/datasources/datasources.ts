@@ -23,16 +23,10 @@ export const getAllDatasources: GetAllDatasources = (config) => {
     const { sbApi, spaceId } = config;
     Logger.log("Trying to get all Datasources.");
 
-    console.log("This is sbApi: ");
-    console.log(sbApi);
-
     return getAllItemsWithPagination({
+        // @ts-ignore
         apiFn: ({ per_page, page }) => {
-            console.log("make request: ");
-            console.log(`spaces/${spaceId}/datasources/`);
-            console.log({ per_page, page });
             return sbApi.get(`spaces/${spaceId}/datasources/`).then((res) => {
-                console.log("WTF ?");
                 console.log(res);
                 Logger.log(`Amount of datasources: ${res.total}`);
 

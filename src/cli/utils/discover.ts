@@ -1025,6 +1025,75 @@ export const discover = async (
     return listOfFiles;
 };
 
+export const discoverResolvers = async (
+    request: DiscoverRequest,
+): Promise<DiscoverResult> => {
+    const rootDirectory = ".";
+    const directory = path.resolve(process.cwd(), rootDirectory);
+    let pattern;
+    let listOfFiles = [""];
+
+    switch (request.scope) {
+        case SCOPE.local:
+            // ### ALL - LOCAL - fileName ###
+            let listOFSchemaTSFilesCompiled: string[] = [];
+
+            const onlyLocalComponentsDirectories =
+                storyblokConfig.componentsDirectories.filter(
+                    (p: string) => !p.includes("node_modules"),
+                );
+
+            if (storyblokConfig.schemaType === SCHEMA.TS) {
+                pattern = filesPattern({
+                    mainDirectory: directory,
+                    componentDirectories: onlyLocalComponentsDirectories,
+                    ext: "resolvers.schema.sb.ts",
+                });
+
+                const listOfFilesToCompile = glob.sync(
+                    pattern.replace(/\\/g, "/"),
+                    {
+                        follow: true,
+                    },
+                );
+
+                await buildOnTheFly({ files: listOfFilesToCompile });
+
+                pattern = path.join(
+                    directory,
+                    ".next",
+                    "cache",
+                    "sb-mig",
+                    "**",
+                    `[^_]*.resolvers.schema.sb.cjs`,
+                );
+
+                listOFSchemaTSFilesCompiled = glob.sync(
+                    pattern.replace(/\\/g, "/"),
+                    {
+                        follow: true,
+                    },
+                );
+            }
+
+            pattern = filesPattern({
+                mainDirectory: directory,
+                componentDirectories: onlyLocalComponentsDirectories,
+                ext: "resolvers.schema.sb.cjs",
+            });
+
+            listOfFiles = glob.sync(pattern.replace(/\\/g, "/"), {
+                follow: true,
+            });
+            listOfFiles = [...listOfFiles, ...listOFSchemaTSFilesCompiled];
+            break;
+        default:
+            break;
+    }
+
+    return listOfFiles;
+};
+
 export const discoverRoles = async (
     request: DiscoverRequest,
 ): Promise<DiscoverResult> => {
