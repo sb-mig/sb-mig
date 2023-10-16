@@ -1,3 +1,10 @@
+## [5.2.1-beta.1](https://github.com/sb-mig/sb-mig/compare/v5.2.0...v5.2.1-beta.1) (2023-10-16)
+
+
+### Bug Fixes
+
+* rename env vartiables created on init ([2e4b18e](https://github.com/sb-mig/sb-mig/commit/2e4b18e76673e78c6adbad41ffb6f4600ad88c4e))
+
 # [5.2.0](https://github.com/sb-mig/sb-mig/compare/v5.1.3...v5.2.0) (2023-08-22)
 
 
