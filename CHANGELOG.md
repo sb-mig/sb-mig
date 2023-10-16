@@ -1,3 +1,10 @@
+## [5.2.2-beta.1](https://github.com/sb-mig/sb-mig/compare/v5.2.1...v5.2.2-beta.1) (2023-10-16)
+
+
+### Bug Fixes
+
+* update defaultConfig ([b97537d](https://github.com/sb-mig/sb-mig/commit/b97537db901ccf76a7ec0ab6d3be7a8b6e0bbcd8))
+
 ## [5.2.1-beta.2](https://github.com/sb-mig/sb-mig/compare/v5.2.1-beta.1...v5.2.1-beta.2) (2023-10-16)
 
 
