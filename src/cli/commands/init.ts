@@ -71,16 +71,16 @@ export const init = async (props: CLIOptions) => {
             const STORYBLOK_PREVIEW_SECRET = uuidv4();
 
             const envFileContent =
-                `STORYBLOK_REGION=${STORYBLOK_REGION}\n` +
-                `STORYBLOK_GRAPHQL_API_URL=${STORYBLOK_GRAPHQL_API_URL}\n` +
-                `STORYBLOK_DELIVERY_API_URL=${STORYBLOK_DELIVERY_API_URL}\n` +
-                `STORYBLOK_MANAGEMENT_API_URL=${STORYBLOK_MANAGEMENT_API_URL}\n` +
-                `STORYBLOK_SPACE_ID=${STORYBLOK_SPACE_ID}\n` +
+                `NEXT_PUBLIC_STORYBLOK_REGION=${STORYBLOK_REGION}\n` +
+                `NEXT_PUBLIC_STORYBLOK_GRAPHQL_API_URL=${STORYBLOK_GRAPHQL_API_URL}\n` +
+                `NEXT_PUBLIC_STORYBLOK_DELIVERY_API_URL=${STORYBLOK_DELIVERY_API_URL}\n` +
+                `NEXT_PUBLIC_STORYBLOK_MANAGEMENT_API_URL=${STORYBLOK_MANAGEMENT_API_URL}\n` +
                 `NEXT_PUBLIC_STORYBLOK_ACCESS_TOKEN=${NEXT_PUBLIC_STORYBLOK_ACCESS_TOKEN}\n` +
-                `STORYBLOK_PREVIEW_SECRET=${STORYBLOK_PREVIEW_SECRET}\n` +
-                `STORYBLOK_OAUTH_TOKEN=${STORYBLOK_OAUTH_TOKEN}\n` +
                 `NEXT_PUBLIC_GTM_ID=${NEXT_PUBLIC_GTM_ID}\n` +
-                `NEXT_PUBLIC_TRANSLATION_STRATEGY=folder\n`;
+                `NEXT_PUBLIC_TRANSLATION_STRATEGY=folder\n` +
+                `STORYBLOK_SPACE_ID=${STORYBLOK_SPACE_ID}\n` +
+                `STORYBLOK_PREVIEW_SECRET=${STORYBLOK_PREVIEW_SECRET}\n` +
+                `STORYBLOK_OAUTH_TOKEN=${STORYBLOK_OAUTH_TOKEN}\n`;
 
             console.log("Envs that we will create: ");
             console.log(envFileContent);
