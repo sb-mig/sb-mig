@@ -5,7 +5,7 @@ import { SCHEMA } from "./constants.js";
 export const defaultConfig = (
     pkg: any,
     path: string,
-    env: any
+    env: any,
 ): IStoryblokConfig => {
     const packagePath = `${path}/package.json`;
 
@@ -49,12 +49,13 @@ export const defaultConfig = (
         //         : "sb.stories.cjs",
         storiesExt: "sb.stories.json",
         storyblokApiUrl:
-            env["STORYBLOK_MANAGEMENT_API_URL"] ||
+            env["NEXT_PUBLIC_STORYBLOK_MANAGEMENT_API_URL"] ||
             "https://mapi.storyblok.com/v1", // should be mapi.storyblok.com ?
         storyblokDeliveryApiUrl:
-            env["STORYBLOK_DELIVERY_API_URL"] || "https://api.storyblok.com/v2",
+            env["NEXT_PUBLIC_STORYBLOK_DELIVERY_API_URL"] ||
+            "https://api.storyblok.com/v2",
         storyblokGraphqlApiUrl:
-            env["STORYBLOK_GRAPHQL_API_URL"] ||
+            env["NEXT_PUBLIC_STORYBLOK_GRAPHQL_API_URL"] ||
             "https://gapi.storyblok.com/v1/api",
         oauthToken: env["STORYBLOK_OAUTH_TOKEN"] ?? "",
         spaceId: env["STORYBLOK_SPACE_ID"] ?? "",
