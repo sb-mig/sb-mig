@@ -19,6 +19,7 @@ import {
     discover,
     discoverMany,
     discoverManyByPackageName,
+    discoverResolvers,
     discoverStories,
     LOOKUP_TYPE,
     SCOPE,
@@ -38,6 +39,7 @@ import { backupStories } from "./stories/backup.js";
 import { getAllStories } from "./stories/stories.js";
 import { createTree, traverseAndCreate } from "./stories/tree.js";
 import { _uniqueValuesFrom } from "./utils/helper-functions.js";
+import { resolverTransformations } from "./utils/resolverTransformations.js";
 
 const _checkAndPrepareGroups: CheckAndPrepareGroups = async (
     groupsToCheck,
@@ -45,9 +47,6 @@ const _checkAndPrepareGroups: CheckAndPrepareGroups = async (
 ) => {
     const componentsGroups =
         await managementApi.components.getAllComponentsGroups(config);
-    console.log("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
-    console.log(componentsGroups);
-    console.log("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
     const groupExist = (groupName: any) =>
         componentsGroups.find((group: any) => group.name === groupName);
 
@@ -85,9 +84,8 @@ export const removeSpecifiedComponents: RemoveSpecificComponents = async (
     components,
     config,
 ) => {
-    const remoteComponents = await managementApi.components.getAllComponents(
-        config,
-    );
+    const remoteComponents =
+        await managementApi.components.getAllComponents(config);
     const componentsToRemove: any = [];
 
     components.map((component: any) => {
@@ -135,11 +133,32 @@ export const syncComponents: SyncComponents = async (
 ) => {
     Logger.log("sync2Components: ");
 
-    const specifiedComponentsContent = await Promise.all(
+    let specifiedComponentsContent = await Promise.all(
         specifiedComponents.map((component) => {
             return getFileContentWithRequire({ file: component.p });
         }),
     );
+
+    const resolversFilenames = await discoverResolvers({
+        scope: SCOPE.local,
+        type: LOOKUP_TYPE.fileName,
+    });
+
+    /*
+     * if resolversFilenames exist, then do stuff if not, than follow with the old approach
+     * */
+    if (resolversFilenames.length !== 0) {
+        const resolverFilesContent = await Promise.all(
+            resolversFilenames.map((filename) => {
+                return getFileContentWithRequire({ file: filename });
+            }),
+        );
+
+        specifiedComponentsContent = resolverTransformations(
+            specifiedComponentsContent,
+            resolverFilesContent,
+        );
+    }
 
     const groupsToCheck = _uniqueValuesFrom(
         specifiedComponentsContent
@@ -154,9 +173,8 @@ export const syncComponents: SyncComponents = async (
     // happens async, so if one component will have the same group, as other one
     // it will be race of condition kinda issue - we will never now, if the group for current processed component
     // already exist or is being created by other request
-    const remoteComponents = await managementApi.components.getAllComponents(
-        config,
-    );
+    const remoteComponents =
+        await managementApi.components.getAllComponents(config);
 
     const componentsToUpdate = [];
     const componentsToCreate = [];

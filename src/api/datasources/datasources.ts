@@ -24,11 +24,14 @@ export const getAllDatasources: GetAllDatasources = (config) => {
     Logger.log("Trying to get all Datasources.");
 
     return getAllItemsWithPagination({
-        apiFn: ({ per_page, page }) =>
-            sbApi
-                .get(`spaces/${spaceId}/datasources/`, { per_page, page })
+        // @ts-ignore
+        apiFn: ({ per_page, page }) => {
+            return sbApi
+                .get(`spaces/${spaceId}/datasources/`)
                 .then((res) => {
-                    Logger.log(`Amount of datasources: ${res.total}`);
+                    if (res.total) {
+                        Logger.log(`Amount of datasources: ${res.total}`);
+                    }
 
                     return res;
                 })
@@ -42,7 +45,8 @@ export const getAllDatasources: GetAllDatasources = (config) => {
                         Logger.error(err);
                         return false;
                     }
-                }),
+                });
+        },
         params: {
             spaceId,
         },
