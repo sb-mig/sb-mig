@@ -1,3 +1,10 @@
+# [5.3.0-beta.4](https://github.com/sb-mig/sb-mig/compare/v5.3.0-beta.3...v5.3.0-beta.4) (2023-11-12)
+
+
+### Bug Fixes
+
+* update cli description ([b6d29a0](https://github.com/sb-mig/sb-mig/commit/b6d29a013083305e13ba3af3ae71c07a2a0b3501))
+
 # [5.3.0-beta.3](https://github.com/sb-mig/sb-mig/compare/v5.3.0-beta.2...v5.3.0-beta.3) (2023-11-12)
 
 
