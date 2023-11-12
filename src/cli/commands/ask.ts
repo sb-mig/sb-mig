@@ -1,5 +1,6 @@
 import type { CLIOptions } from "../../utils/interfaces.js";
 
+
 import path from "path";
 
 import { Anton } from "@mrck-labs/anton-sdk";
@@ -7,6 +8,7 @@ import { Anton } from "@mrck-labs/anton-sdk";
 import config from "../../config/config.js";
 import Logger from "../../utils/logger.js";
 import { getFileContentWithRequire } from "../../utils/main.js";
+import * as descriptions from "../cli-descriptions.js";
 
 export const ask = async (props: CLIOptions) => {
     const { input, flags } = props;
@@ -22,12 +24,17 @@ export const ask = async (props: CLIOptions) => {
 
         const cleanPackageJSON = {
             ...fileContent,
+            scripts: null,
         };
 
         const cleanStoryblokConfig = {
             ...config,
             oauthToken: "hidden",
             openaiToken: "hidden",
+        };
+
+        const cleanAllDescriptions = {
+            ...descriptions,
         };
 
         Logger.warning("Got it! Thinking...");
@@ -41,8 +48,9 @@ export const ask = async (props: CLIOptions) => {
             If u dont know the answet to question, simply say don't know. DO NOT try to generate answers at all cost if the context
             doesnt give you the answer.
             ### context start ###
-            ${JSON.stringify(cleanStoryblokConfig, null, 2)}
-            ${JSON.stringify(cleanPackageJSON, null, 2)}
+            ${JSON.stringify(cleanStoryblokConfig, null, 0)}
+            ${JSON.stringify(cleanPackageJSON, null, 0)}
+            ${JSON.stringify(cleanAllDescriptions, null, 0)}
             ### context end ###
             `,
                     },
