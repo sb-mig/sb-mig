@@ -202,6 +202,7 @@ export const askDescription = `
         $ sb-mig ask "Is debug mode turned on ?"
         $ sb-mig ask "What storyblok api urls I am using?"
         $ sb-mig ask "How would I sync just couple components ? what command should i use? I would like to also sync presets for this components"
+        $ sb-mig ask "Can you give me a brief overview of sb-mig tool features, I would like to be sure i do not miss anything super important while using it"
     Description
         Ask sb-mig about anything, especially stuff related to sb-mig and storyblok components.
         
