@@ -1,3 +1,10 @@
+# [5.3.0-beta.3](https://github.com/sb-mig/sb-mig/compare/v5.3.0-beta.2...v5.3.0-beta.3) (2023-11-12)
+
+
+### Features
+
+* add cli-descriptions as knowledge base for sb-mig anton ([68df961](https://github.com/sb-mig/sb-mig/commit/68df96117f7df407cf8c57c3214f141b65cf75d7))
+
 # [5.3.0-beta.2](https://github.com/sb-mig/sb-mig/compare/v5.3.0-beta.1...v5.3.0-beta.2) (2023-11-12)
 
 
