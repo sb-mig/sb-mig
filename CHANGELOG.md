@@ -1,3 +1,18 @@
+# [5.3.0-beta.1](https://github.com/sb-mig/sb-mig/compare/v5.2.2-beta.1...v5.3.0-beta.1) (2023-11-12)
+
+
+### Bug Fixes
+
+* bring back datasources error handling ([7beec9f](https://github.com/sb-mig/sb-mig/commit/7beec9f12a96202125747ca9add0ba99085c1c55))
+* make sure if there is no resolver files it sb-mig sync components will still work as expected ([d28a442](https://github.com/sb-mig/sb-mig/commit/d28a442618357302a34508252c03c3f59027b686))
+* remove a lot of not needed console.logs, and prevent from showing NaN when pagination doesnt exist ([7bcdd6d](https://github.com/sb-mig/sb-mig/commit/7bcdd6deb04e08ec99997776b2ffb00ff779c377))
+
+
+### Features
+
+* add anton-sdk who can answer question about your instance of storyblok config ([a242888](https://github.com/sb-mig/sb-mig/commit/a242888d31258af6cf2ed6c23da5d0cd35c9df11))
+* global resolvers concept ([f8d2a5d](https://github.com/sb-mig/sb-mig/commit/f8d2a5dbde00dfe6cd444e8cbeae0d1a635160d9))
+
 ## [5.2.2-beta.1](https://github.com/sb-mig/sb-mig/compare/v5.2.1...v5.2.2-beta.1) (2023-10-16)
 
 
