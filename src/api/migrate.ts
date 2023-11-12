@@ -47,9 +47,6 @@ const _checkAndPrepareGroups: CheckAndPrepareGroups = async (
 ) => {
     const componentsGroups =
         await managementApi.components.getAllComponentsGroups(config);
-    console.log("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
-    console.log(componentsGroups);
-    console.log("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
     const groupExist = (groupName: any) =>
         componentsGroups.find((group: any) => group.name === groupName);
 

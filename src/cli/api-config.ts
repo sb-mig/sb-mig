@@ -6,17 +6,6 @@ import storyblokConfig from "../config/config.js";
 
 const { accessToken, oauthToken, storyblokApiUrl, rateLimit } = storyblokConfig;
 
-console.log("Ble ble ble");
-console.log({
-    accessToken,
-    oauthToken,
-    rateLimit: rateLimit,
-    cache: {
-        clear: "auto",
-        type: "none",
-    },
-});
-
 const globalSbapi = new StoryblokClient(
     {
         accessToken,
