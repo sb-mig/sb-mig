@@ -1,3 +1,10 @@
+# [5.3.0-beta.2](https://github.com/sb-mig/sb-mig/compare/v5.3.0-beta.1...v5.3.0-beta.2) (2023-11-12)
+
+
+### Bug Fixes
+
+* update deps ([932708d](https://github.com/sb-mig/sb-mig/commit/932708de701ea987c9eb15245efcc61b5468dc83))
+
 # [5.3.0-beta.1](https://github.com/sb-mig/sb-mig/compare/v5.2.2-beta.1...v5.3.0-beta.1) (2023-11-12)
 
 
