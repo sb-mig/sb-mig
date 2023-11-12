@@ -48,7 +48,8 @@
     "start": "yarn build && ./dist/cli/index.js",
     "debug": "yarn build && ./dist/cli/index.js sync components accordion accordion-item",
     "semantic-release": "semantic-release",
-    "prepare": "husky install"
+    "prepare": "husky install",
+    "build:yalc": "yarn build && yalc push"
   },
   "dependencies": {
     "@swc/core": "1.3.41",

@@ -136,7 +136,7 @@ export const syncComponents: SyncComponents = async (
 ) => {
     Logger.log("sync2Components: ");
 
-    const specifiedComponentsContent = await Promise.all(
+    let specifiedComponentsContent = await Promise.all(
         specifiedComponents.map((component) => {
             return getFileContentWithRequire({ file: component.p });
         }),
@@ -147,19 +147,24 @@ export const syncComponents: SyncComponents = async (
         type: LOOKUP_TYPE.fileName,
     });
 
-    const resolverFilesContent = await Promise.all(
-        resolversFilenames.map((filename) => {
-            return getFileContentWithRequire({ file: filename });
-        }),
-    );
+    /*
+     * if resolversFilenames exist, then do stuff if not, than follow with the old approach
+     * */
+    if (resolversFilenames.length !== 0) {
+        const resolverFilesContent = await Promise.all(
+            resolversFilenames.map((filename) => {
+                return getFileContentWithRequire({ file: filename });
+            }),
+        );
 
-    const resolvedSpecifiedComponentsContent = resolverTransformations(
-        specifiedComponentsContent,
-        resolverFilesContent,
-    );
+        specifiedComponentsContent = resolverTransformations(
+            specifiedComponentsContent,
+            resolverFilesContent,
+        );
+    }
 
     const groupsToCheck = _uniqueValuesFrom(
-        resolvedSpecifiedComponentsContent
+        specifiedComponentsContent
             .filter((component) => component.component_group_name)
             .map((component) => component.component_group_name),
     );
