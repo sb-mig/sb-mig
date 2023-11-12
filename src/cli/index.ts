@@ -14,7 +14,9 @@ import {
     migrateDescription,
     revertDescription,
     migrationsDescription,
+    askDescription,
 } from "./cli-descriptions.js";
+import { ask } from "./commands/ask.js";
 import { backup } from "./commands/backup.js";
 import { debug } from "./commands/debug.js";
 import { discover } from "./commands/discover.js";
@@ -127,6 +129,16 @@ app.debug = () => ({
     },
 });
 
+app.ask = () => ({
+    cli: meow(askDescription, {
+        importMeta: import.meta,
+        booleanDefault: undefined,
+    }),
+    action: (cli: any) => {
+        ask(cli);
+    },
+});
+
 app.init = () => ({
     cli: meow(initDescription, {
         importMeta: import.meta,
@@ -149,7 +161,7 @@ app.test = () => ({
 
 const getSubcommand = (cliObject: any, level: any) =>
     pipe(prop("input"), prop(level), (name: any) => prop(name)(cliObject))(
-        prop("cli")(cliObject())
+        prop("cli")(cliObject()),
     );
 
 const cli = (cliObject: any, level = 0): any => {

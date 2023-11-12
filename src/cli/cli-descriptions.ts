@@ -194,6 +194,22 @@ export const debugDescription = `
         Output extra debugging information
 `;
 
+export const askDescription = `
+    !! ALPHA !!!
+    Usage
+        $ sb-mig ask "What sb-mig version am I using?"
+        $ sb-mig ask "What is the schema type i should write?"
+        $ sb-mig ask "Is debug mode turned on ?"
+        $ sb-mig ask "What storyblok api urls I am using?"
+    Description
+        Ask sb-mig about anything, especially stuff related to sb-mig and storyblok components.
+        
+        Needs OPENAI_API_KEY= environment set in your project. (Config will pick it up automatically, no need to modify
+        storyblok.config.[c|m]js file
+        
+        Also, right now, you need to install @mrck-labs/anton-sdk in your project, since its not bundled.
+`;
+
 export const initDescription = `
     Usage
         $ sb-mig init

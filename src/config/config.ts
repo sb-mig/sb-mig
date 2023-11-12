@@ -37,6 +37,7 @@ export interface IStoryblokConfig {
     storyblokDeliveryApiUrl: string;
     storyblokGraphqlApiUrl: string;
     oauthToken: string;
+    openaiToken: string;
     spaceId: string;
     accessToken: string;
     boilerplateSpaceId: string;

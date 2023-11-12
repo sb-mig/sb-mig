@@ -58,6 +58,7 @@ export const defaultConfig = (
             env["NEXT_PUBLIC_STORYBLOK_GRAPHQL_API_URL"] ||
             "https://gapi.storyblok.com/v1/api",
         oauthToken: env["STORYBLOK_OAUTH_TOKEN"] ?? "",
+        openaiToken: env["OPENAI_API_KEY"] ?? "",
         spaceId: env["STORYBLOK_SPACE_ID"] ?? "",
         accessToken:
             env["GATSBY_STORYBLOK_ACCESS_TOKEN"] ||
