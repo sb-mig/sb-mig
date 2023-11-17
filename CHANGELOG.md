@@ -1,3 +1,10 @@
+# [5.3.0-beta.5](https://github.com/sb-mig/sb-mig/compare/v5.3.0-beta.4...v5.3.0-beta.5) (2023-11-17)
+
+
+### Bug Fixes
+
+* improve ask with custom system prompt ([87c9e73](https://github.com/sb-mig/sb-mig/commit/87c9e737542f9a48bdd0919d30143e3ee0e0ce19))
+
 # [5.3.0-beta.4](https://github.com/sb-mig/sb-mig/compare/v5.3.0-beta.3...v5.3.0-beta.4) (2023-11-12)
 
 
