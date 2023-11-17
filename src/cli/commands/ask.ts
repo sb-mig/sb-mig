@@ -1,6 +1,5 @@
 import type { CLIOptions } from "../../utils/interfaces.js";
 
-
 import path from "path";
 
 import { Anton } from "@mrck-labs/anton-sdk";
@@ -13,12 +12,23 @@ import * as descriptions from "../cli-descriptions.js";
 export const ask = async (props: CLIOptions) => {
     const { input, flags } = props;
 
+    console.log("whatever ?");
+
     try {
         const fileContent = await getFileContentWithRequire({
             file: path.join("..", "..", "package.json"),
         });
 
         const anton = new Anton(config.openaiToken);
+        console.log(anton.setInitialMessages);
+
+        // anton.doWhatever()
+        anton.setInitialMessages([
+            {
+                role: "system",
+                content: "Act like a lady from high house",
+            },
+        ]);
 
         const question: string = input[1] as string;
 
@@ -64,6 +74,7 @@ export const ask = async (props: CLIOptions) => {
 
         Logger.success(data?.choices[0]?.message?.content);
     } catch (e) {
+        console.log(e);
         Logger.warning("Can't find package.json");
     }
 };
