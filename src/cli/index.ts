@@ -14,9 +14,7 @@ import {
     migrateDescription,
     revertDescription,
     migrationsDescription,
-    askDescription,
 } from "./cli-descriptions.js";
-import { ask } from "./commands/ask.js";
 import { backup } from "./commands/backup.js";
 import { debug } from "./commands/debug.js";
 import { discover } from "./commands/discover.js";
@@ -126,16 +124,6 @@ app.debug = () => ({
     }),
     action: () => {
         debug();
-    },
-});
-
-app.ask = () => ({
-    cli: meow(askDescription, {
-        importMeta: import.meta,
-        booleanDefault: undefined,
-    }),
-    action: (cli: any) => {
-        ask(cli);
     },
 });
 

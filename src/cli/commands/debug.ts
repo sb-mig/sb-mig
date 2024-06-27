@@ -1,8 +1,11 @@
 import path from "path";
 
 import config from "../../config/config.js";
+import {
+    getConsumerPackageJson,
+    getSbMigPackageJson,
+} from "../../utils/files.js";
 import Logger from "../../utils/logger.js";
-import { getFileContentWithRequire } from "../../utils/main.js";
 import { pkg } from "../../utils/pkg.js";
 
 export const debug = async () => {
@@ -13,19 +16,21 @@ export const debug = async () => {
     Logger.log(" ");
 
     try {
-        const fileContent = await getFileContentWithRequire({
-            file: path.join("..", "..", "package.json"),
-        });
+        const fileContent = await getSbMigPackageJson();
+        const consumerPkg = await getConsumerPackageJson();
 
         Logger.log("sb-mig version: ");
         Logger.success(fileContent["version"]);
         Logger.log(" ");
         Logger.log("Version used: ");
         Logger.success(
-            `storyblok-js-client: ${fileContent["dependencies"]["storyblok-js-client"]}`
+            `storyblok-js-client: ${fileContent["dependencies"]["storyblok-js-client"]}`,
         );
         Logger.success(
-            `typescript: ${fileContent["dependencies"]["typescript"]}`
+            `typescript: ${fileContent["dependencies"]["typescript"]}`,
+        );
+        Logger.success(
+            `@ef-global/backpack: ${consumerPkg["dependencies"]["@ef-global/backpack"]}`,
         );
         Logger.log(" ");
         Logger.log(" ");

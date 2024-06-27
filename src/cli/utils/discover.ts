@@ -1047,7 +1047,7 @@ export const discoverResolvers = async (
                 pattern = filesPattern({
                     mainDirectory: directory,
                     componentDirectories: onlyLocalComponentsDirectories,
-                    ext: "resolvers.schema.sb.ts",
+                    ext: "sb.resolvers.ts",
                 });
 
                 const listOfFilesToCompile = glob.sync(
@@ -1065,7 +1065,7 @@ export const discoverResolvers = async (
                     "cache",
                     "sb-mig",
                     "**",
-                    `[^_]*.resolvers.schema.sb.cjs`,
+                    `[^_]*.sb.resolvers.cjs`,
                 );
 
                 listOFSchemaTSFilesCompiled = glob.sync(
@@ -1079,7 +1079,7 @@ export const discoverResolvers = async (
             pattern = filesPattern({
                 mainDirectory: directory,
                 componentDirectories: onlyLocalComponentsDirectories,
-                ext: "resolvers.schema.sb.cjs",
+                ext: "sb.resolvers.cjs",
             });
 
             listOfFiles = glob.sync(pattern.replace(/\\/g, "/"), {
