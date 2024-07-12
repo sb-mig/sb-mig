@@ -123,7 +123,7 @@ module.exports = {
 This is what a basic storyblok `.sb.js` schema file which maps to a component looks like:
 
 ```
-expport default {
+export default {
   name: "text-block",
   display_name: "Text block",
   is_root: false,
