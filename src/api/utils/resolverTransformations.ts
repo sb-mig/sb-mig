@@ -1,4 +1,13 @@
+import type { ComponentWhitelistSimpleResolver } from "./resolvers.types";
 import type { StoryblokComponentSchemaBase } from "storyblok-schema-types";
+
+import {
+    discoverResolvers,
+    LOOKUP_TYPE,
+    SCOPE,
+} from "../../cli/utils/discover.js";
+import config from "../../config/config.js";
+import { getFileContentWithRequire } from "../../utils/main.js";
 
 type ComponentData = {
     [K in keyof StoryblokComponentSchemaBase<any>]: any;
@@ -15,6 +24,108 @@ export interface SchemaGlobalResolvers {
     byComponentGroupNames?: ResolversBy[];
     byComponentNames?: ResolversBy[];
 }
+
+export const transformWithResolverFiles = async (componentsContent: any) => {
+    componentsContent = structuredClone(componentsContent);
+    const resolversFilenames = await discoverResolvers({
+        scope: SCOPE.local,
+        type: LOOKUP_TYPE.fileName,
+    });
+
+    /*
+     * if resolversFilenames exist, then do stuff if not, than follow with the old approach
+     * */
+    if (resolversFilenames.length !== 0) {
+        const resolverFilesContent = await Promise.all(
+            // TODO: change to allSettled
+            resolversFilenames.map((filename) => {
+                return getFileContentWithRequire({ file: filename });
+            }),
+        );
+
+        componentsContent = resolverTransformations(
+            componentsContent,
+            resolverFilesContent[0],
+        );
+    }
+
+    return componentsContent;
+};
+
+const isContentAvailableAsBloks = (component: any) =>
+    "content" in component.schema &&
+    component.schema.content.component_whitelist &&
+    component.schema.content.type === "bloks";
+
+const isItemsAvailableAsBloks = (component: any) =>
+    "items" in component.schema &&
+    component.schema.items.component_whitelist &&
+    component.schema.items.type === "bloks";
+
+const updateComponentWhitelist = ({
+    component,
+    update,
+}: {
+    component: any;
+    update: ComponentWhitelistSimpleResolver;
+}) => {
+    if (isContentAvailableAsBloks(component)) {
+        component.schema.content.component_whitelist = [
+            ...new Set(update(component.schema.content.component_whitelist)), // make sure it will have unique items
+        ];
+    } else if (isItemsAvailableAsBloks(component)) {
+        component.schema.items.component_whitelist = [
+            ...new Set(update(component.schema.items.component_whitelist)), // make sure it will have unique items
+        ];
+    }
+};
+
+export const transformWithMainConfigFile = (componentsContent: any) => {
+    componentsContent = structuredClone(componentsContent);
+
+    if (config.resolvers && config.resolvers.length > 0) {
+        config.resolvers.map((resolver) => {
+            componentsContent = componentsContent.map((component: any) => {
+                // If the component that we try to sync is in resolved component names list to resolve / transform
+                if (resolver.match.includes(component.name)) {
+                    if (resolver.fields.component_whitelist) {
+                        updateComponentWhitelist({
+                            component,
+                            update: resolver.fields.component_whitelist,
+                        });
+                    }
+                    if (resolver.fields.translatable) {
+                        component.schema.icon.translatable =
+                            resolver.fields.translatable(
+                                component.schema.icon.translatable,
+                            );
+                    }
+                }
+
+                return component;
+            });
+        });
+    }
+
+    if (config.advancedResolvers) {
+        componentsContent = resolverTransformations(
+            componentsContent,
+            config.advancedResolvers,
+        );
+    }
+
+    return componentsContent;
+};
+
+/**
+ * side effect: true
+ */
+export const resolveGlobalTransformations = async (componentsContent: any) => {
+    componentsContent = await transformWithResolverFiles(componentsContent);
+    componentsContent = await transformWithMainConfigFile(componentsContent);
+
+    return componentsContent;
+};
 
 const extendField = (obj: any, targetField: string, newValue: any) => {
     if (typeof obj !== "object" || obj === null) {
@@ -64,43 +175,6 @@ export const extendFields = (componentNamesResolver: any, component: any) => {
     );
 };
 
-// function deepTransform(obj: any, transformers: any): any {
-//     if (typeof obj !== "object") return obj;
-//
-//     for (const key in obj) {
-//         if (typeof transformers[key] === "function") {
-//             obj[key] = transformers[key](obj[key]);
-//         } else if (typeof obj[key] === "object") {
-//             obj[key] = deepTransform(obj[key], transformers[key] || {});
-//         }
-//     }
-//
-//     return obj;
-// }
-
-// function deepTransform(obj: any, transformers: any): any {
-//     if (typeof obj !== "object" || obj === null) {
-//         return obj;
-//     }
-//
-//     const result = Array.isArray(obj) ? [...obj] : { ...obj };
-//
-//     for (const key in transformers) {
-//         if (typeof transformers[key] === "function") {
-//             result[key] = transformers[key](obj[key]);
-//         } else if (
-//             typeof transformers[key] === "object" &&
-//             transformers[key] !== null
-//         ) {
-//             result[key] = deepTransform(obj[key], transformers[key]);
-//         } else {
-//             result[key] = transformers[key];
-//         }
-//     }
-//
-//     return result;
-// }
-
 function deepTransform(obj: any, transformers: any): any {
     if (typeof obj !== "object" || obj === null) {
         return obj;
@@ -132,34 +206,26 @@ function deepTransform(obj: any, transformers: any): any {
 }
 
 export const resolverTransformations = (
-    specifiedComponentsContent: any,
+    componentsContent: any,
     resolverFilesContent: any,
 ) => {
     let resolvedComponents = [];
-    console.log("#### Specified Components Content to Resolve ####");
-    console.log(specifiedComponentsContent);
-
-    console.log("#### Resolver Files Content ####");
-    console.log(resolverFilesContent);
-
-    const resolver = resolverFilesContent[0];
-
-    console.log("kjashdkjhaskjdh");
-    console.log(resolver);
 
     resolvedComponents = resolveComponentNames(
-        resolver,
-        specifiedComponentsContent,
+        resolverFilesContent,
+        componentsContent,
     );
-    resolvedComponents = resolveComponentGroupNames(
-        resolver,
-        resolvedComponents,
-    );
-    resolvedComponents = resolvePluginNames(resolver, resolvedComponents);
 
-    console.log("@@@@@@@@");
-    console.log(resolvedComponents[0].schema);
-    console.log("@@@@@@@@");
+    /**
+     *
+     * TODO: implement this
+     *
+     * */
+    // resolvedComponents = resolveComponentGroupNames(
+    //     resolver,
+    //     resolvedComponents,
+    // );
+    // resolvedComponents = resolvePluginNames(resolver, resolvedComponents);
 
     return resolvedComponents;
 };
@@ -170,10 +236,10 @@ const resolveComponentNames = (
 ) => {
     if (!resolver.byComponentNames) return componentsContent;
 
-    let workingContent = componentsContent;
+    componentsContent = structuredClone(componentsContent);
 
     resolver.byComponentNames.map((componentNameResolver) => {
-        workingContent = workingContent.map((component: any) => {
+        componentsContent = componentsContent.map((component: any) => {
             // If the component that we try to sync is in resolved component names list to resolve / transform
             if (
                 componentNameResolver &&
@@ -185,15 +251,6 @@ const resolveComponentNames = (
                 );
                 component = changedObj;
             }
-
-            console.log("******************************s*********************");
-            console.log("********************************s*******************");
-            console.log(
-                "This is finally changed component after all transformations by componentNames: ",
-            );
-            console.log(component.schema);
-            console.log("***************************************************");
-            console.log("***************************************************");
 
             return component;
         });

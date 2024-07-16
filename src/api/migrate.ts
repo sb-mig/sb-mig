@@ -24,6 +24,7 @@ import {
     LOOKUP_TYPE,
     SCOPE,
 } from "../cli/utils/discover.js";
+import config from "../config/config.js";
 import { dumpToFile } from "../utils/files.js";
 import Logger from "../utils/logger.js";
 import {
@@ -39,7 +40,7 @@ import { backupStories } from "./stories/backup.js";
 import { getAllStories } from "./stories/stories.js";
 import { createTree, traverseAndCreate } from "./stories/tree.js";
 import { _uniqueValuesFrom } from "./utils/helper-functions.js";
-import { resolverTransformations } from "./utils/resolverTransformations.js";
+import { resolveGlobalTransformations } from "./utils/resolverTransformations.js";
 
 const _checkAndPrepareGroups: CheckAndPrepareGroups = async (
     groupsToCheck,
@@ -139,26 +140,14 @@ export const syncComponents: SyncComponents = async (
         }),
     );
 
-    const resolversFilenames = await discoverResolvers({
-        scope: SCOPE.local,
-        type: LOOKUP_TYPE.fileName,
-    });
-
-    /*
-     * if resolversFilenames exist, then do stuff if not, than follow with the old approach
-     * */
-    if (resolversFilenames.length !== 0) {
-        const resolverFilesContent = await Promise.all(
-            resolversFilenames.map((filename) => {
-                return getFileContentWithRequire({ file: filename });
-            }),
-        );
-
-        specifiedComponentsContent = resolverTransformations(
-            specifiedComponentsContent,
-            resolverFilesContent,
-        );
-    }
+    /**
+     * Resolve all the global transformations you find
+     *      - storyblok.config file resolvers
+     *      - .sb.resolvers.ts files resolvers
+     */
+    specifiedComponentsContent = await resolveGlobalTransformations(
+        specifiedComponentsContent,
+    );
 
     const groupsToCheck = _uniqueValuesFrom(
         specifiedComponentsContent

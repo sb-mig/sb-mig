@@ -1,36 +1,30 @@
-export interface ResolverMethods {
-    extend?: Record<string, any>;
-    add?: Record<string, any>;
-    overwrite?: Record<string, any>;
-    custom?: (bag: any) => Record<string, any>;
-}
+import type { StoryblokComponentSchemaBase } from "storyblok-schema-types";
+type ComponentData = {
+    [K in keyof StoryblokComponentSchemaBase<any>]: any;
+};
 
 export interface ResolversBy {
-    names: string[];
-    methods: ResolverMethods;
+    match: string[];
+    componentData: Partial<ComponentData>;
 }
 
 export interface SchemaGlobalResolvers {
-    all?: {
-        methods: ResolverMethods;
-    };
+    all?: Omit<ResolversBy, "match">;
     byPluginNames?: ResolversBy[];
     byComponentGroupNames?: ResolversBy[];
     byComponentNames?: ResolversBy[];
 }
 
-export interface SchemaGlobalResolversSecond {
-    components: {
-        all?: {
-            methods: ResolverMethods;
-        };
-        byPluginNames?: ResolversBy[];
-        byComponentGroupNames?: ResolversBy[];
-        byComponentNames?: ResolversBy[];
-    };
-    datasources: {
-        all?: {
-            methods: ResolverMethods;
-        };
+export type ComponentWhitelistSimpleResolver = (
+    prevComponentWhitelist: string[],
+) => string[];
+export type TranslatableSimpleResolver = (prevTranslatable: boolean) => boolean;
+
+export interface SimpleResolver {
+    match: string[];
+    fields: {
+        component_whitelist?: ComponentWhitelistSimpleResolver;
+        translatable?: TranslatableSimpleResolver;
+        // [key: string]: <T>(fieldData: T) => T;
     };
 }
