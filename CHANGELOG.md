@@ -54,6 +54,13 @@
 * add anton-sdk who can answer question about your instance of storyblok config ([a242888](https://github.com/sb-mig/sb-mig/commit/a242888d31258af6cf2ed6c23da5d0cd35c9df11))
 * global resolvers concept ([f8d2a5d](https://github.com/sb-mig/sb-mig/commit/f8d2a5dbde00dfe6cd444e8cbeae0d1a635160d9))
 
+## [5.2.2](https://github.com/sb-mig/sb-mig/compare/v5.2.1...v5.2.2) (2023-10-16)
+
+
+### Bug Fixes
+
+* update defaultConfig ([b97537d](https://github.com/sb-mig/sb-mig/commit/b97537db901ccf76a7ec0ab6d3be7a8b6e0bbcd8))
+
 ## [5.2.2-beta.1](https://github.com/sb-mig/sb-mig/compare/v5.2.1...v5.2.2-beta.1) (2023-10-16)
 
 
