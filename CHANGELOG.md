@@ -1,3 +1,25 @@
+# [5.3.0](https://github.com/sb-mig/sb-mig/compare/v5.2.2...v5.3.0) (2024-07-17)
+
+
+### Bug Fixes
+
+* bring back datasources error handling ([7beec9f](https://github.com/sb-mig/sb-mig/commit/7beec9f12a96202125747ca9add0ba99085c1c55))
+* import ([7eac7a2](https://github.com/sb-mig/sb-mig/commit/7eac7a2bde769e8d8149679b8a5b38e37fd7590e))
+* improve ask with custom system prompt ([87c9e73](https://github.com/sb-mig/sb-mig/commit/87c9e737542f9a48bdd0919d30143e3ee0e0ce19))
+* make sure if there is no resolver files it sb-mig sync components will still work as expected ([d28a442](https://github.com/sb-mig/sb-mig/commit/d28a442618357302a34508252c03c3f59027b686))
+* remove a lot of not needed console.logs, and prevent from showing NaN when pagination doesnt exist ([7bcdd6d](https://github.com/sb-mig/sb-mig/commit/7bcdd6deb04e08ec99997776b2ffb00ff779c377))
+* remove experimental anton-sdk and ask command ([3a1bd3b](https://github.com/sb-mig/sb-mig/commit/3a1bd3bd19e6cf5c75050242773d7f81978e23fc))
+* update cli description ([b6d29a0](https://github.com/sb-mig/sb-mig/commit/b6d29a013083305e13ba3af3ae71c07a2a0b3501))
+* update deps ([932708d](https://github.com/sb-mig/sb-mig/commit/932708de701ea987c9eb15245efcc61b5468dc83))
+
+
+### Features
+
+* add anton-sdk who can answer question about your instance of storyblok config ([a242888](https://github.com/sb-mig/sb-mig/commit/a242888d31258af6cf2ed6c23da5d0cd35c9df11))
+* add cli-descriptions as knowledge base for sb-mig anton ([68df961](https://github.com/sb-mig/sb-mig/commit/68df96117f7df407cf8c57c3214f141b65cf75d7))
+* add global resolving with resolver (simple) and advancedResolver to storyblok.config.js ([2f34d39](https://github.com/sb-mig/sb-mig/commit/2f34d39e0058f79237aaf63dfbce43dab06a7783))
+* global resolvers concept ([f8d2a5d](https://github.com/sb-mig/sb-mig/commit/f8d2a5dbde00dfe6cd444e8cbeae0d1a635160d9))
+
 # [5.3.0-beta.6](https://github.com/sb-mig/sb-mig/compare/v5.3.0-beta.5...v5.3.0-beta.6) (2024-07-17)
 
 
