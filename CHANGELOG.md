@@ -1,3 +1,16 @@
+# [5.3.0-beta.6](https://github.com/sb-mig/sb-mig/compare/v5.3.0-beta.5...v5.3.0-beta.6) (2024-07-17)
+
+
+### Bug Fixes
+
+* import ([7eac7a2](https://github.com/sb-mig/sb-mig/commit/7eac7a2bde769e8d8149679b8a5b38e37fd7590e))
+* remove experimental anton-sdk and ask command ([3a1bd3b](https://github.com/sb-mig/sb-mig/commit/3a1bd3bd19e6cf5c75050242773d7f81978e23fc))
+
+
+### Features
+
+* add global resolving with resolver (simple) and advancedResolver to storyblok.config.js ([2f34d39](https://github.com/sb-mig/sb-mig/commit/2f34d39e0058f79237aaf63dfbce43dab06a7783))
+
 # [5.3.0-beta.5](https://github.com/sb-mig/sb-mig/compare/v5.3.0-beta.4...v5.3.0-beta.5) (2023-11-17)
 
 
