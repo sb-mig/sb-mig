@@ -1,4 +1,4 @@
-import type { ComponentWhitelistSimpleResolver } from "./resolvers.types";
+import type { ComponentWhitelistSimpleResolver } from "./resolvers.types.js";
 import type { StoryblokComponentSchemaBase } from "storyblok-schema-types";
 
 import {
