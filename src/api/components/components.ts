@@ -28,7 +28,15 @@ export const getAllComponents: GetAllComponents = (config) => {
             sbApi
                 .get(`spaces/${spaceId}/components/`, { per_page, page })
                 .then((res) => {
-                    Logger.log(`Amount of components: ${res.total}`);
+                    /**
+                     *
+                     * Not every endpoint in storyblok give us pagination...
+                     * so only for this who paginate we want to console log amount found.
+                     *
+                     * */
+                    if (res.total) {
+                        Logger.log(`Amount of components: ${res.total}`);
+                    }
 
                     return res;
                 })
@@ -50,7 +58,7 @@ export const getComponent: GetComponent = (componentName, config) => {
 
     return getAllComponents(config)
         .then((res) =>
-            res.filter((component: any) => component.name === componentName)
+            res.filter((component: any) => component.name === componentName),
         )
         .then((res) => {
             if (Array.isArray(res) && res.length === 0) {
@@ -66,7 +74,7 @@ export const getComponent: GetComponent = (componentName, config) => {
 export const createComponent: CreateComponent = (
     component,
     presets,
-    config
+    config,
 ) => {
     const { spaceId, sbApi } = config;
     Logger.log(`Trying to create '${component.name}'`);
@@ -85,7 +93,7 @@ export const createComponent: CreateComponent = (
         })
         .catch((err) => {
             Logger.error(
-                `${err.message} in migration of ${component.name} in createComponent function`
+                `${err.message} in migration of ${component.name} in createComponent function`,
             );
         });
 };
@@ -98,7 +106,7 @@ export const createComponent: CreateComponent = (
 export const updateComponent: UpdateComponent = (
     component,
     presets,
-    config
+    config,
 ) => {
     const { spaceId, sbApi } = config;
     Logger.log(`Trying to update '${component.name}' with id ${component.id}`);
@@ -116,7 +124,7 @@ export const updateComponent: UpdateComponent = (
                     res,
                     all_presets,
                     component,
-                    config
+                    config,
                 );
             } else {
                 return [];
@@ -124,7 +132,7 @@ export const updateComponent: UpdateComponent = (
         })
         .catch((err) => {
             Logger.error(
-                `${err.message} in migration of ${component.name} in updateComponent function`
+                `${err.message} in migration of ${component.name} in updateComponent function`,
             );
         });
 };
@@ -151,7 +159,7 @@ export const removeComponent: RemoveComponent = (component, config) => {
  *
  * */
 export const getAllComponentsGroups: GetAllComponentsGroups = async (
-    config
+    config,
 ) => {
     const { spaceId, sbApi } = config;
     Logger.log("Trying to get all groups.");
@@ -163,7 +171,15 @@ export const getAllComponentsGroups: GetAllComponentsGroups = async (
             sbApi
                 .get(`spaces/${spaceId}/component_groups/`, { per_page, page })
                 .then((res) => {
-                    Logger.log(`Amount of component groups: ${res.total}`);
+                    /**
+                     *
+                     * Not every endpoint in storyblok give us pagination...
+                     * so only for this who paginate we want to console log amount found.
+                     *
+                     * */
+                    if (res.total) {
+                        Logger.log(`Amount of component groups: ${res.total}`);
+                    }
 
                     return res;
                 })
@@ -194,7 +210,7 @@ export const getComponentsGroup: GetComponentsGroup = (groupName, config) => {
 
 export const removeComponentGroup: RemoveComponentGroup = (
     componentGroup,
-    config
+    config,
 ) => {
     const { id, name } = componentGroup;
     const { spaceId, sbApi } = config;
@@ -209,7 +225,7 @@ export const removeComponentGroup: RemoveComponentGroup = (
 
 export const createComponentsGroup: CreateComponentsGroup = (
     groupName,
-    config
+    config,
 ) => {
     const { spaceId, sbApi } = config;
     console.log(`Trying to create '${groupName}' group`);
@@ -221,7 +237,7 @@ export const createComponentsGroup: CreateComponentsGroup = (
         } as any)
         .then((res: any) => {
             console.info(
-                `'${groupName}' created with uuid: ${res.data.component_group.uuid}`
+                `'${groupName}' created with uuid: ${res.data.component_group.uuid}`,
             );
             return res.data;
         })

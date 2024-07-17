@@ -7,6 +7,7 @@ import path from "path";
 import pkg from "ncp";
 
 import Logger from "./logger.js";
+import { getFileContentWithRequire } from "./main.js";
 import { generateDatestamp } from "./others.js";
 
 const { ncp } = pkg;
@@ -21,7 +22,7 @@ export const createDir = async (dirPath: string) => {
 
 export const createJsonFile = async (
     content: string,
-    pathWithFilename: string
+    pathWithFilename: string,
 ) => {
     await fs.promises.writeFile(pathWithFilename, content, { flag: "w" });
 };
@@ -29,7 +30,7 @@ export const createJsonFile = async (
 export const createJSAllComponentsFile = async (
     content: string,
     pathWithFilename: string,
-    timestamp = false
+    timestamp = false,
 ) => {
     const datestamp = new Date();
     const finalContent = `/*
@@ -103,7 +104,7 @@ type CreateAndSaveComponentListToFile = (
         res: any;
         timestamp?: boolean;
     },
-    config: RequestBaseConfig
+    config: RequestBaseConfig,
 ) => Promise<void>;
 
 type CreateAndSaveToFile = (
@@ -117,7 +118,7 @@ type CreateAndSaveToFile = (
         folder?: string;
         res: any;
     },
-    config: RequestBaseConfig
+    config: RequestBaseConfig,
 ) => void;
 
 /*
@@ -128,7 +129,7 @@ type CreateAndSaveToFile = (
  * */
 export const createAndSaveToFile: CreateAndSaveToFile = async (
     args,
-    config
+    config,
 ) => {
     const { sbmigWorkingDirectory } = config;
     const {
@@ -185,14 +186,14 @@ export const createAndSaveComponentListToFile: CreateAndSaveComponentListToFile 
         await createDir(
             folder
                 ? `${sbmigWorkingDirectory}/${folder}/`
-                : `${sbmigWorkingDirectory}/`
+                : `${sbmigWorkingDirectory}/`,
         );
         await createJSAllComponentsFile(
             JSON.stringify(res, null, 2),
             folder
                 ? `${sbmigWorkingDirectory}/${folder}/${filename}.ts`
                 : `${sbmigWorkingDirectory}/${filename}.ts`,
-            timestamp
+            timestamp,
         );
         Logger.success(`All components written to a file:  ${filename}`);
     };
@@ -218,4 +219,18 @@ export const dumpToFile = async (path: string, content: string) => {
             console.log("Successfully wrote to file");
         }
     });
+};
+
+export const getConsumerPackageJson = async () => {
+    const consumerPkg = await getFileContentWithRequire({
+        file: path.join(process.cwd(), "package.json"),
+    });
+    return consumerPkg;
+};
+
+export const getSbMigPackageJson = async () => {
+    const sbMigPkg = await getFileContentWithRequire({
+        file: path.join("..", "..", "package.json"),
+    });
+    return sbMigPkg;
 };

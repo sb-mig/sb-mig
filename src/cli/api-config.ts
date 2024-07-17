@@ -16,13 +16,13 @@ const globalSbapi = new StoryblokClient(
             type: "none",
         },
     },
-    storyblokApiUrl
+    storyblokApiUrl,
 );
 
 const generateApi = (custom: StoryblokClient) => custom;
 
 export const sbApi = generateApi(
-    storyblokConfig.sbApi ? storyblokConfig.sbApi() : globalSbapi
+    storyblokConfig.sbApi ? storyblokConfig.sbApi() : globalSbapi,
 );
 
 export const apiConfig: RequestBaseConfig = {

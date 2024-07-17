@@ -33,14 +33,24 @@ export const getAllItemsWithPagination = async ({
             totalPages = Math.ceil(response.total / response.perPage);
         }
 
-        amountOfFetchedItems +=
-            response.total - amountOfFetchedItems > per_page
-                ? per_page
-                : response.total - amountOfFetchedItems;
+        /**
+         *
+         * Not every endpoint in storyblok give us pagination...
+         * so only for this who paginate we want to calculate values to show
+         *
+         * */
+        if (response.total) {
+            amountOfFetchedItems +=
+                response.total - amountOfFetchedItems > per_page
+                    ? per_page
+                    : response.total - amountOfFetchedItems;
 
-        Logger.success(
-            `${amountOfFetchedItems} of ${response.total} items fetched.`
-        );
+            if (amountOfFetchedItems && !Number.isNaN(amountOfFetchedItems)) {
+                Logger.success(
+                    `${amountOfFetchedItems} of ${response.total} items fetched.`,
+                );
+            }
+        }
 
         allItems.push(...response.data[itemsKey]);
 

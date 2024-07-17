@@ -149,7 +149,7 @@ app.test = () => ({
 
 const getSubcommand = (cliObject: any, level: any) =>
     pipe(prop("input"), prop(level), (name: any) => prop(name)(cliObject))(
-        prop("cli")(cliObject())
+        prop("cli")(cliObject()),
     );
 
 const cli = (cliObject: any, level = 0): any => {

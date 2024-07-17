@@ -1,3 +1,7 @@
+import type {
+    SchemaGlobalResolvers,
+    SimpleResolver,
+} from "../api/utils/resolvers.types.js";
 import type StoryblokClient from "storyblok-js-client";
 
 import path from "path";
@@ -37,6 +41,7 @@ export interface IStoryblokConfig {
     storyblokDeliveryApiUrl: string;
     storyblokGraphqlApiUrl: string;
     oauthToken: string;
+    openaiToken: string;
     spaceId: string;
     accessToken: string;
     boilerplateSpaceId: string;
@@ -45,7 +50,9 @@ export interface IStoryblokConfig {
     cacheDir: string;
     debug: boolean;
     rateLimit: number;
-    sbApi?: () => StoryblokClient | StoryblokClient;
+    sbApi?: () => StoryblokClient;
+    resolvers?: SimpleResolver[];
+    advancedResolvers?: SchemaGlobalResolvers;
 }
 
 const filePath = path.resolve(process.cwd(), "storyblok.config");

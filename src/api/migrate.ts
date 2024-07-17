@@ -19,10 +19,12 @@ import {
     discover,
     discoverMany,
     discoverManyByPackageName,
+    discoverResolvers,
     discoverStories,
     LOOKUP_TYPE,
     SCOPE,
 } from "../cli/utils/discover.js";
+import config from "../config/config.js";
 import { dumpToFile } from "../utils/files.js";
 import Logger from "../utils/logger.js";
 import {
@@ -38,6 +40,7 @@ import { backupStories } from "./stories/backup.js";
 import { getAllStories } from "./stories/stories.js";
 import { createTree, traverseAndCreate } from "./stories/tree.js";
 import { _uniqueValuesFrom } from "./utils/helper-functions.js";
+import { resolveGlobalTransformations } from "./utils/resolverTransformations.js";
 
 const _checkAndPrepareGroups: CheckAndPrepareGroups = async (
     groupsToCheck,
@@ -45,9 +48,6 @@ const _checkAndPrepareGroups: CheckAndPrepareGroups = async (
 ) => {
     const componentsGroups =
         await managementApi.components.getAllComponentsGroups(config);
-    console.log("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
-    console.log(componentsGroups);
-    console.log("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
     const groupExist = (groupName: any) =>
         componentsGroups.find((group: any) => group.name === groupName);
 
@@ -85,9 +85,8 @@ export const removeSpecifiedComponents: RemoveSpecificComponents = async (
     components,
     config,
 ) => {
-    const remoteComponents = await managementApi.components.getAllComponents(
-        config,
-    );
+    const remoteComponents =
+        await managementApi.components.getAllComponents(config);
     const componentsToRemove: any = [];
 
     components.map((component: any) => {
@@ -135,10 +134,19 @@ export const syncComponents: SyncComponents = async (
 ) => {
     Logger.log("sync2Components: ");
 
-    const specifiedComponentsContent = await Promise.all(
+    let specifiedComponentsContent = await Promise.all(
         specifiedComponents.map((component) => {
             return getFileContentWithRequire({ file: component.p });
         }),
+    );
+
+    /**
+     * Resolve all the global transformations you find
+     *      - storyblok.config file resolvers
+     *      - .sb.resolvers.ts files resolvers
+     */
+    specifiedComponentsContent = await resolveGlobalTransformations(
+        specifiedComponentsContent,
     );
 
     const groupsToCheck = _uniqueValuesFrom(
@@ -154,9 +162,8 @@ export const syncComponents: SyncComponents = async (
     // happens async, so if one component will have the same group, as other one
     // it will be race of condition kinda issue - we will never now, if the group for current processed component
     // already exist or is being created by other request
-    const remoteComponents = await managementApi.components.getAllComponents(
-        config,
-    );
+    const remoteComponents =
+        await managementApi.components.getAllComponents(config);
 
     const componentsToUpdate = [];
     const componentsToCreate = [];

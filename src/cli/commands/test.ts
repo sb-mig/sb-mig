@@ -6,6 +6,7 @@ import { apiConfig } from "../api-config.js";
 
 const INIT_COMMANDS = {
     stories: "stories",
+    resolvers: "resolvers",
 };
 
 export const testCommand = async (props: CLIOptions) => {
@@ -26,12 +27,12 @@ export const testCommand = async (props: CLIOptions) => {
                         language: "de-de",
                     },
                 },
-                apiConfig
+                apiConfig,
             );
 
             console.log("these are all stories");
             console.log(
-                JSON.stringify(allStories[0].story.content.body, null, 2)
+                JSON.stringify(allStories[0].story.content.body, null, 2),
             );
 
             break;
