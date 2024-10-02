@@ -1,3 +1,15 @@
+# [5.3.0-beta.7](https://github.com/sb-mig/sb-mig/compare/v5.3.0-beta.6...v5.3.0-beta.7) (2024-10-02)
+
+
+### Bug Fixes
+
+* not needed async ([a2fff49](https://github.com/sb-mig/sb-mig/commit/a2fff496c5871abca25f021b4f5964da03e4fd6e))
+
+
+### Features
+
+* add support for after sync set default presets to appropriate components ([12d4923](https://github.com/sb-mig/sb-mig/commit/12d4923828e37779b8ebafcd79c1ca814fba54a1))
+
 # [5.3.0-beta.6](https://github.com/sb-mig/sb-mig/compare/v5.3.0-beta.5...v5.3.0-beta.6) (2024-07-17)
 
 
