@@ -103,7 +103,7 @@ export const createComponent: CreateComponent = (
  * PUT ONE Component
  *
  * */
-export const updateComponent: UpdateComponent = (
+export const updateComponent: UpdateComponent = async (
     component,
     presets,
     config,

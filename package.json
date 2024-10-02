@@ -67,7 +67,7 @@
     "rollup-plugin-ts": "^3.4.4",
     "semver": "^7.6.2",
     "storyblok-js-client": "^5.12.0",
-    "storyblok-schema-types": "^1.1.2",
+    "storyblok-schema-types": "^1.2.4",
     "typescript": "^5.1.6",
     "uuid": "^9.0.0"
   },
