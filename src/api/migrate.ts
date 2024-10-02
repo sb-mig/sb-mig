@@ -12,6 +12,7 @@ import type {
     SyncStories,
 } from "./migrate.types.js";
 import type { RequestBaseConfig } from "./utils/request.js";
+import type { Preset } from "storyblok-schema-types";
 
 import { apiConfig } from "../cli/api-config.js";
 import {
@@ -188,8 +189,9 @@ export const syncComponents: SyncComponents = async (
     const componentsGroups =
         await managementApi.components.getAllComponentsGroups(config);
 
-    componentsToUpdate.length > 0 &&
-        Promise.all(
+    const groupsResolvedForComponentsToUpdate =
+        componentsToUpdate.length > 0 &&
+        (await Promise.all(
             componentsToUpdate.map((component) =>
                 _resolveGroups(
                     component,
@@ -198,20 +200,25 @@ export const syncComponents: SyncComponents = async (
                     config,
                 ),
             ),
-        ).then((res) => {
-            Logger.log("Components to update after check: ");
-            res.map((component) => {
+        ));
+
+    Logger.log("Components to update after check: ");
+    if (groupsResolvedForComponentsToUpdate) {
+        await Promise.allSettled(
+            groupsResolvedForComponentsToUpdate.map((component) => {
                 Logger.warning(`   ${component.name}`);
-                managementApi.components.updateComponent(
+                return managementApi.components.updateComponent(
                     component,
                     presets,
                     config,
                 );
-            });
-        });
+            }),
+        );
+    }
 
-    componentsToCreate.length > 0 &&
-        Promise.all(
+    const groupsResolvedForComponentToCreate =
+        componentsToCreate.length > 0 &&
+        (await Promise.all(
             componentsToCreate.map((component) =>
                 _resolveGroups(
                     component,
@@ -220,17 +227,21 @@ export const syncComponents: SyncComponents = async (
                     config,
                 ),
             ),
-        ).then((res) => {
-            Logger.log("Components to create after check: ");
-            res.map((component) => {
+        ));
+
+    Logger.log("Components to create after check: ");
+    if (groupsResolvedForComponentToCreate) {
+        await Promise.allSettled(
+            groupsResolvedForComponentToCreate.map((component) => {
                 Logger.warning(`   ${component.name}`);
-                managementApi.components.createComponent(
+                return managementApi.components.createComponent(
                     component,
                     presets,
                     config,
                 );
-            });
-        });
+            }),
+        );
+    }
 };
 
 export const syncAllComponents: SyncAllComponents = async (presets, config) => {
@@ -253,7 +264,7 @@ export const syncAllComponents: SyncAllComponents = async (presets, config) => {
     });
 
     // #4: sync - do all stuff already done (groups resolving, and so on)
-    syncComponents([...local, ...external], presets, config);
+    return await syncComponents([...local, ...external], presets, config);
 };
 
 export const syncProvidedComponents: SyncProvidedComponents = async (
@@ -283,7 +294,7 @@ export const syncProvidedComponents: SyncProvidedComponents = async (
         });
 
         // #4: sync - do all stuff already done (groups resolving, and so on)
-        syncComponents([...local, ...external], presets, config);
+        return await syncComponents([...local, ...external], presets, config);
     } else {
         // implement discovering and syncrhonizing with packageName
         // #1: discover all external .sb.js files
@@ -302,7 +313,7 @@ export const syncProvidedComponents: SyncProvidedComponents = async (
             external: allExternalSbComponentsSchemaFiles,
         });
         // #4: sync - do all stuff already done (groups resolving, and so on)
-        syncComponents([...local, ...external], presets, config);
+        return syncComponents([...local, ...external], presets, config);
     }
 };
 
@@ -450,5 +461,53 @@ export const syncContent: SyncContentFunction = async (
         return true;
     } else {
         throw Error("This should never happen!");
+    }
+};
+
+const setToDefaultPreset = (allPresets: Preset["preset"][]) => {
+    return allPresets.find((preset) => preset.name === "Default");
+};
+
+export const setComponentDefaultPreset = async ({
+    presets,
+    componentsToSync,
+    apiConfig,
+}: {
+    presets: boolean;
+    componentsToSync?: string[];
+    apiConfig: RequestBaseConfig;
+}) => {
+    if (presets) {
+        Logger.warning("Setting default presets for components...");
+
+        const remoteComponents =
+            await managementApi.components.getAllComponents(apiConfig);
+        const filteredRemoteComponents = componentsToSync
+            ? remoteComponents.filter((component: any) =>
+                  componentsToSync.includes(component.name),
+              )
+            : remoteComponents;
+
+        const finalRemoteComponents = filteredRemoteComponents.map(
+            (component: any) => {
+                return {
+                    ...component,
+                    preset_id: setToDefaultPreset(component.all_presets)?.id,
+                };
+            },
+        );
+
+        Logger.warning("Updating componet with default presets...");
+        return Promise.all(
+            finalRemoteComponents.map((component: any) => {
+                managementApi.components.updateComponent(
+                    component,
+                    false,
+                    apiConfig,
+                );
+            }),
+        );
+    } else {
+        return false;
     }
 };
