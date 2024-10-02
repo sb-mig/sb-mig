@@ -1,3 +1,15 @@
+# [5.4.0-beta.1](https://github.com/sb-mig/sb-mig/compare/v5.3.0...v5.4.0-beta.1) (2024-10-02)
+
+
+### Bug Fixes
+
+* not needed async ([a2fff49](https://github.com/sb-mig/sb-mig/commit/a2fff496c5871abca25f021b4f5964da03e4fd6e))
+
+
+### Features
+
+* add support for after sync set default presets to appropriate components ([12d4923](https://github.com/sb-mig/sb-mig/commit/12d4923828e37779b8ebafcd79c1ca814fba54a1))
+
 # [5.3.0](https://github.com/sb-mig/sb-mig/compare/v5.2.2...v5.3.0) (2024-07-17)
 
 
@@ -19,6 +31,18 @@
 * add cli-descriptions as knowledge base for sb-mig anton ([68df961](https://github.com/sb-mig/sb-mig/commit/68df96117f7df407cf8c57c3214f141b65cf75d7))
 * add global resolving with resolver (simple) and advancedResolver to storyblok.config.js ([2f34d39](https://github.com/sb-mig/sb-mig/commit/2f34d39e0058f79237aaf63dfbce43dab06a7783))
 * global resolvers concept ([f8d2a5d](https://github.com/sb-mig/sb-mig/commit/f8d2a5dbde00dfe6cd444e8cbeae0d1a635160d9))
+
+# [5.3.0-beta.7](https://github.com/sb-mig/sb-mig/compare/v5.3.0-beta.6...v5.3.0-beta.7) (2024-10-02)
+
+
+### Bug Fixes
+
+* not needed async ([a2fff49](https://github.com/sb-mig/sb-mig/commit/a2fff496c5871abca25f021b4f5964da03e4fd6e))
+
+
+### Features
+
+* add support for after sync set default presets to appropriate components ([12d4923](https://github.com/sb-mig/sb-mig/commit/12d4923828e37779b8ebafcd79c1ca814fba54a1))
 
 # [5.3.0-beta.6](https://github.com/sb-mig/sb-mig/compare/v5.3.0-beta.5...v5.3.0-beta.6) (2024-07-17)
 

@@ -7,6 +7,7 @@ import {
     syncAllComponents,
     syncContent,
     syncProvidedComponents,
+    setComponentDefaultPreset,
 } from "../../api/migrate.js";
 import storyblokConfig from "../../config/config.js";
 import Logger from "../../utils/logger.js";
@@ -62,19 +63,30 @@ export const sync = async (props: CLIOptions) => {
 
                 const presets = flags["presets"] || false;
 
-                syncAllComponents(presets, apiConfig);
+                await syncAllComponents(presets, apiConfig);
+
+                await setComponentDefaultPreset({
+                    presets: Boolean(flags.presets),
+                    apiConfig,
+                });
             }
 
             if (isIt("empty")) {
                 Logger.warning("Synchronizing PROVIDED components...");
                 const componentsToSync = unpackElements(input);
 
-                syncProvidedComponents(
+                await syncProvidedComponents(
                     Boolean(flags.presets),
                     componentsToSync,
                     flags.packageName,
                     apiConfig,
                 );
+
+                await setComponentDefaultPreset({
+                    presets: Boolean(flags.presets),
+                    componentsToSync,
+                    apiConfig,
+                });
             }
 
             if (isIt("allWithSSOT")) {
