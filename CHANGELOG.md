@@ -1,3 +1,10 @@
+## [5.4.1](https://github.com/sb-mig/sb-mig/compare/v5.4.0...v5.4.1) (2024-10-23)
+
+
+### Bug Fixes
+
+* remove dead link ([f68313b](https://github.com/sb-mig/sb-mig/commit/f68313bb75e106e469375c7f16d74430fec5e90f))
+
 ## [5.4.1-beta.1](https://github.com/sb-mig/sb-mig/compare/v5.4.0...v5.4.1-beta.1) (2024-10-23)
 
 
