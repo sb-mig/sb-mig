@@ -56,6 +56,23 @@ export const syncDescription = `
         $ sb-mig sync content --assets --from 12345 --to 12345
 `;
 
+export const copyDescription = `
+    Usage
+        $ sb-mig copy
+        
+    Description
+        Copy stuff
+        
+    COMMANDS
+        ?
+     
+    FLAGS
+        ?
+    
+    EXAMPLES
+        $ sb-mig copy ?
+`;
+
 export const migrateDescription = `
     Usage
         $ sb-mig migrate [content] [space separated file names] or --all --from [spaceId] --to [spaceId] --migration [migration-config-filename]

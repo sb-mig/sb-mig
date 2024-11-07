@@ -14,8 +14,10 @@ import {
     migrateDescription,
     revertDescription,
     migrationsDescription,
+    copyDescription,
 } from "./cli-descriptions.js";
 import { backup } from "./commands/backup.js";
+import { copyCommand } from "./commands/copy.js";
 import { debug } from "./commands/debug.js";
 import { discover } from "./commands/discover.js";
 import { init } from "./commands/init.js";
@@ -41,6 +43,16 @@ app.sync = () => ({
     }),
     action: (cli: any) => {
         sync(cli);
+    },
+});
+
+app.copy = () => ({
+    cli: meow(copyDescription, {
+        importMeta: import.meta,
+        booleanDefault: undefined,
+    }),
+    action: (cli: any) => {
+        copyCommand(cli);
     },
 });
 
