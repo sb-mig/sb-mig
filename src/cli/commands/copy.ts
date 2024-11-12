@@ -89,11 +89,12 @@ export const copyCommand = async (props: CLIOptions) => {
         case COPY_COMMANDS.stories:
             Logger.warning(`test sb-mig... with command: ${command}`);
 
+            console.log({ flags });
+
             const sourceSpace = getSourceSpace(flags, apiConfig);
             const targetSpace = getTargetSpace(flags, apiConfig);
             const what = getWhat(flags);
             const where = getWhere(flags);
-            // const recursive = getRecursive(flags);
 
             console.log({ sourceSpace, targetSpace, what, where });
 
@@ -101,29 +102,100 @@ export const copyCommand = async (props: CLIOptions) => {
 
             if (strategy === "folder_recursive") {
                 console.log({ strategy });
-                // 1. get all stories inside this folder, and recursively
-                // 2. create tree of stories
-                // 3. pass tree to traverseAndCreate
-                // 3.1. update or create
-                // traverseAndCreate should be able to check if the space where we copying the whole structure, has the story already
-                // if it does, then we should update it, otherwise we should create it, it should happen at every story level
-            }
+                const rootStorySlug = what.slice(0, -2);
 
-            if (strategy === "folder_with_root") {
-                console.log({ strategy });
-                // 1. get all stories
-                const allSourceStories =
+                // 0. get the root story
+                const rootStory = await managementApi.stories.getStoryBySlug(
+                    rootStorySlug,
+                    {
+                        ...apiConfig,
+                        spaceId: sourceSpace,
+                    },
+                );
+
+                // 1. get all stories inside this folder, and recursively
+                const allSourceStories = [rootStory].concat(
                     await managementApi.stories.getAllStories(
                         {
                             options: {
-                                starts_with: what,
+                                starts_with: `${rootStorySlug}/`,
                             },
                         },
                         {
                             ...apiConfig,
                             spaceId: sourceSpace,
                         },
-                    );
+                    ),
+                );
+
+                const normalizedStories = allSourceStories
+                    .map((item: any) => item.story)
+                    .map((item: any) => {
+                        if (item.full_slug === rootStorySlug) {
+                            return {
+                                ...item,
+                                parent_id: null,
+                            };
+                        }
+
+                        return {
+                            ...item,
+                        };
+                    });
+
+                const treeOfStories = createTree(normalizedStories);
+                const entryStory = await attachToFolder(where, targetSpace);
+                const reAttachedTreeOfStories = treeOfStories[0]?.children?.map(
+                    (child: any) => {
+                        return {
+                            ...child,
+                            parent_id: entryStory.story.id,
+                            story: {
+                                ...child.story,
+                                parent_id: entryStory.story.id,
+                            },
+                        };
+                    },
+                );
+
+                await traverseAndCreate(
+                    {
+                        tree: reAttachedTreeOfStories as any,
+                        realParentId: entryStory.story.id,
+                        spaceId: targetSpace,
+                    },
+                    {
+                        ...apiConfig,
+                        spaceId: targetSpace,
+                    },
+                );
+            }
+
+            if (strategy === "folder_with_root") {
+                console.log({ strategy });
+                // 0. get the root story
+                const rootStory = await managementApi.stories.getStoryBySlug(
+                    what,
+                    {
+                        ...apiConfig,
+                        spaceId: sourceSpace,
+                    },
+                );
+
+                // 1. get all stories
+                const allSourceStories = [rootStory].concat(
+                    await managementApi.stories.getAllStories(
+                        {
+                            options: {
+                                starts_with: `${what}/`,
+                            },
+                        },
+                        {
+                            ...apiConfig,
+                            spaceId: sourceSpace,
+                        },
+                    ),
+                );
 
                 const normalizedStories = allSourceStories
                     .map((item: any) => item.story)
@@ -141,37 +213,12 @@ export const copyCommand = async (props: CLIOptions) => {
                     });
 
                 const treeOfStories = createTree(normalizedStories);
-
-                const storiesToPassJson = JSON.stringify(
-                    treeOfStories,
-                    null,
-                    2,
-                );
-
-                dumpToFile("storiesToPass.json", storiesToPassJson);
-
                 const entryStory = await attachToFolder(where, targetSpace);
 
                 const enhancedTreeOfStories = {
                     ...treeOfStories[0],
                     parent_id: entryStory.story.id,
                 };
-
-                const newGlobalParent = [
-                    {
-                        action: "create",
-                        id: entryStory.story.id, // id of the pl guy
-                        parent_id: null,
-                        story: {
-                            ...entryStory.story,
-                        },
-                        children: [enhancedTreeOfStories],
-                    },
-                ];
-
-                const finalFinalJson = JSON.stringify(newGlobalParent, null, 2);
-
-                dumpToFile("finalFinal.json", finalFinalJson);
 
                 await traverseAndCreate(
                     {
@@ -184,20 +231,57 @@ export const copyCommand = async (props: CLIOptions) => {
                         spaceId: targetSpace,
                     },
                 );
-
-                // 2. figure out where to attach the story in the source space
-                // 3. create the story in the target space
-                // 3.1. check if the story already exists in the target space
-                // 3.2. if it does, then update it, otherwise create it
             }
 
             if (strategy === "story") {
                 console.log({ strategy });
-                // 1. get this story
-                // 2. figure out where to attach the story in the source space
-                // 3. create the story in the target space
-                // 3.1. check if the story already exists in the target space
-                // 3.2. if it does, then update it, otherwise create it
+
+                const entryStory = await managementApi.stories.getStoryBySlug(
+                    what,
+                    {
+                        ...apiConfig,
+                        spaceId: sourceSpace,
+                    },
+                );
+
+                const targetEntryStory = await attachToFolder(
+                    where,
+                    targetSpace,
+                );
+
+                const finalStories = [
+                    {
+                        ...entryStory.story,
+                        parent_id: targetEntryStory.story.id,
+                    },
+                ];
+
+                const normalizedStories = finalStories.map((item: any) => {
+                    if (item.full_slug === what) {
+                        return {
+                            ...item,
+                            parent_id: null,
+                        };
+                    }
+
+                    return {
+                        ...item,
+                    };
+                });
+
+                const treeOfStories = createTree(normalizedStories);
+
+                await traverseAndCreate(
+                    {
+                        tree: treeOfStories as any,
+                        realParentId: targetEntryStory.story.id,
+                        spaceId: targetSpace,
+                    },
+                    {
+                        ...apiConfig,
+                        spaceId: targetSpace,
+                    },
+                );
             }
 
             break;
