@@ -11,7 +11,7 @@ export const createTree = (stories: any[], storiesToUpdate: string[] = []) => {
 const buildTree = (
     nodes: TreeNode[],
     parentId: number | null = null,
-    storiesToUpdate: string[] = []
+    storiesToUpdate: string[] = [],
 ): TreeNode[] => {
     const tree: TreeNode[] = [];
 
@@ -44,7 +44,7 @@ export const traverseAndCreate: TraverseAndCreate = (input, config) => {
             if (action === "create") {
                 const result = await createStory(
                     { ...content, parent_id: realParentId },
-                    { ...config, spaceId }
+                    { ...config, spaceId },
                 );
                 storyId = result.story.id;
             } else if (action === "update") {
@@ -52,7 +52,7 @@ export const traverseAndCreate: TraverseAndCreate = (input, config) => {
                     { ...content, parent_id: realParentId },
                     `${storyId}`,
                     { force_update: true },
-                    { ...config, spaceId }
+                    { ...config, spaceId },
                 );
                 storyId = result.story.id;
             }
@@ -64,7 +64,7 @@ export const traverseAndCreate: TraverseAndCreate = (input, config) => {
                         realParentId: storyId,
                         spaceId,
                     },
-                    config
+                    config,
                 );
             }
         } catch (e) {

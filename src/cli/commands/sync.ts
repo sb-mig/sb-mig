@@ -286,6 +286,7 @@ export const sync = async (props: CLIOptions) => {
                                     ...apiConfig,
                                     spaceId: to,
                                 });
+
                                 //
                                 // Sync stories to 'to' space
                                 await syncContent(
