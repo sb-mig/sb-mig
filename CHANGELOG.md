@@ -1,3 +1,10 @@
+## [5.5.1](https://github.com/sb-mig/sb-mig/compare/v5.5.0...v5.5.1) (2024-11-13)
+
+
+### Bug Fixes
+
+* wrong condition... ([60b6e6e](https://github.com/sb-mig/sb-mig/commit/60b6e6e383b9c8a827e1cc103f37f5eba4da8d2d))
+
 # [5.5.0-beta.2](https://github.com/sb-mig/sb-mig/compare/v5.5.0-beta.1...v5.5.0-beta.2) (2024-11-13)
 
 
