@@ -93,7 +93,7 @@ export const compare = (request: CompareRequest): CompareResult => {
             // 1. check if the file has node_modules > 1
             const nodeModulesCount = (file.p.match(/node_modules/g) || [])
                 .length;
-            return nodeModulesCount > 1;
+            return nodeModulesCount <= 1;
         });
 
     // we only want to modify external array, because we want sometimes remove stuff which are already on local (overwrite node_modules ones)
