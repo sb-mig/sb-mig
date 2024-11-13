@@ -1,3 +1,10 @@
+## [5.5.1-beta.2](https://github.com/sb-mig/sb-mig/compare/v5.5.1-beta.1...v5.5.1-beta.2) (2024-11-13)
+
+
+### Bug Fixes
+
+* trigger ([93f64e3](https://github.com/sb-mig/sb-mig/commit/93f64e3887eb686e77dd8e806753f2958f2c8599))
+
 ## [5.5.1-beta.1](https://github.com/sb-mig/sb-mig/compare/v5.5.0...v5.5.1-beta.1) (2024-11-13)
 
 
