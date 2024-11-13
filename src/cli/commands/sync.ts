@@ -165,6 +165,7 @@ export const sync = async (props: CLIOptions) => {
                 to,
                 ...flags,
                 syncDirection,
+                test: "Test",
             });
 
             if (syncDirection) {
