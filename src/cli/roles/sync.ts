@@ -58,8 +58,6 @@ export const syncProvidedRoles: SyncProvidedRoles = async (
         external: allExternalSbComponentsSchemaFiles,
     });
 
-    console.log({ local, external });
-
     // #4: sync - do all stuff already done (groups resolving, and so on)
     await managementApi.roles.syncRoles(
         { specifiedRoles: [...local, ...external] },
