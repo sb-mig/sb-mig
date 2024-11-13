@@ -10,6 +10,14 @@
 
 * advanced story copy between spaces ([59f327a](https://github.com/sb-mig/sb-mig/commit/59f327aa384ef7c7822a962d3c45d9c995ff2c2f))
 * all 3 parts of copy done - whole folder, content of the folder, single story ([31adca1](https://github.com/sb-mig/sb-mig/commit/31adca19b8230b027f7d6e98fcf20f02873f826e))
+* 
+## [5.4.1](https://github.com/sb-mig/sb-mig/compare/v5.4.0...v5.4.1) (2024-10-23)
+
+
+### Bug Fixes
+
+* remove dead link ([f68313b](https://github.com/sb-mig/sb-mig/commit/f68313bb75e106e469375c7f16d74430fec5e90f))
+
 
 ## [5.4.1-beta.1](https://github.com/sb-mig/sb-mig/compare/v5.4.0...v5.4.1-beta.1) (2024-10-23)
 
