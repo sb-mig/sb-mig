@@ -1,3 +1,10 @@
+## [5.5.3-beta.1](https://github.com/sb-mig/sb-mig/compare/v5.5.2...v5.5.3-beta.1) (2025-01-24)
+
+
+### Bug Fixes
+
+* add asia pacific to regions ([c490c28](https://github.com/sb-mig/sb-mig/commit/c490c28f6423d620201fa185ba801d3c59a7a395))
+
 ## [5.5.2](https://github.com/sb-mig/sb-mig/compare/v5.5.1...v5.5.2) (2024-11-13)
 
 
