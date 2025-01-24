@@ -19,6 +19,11 @@ export interface StoryblokApiMapping {
         deliveryApi: "https://app.storyblokchina.cn";
         graphql: "";
     };
+    ap: {
+        managementApi: "https://api-ap.storyblok.com/v1";
+        deliveryApi: "https://api-ap.storyblok.com/v2";
+        graphql: "https://gapi-ap.storyblok.com/v1/api";
+    };
 }
 
 export const storyblokApiMapping: StoryblokApiMapping = {
@@ -36,5 +41,10 @@ export const storyblokApiMapping: StoryblokApiMapping = {
         managementApi: "https://app.storyblokchina.cn",
         deliveryApi: "https://app.storyblokchina.cn",
         graphql: "",
+    },
+    ap: {
+        managementApi: "https://api-ap.storyblok.com/v1",
+        deliveryApi: "https://api-ap.storyblok.com/v2",
+        graphql: "https://gapi-ap.storyblok.com/v1/api",
     },
 };
