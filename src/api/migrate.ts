@@ -78,8 +78,6 @@ export const removeAllComponents = async (config: RequestBaseConfig) => {
             );
         }),
     ]);
-
-    return [];
 };
 
 export const removeSpecifiedComponents: RemoveSpecificComponents = async (
