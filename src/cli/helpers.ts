@@ -12,15 +12,7 @@ export const askForConfirmation = async (
         resolveYes();
         return;
     }
-    // This section has to be changed, it was fast solution to asking for confirmation
-    // need to reimplement it better
-    await new Promise((resolve) => {
-        setTimeout(() => {
-            console.log(" ");
-            console.log(" ");
-            resolve(true);
-        }, 3000);
-    });
+    // Prompt user immediately when not in CI
 
     const rl = readline.createInterface({
         input: process.stdin,
