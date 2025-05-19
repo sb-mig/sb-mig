@@ -1,3 +1,10 @@
+## [5.5.4-beta.1](https://github.com/sb-mig/sb-mig/compare/v5.5.3...v5.5.4-beta.1) (2025-05-19)
+
+
+### Bug Fixes
+
+* return components removal promise ([e535813](https://github.com/sb-mig/sb-mig/commit/e5358131e4a5e62bd40ccae1e319cc5dc17bbbbe))
+
 ## [5.5.3](https://github.com/sb-mig/sb-mig/compare/v5.5.2...v5.5.3) (2025-01-24)
 
 
