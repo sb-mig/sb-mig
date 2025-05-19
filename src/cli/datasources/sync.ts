@@ -36,7 +36,7 @@ export const syncProvidedDatasources: SyncProvidedDatasources = async (
         external: allExternalDatasources,
     });
 
-    managementApi.datasources.syncDatasources(
+    await managementApi.datasources.syncDatasources(
         {
             providedDatasources: [...local, ...external],
         },
@@ -60,7 +60,7 @@ export const syncAllDatasources: SyncAllDatasources = async (config) => {
         external: allExternalDatasources,
     });
 
-    managementApi.datasources.syncDatasources(
+    await managementApi.datasources.syncDatasources(
         {
             providedDatasources: [...local, ...external],
         },
