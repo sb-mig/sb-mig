@@ -324,9 +324,9 @@ export const syncAssets: SyncAssets = async (
     Logger.log(`We would try to migrate Assets data from: ${from} to: ${to}`);
 
     const allAssets = await getAllAssets({ spaceId: from }, config);
-    allAssets.assets.map((asset) => {
+    const migrations = allAssets.assets.map((asset) => {
         const { id, created_at, updated_at, ...newAssetPayload } = asset;
-        migrateAsset(
+        return migrateAsset(
             {
                 migrateTo: to,
                 payload: newAssetPayload,
@@ -335,6 +335,8 @@ export const syncAssets: SyncAssets = async (
             config,
         );
     });
+
+    return await Promise.all(migrations);
 };
 
 const syncStories: SyncStories = async (
