@@ -245,10 +245,6 @@ export const doTheMigration = async (
     config: RequestBaseConfig,
 ) => {
     const arrayOfMaxDepths: number[] = [];
-    console.log("######################");
-    console.log("items to migrate");
-    console.log(itemsToMigrate);
-    console.log("######################");
     const migratedItems = itemsToMigrate.map((item: any, index: number) => {
         const sumOfReplacing: any = {};
 
@@ -351,12 +347,6 @@ export const doTheMigration = async (
     await modifyOrCreateAppliedMigrationsFile(migrationConfig, itemType);
 
     if (itemType === "story") {
-        console.log(
-            "These are stories to migrate!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!",
-        );
-        console.log("########################");
-        console.log(notNullMigratedItems);
-        console.log("########################");
         await managementApi.stories.updateStories(
             {
                 stories: notNullMigratedItems,
