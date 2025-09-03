@@ -72,6 +72,13 @@ app.migrate = () => ({
                 default: "space",
                 isRequired: true,
             },
+            withSlug: {
+                type: "string",
+                isMultiple: true,
+            },
+            startsWith: {
+                type: "string",
+            },
         },
     }),
     action: (cli: any) => {

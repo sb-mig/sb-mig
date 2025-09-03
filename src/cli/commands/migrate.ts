@@ -33,10 +33,13 @@ export const migrate = async (props: CLIOptions) => {
         "pageId",
         "migration",
         "yes",
+        "withSlug",
+        "startsWith",
+        "dryRun",
     ]);
 
     Logger.warning(
-        `This feature is in BETA. Use it at your own risk. The API might change in the future. (Probably in a standard Prisma like migration way)`
+        `This feature is in BETA. Use it at your own risk. The API might change in the future. (Probably in a standard Prisma like migration way)`,
     );
 
     switch (command) {
@@ -46,6 +49,17 @@ export const migrate = async (props: CLIOptions) => {
             const from = getFrom(flags, apiConfig);
             const to = getTo(flags, apiConfig);
             const migrationConfig = flags["migration"];
+            const withSlugFlag = flags["withSlug"] as
+                | string
+                | string[]
+                | undefined;
+            const withSlug = Array.isArray(withSlugFlag)
+                ? withSlugFlag
+                : withSlugFlag
+                ? [withSlugFlag]
+                : undefined;
+            const startsWith =
+                (flags["startsWith"] as string | undefined) || undefined;
 
             if (isIt("empty")) {
                 const componentsToMigrate = unpackElements(input) || [""];
@@ -63,7 +77,7 @@ export const migrate = async (props: CLIOptions) => {
                                 suffix: ".sb.stories",
                                 spaceId: from,
                             },
-                            apiConfig
+                            apiConfig,
                         );
 
                         // Migrating provided components
@@ -75,16 +89,17 @@ export const migrate = async (props: CLIOptions) => {
                                 migrateFrom,
                                 componentsToMigrate,
                                 migrationConfig,
+                                filters: { withSlug, startsWith },
                             },
-                            apiConfig
+                            apiConfig,
                         );
                     },
                     () => {
                         Logger.warning(
-                            "Migration not started, exiting the program..."
+                            "Migration not started, exiting the program...",
                         );
                     },
-                    flags["yes"]
+                    flags["yes"],
                 );
             } else if (isIt("all")) {
                 const migrateFrom: MigrateFrom = flags["migrateFrom"];
@@ -102,20 +117,21 @@ export const migrate = async (props: CLIOptions) => {
                                 to,
                                 migrateFrom,
                                 migrationConfig,
+                                filters: { withSlug, startsWith },
                             },
-                            apiConfig
+                            apiConfig,
                         );
                     },
                     () => {
                         Logger.warning(
-                            "Migration not started, exiting the program..."
+                            "Migration not started, exiting the program...",
                         );
                     },
-                    flags["yes"]
+                    flags["yes"],
                 );
             } else {
                 Logger.error(
-                    "Wrong combination of flags. check help for more info."
+                    "Wrong combination of flags. check help for more info.",
                 );
                 console.log("Passed flags: ");
                 console.log(flags);
@@ -142,7 +158,7 @@ export const migrate = async (props: CLIOptions) => {
 
                         const response =
                             await managementApi.presets.getAllPresets(
-                                apiConfig
+                                apiConfig,
                             );
 
                         await createAndSaveToFile(
@@ -150,7 +166,7 @@ export const migrate = async (props: CLIOptions) => {
                                 filename: "presets-backup",
                                 res: response,
                             },
-                            apiConfig
+                            apiConfig,
                         );
 
                         await migrateAllComponentsDataInStories(
@@ -161,19 +177,19 @@ export const migrate = async (props: CLIOptions) => {
                                 migrateFrom,
                                 migrationConfig,
                             },
-                            apiConfig
+                            apiConfig,
                         );
                     },
                     () => {
                         Logger.warning(
-                            "Migration not started, exiting the program..."
+                            "Migration not started, exiting the program...",
                         );
                     },
-                    flags["yes"]
+                    flags["yes"],
                 );
             } else {
                 Logger.error(
-                    "Wrong combination of flags. check help for more info."
+                    "Wrong combination of flags. check help for more info.",
                 );
                 console.log("Passed flags: ");
                 console.log(flags);
