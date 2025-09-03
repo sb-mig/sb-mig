@@ -1,3 +1,16 @@
+# [5.6.0-beta.1](https://github.com/sb-mig/sb-mig/compare/v5.5.4-beta.1...v5.6.0-beta.1) (2025-09-03)
+
+
+### Bug Fixes
+
+* clean not needed console.logs ([1f90361](https://github.com/sb-mig/sb-mig/commit/1f90361d3b7f6a3003f53f7d1aa9a37bda61d396))
+* clean not needed console.logs part 2 ([339dcee](https://github.com/sb-mig/sb-mig/commit/339dcee5ef785b15412dbe7da6ced6201a8f6c00))
+
+
+### Features
+
+* improve migrate literal names of content types ([ac17f74](https://github.com/sb-mig/sb-mig/commit/ac17f74eda80923a3b76fb2ea4046b4325409967))
+
 ## [5.5.4-beta.1](https://github.com/sb-mig/sb-mig/compare/v5.5.3...v5.5.4-beta.1) (2025-05-19)
 
 
