@@ -42,8 +42,6 @@ export const getFileContentWithRequire = (data: { file: string }) => {
 };
 
 export const getFilesContentWithRequire = (data: { files: string[] }) => {
-    console.log("These are files maaaaaan");
-    console.log(data);
     return data.files.map((file) => getFileContentWithRequire({ file }));
 };
 

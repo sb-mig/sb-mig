@@ -260,10 +260,6 @@ export const doTheMigration = async (
             itemType === "story" ? item[itemType].content : item[itemType];
         const rootWrapper = { root: json };
 
-        console.log("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
-        console.log("components to migrate, item");
-        console.log(item);
-        console.log("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
         const maxDepth = replaceComponentData({
             parent: rootWrapper,
             key: "root",

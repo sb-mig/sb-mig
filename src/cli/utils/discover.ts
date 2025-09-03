@@ -725,11 +725,6 @@ export const discoverMigrationConfig = (
     let pattern;
     let listOfFiles = [""];
 
-    console.log(
-        "Extension i'm looking for: ",
-        storyblokConfig.migrationConfigExt,
-    );
-
     switch (request.scope) {
         case SCOPE.local:
             // ### MANY - LOCAL - fileName ###
