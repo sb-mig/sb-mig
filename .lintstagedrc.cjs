@@ -5,7 +5,8 @@ module.exports = {
     "npx prettier --write",
     'yarn lint:fix',
   ],
-  '**/*.{ts,tsx}': [`tsc-files --noEmit`],
+  'src/**/*.{ts,tsx}': [`tsc-files --noEmit`],
+  '__tests__/**/*.{ts,tsx}': [`tsc-files --noEmit -p __tests__/tsconfig.json`],
 }
 
 /*

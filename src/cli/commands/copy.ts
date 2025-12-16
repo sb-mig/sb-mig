@@ -41,7 +41,7 @@ const decideStrategy = async (args: DecideStrategyArgs) => {
     const { what, sourceSpace } = args;
     // Check if path ends with /* for recursive folder strategy
     if (what.endsWith("/*")) {
-        const folderPath = what.slice(0, -2); // Remove /* from the end
+        const folderPath = what.slice(0, -2); // Remove /* from the endcurso
         const entryStory = await managementApi.stories.getStoryBySlug(
             folderPath,
             {
