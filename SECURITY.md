@@ -159,6 +159,35 @@ sb-mig respects Storyblok's rate limits:
 | Component schemas | `./src/`, `./storyblok/` | No |
 | Config file | `./storyblok.config.js` | May reference env vars |
 | Build cache | `./.next/cache/` | No |
+| Test coverage | `./coverage/` | No |
+
+---
+
+## 🧪 Testing Security
+
+### Test Environment Isolation
+
+- Tests use **mock utilities** - no real API calls
+- Mock tokens: `mock-oauth-token`, `mock-access-token`
+- Mock space ID: `12345`
+- Virtual file system for file operations
+
+### Test Files Location
+
+```
+__tests__/
+├── mocks/
+│   ├── storyblokClient.mock.ts  # Contains mock tokens only
+│   └── config.mock.ts           # Contains mock config only
+└── fixtures/
+    └── ...                      # Sample data, no real credentials
+```
+
+**Security notes:**
+- ✅ No real credentials in test files
+- ✅ Tests don't make network requests
+- ✅ Test fixtures contain synthetic data only
+- ✅ Coverage reports don't contain sensitive data
 
 ---
 
@@ -345,6 +374,38 @@ GUI stores terminal output in memory only - cleared on app restart.
 - [ ] Audit who has access to credentials
 - [ ] Review Storyblok Activity Log
 - [ ] Update dependencies for security patches
+
+---
+
+## 🔄 Dependency Security
+
+### Key Dependencies
+
+| Package | Purpose | Security Notes |
+|---------|---------|----------------|
+| `storyblok-js-client` | API communication | Official Storyblok package |
+| `meow` | CLI argument parsing | Minimal attack surface |
+| `dotenv` | Environment variable loading | Well-maintained |
+| `rollup` + `@swc/core` | TypeScript compilation | Build-time only |
+| `vitest` | Testing | Dev dependency only |
+
+### Keeping Dependencies Updated
+
+```bash
+# Check for vulnerabilities
+yarn audit
+
+# Update dependencies
+yarn upgrade-interactive
+
+# Check for outdated packages
+yarn outdated
+```
+
+**Recommended:**
+- Run `yarn audit` in CI pipeline
+- Enable Dependabot or similar for automated updates
+- Review changelogs before major updates
 
 ---
 

@@ -89,7 +89,7 @@ sb-mig/
 │   │   │   ├── components.types.ts
 │   │   │   └── index.ts
 │   │   ├── datasources/
-│   │   ├── discover/           # 🆕 To be created
+│   │   ├── discover/           # 🆕 To be created (Phase 1)
 │   │   │   ├── discover.ts
 │   │   │   ├── discover.types.ts
 │   │   │   └── index.ts
@@ -101,7 +101,7 @@ sb-mig/
 │   │   │   ├── stories.ts      # Story CRUD
 │   │   │   ├── backup.ts       # Story backup
 │   │   │   ├── tree.ts         # Tree building
-│   │   │   ├── copy.ts         # 🆕 Story copying
+│   │   │   ├── copy.ts         # 🆕 Story copying (Phase 1)
 │   │   │   └── index.ts
 │   │   ├── utils/
 │   │   │   ├── request.ts      # Pagination helpers
@@ -120,7 +120,7 @@ sb-mig/
 │   │   │   ├── remove.ts       # sb-mig remove ...
 │   │   │   └── ...
 │   │   ├── utils/
-│   │   │   └── discover.ts     # 🔄 Moving to api/discover/
+│   │   │   └── discover.ts     # 🔄 Moving to api/discover/ (Phase 1)
 │   │   ├── index.ts            # CLI entry point
 │   │   ├── api-config.ts       # API client setup
 │   │   └── cli-descriptions.ts # Help text
@@ -141,8 +141,29 @@ sb-mig/
 │       ├── main.ts             # Functional utilities
 │       └── ...
 │
-├── __tests__/                  # 🧪 Tests
+├── __tests__/                  # 🧪 Test Suite
+│   ├── tsconfig.json           # Test-specific TypeScript config
+│   ├── mocks/                  # Mock utilities
+│   │   ├── index.ts
+│   │   ├── storyblokClient.mock.ts
+│   │   ├── config.mock.ts
+│   │   └── filesystem.mock.ts
+│   ├── fixtures/               # Test data
+│   │   ├── api-responses/
+│   │   └── components/
+│   ├── api/                    # API layer tests
+│   │   ├── pagination.test.ts
+│   │   ├── components.test.ts
+│   │   └── stories.test.ts
+│   ├── discover/               # Discovery tests
+│   │   └── discover.test.ts
+│   ├── cli/                    # CLI integration tests
+│   │   └── sync.test.ts
+│   └── *.test.ts               # Utility tests
+│
 ├── dist/                       # Compiled output
+├── coverage/                   # Test coverage reports
+├── vitest.config.ts            # Vitest configuration
 ├── ARCHITECTURE.md             # This file
 ├── REFACTORING.md              # Refactoring roadmap
 └── SECURITY.md                 # Security documentation
@@ -172,6 +193,88 @@ sb-mig-gui/
 │       └── global.d.ts         # TypeScript declarations
 │
 └── ...
+```
+
+---
+
+## 🧪 Testing Architecture
+
+### Test Framework: Vitest
+
+We use **Vitest** for testing due to:
+- Native ESM support (no `esm` package workaround needed)
+- Built-in mocking (`vi.mock()`, `vi.fn()`, `vi.spyOn()`)
+- TypeScript support out of the box
+- Fast parallel execution
+- Compatible with Jest API
+
+### Test Structure
+
+```
+__tests__/
+├── tsconfig.json           # Separate TS config for tests
+│                           # - Vitest globals types
+│                           # - Relaxed strict mode
+│                           # - Includes src/ for imports
+│
+├── mocks/                  # Reusable mock utilities
+│   ├── storyblokClient.mock.ts
+│   │   ├── createMockStoryblokClient()  # Mock API client
+│   │   ├── createMockApiConfig()        # Mock config
+│   │   ├── createMockComponent()        # Component factory
+│   │   ├── createMockStory()            # Story factory
+│   │   └── setup*Mock()                 # Helper functions
+│   │
+│   ├── config.mock.ts
+│   │   ├── createMockConfig()           # Full config factory
+│   │   └── createMockEnv()              # Environment vars
+│   │
+│   └── filesystem.mock.ts
+│       ├── VirtualFileSystem            # In-memory file system
+│       ├── createMockFs()               # Mock fs module
+│       └── createComponentSchemaContent() # Schema generators
+│
+├── fixtures/               # Static test data
+│   ├── api-responses/      # Sample API response JSONs
+│   └── components/         # Sample .sb.js files
+│
+├── api/                    # API layer tests
+├── discover/               # Discovery tests
+├── cli/                    # CLI integration tests
+└── *.test.ts               # Utility function tests
+```
+
+### Test Configuration
+
+```typescript
+// vitest.config.ts
+{
+  test: {
+    globals: true,              // describe, it, expect without imports
+    environment: "node",
+    pool: "threads",            // Single-thread for ESM stability
+    poolOptions: {
+      threads: { singleThread: true }
+    },
+    coverage: {
+      provider: "v8",
+      thresholds: {
+        lines: 15,
+        functions: 15,
+        branches: 10,
+        statements: 15
+      }
+    }
+  }
+}
+```
+
+### Running Tests
+
+```bash
+yarn test           # Run all tests once
+yarn test:watch     # Watch mode
+yarn test:coverage  # With coverage report
 ```
 
 ---
@@ -404,6 +507,13 @@ See [SECURITY.md](./SECURITY.md) for detailed security information.
 - Meow is lightweight and ESM-native
 - Simpler plugin model (we removed plugin support)
 
+### Why Vitest instead of Mocha?
+- Native ESM support (no `esm` workaround)
+- Built-in mocking (no sinon needed)
+- TypeScript support out of the box
+- Faster parallel execution
+- Better developer experience
+
 ### Why not a monorepo?
 - Historical decision - sb-mig predates GUI
 - Could be reconsidered during refactor
@@ -432,5 +542,3 @@ See [SECURITY.md](./SECURITY.md) for detailed security information.
 ---
 
 *Last updated: December 2024*
-
-
