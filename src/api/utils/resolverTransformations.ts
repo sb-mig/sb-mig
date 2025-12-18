@@ -8,6 +8,12 @@ import {
 } from "../../cli/utils/discover.js";
 import config from "../../config/config.js";
 import { getFileContentWithRequire } from "../../utils/files.js";
+import {
+    deepTransform,
+    extendField,
+    isContentAvailableAsBloks,
+    isItemsAvailableAsBloks,
+} from "../../utils/transform-utils.js";
 
 type ComponentData = {
     [K in keyof StoryblokComponentSchemaBase<any>]: any;
@@ -51,16 +57,6 @@ export const transformWithResolverFiles = async (componentsContent: any) => {
 
     return componentsContent;
 };
-
-const isContentAvailableAsBloks = (component: any) =>
-    "content" in component.schema &&
-    component.schema.content.component_whitelist &&
-    component.schema.content.type === "bloks";
-
-const isItemsAvailableAsBloks = (component: any) =>
-    "items" in component.schema &&
-    component.schema.items.component_whitelist &&
-    component.schema.items.type === "bloks";
 
 const updateComponentWhitelist = ({
     component,
@@ -127,35 +123,6 @@ export const resolveGlobalTransformations = async (componentsContent: any) => {
     return componentsContent;
 };
 
-const extendField = (obj: any, targetField: string, newValue: any) => {
-    if (typeof obj !== "object" || obj === null) {
-        return false;
-    }
-
-    if (obj.hasOwnProperty(targetField)) {
-        if (Array.isArray(obj[targetField])) {
-            for (const element of newValue) {
-                if (!obj[targetField].includes(element)) {
-                    obj[targetField] = [...obj[targetField], element];
-                }
-            }
-        } else if (typeof obj[targetField] === "object") {
-            // this is something i have to fix, comparing to object is stupid
-            obj[targetField] = { ...obj[targetField], ...newValue };
-        }
-
-        return true;
-    }
-
-    for (const key in obj) {
-        if (extendField(obj[key], targetField, newValue)) {
-            return true;
-        }
-    }
-
-    return false;
-};
-
 const resolveAll = (resolver: any, componentsContent: any[]) => {
     if (!resolver.all) return componentsContent;
 
@@ -174,36 +141,6 @@ export const extendFields = (componentNamesResolver: any, component: any) => {
         componentNamesResolver.methods.extend[targetField],
     );
 };
-
-function deepTransform(obj: any, transformers: any): any {
-    if (typeof obj !== "object" || obj === null) {
-        return obj;
-    }
-
-    const result = Array.isArray(obj) ? [...obj] : { ...obj };
-
-    for (const key in transformers) {
-        if (typeof transformers[key] === "function") {
-            result[key] = transformers[key](obj[key]);
-        } else if (
-            typeof transformers[key] === "object" &&
-            transformers[key] !== null
-        ) {
-            result[key] = deepTransform(obj[key] || {}, transformers[key]);
-        } else {
-            result[key] = transformers[key];
-        }
-    }
-
-    // Preserve untransformed properties
-    for (const key in obj) {
-        if (!(key in transformers)) {
-            result[key] = obj[key];
-        }
-    }
-
-    return result;
-}
 
 export const resolverTransformations = (
     componentsContent: any,
