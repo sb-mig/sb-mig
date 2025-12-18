@@ -1,7 +1,6 @@
 import type { OneFileElement } from "../../cli/utils/discover.js";
 import type { RequestBaseConfig } from "../utils/request.js";
 
-
 export type GetAllDatasources = (config: RequestBaseConfig) => Promise<any>;
 export type GetDatasource = (
     args: { datasourceName: string | undefined },

@@ -11,7 +11,10 @@ import {
     SCOPE,
 } from "../../cli/utils/discover.js";
 import storyblokConfig from "../../config/config.js";
-import { createAndSaveToFile , getFilesContentWithRequire } from "../../utils/files.js";
+import {
+    createAndSaveToFile,
+    getFilesContentWithRequire,
+} from "../../utils/files.js";
 import Logger from "../../utils/logger.js";
 import { modifyOrCreateAppliedMigrationsFile } from "../../utils/migrations.js";
 import { isObjectEmpty } from "../../utils/object-utils.js";

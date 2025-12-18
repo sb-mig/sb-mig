@@ -129,7 +129,7 @@ describe("Story CRUD Logic", () => {
         it("should compute full_slug from hierarchy", () => {
             const computeFullSlug = (
                 slug: string,
-                parentSlug: string | null
+                parentSlug: string | null,
             ): string => {
                 return parentSlug ? `${parentSlug}/${slug}` : slug;
             };
@@ -159,8 +159,12 @@ describe("Story Tree Building", () => {
 
         // Simple tree building logic
         const buildTree = (
-            stories: Array<{ id: number; name: string; parent_id: number | null }>,
-            parentId: number | null = null
+            stories: Array<{
+                id: number;
+                name: string;
+                parent_id: number | null;
+            }>,
+            parentId: number | null = null,
         ): TreeNode[] => {
             return stories
                 .filter((s) => s.parent_id === parentId)
@@ -189,7 +193,7 @@ describe("Story Tree Building", () => {
         const getDepth = (
             stories: Array<{ id: number; parent_id: number | null }>,
             id: number,
-            depth = 0
+            depth = 0,
         ): number => {
             const story = stories.find((s) => s.id === id);
             if (!story || !story.parent_id) return depth;

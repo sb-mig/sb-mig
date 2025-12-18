@@ -37,7 +37,9 @@ describe("Virtual File System for Discovery Tests", () => {
         vfs.addFile("/project/src/components/hero.sb.js", content);
 
         expect(vfs.fileExists("/project/src/components/hero.sb.js")).toBe(true);
-        expect(vfs.readFile("/project/src/components/hero.sb.js")).toBe(content);
+        expect(vfs.readFile("/project/src/components/hero.sb.js")).toBe(
+            content,
+        );
     });
 
     it("should list directory contents", () => {
@@ -170,7 +172,7 @@ describe("Discovery Glob Pattern Building", () => {
         const buildPattern = (
             mainDir: string,
             dirs: string[],
-            ext: string
+            ext: string,
         ): string => {
             const dirPart = dirs.length === 1 ? dirs[0] : `{${dirs.join(",")}}`;
             return `${mainDir}/${dirPart}/**/[^_]*.${ext}`;
@@ -184,7 +186,7 @@ describe("Discovery Glob Pattern Building", () => {
         const buildPattern = (
             mainDir: string,
             dirs: string[],
-            ext: string
+            ext: string,
         ): string => {
             const dirPart = dirs.length === 1 ? dirs[0] : `{${dirs.join(",")}}`;
             return `${mainDir}/${dirPart}/**/[^_]*.${ext}`;
@@ -220,7 +222,7 @@ describe("Discovery Comparison Logic", () => {
 
         const newComponents = localComponents.filter(
             (local) =>
-                !remoteComponents.some((remote) => remote.name === local.name)
+                !remoteComponents.some((remote) => remote.name === local.name),
         );
 
         expect(newComponents).toEqual([{ name: "new-component" }]);
@@ -237,7 +239,7 @@ describe("Discovery Comparison Logic", () => {
 
         const obsoleteComponents = remoteComponents.filter(
             (remote) =>
-                !localComponents.some((local) => local.name === remote.name)
+                !localComponents.some((local) => local.name === remote.name),
         );
 
         expect(obsoleteComponents).toEqual([{ name: "obsolete-component" }]);
@@ -257,7 +259,7 @@ describe("Discovery Comparison Logic", () => {
         ];
 
         const toUpdate = localComponents.filter((local) =>
-            remoteComponents.some((remote) => remote.name === local.name)
+            remoteComponents.some((remote) => remote.name === local.name),
         );
 
         expect(toUpdate.length).toBe(2);
@@ -274,7 +276,8 @@ describe("Discovery Comparison Logic", () => {
             title: { type: "text" },
         };
 
-        const hasChanges = JSON.stringify(localSchema) !== JSON.stringify(remoteSchema);
+        const hasChanges =
+            JSON.stringify(localSchema) !== JSON.stringify(remoteSchema);
         expect(hasChanges).toBe(true);
     });
 });

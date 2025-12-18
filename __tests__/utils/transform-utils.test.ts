@@ -295,4 +295,3 @@ describe("isItemsAvailableAsBloks - component items check", () => {
         expect(isItemsAvailableAsBloks(component)).toBe(false);
     });
 });
-

@@ -5,7 +5,7 @@ import type { IStoryblokConfig } from "../../src/config/config.js";
  * Create a mock configuration object
  */
 export function createMockConfig(
-    overrides: Partial<IStoryblokConfig> = {}
+    overrides: Partial<IStoryblokConfig> = {},
 ): IStoryblokConfig {
     return {
         storyblokComponentsLocalDirectory: "src/@storyblok-components",

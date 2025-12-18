@@ -17,7 +17,7 @@ describe("Discovering files", () => {
         }).replace(/\\/g, "/");
 
         expect(pattern).toBe(
-            "Users/someone/Projects/project/{src,storyblok}/**/[^_]*.sb.ts"
+            "Users/someone/Projects/project/{src,storyblok}/**/[^_]*.sb.ts",
         );
     });
 
@@ -33,7 +33,7 @@ describe("Discovering files", () => {
         }).replace(/\\/g, "/");
 
         expect(pattern).toBe(
-            "C:/someone/Projects/project/{src,storyblok}/**/[^_]*.sb.ts"
+            "C:/someone/Projects/project/{src,storyblok}/**/[^_]*.sb.ts",
         );
     });
 

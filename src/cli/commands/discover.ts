@@ -21,7 +21,7 @@ export const discover = async (props: CLIOptions) => {
 
             if (flags["all"]) {
                 Logger.log(
-                    `Syncing ALL components with ${storyblokConfig.schemaFileExt} extension...`
+                    `Syncing ALL components with ${storyblokConfig.schemaFileExt} extension...`,
                 );
 
                 const allComponents = await discoverAllComponents();
@@ -31,13 +31,13 @@ export const discover = async (props: CLIOptions) => {
                         component.name
                             .replaceAll(".sb.js", "")
                             .replaceAll(".sb.cjs", "")
-                            .replaceAll(".sb.mjs", "")
+                            .replaceAll(".sb.mjs", ""),
                     ),
                     ...allComponents.external.map((component: any) =>
                         component.name
                             .replaceAll(".sb.js", "")
                             .replaceAll(".sb.cjs", "")
-                            .replaceAll(".sb.mjs", "")
+                            .replaceAll(".sb.mjs", ""),
                     ),
                 ];
 
@@ -47,7 +47,7 @@ export const discover = async (props: CLIOptions) => {
                             file: flags["file"] || undefined,
                             res: content,
                         },
-                        apiConfig
+                        apiConfig,
                     );
                 } else {
                     console.log(allComponents);

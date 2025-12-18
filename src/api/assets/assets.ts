@@ -32,7 +32,7 @@ export const getAllAssets: GetAllAssets = async (args, config) => {
         .catch((err) => {
             if (err.response.status === 404) {
                 Logger.error(
-                    `There is no assets in your Storyblok ${spaceId} space.`
+                    `There is no assets in your Storyblok ${spaceId} space.`,
                 );
                 return true;
             } else {
@@ -44,7 +44,7 @@ export const getAllAssets: GetAllAssets = async (args, config) => {
 
 export const getAssetByName: GetAssetByName = async (
     { spaceId, fileName },
-    config
+    config,
 ) => {
     const result = await getAllAssets({ spaceId, search: fileName }, config);
     if (result.assets.length === 1) {
@@ -56,7 +56,7 @@ export const getAssetByName: GetAssetByName = async (
 
 const requestSignedUploadUrl: RequestSignedUploadUrl = (
     { spaceId, payload },
-    config
+    config,
 ) => {
     const { sbApi, debug } = config;
     const {
@@ -77,7 +77,7 @@ const requestSignedUploadUrl: RequestSignedUploadUrl = (
         .then((signedResponseObject) => {
             if (debug) {
                 Logger.log(
-                    `Signed upload URL has been requested for ${filename}.`
+                    `Signed upload URL has been requested for ${filename}.`,
                 );
             }
             return (signedResponseObject as any as { data: any }).data; // this is very bad... but storyblok-js-client types are pretty broken
@@ -135,12 +135,12 @@ const downloadAsset: DownloadAsset = async (args, config) => {
     const fileUrl = payload.filename;
     const downloadedAssetsFolder = path.join(
         sbmigWorkingDirectory,
-        "downloadedAssets"
+        "downloadedAssets",
     );
     Logger.log(
         `Downloading ${fileName} asset ${
             debug ? `from ${fileUrl} to ${downloadedAssetsFolder}` : ""
-        }`
+        }`,
     );
 
     if (!isDirectoryExists(downloadedAssetsFolder)) {
@@ -149,7 +149,7 @@ const downloadAsset: DownloadAsset = async (args, config) => {
 
     return new Promise<string>((resolve, reject) => {
         const file = fs.createWriteStream(
-            path.join(downloadedAssetsFolder, fileName)
+            path.join(downloadedAssetsFolder, fileName),
         );
 
         https
@@ -160,8 +160,8 @@ const downloadAsset: DownloadAsset = async (args, config) => {
                     Logger.download(
                         `Asset downloaded to ${path.join(
                             downloadedAssetsFolder,
-                            fileName
-                        )}`
+                            fileName,
+                        )}`,
                     );
                     resolve(path.join(downloadedAssetsFolder, fileName));
                 });
@@ -175,7 +175,7 @@ const downloadAsset: DownloadAsset = async (args, config) => {
 
 export const migrateAsset: MigrateAsset = async (
     { migrateTo, payload, syncDirection },
-    config
+    config,
 ) => {
     const pathToFile = await downloadAsset({ payload }, config);
     if (syncDirection === "fromSpaceToSpace") {
@@ -184,7 +184,7 @@ export const migrateAsset: MigrateAsset = async (
                 spaceId: migrateTo,
                 payload,
             },
-            config
+            config,
         );
         if (pathToFile) {
             await uploadFile({ signedResponseObject, pathToFile });
@@ -197,7 +197,7 @@ export const migrateAsset: MigrateAsset = async (
 // GET
 export const getAssetById: GetAssetById = async (
     { spaceId, assetId },
-    config
+    config,
 ) => {
     const { sbApi } = config;
     Logger.log(`Trying to get '${assetId}' asset.`);
@@ -208,7 +208,7 @@ export const getAssetById: GetAssetById = async (
         .catch((err) => {
             if (err.response.status === 404) {
                 Logger.error(
-                    `There is no assets in your Storyblok ${spaceId} space.`
+                    `There is no assets in your Storyblok ${spaceId} space.`,
                 );
                 return true;
             } else {

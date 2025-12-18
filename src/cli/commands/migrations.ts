@@ -2,7 +2,8 @@ import type { CLIOptions } from "../../utils/interfaces.js";
 
 import path from "path";
 
-import { readFile ,
+import {
+    readFile,
     getFileContentWithRequire,
     getFilesContentWithRequire,
 } from "../../utils/files.js";

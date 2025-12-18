@@ -3,7 +3,7 @@ import type { CLIOptions } from "../../utils/interfaces.js";
 import { managementApi } from "../../api/managementApi.js";
 import { backupStories } from "../../api/stories/backup.js";
 import storyblokConfig from "../../config/config.js";
-import { createAndSaveToFile , getPackageJson } from "../../utils/files.js";
+import { createAndSaveToFile, getPackageJson } from "../../utils/files.js";
 import Logger from "../../utils/logger.js";
 import { extractFields } from "../../utils/object-utils.js";
 import { apiConfig } from "../api-config.js";

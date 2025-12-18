@@ -113,7 +113,9 @@ export function createMockFs(vfs: VirtualFileSystem) {
         readFileSync: vi.fn((path: string) => {
             const content = vfs.readFile(path);
             if (content === undefined) {
-                throw new Error(`ENOENT: no such file or directory, open '${path}'`);
+                throw new Error(
+                    `ENOENT: no such file or directory, open '${path}'`,
+                );
             }
             return content;
         }),
@@ -125,7 +127,7 @@ export function createMockFs(vfs: VirtualFileSystem) {
                 const content = vfs.readFile(path);
                 if (content === undefined) {
                     throw new Error(
-                        `ENOENT: no such file or directory, open '${path}'`
+                        `ENOENT: no such file or directory, open '${path}'`,
                     );
                 }
                 return content;
@@ -144,7 +146,7 @@ export function createMockFs(vfs: VirtualFileSystem) {
                 const isDir = vfs.directoryExists(path);
                 if (!isFile && !isDir) {
                     throw new Error(
-                        `ENOENT: no such file or directory, stat '${path}'`
+                        `ENOENT: no such file or directory, stat '${path}'`,
                     );
                 }
                 return {
@@ -167,7 +169,7 @@ export function createComponentSchemaContent(
         isNestable?: boolean;
         groupName?: string;
         schema?: Record<string, unknown>;
-    } = {}
+    } = {},
 ): string {
     const {
         displayName = name.charAt(0).toUpperCase() + name.slice(1),
@@ -192,7 +194,7 @@ export function createComponentSchemaContent(
  */
 export function createDatasourceContent(
     name: string,
-    entries: Array<{ name: string; value: string }>
+    entries: Array<{ name: string; value: string }>,
 ): string {
     return `export default {
     name: "${name}",
@@ -203,7 +205,7 @@ export function createDatasourceContent(
             importPath: e.value,
         })),
         null,
-        4
+        4,
     )}
 };`;
 }
@@ -213,7 +215,7 @@ export function createDatasourceContent(
  */
 export function createRolesContent(
     role: string,
-    permissions: string[] = []
+    permissions: string[] = [],
 ): string {
     return `export default {
     role: "${role}",

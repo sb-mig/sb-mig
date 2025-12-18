@@ -157,7 +157,7 @@ describe("Sync Components Integration", () => {
             ];
 
             const toRemove = remoteComponents.filter(
-                (remote) => !localComponents.includes(remote.name)
+                (remote) => !localComponents.includes(remote.name),
             );
 
             expect(toRemove.map((c) => c.name)).toEqual([
@@ -174,7 +174,7 @@ describe("Sync Components Integration", () => {
             ];
 
             const toRemove = remoteComponents.filter(
-                (remote) => !localComponents.includes(remote.name)
+                (remote) => !localComponents.includes(remote.name),
             );
 
             expect(toRemove).toEqual([]);
@@ -279,7 +279,7 @@ describe("Sync Error Handling", () => {
         ];
 
         const missing = componentsToSync.filter(
-            (name) => !availableComponents.some((c) => c.name === name)
+            (name) => !availableComponents.some((c) => c.name === name),
         );
 
         expect(missing).toEqual(["nonexistent-component"]);
@@ -298,16 +298,15 @@ describe("Sync Error Handling", () => {
         ];
 
         const toCreate = localComponents.filter(
-            (local) => !remoteComponents.some((remote) => remote.name === local.name)
+            (local) =>
+                !remoteComponents.some((remote) => remote.name === local.name),
         );
 
         const toUpdate = localComponents.filter((local) =>
-            remoteComponents.some((remote) => remote.name === local.name)
+            remoteComponents.some((remote) => remote.name === local.name),
         );
 
         expect(toCreate.map((c) => c.name)).toEqual(["new-section"]);
         expect(toUpdate.map((c) => c.name)).toEqual(["hero", "card"]);
     });
 });
-
-

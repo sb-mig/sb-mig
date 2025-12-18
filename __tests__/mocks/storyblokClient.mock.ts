@@ -31,7 +31,7 @@ export type MockStoryblokClient = ReturnType<typeof createMockStoryblokClient>;
  * Create a mock API config with the mock client
  */
 export function createMockApiConfig(
-    overrides: Partial<RequestBaseConfig> = {}
+    overrides: Partial<RequestBaseConfig> = {},
 ): RequestBaseConfig & { sbApi: MockStoryblokClient } {
     return {
         spaceId: "12345",
@@ -53,7 +53,7 @@ export function createPaginatedResponse<T>(
     items: T[],
     itemsKey: string,
     _page = 1,
-    perPage = 100
+    perPage = 100,
 ): MockApiResponse<Record<string, T[]>> {
     return {
         data: {
@@ -116,7 +116,9 @@ export function createMockStory(overrides: Record<string, unknown> = {}) {
 /**
  * Mock component group data
  */
-export function createMockComponentGroup(overrides: Record<string, unknown> = {}) {
+export function createMockComponentGroup(
+    overrides: Record<string, unknown> = {},
+) {
     return {
         id: Math.floor(Math.random() * 100000),
         name: "Mock Group",
@@ -159,10 +161,10 @@ export function createMockRole(overrides: Record<string, unknown> = {}) {
  */
 export function setupGetAllComponentsMock(
     mockClient: MockStoryblokClient,
-    components: ReturnType<typeof createMockComponent>[]
+    components: ReturnType<typeof createMockComponent>[],
 ) {
     mockClient.get.mockResolvedValue(
-        createPaginatedResponse(components, "components")
+        createPaginatedResponse(components, "components"),
     );
 }
 
@@ -171,10 +173,10 @@ export function setupGetAllComponentsMock(
  */
 export function setupGetAllStoriesMock(
     mockClient: MockStoryblokClient,
-    stories: ReturnType<typeof createMockStory>[]
+    stories: ReturnType<typeof createMockStory>[],
 ) {
     mockClient.get.mockResolvedValue(
-        createPaginatedResponse(stories, "stories")
+        createPaginatedResponse(stories, "stories"),
     );
 }
 
@@ -183,7 +185,7 @@ export function setupGetAllStoriesMock(
  */
 export function setupCreateUpdateMock(
     mockClient: MockStoryblokClient,
-    responseData: Record<string, unknown>
+    responseData: Record<string, unknown>,
 ) {
     mockClient.post.mockResolvedValue({ data: responseData });
     mockClient.put.mockResolvedValue({ data: responseData });
@@ -195,7 +197,7 @@ export function setupCreateUpdateMock(
 export function setupErrorMock(
     mockClient: MockStoryblokClient,
     method: "get" | "post" | "put" | "delete",
-    error: Error
+    error: Error,
 ) {
     mockClient[method].mockRejectedValue(error);
 }

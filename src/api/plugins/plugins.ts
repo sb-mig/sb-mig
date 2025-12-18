@@ -36,7 +36,7 @@ export const getAllPlugins: GetAllPlugins = (config) => {
 
 export const getPlugin: GetPlugin = (
     pluginName: string | undefined,
-    config
+    config,
 ) => {
     return getAllPlugins(config)
         .then((res) => res.find((plugin: any) => plugin.name === pluginName))
@@ -113,7 +113,7 @@ export const createPlugin: CreatePlugin = (pluginName: string, config) => {
 
 export const syncProvidedPlugins: SyncProvidedPlugins = async (
     { plugins },
-    config
+    config,
 ) => {
     const body = await readFile("dist/export.js");
     if (plugins.length === 1) {
@@ -124,13 +124,13 @@ export const syncProvidedPlugins: SyncProvidedPlugins = async (
             Logger.log("Start updating plugin....");
             return await updatePlugin(
                 { plugin: plugin.field_type, body },
-                config
+                config,
             );
         } else {
             Logger.log("Start creating plugin...");
             const { field_type } = await createPlugin(
                 pluginName as string,
-                config
+                config,
             );
             Logger.log("Start updating plugin...");
             return await updatePlugin({ plugin: field_type, body }, config);
