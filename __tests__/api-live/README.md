@@ -20,8 +20,13 @@ These tests make **real HTTP requests** to the Storyblok Management API. They ve
 
     ```env
     STORYBLOK_SPACE_ID=your-space-id
-    STORYBLOK_ACCESS_TOKEN=your-personal-access-token
+    STORYBLOK_OAUTH_TOKEN=your-personal-access-token
     ```
+
+    > **Note on tokens:**
+    >
+    > - `STORYBLOK_OAUTH_TOKEN` - Personal Access Token (PAT) for **Management API** (required for these tests)
+    > - `NEXT_PUBLIC_STORYBLOK_ACCESS_TOKEN` - Preview/Public token for **Delivery API** (not needed for these tests)
 
 3. Enable live tests:
     ```env

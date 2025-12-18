@@ -17,7 +17,11 @@
  *
  * Environment Variables Required (in .env):
  * - STORYBLOK_SPACE_ID: Your Storyblok space ID
- * - STORYBLOK_ACCESS_TOKEN or NEXT_PUBLIC_STORYBLOK_ACCESS_TOKEN: Personal access token
+ * - STORYBLOK_OAUTH_TOKEN: Personal Access Token (PAT) for Management API
+ *
+ * Note on tokens:
+ * - STORYBLOK_OAUTH_TOKEN → Management API (create, update, delete operations)
+ * - NEXT_PUBLIC_STORYBLOK_ACCESS_TOKEN → Delivery API (read-only content)
  *
  * Usage:
  *   Run live tests: yarn test:api-live
@@ -46,9 +50,11 @@ export const shouldRunLiveTests = (): boolean => {
 
 /**
  * Check if the real apiConfig has required values
+ * Management API requires oauthToken (Personal Access Token)
  */
 export const hasRequiredConfig = (): boolean => {
-    return !!(apiConfig.spaceId && apiConfig.accessToken);
+    // For Management API, we need oauthToken (not accessToken which is for Delivery API)
+    return !!(apiConfig.spaceId && apiConfig.oauthToken);
 };
 
 /**
@@ -71,7 +77,7 @@ export const skipIfNoLiveTests = () => {
         return "Live API tests are disabled. Set STORYBLOK_LIVE_TESTS=true to enable.";
     }
     if (!hasRequiredConfig()) {
-        return "Missing required config (spaceId or accessToken). Check your storyblok.config.js and .env file.";
+        return "Missing required config (spaceId or oauthToken). Check your .env file has STORYBLOK_SPACE_ID and STORYBLOK_OAUTH_TOKEN.";
     }
     return false;
 };
@@ -128,7 +134,10 @@ export const cleanupStory = async (
     config: RequestBaseConfig,
 ): Promise<void> => {
     try {
-        await managementApi.stories.removeStory({ storyId: String(storyId) }, config);
+        await managementApi.stories.removeStory(
+            { storyId: String(storyId) },
+            config,
+        );
     } catch (error) {
         console.warn(`Failed to cleanup story ${storyId}:`, error);
     }
