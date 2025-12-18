@@ -8,11 +8,17 @@ import {
     filesPattern,
 } from "../../src/cli/utils/discover.js";
 
+// Helper to create cross-platform paths
+const p = (...segments: string[]) => path.join(...segments);
+
 describe("compare - local vs external component comparison", () => {
     describe("basic comparison", () => {
         it("should return local components unchanged", () => {
             const result = compare({
-                local: ["/project/src/hero.sb.js", "/project/src/card.sb.js"],
+                local: [
+                    p("project", "src", "hero.sb.js"),
+                    p("project", "src", "card.sb.js"),
+                ],
                 external: [],
             });
 
@@ -23,10 +29,10 @@ describe("compare - local vs external component comparison", () => {
 
         it("should filter external components that exist locally", () => {
             const result = compare({
-                local: ["/project/src/hero.sb.js"],
+                local: [p("project", "src", "hero.sb.js")],
                 external: [
-                    "/project/node_modules/pkg/hero.sb.js",
-                    "/project/node_modules/pkg/footer.sb.js",
+                    p("project", "node_modules", "pkg", "hero.sb.js"),
+                    p("project", "node_modules", "pkg", "footer.sb.js"),
                 ],
             });
 
@@ -41,10 +47,10 @@ describe("compare - local vs external component comparison", () => {
 
         it("should keep all external when no local overlap", () => {
             const result = compare({
-                local: ["/project/src/hero.sb.js"],
+                local: [p("project", "src", "hero.sb.js")],
                 external: [
-                    "/project/node_modules/pkg/card.sb.js",
-                    "/project/node_modules/pkg/footer.sb.js",
+                    p("project", "node_modules", "pkg", "card.sb.js"),
+                    p("project", "node_modules", "pkg", "footer.sb.js"),
                 ],
             });
 
@@ -54,29 +60,28 @@ describe("compare - local vs external component comparison", () => {
 
     describe("file name extraction", () => {
         it("should extract file name from full path", () => {
+            const testPath = p(
+                "very",
+                "long",
+                "path",
+                "to",
+                "component",
+                "hero.sb.js",
+            );
             const result = compare({
-                local: ["/very/long/path/to/component/hero.sb.js"],
+                local: [testPath],
                 external: [],
             });
 
             expect(result.local[0].name).toBe("hero.sb.js");
-            expect(result.local[0].p).toBe(
-                "/very/long/path/to/component/hero.sb.js",
-            );
+            expect(result.local[0].p).toBe(testPath);
         });
 
-        it("should handle Windows-style paths", () => {
-            // Note: path.sep will be different on Windows
-            const windowsPath = [
-                "C:",
-                "Users",
-                "project",
-                "src",
-                "hero.sb.js",
-            ].join(path.sep);
+        it("should handle paths with multiple segments", () => {
+            const testPath = p("C:", "Users", "project", "src", "hero.sb.js");
 
             const result = compare({
-                local: [windowsPath],
+                local: [testPath],
                 external: [],
             });
 
@@ -89,8 +94,15 @@ describe("compare - local vs external component comparison", () => {
             const result = compare({
                 local: [],
                 external: [
-                    "/project/node_modules/pkg/hero.sb.js", // 1 node_modules - OK
-                    "/project/node_modules/pkg/node_modules/dep/card.sb.js", // 2 node_modules - filtered
+                    p("project", "node_modules", "pkg", "hero.sb.js"), // 1 node_modules - OK
+                    p(
+                        "project",
+                        "node_modules",
+                        "pkg",
+                        "node_modules",
+                        "dep",
+                        "card.sb.js",
+                    ), // 2 node_modules - filtered
                 ],
             });
 
@@ -102,7 +114,14 @@ describe("compare - local vs external component comparison", () => {
             const result = compare({
                 local: [],
                 external: [
-                    "/project/node_modules/@scope/package/components/hero.sb.js",
+                    p(
+                        "project",
+                        "node_modules",
+                        "@scope",
+                        "package",
+                        "components",
+                        "hero.sb.js",
+                    ),
                 ],
             });
 
@@ -124,8 +143,8 @@ describe("compare - local vs external component comparison", () => {
         it("should handle components with same name in different paths", () => {
             const result = compare({
                 local: [
-                    "/project/src/buttons/hero.sb.js",
-                    "/project/src/sections/hero.sb.js", // Same name, different path
+                    p("project", "src", "buttons", "hero.sb.js"),
+                    p("project", "src", "sections", "hero.sb.js"), // Same name, different path
                 ],
                 external: [],
             });
@@ -136,8 +155,10 @@ describe("compare - local vs external component comparison", () => {
 
         it("should handle special characters in component names", () => {
             const result = compare({
-                local: ["/project/src/my-component.sb.js"],
-                external: ["/project/node_modules/pkg/my-component.sb.js"],
+                local: [p("project", "src", "my-component.sb.js")],
+                external: [
+                    p("project", "node_modules", "pkg", "my-component.sb.js"),
+                ],
             });
 
             // Local takes precedence
@@ -149,10 +170,10 @@ describe("compare - local vs external component comparison", () => {
     describe("local override behavior", () => {
         it("should allow local to override all matching external", () => {
             const result = compare({
-                local: ["/project/src/hero.sb.js"],
+                local: [p("project", "src", "hero.sb.js")],
                 external: [
-                    "/project/node_modules/pkg-a/hero.sb.js",
-                    "/project/node_modules/pkg-b/hero.sb.js",
+                    p("project", "node_modules", "pkg-a", "hero.sb.js"),
+                    p("project", "node_modules", "pkg-b", "hero.sb.js"),
                 ],
             });
 

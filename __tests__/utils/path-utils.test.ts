@@ -231,7 +231,13 @@ describe("path-utils", () => {
                 const result = compare({
                     local: [],
                     external: [
-                        p("node_modules", "pkg", "node_modules", "dep", "hero.sb.js"), // nested - should be filtered
+                        p(
+                            "node_modules",
+                            "pkg",
+                            "node_modules",
+                            "dep",
+                            "hero.sb.js",
+                        ), // nested - should be filtered
                         p("node_modules", "pkg", "card.sb.js"), // single - should remain
                     ],
                 });
@@ -243,7 +249,15 @@ describe("path-utils", () => {
             it("should keep paths with exactly one node_modules", () => {
                 const result = compare({
                     local: [],
-                    external: [p("project", "node_modules", "@scope", "pkg", "hero.sb.js")],
+                    external: [
+                        p(
+                            "project",
+                            "node_modules",
+                            "@scope",
+                            "pkg",
+                            "hero.sb.js",
+                        ),
+                    ],
                 });
 
                 expect(result.external).toHaveLength(1);
@@ -253,7 +267,15 @@ describe("path-utils", () => {
                 const result = compare({
                     local: [],
                     external: [
-                        p("node_modules", "a", "node_modules", "b", "node_modules", "c", "file.sb.js"),
+                        p(
+                            "node_modules",
+                            "a",
+                            "node_modules",
+                            "b",
+                            "node_modules",
+                            "c",
+                            "file.sb.js",
+                        ),
                     ],
                 });
 
@@ -269,9 +291,28 @@ describe("path-utils", () => {
                         p("project", "src", "footer.sb.js"),
                     ],
                     external: [
-                        p("project", "node_modules", "@design", "ui", "hero.sb.js"), // duplicate - filtered
-                        p("project", "node_modules", "@design", "ui", "button.sb.js"), // unique - kept
-                        p("project", "node_modules", "pkg", "node_modules", "dep", "card.sb.js"), // nested - filtered
+                        p(
+                            "project",
+                            "node_modules",
+                            "@design",
+                            "ui",
+                            "hero.sb.js",
+                        ), // duplicate - filtered
+                        p(
+                            "project",
+                            "node_modules",
+                            "@design",
+                            "ui",
+                            "button.sb.js",
+                        ), // unique - kept
+                        p(
+                            "project",
+                            "node_modules",
+                            "pkg",
+                            "node_modules",
+                            "dep",
+                            "card.sb.js",
+                        ), // nested - filtered
                     ],
                 });
 
