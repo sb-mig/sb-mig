@@ -4,7 +4,12 @@ export default defineConfig({
     test: {
         globals: true,
         environment: "node",
-        include: ["__tests__/**/*.test.ts"],
+        setupFiles: ["__tests__/setup.ts"],
+        include: [
+            "__tests__/**/*.test.ts",
+            "__tests__/**/*.live.test.ts",
+            "__tests__/**/*.e2e.test.ts",
+        ],
         exclude: ["node_modules", "dist", "dist-tests"],
         // Use threads pool with single thread to avoid ESM worker issues
         pool: "threads",

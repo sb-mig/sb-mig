@@ -16,6 +16,7 @@ import FormData from "form-data";
 
 import { createDir, isDirectoryExists } from "../../utils/files.js";
 import Logger from "../../utils/logger.js";
+import { getFileName, getSizeFromURL } from "../../utils/string-utils.js";
 
 // GET
 export const getAllAssets: GetAllAssets = async (args, config) => {
@@ -108,21 +109,6 @@ const uploadFile: UploadFile = ({ signedResponseObject, pathToFile }) => {
             if (err) throw err;
         }
     });
-};
-
-const getFileName = (fileUrl: string) => {
-    const fileName = fileUrl.split("/").pop();
-    if (fileName) {
-        return fileName;
-    } else {
-        throw Error("File name couldn't be extracted from URL.");
-    }
-};
-
-const getSizeFromURL = (fileUrl: string) => {
-    const data = fileUrl.split("/");
-    const sizePos = data.length - 3;
-    return data[sizePos];
 };
 
 const downloadAsset: DownloadAsset = async (args, config) => {
