@@ -10,6 +10,9 @@ import {
     type OneFileElement,
 } from "../../src/utils/path-utils.js";
 
+// Helper to create cross-platform paths
+const p = (...segments: string[]) => path.join(...segments);
+
 describe("path-utils", () => {
     describe("normalizeDiscover", () => {
         describe("empty segments", () => {
@@ -137,7 +140,7 @@ describe("path-utils", () => {
             it("should handle empty local with external items", () => {
                 const result = compare({
                     local: [],
-                    external: ["/node_modules/pkg/hero.sb.js"],
+                    external: [p("node_modules", "pkg", "hero.sb.js")],
                 });
 
                 expect(result.local).toEqual([]);
@@ -147,7 +150,7 @@ describe("path-utils", () => {
 
             it("should handle local items with empty external", () => {
                 const result = compare({
-                    local: ["/src/hero.sb.js"],
+                    local: [p("src", "hero.sb.js")],
                     external: [],
                 });
 
@@ -159,24 +162,25 @@ describe("path-utils", () => {
 
         describe("path splitting", () => {
             it("should extract filename from path", () => {
+                const testPath = p(
+                    "project",
+                    "src",
+                    "components",
+                    "hero.sb.js",
+                );
                 const result = compare({
-                    local: ["/project/src/components/hero.sb.js"],
+                    local: [testPath],
                     external: [],
                 });
 
                 expect(result.local[0].name).toBe("hero.sb.js");
-                expect(result.local[0].p).toBe(
-                    "/project/src/components/hero.sb.js",
-                );
+                expect(result.local[0].p).toBe(testPath);
             });
 
-            it("should handle Windows-style paths", () => {
-                // Create a path using path.join to get OS-appropriate separators
-                const windowsPath = ["project", "src", "hero.sb.js"].join(
-                    path.sep,
-                );
+            it("should handle paths with multiple segments", () => {
+                const testPath = p("project", "src", "hero.sb.js");
                 const result = compare({
-                    local: [windowsPath],
+                    local: [testPath],
                     external: [],
                 });
 
@@ -187,8 +191,8 @@ describe("path-utils", () => {
         describe("deduplication", () => {
             it("should filter out external items that exist locally", () => {
                 const result = compare({
-                    local: ["/src/hero.sb.js"],
-                    external: ["/node_modules/pkg/hero.sb.js"],
+                    local: [p("src", "hero.sb.js")],
+                    external: [p("node_modules", "pkg", "hero.sb.js")],
                 });
 
                 expect(result.local).toHaveLength(1);
@@ -197,8 +201,8 @@ describe("path-utils", () => {
 
             it("should keep external items that don't exist locally", () => {
                 const result = compare({
-                    local: ["/src/hero.sb.js"],
-                    external: ["/node_modules/pkg/card.sb.js"],
+                    local: [p("src", "hero.sb.js")],
+                    external: [p("node_modules", "pkg", "card.sb.js")],
                 });
 
                 expect(result.local).toHaveLength(1);
@@ -208,11 +212,11 @@ describe("path-utils", () => {
 
             it("should handle multiple duplicates", () => {
                 const result = compare({
-                    local: ["/src/hero.sb.js", "/src/card.sb.js"],
+                    local: [p("src", "hero.sb.js"), p("src", "card.sb.js")],
                     external: [
-                        "/node_modules/pkg/hero.sb.js",
-                        "/node_modules/pkg/card.sb.js",
-                        "/node_modules/pkg/button.sb.js",
+                        p("node_modules", "pkg", "hero.sb.js"),
+                        p("node_modules", "pkg", "card.sb.js"),
+                        p("node_modules", "pkg", "button.sb.js"),
                     ],
                 });
 
@@ -227,8 +231,8 @@ describe("path-utils", () => {
                 const result = compare({
                     local: [],
                     external: [
-                        "/node_modules/pkg/node_modules/dep/hero.sb.js", // nested - should be filtered
-                        "/node_modules/pkg/card.sb.js", // single - should remain
+                        p("node_modules", "pkg", "node_modules", "dep", "hero.sb.js"), // nested - should be filtered
+                        p("node_modules", "pkg", "card.sb.js"), // single - should remain
                     ],
                 });
 
@@ -239,7 +243,7 @@ describe("path-utils", () => {
             it("should keep paths with exactly one node_modules", () => {
                 const result = compare({
                     local: [],
-                    external: ["/project/node_modules/@scope/pkg/hero.sb.js"],
+                    external: [p("project", "node_modules", "@scope", "pkg", "hero.sb.js")],
                 });
 
                 expect(result.external).toHaveLength(1);
@@ -249,7 +253,7 @@ describe("path-utils", () => {
                 const result = compare({
                     local: [],
                     external: [
-                        "/node_modules/a/node_modules/b/node_modules/c/file.sb.js",
+                        p("node_modules", "a", "node_modules", "b", "node_modules", "c", "file.sb.js"),
                     ],
                 });
 
@@ -261,13 +265,13 @@ describe("path-utils", () => {
             it("should handle complex real-world scenario", () => {
                 const result = compare({
                     local: [
-                        "/project/src/hero.sb.js",
-                        "/project/src/footer.sb.js",
+                        p("project", "src", "hero.sb.js"),
+                        p("project", "src", "footer.sb.js"),
                     ],
                     external: [
-                        "/project/node_modules/@design/ui/hero.sb.js", // duplicate - filtered
-                        "/project/node_modules/@design/ui/button.sb.js", // unique - kept
-                        "/project/node_modules/pkg/node_modules/dep/card.sb.js", // nested - filtered
+                        p("project", "node_modules", "@design", "ui", "hero.sb.js"), // duplicate - filtered
+                        p("project", "node_modules", "@design", "ui", "button.sb.js"), // unique - kept
+                        p("project", "node_modules", "pkg", "node_modules", "dep", "card.sb.js"), // nested - filtered
                     ],
                 });
 
@@ -280,8 +284,8 @@ describe("path-utils", () => {
         describe("return type structure", () => {
             it("should return objects with name and p properties", () => {
                 const result = compare({
-                    local: ["/src/test.sb.js"],
-                    external: ["/node_modules/pkg/other.sb.js"],
+                    local: [p("src", "test.sb.js")],
+                    external: [p("node_modules", "pkg", "other.sb.js")],
                 });
 
                 // Check local structure
