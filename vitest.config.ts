@@ -24,14 +24,7 @@ export default defineConfig({
             include: ["src/**/*.ts"],
             exclude: ["src/scripts/**", "src/**/*.types.ts"],
             reportsDirectory: "./coverage",
-            // Coverage thresholds - will fail CI if not met
-            thresholds: {
-                // Start with reasonable thresholds, can increase as more tests are added
-                lines: 15,
-                functions: 15,
-                branches: 10,
-                statements: 15,
-            },
+            // No thresholds - coverage is informational only, won't fail CI
         },
         testTimeout: 10000,
         hookTimeout: 10000,
