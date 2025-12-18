@@ -26,13 +26,14 @@ import {
     SCOPE,
 } from "../cli/utils/discover.js";
 import config from "../config/config.js";
-import { dumpToFile } from "../utils/files.js";
-import Logger from "../utils/logger.js";
+import { uniqueValuesFrom } from "../utils/array-utils.js";
 import {
+    dumpToFile,
     getFileContentWithRequire,
     getFilesContentWithRequire,
-    isObjectEmpty,
-} from "../utils/main.js";
+} from "../utils/files.js";
+import Logger from "../utils/logger.js";
+import { isObjectEmpty } from "../utils/object-utils.js";
 
 import { getAllAssets, migrateAsset } from "./assets/assets.js";
 import { contentHubApi } from "./contentHubApi.js";
@@ -40,7 +41,6 @@ import { managementApi } from "./managementApi.js";
 import { backupStories } from "./stories/backup.js";
 import { getAllStories } from "./stories/stories.js";
 import { createTree, traverseAndCreate } from "./stories/tree.js";
-import { _uniqueValuesFrom } from "./utils/helper-functions.js";
 import { resolveGlobalTransformations } from "./utils/resolverTransformations.js";
 
 const _checkAndPrepareGroups: CheckAndPrepareGroups = async (
@@ -78,7 +78,6 @@ export const removeAllComponents = async (config: RequestBaseConfig) => {
             );
         }),
     ]);
-
 };
 
 export const removeSpecifiedComponents: RemoveSpecificComponents = async (
@@ -149,7 +148,7 @@ export const syncComponents: SyncComponents = async (
         specifiedComponentsContent,
     );
 
-    const groupsToCheck = _uniqueValuesFrom(
+    const groupsToCheck = uniqueValuesFrom(
         specifiedComponentsContent
             .filter((component) => component.component_group_name)
             .map((component) => component.component_group_name),

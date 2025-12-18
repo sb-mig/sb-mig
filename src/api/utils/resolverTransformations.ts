@@ -7,7 +7,7 @@ import {
     SCOPE,
 } from "../../cli/utils/discover.js";
 import config from "../../config/config.js";
-import { getFileContentWithRequire } from "../../utils/main.js";
+import { getFileContentWithRequire } from "../../utils/files.js";
 
 type ComponentData = {
     [K in keyof StoryblokComponentSchemaBase<any>]: any;

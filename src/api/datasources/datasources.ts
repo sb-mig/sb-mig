@@ -6,11 +6,11 @@ import type {
     UpdateDatasource,
 } from "./datasources.types.js";
 
-import Logger from "../../utils/logger.js";
 import {
     getFileContentWithRequire,
     getFilesContentWithRequire,
-} from "../../utils/main.js";
+} from "../../utils/files.js";
+import Logger from "../../utils/logger.js";
 import { getAllItemsWithPagination } from "../utils/request.js";
 
 import {

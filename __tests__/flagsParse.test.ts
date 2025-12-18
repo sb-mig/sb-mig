@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 
-import { isItFactory } from "../src/utils/main.js";
+import { isItFactory } from "../src/cli/utils/cli-utils.js";
 
 describe("isItFactory for parsing flags", () => {
     it("works correctly", () => {

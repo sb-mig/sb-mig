@@ -2,14 +2,13 @@ import type { CLIOptions } from "../../utils/interfaces.js";
 
 import path from "path";
 
-import { readFile } from "../../utils/files.js";
-import Logger from "../../utils/logger.js";
-import {
+import { readFile ,
     getFileContentWithRequire,
     getFilesContentWithRequire,
-    isItFactory,
-} from "../../utils/main.js";
+} from "../../utils/files.js";
+import Logger from "../../utils/logger.js";
 import { preselectMigrations } from "../../utils/migrations.js";
+import { isItFactory } from "../utils/cli-utils.js";
 import {
     discoverVersionMapping,
     LOOKUP_TYPE,
@@ -33,7 +32,7 @@ export const migrations = async (props: CLIOptions) => {
     switch (command) {
         case MIGRATIONS_COMMANDS.recognize:
             Logger.warning(
-                `Recognizing migrations you should apply... with command: ${command}`
+                `Recognizing migrations you should apply... with command: ${command}`,
             );
 
             if (isIt("from")) {
@@ -47,10 +46,10 @@ export const migrations = async (props: CLIOptions) => {
                 let alreadyAppliedMigrations;
                 try {
                     alreadyAppliedMigrationsFileContent = (await readFile(
-                        fileName
+                        fileName,
                     )) as string;
                     alreadyAppliedMigrations = JSON.parse(
-                        alreadyAppliedMigrationsFileContent
+                        alreadyAppliedMigrationsFileContent,
                     ).migrations;
                 } catch (e) {
                     console.log(`No file named: ${fileName}`);
@@ -94,16 +93,16 @@ export const migrations = async (props: CLIOptions) => {
                     previousBackpackVersion,
                     installedBackpackVersion.replaceAll("^", ""),
                     versionMappingFileContent,
-                    alreadyAppliedMigrations
+                    alreadyAppliedMigrations,
                 );
 
                 console.log(
-                    "Command you have to run to migrate (the best in that order): "
+                    "Command you have to run to migrate (the best in that order): ",
                 );
                 if (whatToMigrate.story.length > 0) {
                     whatToMigrate.story.forEach((migration) => {
                         console.log(
-                            `yarn sb-mig migrate content --all --migration ${migration} --yes`
+                            `yarn sb-mig migrate content --all --migration ${migration} --yes`,
                         );
                     });
                 } else {
@@ -113,7 +112,7 @@ export const migrations = async (props: CLIOptions) => {
                 if (whatToMigrate.preset.length > 0) {
                     whatToMigrate.preset.forEach((migration) => {
                         console.log(
-                            `yarn sb-mig migrate presets --all --migration ${migration} --yes`
+                            `yarn sb-mig migrate presets --all --migration ${migration} --yes`,
                         );
                     });
                 } else {

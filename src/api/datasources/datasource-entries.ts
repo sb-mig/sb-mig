@@ -12,7 +12,7 @@ import chalk from "chalk";
 
 import storyblokConfig from "../../config/config.js";
 import Logger from "../../utils/logger.js";
-import { isObjectEmpty } from "../../utils/main.js";
+import { isObjectEmpty } from "../../utils/object-utils.js";
 
 import { getDatasource } from "./datasources.js";
 

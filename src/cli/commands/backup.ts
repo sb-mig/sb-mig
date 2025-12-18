@@ -3,15 +3,11 @@ import type { CLIOptions } from "../../utils/interfaces.js";
 import { managementApi } from "../../api/managementApi.js";
 import { backupStories } from "../../api/stories/backup.js";
 import storyblokConfig from "../../config/config.js";
-import { createAndSaveToFile } from "../../utils/files.js";
+import { createAndSaveToFile , getPackageJson } from "../../utils/files.js";
 import Logger from "../../utils/logger.js";
-import {
-    extractFields,
-    getPackageJson,
-    isItFactory,
-    unpackOne,
-} from "../../utils/main.js";
+import { extractFields } from "../../utils/object-utils.js";
 import { apiConfig } from "../api-config.js";
+import { isItFactory, unpackOne } from "../utils/cli-utils.js";
 
 const BACKUP_COMMANDS = {
     components: "components",
@@ -58,7 +54,7 @@ export const backup = async (props: CLIOptions) => {
                                 res,
                                 folder: "components",
                             },
-                            apiConfig
+                            apiConfig,
                         );
                     })
                     .catch((err: any) => {
@@ -82,7 +78,7 @@ export const backup = async (props: CLIOptions) => {
                                     res,
                                     folder: "components",
                                 },
-                                apiConfig
+                                apiConfig,
                             );
                         }
                     })
@@ -102,7 +98,7 @@ export const backup = async (props: CLIOptions) => {
                         suffix: ".stories",
                         spaceId: storyblokConfig.spaceId,
                     },
-                    apiConfig
+                    apiConfig,
                 );
             }
 
@@ -120,7 +116,7 @@ export const backup = async (props: CLIOptions) => {
                                 res,
                                 folder: "component-groups",
                             },
-                            apiConfig
+                            apiConfig,
                         );
                     })
                     .catch((err: any) => {
@@ -143,7 +139,7 @@ export const backup = async (props: CLIOptions) => {
                                 res,
                                 folder: "component-groups",
                             },
-                            apiConfig
+                            apiConfig,
                         );
                     })
                     .catch((err: any) => {
@@ -165,7 +161,7 @@ export const backup = async (props: CLIOptions) => {
                                 res,
                                 folder: "datasources",
                             },
-                            apiConfig
+                            apiConfig,
                         );
                     })
                     .catch((err: any) => {
@@ -179,7 +175,7 @@ export const backup = async (props: CLIOptions) => {
                 managementApi.datasources
                     .getDatasource(
                         { datasourceName: datasourceToBackup },
-                        apiConfig
+                        apiConfig,
                     )
                     .then(async (res: any) => {
                         if (res) {
@@ -192,7 +188,7 @@ export const backup = async (props: CLIOptions) => {
                                     res,
                                     folder: "datasources",
                                 },
-                                apiConfig
+                                apiConfig,
                             );
                         }
                     })
@@ -215,7 +211,7 @@ export const backup = async (props: CLIOptions) => {
                                 res,
                                 folder: "roles",
                             },
-                            apiConfig
+                            apiConfig,
                         );
                     })
                     .catch((err: any) => {
@@ -239,7 +235,7 @@ export const backup = async (props: CLIOptions) => {
                                     res,
                                     folder: "roles",
                                 },
-                                apiConfig
+                                apiConfig,
                             );
                         }
                     })
@@ -262,7 +258,7 @@ export const backup = async (props: CLIOptions) => {
                                 res,
                                 folder: "presets",
                             },
-                            apiConfig
+                            apiConfig,
                         );
                     })
                     .catch((err: any) => {
@@ -285,7 +281,7 @@ export const backup = async (props: CLIOptions) => {
                                 res,
                                 folder: "presets",
                             },
-                            apiConfig
+                            apiConfig,
                         );
                     })
                     .catch((err: any) => {
@@ -308,7 +304,7 @@ export const backup = async (props: CLIOptions) => {
                                 res,
                                 folder: storyblokConfig.presetsBackupDirectory,
                             },
-                            apiConfig
+                            apiConfig,
                         );
                     })
                     .catch((err: any) => {
@@ -325,7 +321,7 @@ export const backup = async (props: CLIOptions) => {
                     metadata = {
                         metadata: extractFields(
                             pkgJson,
-                            storyblokConfig.metadataSelection
+                            storyblokConfig.metadataSelection,
                         ),
                     };
                 }
@@ -342,7 +338,10 @@ export const backup = async (props: CLIOptions) => {
                                         res: { allPresets: res, ...metadata },
                                         folder: storyblokConfig.presetsBackupDirectory,
                                     },
-                                    { ...apiConfig, sbmigWorkingDirectory: "." }
+                                    {
+                                        ...apiConfig,
+                                        sbmigWorkingDirectory: ".",
+                                    },
                                 );
                             }
                         })
@@ -370,7 +369,7 @@ export const backup = async (props: CLIOptions) => {
                                     res,
                                     folder: "plugins",
                                 },
-                                apiConfig
+                                apiConfig,
                             );
                         }
                     })
@@ -394,7 +393,7 @@ export const backup = async (props: CLIOptions) => {
                                 res,
                                 folder: "plugins",
                             },
-                            apiConfig
+                            apiConfig,
                         );
                     })
                     .catch((err: any) => {

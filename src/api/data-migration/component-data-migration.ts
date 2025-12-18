@@ -11,10 +11,10 @@ import {
     SCOPE,
 } from "../../cli/utils/discover.js";
 import storyblokConfig from "../../config/config.js";
-import { createAndSaveToFile } from "../../utils/files.js";
+import { createAndSaveToFile , getFilesContentWithRequire } from "../../utils/files.js";
 import Logger from "../../utils/logger.js";
-import { getFilesContentWithRequire, isObjectEmpty } from "../../utils/main.js";
 import { modifyOrCreateAppliedMigrationsFile } from "../../utils/migrations.js";
+import { isObjectEmpty } from "../../utils/object-utils.js";
 import { managementApi } from "../managementApi.js";
 
 export type MigrateFrom = "file" | "space";

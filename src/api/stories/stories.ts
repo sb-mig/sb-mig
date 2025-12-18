@@ -16,17 +16,9 @@ import type {
 import chalk from "chalk";
 
 import Logger from "../../utils/logger.js";
+import { notNullish } from "../../utils/object-utils.js";
 import { managementApi } from "../managementApi.js";
 import { getAllItemsWithPagination } from "../utils/request.js";
-
-const notNullish = <T extends Record<string, any>>(params: T): T => {
-    return Object.keys(params).reduce((acc, key) => {
-        if (params[key] !== null && params[key] !== undefined) {
-            acc[key] = params[key];
-        }
-        return acc;
-    }, {} as any);
-};
 
 export const removeStory: RemoveStory = (args, config) => {
     const { storyId } = args;
