@@ -17,5 +17,5 @@ export type TraverseAndCreate = (
         defaultRoot?: any;
         spaceId: string;
     },
-    config: RequestBaseConfig
+    config: RequestBaseConfig,
 ) => void;

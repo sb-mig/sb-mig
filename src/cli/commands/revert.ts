@@ -1,11 +1,11 @@
 import type { CLIOptions } from "../../utils/interfaces.js";
 
 import { managementApi } from "../../api/managementApi.js";
+import { getFilesContentWithRequire } from "../../utils/files.js";
 import Logger from "../../utils/logger.js";
-import { getFilesContentWithRequire, isItFactory } from "../../utils/main.js";
-import { getFrom, getTo } from "../../utils/others.js";
 import { apiConfig } from "../api-config.js";
 import { askForConfirmation } from "../helpers.js";
+import { isItFactory, getFrom, getTo } from "../utils/cli-utils.js";
 import { discoverStories, LOOKUP_TYPE, SCOPE } from "../utils/discover.js";
 
 const REVERT_COMMANDS = {
@@ -45,7 +45,7 @@ export const revert = async (props: CLIOptions) => {
                                 suffix: ".sb.stories",
                                 spaceId: to,
                             },
-                            apiConfig
+                            apiConfig,
                         );
 
                         const allLocalStories = discoverStories({
@@ -64,19 +64,19 @@ export const revert = async (props: CLIOptions) => {
                                 spaceId: to,
                                 options: { publish: false },
                             },
-                            apiConfig
+                            apiConfig,
                         );
                     },
                     () => {
                         Logger.warning(
-                            "Migration not started, exiting the program..."
+                            "Migration not started, exiting the program...",
                         );
                     },
-                    flags["yes"]
+                    flags["yes"],
                 );
             } else {
                 Logger.error(
-                    "Wrong combination of flags. check help for more info."
+                    "Wrong combination of flags. check help for more info.",
                 );
                 console.log("Passed flags: ");
                 console.log(flags);

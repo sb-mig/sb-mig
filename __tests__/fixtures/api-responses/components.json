@@ -1,0 +1,73 @@
+{
+    "components": [
+        {
+            "id": 1001,
+            "name": "hero",
+            "display_name": "Hero",
+            "is_root": true,
+            "is_nestable": false,
+            "component_group_uuid": null,
+            "schema": {
+                "title": {
+                    "type": "text",
+                    "pos": 0
+                },
+                "subtitle": {
+                    "type": "text",
+                    "pos": 1
+                },
+                "image": {
+                    "type": "asset",
+                    "filetypes": ["images"],
+                    "pos": 2
+                }
+            },
+            "created_at": "2024-01-01T00:00:00.000Z",
+            "updated_at": "2024-01-01T00:00:00.000Z"
+        },
+        {
+            "id": 1002,
+            "name": "text-block",
+            "display_name": "Text Block",
+            "is_root": false,
+            "is_nestable": true,
+            "component_group_uuid": "group-uuid-1",
+            "schema": {
+                "content": {
+                    "type": "richtext",
+                    "pos": 0
+                }
+            },
+            "created_at": "2024-01-01T00:00:00.000Z",
+            "updated_at": "2024-01-01T00:00:00.000Z"
+        },
+        {
+            "id": 1003,
+            "name": "card",
+            "display_name": "Card",
+            "is_root": false,
+            "is_nestable": true,
+            "component_group_uuid": "group-uuid-1",
+            "schema": {
+                "title": {
+                    "type": "text",
+                    "pos": 0
+                },
+                "description": {
+                    "type": "textarea",
+                    "pos": 1
+                },
+                "link": {
+                    "type": "multilink",
+                    "pos": 2
+                }
+            },
+            "created_at": "2024-01-01T00:00:00.000Z",
+            "updated_at": "2024-01-01T00:00:00.000Z"
+        }
+    ],
+    "total": 3,
+    "perPage": 100
+}
+
+

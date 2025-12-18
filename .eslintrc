@@ -1,51 +1,53 @@
 {
-  "extends": [
-    "plugin:@typescript-eslint/recommended",
-    "prettier",
-    "plugin:import/errors",
-    "plugin:import/warnings",
-    "plugin:import/typescript"
-  ],
-  "parser": "@typescript-eslint/parser",
-  "plugins": ["@typescript-eslint", "import"],
-  "rules": {
-    "@typescript-eslint/consistent-type-imports": 1,
-    "no-console": 0,
-    "@typescript-eslint/no-explicit-any": 0,
-    "@typescript-eslint/no-unused-vars": 0,
-    "@typescript-eslint/ban-ts-comment": 0,
-    "@typescript-eslint/no-empty-interface": 0,
-    "@typescript-eslint/no-empty-function": 0,
-    "import/order": [
-      "error",
-      {
-        "groups": [["type"], "builtin", "external", "parent", "sibling", "index"],
-        "pathGroups": [
-          {
-            "pattern": "@/**",
-            "group": "external",
-            "position": "after"
-          }
+    "extends": [
+        "plugin:@typescript-eslint/recommended",
+        "prettier",
+        "plugin:import/errors",
+        "plugin:import/warnings",
+        "plugin:import/typescript"
+    ],
+    "parser": "@typescript-eslint/parser",
+    "plugins": ["@typescript-eslint", "import"],
+    "rules": {
+        "@typescript-eslint/consistent-type-imports": 1,
+        "no-console": 0,
+        "@typescript-eslint/no-explicit-any": 0,
+        "@typescript-eslint/no-unused-vars": 0,
+        "@typescript-eslint/ban-ts-comment": 0,
+        "@typescript-eslint/no-empty-interface": 0,
+        "@typescript-eslint/no-empty-function": 0,
+        "import/order": [
+            "error",
+            {
+                "groups": [
+                    ["type"],
+                    "builtin",
+                    "external",
+                    "parent",
+                    "sibling",
+                    "index"
+                ],
+                "pathGroups": [
+                    {
+                        "pattern": "@/**",
+                        "group": "external",
+                        "position": "after"
+                    }
+                ],
+                "pathGroupsExcludedImportTypes": ["builtin"],
+                "newlines-between": "always",
+                "alphabetize": {
+                    "order": "asc",
+                    "caseInsensitive": true
+                }
+            }
         ],
-        "pathGroupsExcludedImportTypes": ["builtin"],
-        "newlines-between": "always",
-        "alphabetize": {
-          "order": "asc",
-          "caseInsensitive": true
-        }
-      }
-    ],
-    "import/no-unresolved": [
-      "error",
-      {
-        "ignore": ["\\.js$"]
-      }
-    ],
-  },
-  "ignorePatterns": [
-    "node_modules",
-    "dist",
-    "dist-tests",
-    "typings"
-  ]
+        "import/no-unresolved": [
+            "error",
+            {
+                "ignore": ["\\.js$", "^vitest"]
+            }
+        ]
+    },
+    "ignorePatterns": ["node_modules", "dist", "dist-tests", "typings"]
 }

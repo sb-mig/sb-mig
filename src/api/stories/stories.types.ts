@@ -12,41 +12,41 @@ interface ModifyStoryOptions {
 
 export type RemoveStory = (
     args: { storyId: string },
-    config: RequestBaseConfig
+    config: RequestBaseConfig,
 ) => Promise<any>;
 
 export type RemoveAllStories = (config: RequestBaseConfig) => Promise<any>;
 
 export type GetStoryById = (
     storyId: string,
-    config: RequestBaseConfig
+    config: RequestBaseConfig,
 ) => Promise<any>;
 
 export type GetStoryBySlug = (
     slug: string,
-    config: RequestBaseConfig
+    config: RequestBaseConfig,
 ) => Promise<any>;
 
 export type GetAllStories = (
     args: { options?: ExtendedISbStoriesParams },
-    config: RequestBaseConfig
+    config: RequestBaseConfig,
 ) => Promise<any>;
 
 export type CreateStory = (
     content: any,
-    config: RequestBaseConfig
+    config: RequestBaseConfig,
 ) => Promise<any>;
 
 export type UpdateStory = (
     content: any,
     storyId: string,
     options: ModifyStoryOptions,
-    config: RequestBaseConfig
+    config: RequestBaseConfig,
 ) => Promise<any>;
 
 export type UpdateStories = (
     args: { stories: any; options: ModifyStoryOptions; spaceId: string },
-    config: RequestBaseConfig
+    config: RequestBaseConfig,
 ) => Promise<any>;
 
 export type UpsertStory = (
@@ -55,7 +55,7 @@ export type UpsertStory = (
         storyId?: string;
         storySlug?: string;
     },
-    config: RequestBaseConfig
+    config: RequestBaseConfig,
 ) => void;
 
 export type DeepUpsertStory = (
@@ -64,10 +64,10 @@ export type DeepUpsertStory = (
         storyId?: string;
         storySlug?: string;
     },
-    config: RequestBaseConfig
+    config: RequestBaseConfig,
 ) => void;
 
 export type BackupStories = (
     args: { filename: string; spaceId: string; suffix?: string },
-    config: RequestBaseConfig
+    config: RequestBaseConfig,
 ) => void;

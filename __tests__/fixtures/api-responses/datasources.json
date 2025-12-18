@@ -1,0 +1,26 @@
+{
+    "datasources": [
+        {
+            "id": 4001,
+            "name": "icons",
+            "slug": "icons",
+            "dimensions": []
+        },
+        {
+            "id": 4002,
+            "name": "countries",
+            "slug": "countries",
+            "dimensions": [
+                {
+                    "id": 1,
+                    "name": "region",
+                    "entry_value": ""
+                }
+            ]
+        }
+    ],
+    "total": 2,
+    "perPage": 100
+}
+
+

@@ -1,29 +1,18 @@
-import type { RequestBaseConfig } from "../api/utils/request.js";
+/**
+ * Re-exports for backwards compatibility
+ * Functions have been moved to their proper modules
+ */
 
-export const generateDatestamp = (datestamp: Date) => {
-    const year = datestamp.getFullYear();
-    const month = datestamp.getMonth() + 1;
-    const day = datestamp.getDate();
-    const hours = datestamp.getHours();
-    const minutes = datestamp.getMinutes();
+// Date utilities - now in date-utils.ts
+export { generateDatestamp } from "./date-utils.js";
 
-    return `${year}-${month}-${day}_${hours}-${minutes}`;
-};
-
-export const getFrom = (flags: any, config: RequestBaseConfig): string =>
-    (flags["from"] ? flags["from"] : config.spaceId).toString();
-export const getTo = (flags: any, config: RequestBaseConfig): string =>
-    (flags["to"] ? flags["to"] : config.spaceId).toString();
-
-export const getSourceSpace = (flags: any, config: RequestBaseConfig): string =>
-    (flags["sourceSpace"] ? flags["sourceSpace"] : config.spaceId).toString();
-export const getTargetSpace = (flags: any, config: RequestBaseConfig): string =>
-    (flags["targetSpace"] ? flags["targetSpace"] : config.spaceId).toString();
-
-export const getWhat = (flags: any): string =>
-    (flags["what"] ? flags["what"] : "all").toString();
-export const getWhere = (flags: any): string =>
-    (flags["where"] ? flags["where"] : "all").toString();
-
-export const getRecursive = (flags: any): boolean =>
-    flags["recursive"] ? flags["recursive"] : false;
+// CLI flag extractors - now in cli/utils/cli-utils.ts
+export {
+    getFrom,
+    getTo,
+    getSourceSpace,
+    getTargetSpace,
+    getWhat,
+    getWhere,
+    getRecursive,
+} from "../cli/utils/cli-utils.js";

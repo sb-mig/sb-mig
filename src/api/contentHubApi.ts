@@ -7,7 +7,7 @@ type GetAllStories = (
         spaceId: string;
         storiesFilename?: string;
     },
-    config: RequestBaseConfig
+    config: RequestBaseConfig,
 ) => Promise<any>;
 
 const getAllStories: GetAllStories = async (args, config) => {

@@ -29,7 +29,7 @@ export const hasAccessToSpace: HasAccessToSpace = async (args, config) => {
     const { spaceId } = args;
     const allSpaces = await getAllSpaces(config);
     const hasAccess = allSpaces.find(
-        (space) => Number(space.id) === Number(spaceId)
+        (space) => Number(space.id) === Number(spaceId),
     );
 
     return !!hasAccess;

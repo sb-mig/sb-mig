@@ -48,7 +48,7 @@ export type GetAllAssets = (
         spaceId: string;
         search?: string;
     },
-    config: RequestBaseConfig
+    config: RequestBaseConfig,
 ) => Promise<SBAllAssetRequestResult>;
 export type GetAssetByName = (
     {
@@ -58,7 +58,7 @@ export type GetAssetByName = (
         spaceId: string;
         fileName: string;
     },
-    config: RequestBaseConfig
+    config: RequestBaseConfig,
 ) => Promise<SBAsset | undefined>;
 export type GetAssetById = (
     {
@@ -68,7 +68,7 @@ export type GetAssetById = (
         spaceId: string;
         assetId: number;
     },
-    config: RequestBaseConfig
+    config: RequestBaseConfig,
 ) => Promise<(SBAsset & SBAssetById) | undefined>;
 export type MigrateAsset = (
     {
@@ -80,7 +80,7 @@ export type MigrateAsset = (
         payload: AssetPayload;
         syncDirection: SyncDirection;
     },
-    config: RequestBaseConfig
+    config: RequestBaseConfig,
 ) => Promise<boolean>;
 export type UploadFile = ({
     signedResponseObject,
@@ -103,10 +103,10 @@ export type RequestSignedUploadUrl = (
         spaceId: string;
         payload: AssetPayload;
     },
-    config: RequestBaseConfig
+    config: RequestBaseConfig,
 ) => Promise<any>;
 
 export type DownloadAsset = (
     args: { payload: AssetPayload },
-    config: RequestBaseConfig
+    config: RequestBaseConfig,
 ) => Promise<string>;

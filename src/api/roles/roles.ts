@@ -6,8 +6,8 @@ import type {
     UpdateRole,
 } from "./roles.types.js";
 
+import { getFileContentWithRequire } from "../../utils/files.js";
 import Logger from "../../utils/logger.js";
-import { getFileContentWithRequire } from "../../utils/main.js";
 import { getAllItemsWithPagination } from "../utils/request.js";
 
 // POST
@@ -24,7 +24,7 @@ export const createRole: CreateRole = (role: any, config) => {
         .catch((err) => {
             Logger.error("error happened... :(");
             console.log(
-                `${err.message} in migration of ${role.role} in createRole function`
+                `${err.message} in migration of ${role.role} in createRole function`,
             );
         });
 };
@@ -43,7 +43,7 @@ export const updateRole: UpdateRole = (role, config) => {
         .catch((err) => {
             Logger.error("error happened... :(");
             console.log(
-                `${err.message} in migration of ${role.role} in updateRole function`
+                `${err.message} in migration of ${role.role} in updateRole function`,
             );
         });
 };
@@ -67,7 +67,7 @@ export const getAllRoles: GetAllRoles = async (config) => {
                 .catch((err) => {
                     if (err.response.status === 404) {
                         Logger.error(
-                            `There is no roles in your Storyblok ${spaceId} space.`
+                            `There is no roles in your Storyblok ${spaceId} space.`,
                         );
                         return true;
                     } else {
@@ -85,7 +85,7 @@ export const getAllRoles: GetAllRoles = async (config) => {
 // GET
 export const getRole: GetRole = async (
     roleName: string | undefined,
-    config
+    config,
 ) => {
     Logger.log(`Trying to get '${roleName}' role.`);
 
@@ -104,8 +104,8 @@ export const getRole: GetRole = async (
 export const syncRoles: SyncRoles = async ({ specifiedRoles }, config) => {
     const specifiedRolesContent = await Promise.all(
         specifiedRoles.map((roles) =>
-            getFileContentWithRequire({ file: roles.p })
-        )
+            getFileContentWithRequire({ file: roles.p }),
+        ),
     );
 
     const space_roles = await getAllRoles(config);
@@ -115,7 +115,7 @@ export const syncRoles: SyncRoles = async ({ specifiedRoles }, config) => {
 
     for (const role of specifiedRolesContent) {
         const shouldBeUpdated = space_roles.find(
-            (remoteRole: any) => role.role === remoteRole.role
+            (remoteRole: any) => role.role === remoteRole.role,
         );
         if (shouldBeUpdated) {
             rolesToUpdate.push({ id: shouldBeUpdated.id, ...role });

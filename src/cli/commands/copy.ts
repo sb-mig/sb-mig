@@ -5,6 +5,7 @@ import { createTree, traverseAndCreate } from "../../api/stories/tree.js";
 import { TreeNode } from "../../api/stories/tree.types.js";
 import { dumpToFile } from "../../utils/files.js";
 import Logger from "../../utils/logger.js";
+import { apiConfig } from "../api-config.js";
 import {
     getFrom,
     getRecursive,
@@ -13,8 +14,7 @@ import {
     getTo,
     getWhat,
     getWhere,
-} from "../../utils/others.js";
-import { apiConfig } from "../api-config.js";
+} from "../utils/cli-utils.js";
 
 const COPY_COMMANDS = {
     stories: "stories",
@@ -41,7 +41,7 @@ const decideStrategy = async (args: DecideStrategyArgs) => {
     const { what, sourceSpace } = args;
     // Check if path ends with /* for recursive folder strategy
     if (what.endsWith("/*")) {
-        const folderPath = what.slice(0, -2); // Remove /* from the end
+        const folderPath = what.slice(0, -2); // Remove /* from the endcurso
         const entryStory = await managementApi.stories.getStoryBySlug(
             folderPath,
             {

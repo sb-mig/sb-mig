@@ -11,8 +11,6 @@ import {
 } from "../../api/migrate.js";
 import storyblokConfig from "../../config/config.js";
 import Logger from "../../utils/logger.js";
-import { isItFactory, unpackElements } from "../../utils/main.js";
-import { getFrom, getTo } from "../../utils/others.js";
 import { apiConfig } from "../api-config.js";
 import {
     syncAllDatasources,
@@ -20,6 +18,12 @@ import {
 } from "../datasources/sync.js";
 import { askForConfirmation } from "../helpers.js";
 import { syncAllRoles, syncProvidedRoles } from "../roles/sync.js";
+import {
+    getFrom,
+    getTo,
+    isItFactory,
+    unpackElements,
+} from "../utils/cli-utils.js";
 
 const SYNC_COMMANDS = {
     content: "content",
@@ -159,7 +163,6 @@ export const sync = async (props: CLIOptions) => {
                     syncDirection,
                 });
             }
-
 
             if (syncDirection) {
                 if (isIt("all")) {
