@@ -36,7 +36,7 @@ export const removeStory: RemoveStory = (args, config) => {
         .delete(`spaces/${spaceId}/stories/${storyId}`, {})
         .then((res: any) => {
             Logger.success(
-                `Successfully removed: ${res.data.story.name} with ${res.data.story.id} id.`
+                `Successfully removed: ${res.data.story.name} with ${res.data.story.id} id.`,
             );
             return res;
         })
@@ -48,7 +48,7 @@ export const removeStory: RemoveStory = (args, config) => {
 export const removeAllStories: RemoveAllStories = async (config) => {
     const { spaceId } = config;
     Logger.warning(
-        `Trying to remove all stories from space with spaceId: ${spaceId}`
+        `Trying to remove all stories from space with spaceId: ${spaceId}`,
     );
     const stories = await getAllStories({}, config);
 
@@ -60,8 +60,8 @@ export const removeAllStories: RemoveAllStories = async (config) => {
             .filter(onlyRootStories)
             .map(
                 async (story: any) =>
-                    await removeStory({ storyId: story?.story?.id }, config)
-            )
+                    await removeStory({ storyId: story?.story?.id }, config),
+            ),
     );
 
     return allResponses;
@@ -96,7 +96,7 @@ export const getAllStories: GetAllStories = async (args, config) => {
     });
 
     Logger.success(
-        `Successfully pre-fetched ${allStoriesWithoutContent.length} stories.`
+        `Successfully pre-fetched ${allStoriesWithoutContent.length} stories.`,
     );
 
     let heartBeat = 0;
@@ -111,12 +111,12 @@ export const getAllStories: GetAllStories = async (args, config) => {
                 heartBeat === allStoriesWithoutContent.length
             ) {
                 Logger.success(
-                    `Successfully fetched ${heartBeat} stories with full content.`
+                    `Successfully fetched ${heartBeat} stories with full content.`,
                 );
             }
 
             return result;
-        })
+        }),
     );
 
     return allStories;
@@ -127,7 +127,7 @@ export const getStoryById: GetStoryById = (storyId, config) => {
     const { spaceId, sbApi, debug } = config;
     if (debug) {
         console.log(
-            `Trying to get Story with id: ${storyId} from space: ${spaceId}, to fill content field.`
+            `Trying to get Story with id: ${storyId} from space: ${spaceId}, to fill content field.`,
         );
     }
     return sbApi
@@ -135,7 +135,7 @@ export const getStoryById: GetStoryById = (storyId, config) => {
         .then((res: any) => {
             if (debug) {
                 Logger.success(
-                    `Successfuly fetched story with content, with id: ${storyId} from space: ${spaceId}.`
+                    `Successfuly fetched story with content, with id: ${storyId} from space: ${spaceId}.`,
                 );
             }
 
@@ -157,8 +157,8 @@ export const getStoryBySlug: GetStoryBySlug = async (slug, config) => {
 
     const storiesWithContent = await Promise.all(
         storiesWithoutContent.map(
-            async (story: any) => await getStoryById(story.id, config)
-        )
+            async (story: any) => await getStoryById(story.id, config),
+        ),
     );
 
     return storiesWithContent[0];
@@ -168,7 +168,7 @@ export const getStoryBySlug: GetStoryBySlug = async (slug, config) => {
 export const createStory: CreateStory = (content, config) => {
     const { spaceId, sbApi } = config;
     Logger.log(
-        `Creating story with name: ${content.name} in space: ${spaceId}`
+        `Creating story with name: ${content.name} in space: ${spaceId}`,
     );
     return sbApi
         .post(`spaces/${spaceId}/stories/`, {
@@ -184,11 +184,11 @@ export const updateStory: UpdateStory = (content, storyId, options, config) => {
     const { spaceId, sbApi } = config;
     Logger.warning("Trying to update Story...");
     Logger.log(
-        `Updating story with name: ${content.name} in space: ${spaceId}`
+        `Updating story with name: ${content.name} in space: ${spaceId}`,
     );
 
-    console.log("THis is content to update: ");
-    console.log(JSON.stringify(content, null, 2));
+    // console.log("THis is content to update: ");
+    // console.log(JSON.stringify(content, null, 2));
 
     return sbApi
         .put(`spaces/${spaceId}/stories/${storyId}`, {
@@ -213,9 +213,9 @@ export const updateStories: UpdateStories = (args, config) => {
                 stories.story,
                 stories.story.id,
                 { publish: options.publish },
-                { ...config, spaceId }
+                { ...config, spaceId },
             );
-        })
+        }),
     );
 };
 
@@ -235,7 +235,7 @@ export const upsertStory: UpsertStory = async (args, config) => {
         console.log("You've selected slug!");
         const foundStory = await managementApi.stories.getStoryBySlug(
             storySlug,
-            config
+            config,
         );
         console.log("This is story");
         console.log(foundStory);
@@ -249,7 +249,7 @@ export const upsertStory: UpsertStory = async (args, config) => {
             console.log("We are going to create story");
             const response = await managementApi.stories.createStory(
                 rest,
-                config
+                config,
             );
             console.log("This is response");
             console.log(response);
@@ -276,7 +276,7 @@ export const deepUpsertStory: DeepUpsertStory = async (args, config) => {
         console.log("You've selected slug!");
         const slugs = storySlug.split("/");
         console.log(
-            "Slugs for which we need to check for existence of stories"
+            "Slugs for which we need to check for existence of stories",
         );
         console.log(slugs);
 

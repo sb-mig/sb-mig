@@ -26,6 +26,10 @@ interface MigrateItems {
     migrateFrom: MigrateFrom;
     migrationConfig: string;
     componentsToMigrate: string[];
+    filters?: {
+        withSlug?: string[];
+        startsWith?: string;
+    };
 }
 
 interface ReplaceComponentData {
@@ -69,22 +73,22 @@ function replaceComponentData({
             if (storyblokConfig.debug) {
                 console.log(
                     chalk.yellow(
-                        `______________ In __________________________________________`
-                    )
+                        `______________ In __________________________________________`,
+                    ),
                 );
                 console.log(" ");
                 console.log(
                     `   Data from ${chalk.blue(
-                        dataToReplace.component
+                        dataToReplace.component,
                     )} component,\n   with _uid: ${chalk.blue(
-                        dataToReplace._uid
-                    )} `
+                        dataToReplace._uid,
+                    )} `,
                 );
                 console.log("Was it replaced? ", wasReplaced);
                 console.log(
                     chalk.yellow(
-                        `____________________________________________________________`
-                    )
+                        `____________________________________________________________`,
+                    ),
                 );
                 console.log(" ");
             }
@@ -149,8 +153,8 @@ export const prepareStoriesFromLocalFile = ({ from }: any) => {
     if (!storiesFileContent) {
         throw new Error(
             `Couldn't receive data from provided stories filename: ${chalk.red(
-                from
-            )}`
+                from,
+            )}`,
         );
     }
 
@@ -172,7 +176,7 @@ export const prepareMigrationConfig = ({ migrationConfig }: any) => {
 
     if (isObjectEmpty(migrationConfigFileContent)) {
         throw new Error(
-            "Migration config file is empty. Please provide default exported config object with components map to migrate"
+            "Migration config file is empty. Please provide default exported config object with components map to migrate",
         );
     }
 
@@ -192,11 +196,12 @@ export const migrateAllComponentsDataInStories = async (
         migrateFrom,
         from,
         to,
+        filters,
     }: Omit<MigrateItems, "componentsToMigrate">,
-    config: RequestBaseConfig
+    config: RequestBaseConfig,
 ) => {
     Logger.warning(
-        `Trying to migrate all ${itemType} from ${migrateFrom}, ${from} to ${to}...`
+        `Trying to migrate all ${itemType} from ${migrateFrom}, ${from} to ${to}...`,
     );
 
     const migrationConfigFileContent = prepareMigrationConfig({
@@ -208,7 +213,7 @@ export const migrateAllComponentsDataInStories = async (
 
     if (storyblokConfig.debug) {
         Logger.warning(
-            "_________ Components in stories to migrate ___________"
+            "_________ Components in stories to migrate ___________",
         );
         console.log(componentsToMigrate);
     }
@@ -221,8 +226,9 @@ export const migrateAllComponentsDataInStories = async (
             from,
             to,
             componentsToMigrate,
+            filters,
         },
-        config
+        config,
     );
 };
 
@@ -236,10 +242,9 @@ export const doTheMigration = async (
         migrationConfig,
         to,
     }: any,
-    config: RequestBaseConfig
+    config: RequestBaseConfig,
 ) => {
     const arrayOfMaxDepths: number[] = [];
-
     const migratedItems = itemsToMigrate.map((item: any, index: number) => {
         const sumOfReplacing: any = {};
 
@@ -247,10 +252,12 @@ export const doTheMigration = async (
             Logger.success(`#   ${index}   #`);
         }
 
-        const json =
+        let json =
             itemType === "story" ? item[itemType].content : item[itemType];
+        const rootWrapper = { root: json };
+
         const maxDepth = replaceComponentData({
-            parent: { root: json },
+            parent: rootWrapper,
             key: "root",
             components: componentsToMigrate,
             mapper: migrationConfigFileContent,
@@ -258,6 +265,8 @@ export const doTheMigration = async (
             maxDepth: 0,
             sumOfReplacing,
         });
+        // After replacement, take potentially new root (root may be reassigned inside)
+        json = rootWrapper.root;
 
         arrayOfMaxDepths.push(maxDepth);
 
@@ -267,17 +276,17 @@ export const doTheMigration = async (
                 `Migration in ${chalk.magenta(
                     itemType === "story"
                         ? item[itemType].full_slug
-                        : item[itemType].name
-                )} page: `
+                        : item[itemType].name,
+                )} page: `,
             );
             componentsToMigrate.forEach((component: any) => {
                 if (sumOfReplacing[component]) {
                     console.log(
                         `${chalk.blue(
-                            component
+                            component,
                         )} component data was replaced: ${
                             sumOfReplacing[component]
-                        } times.`
+                        } times.`,
                     );
                 }
             });
@@ -332,7 +341,7 @@ export const doTheMigration = async (
             folder: "migrations",
             res: notNullMigratedItems,
         },
-        config
+        config,
     );
 
     await modifyOrCreateAppliedMigrationsFile(migrationConfig, itemType);
@@ -344,7 +353,7 @@ export const doTheMigration = async (
                 spaceId: to,
                 options: { publish: false },
             },
-            config
+            config,
         );
     } else if (itemType === "preset") {
         await managementApi.presets.updatePresets(
@@ -353,7 +362,7 @@ export const doTheMigration = async (
                 spaceId: to,
                 options: {},
             },
-            config
+            config,
         );
     }
 };
@@ -365,12 +374,12 @@ type SaveBackupStoriesToFile = (
         folder: string;
         res: any;
     },
-    config: RequestBaseConfig
+    config: RequestBaseConfig,
 ) => Promise<void>;
 
 const saveBackupToFile: SaveBackupStoriesToFile = async (
     { itemType, res, folder, filename },
-    config
+    config,
 ) => {
     await createAndSaveToFile(
         {
@@ -381,7 +390,7 @@ const saveBackupToFile: SaveBackupStoriesToFile = async (
             folder,
             res: res,
         },
-        config
+        config,
     );
 };
 
@@ -393,8 +402,9 @@ export const migrateProvidedComponentsDataInStories = async (
         from,
         to,
         componentsToMigrate,
+        filters,
     }: MigrateItems,
-    config: RequestBaseConfig
+    config: RequestBaseConfig,
 ) => {
     const migrationConfigFileContent = prepareMigrationConfig({
         migrationConfig,
@@ -404,7 +414,12 @@ export const migrateProvidedComponentsDataInStories = async (
         Logger.log("Migrating using file....");
 
         // Get all stories to be migrated from file
-        const itemsToMigrate = prepareStoriesFromLocalFile({ from });
+        const itemsFromFile = prepareStoriesFromLocalFile({ from });
+        const itemsToMigrate = Array.isArray(itemsFromFile)
+            ? itemsFromFile.filter(
+                  (it: any) => !(it?.story?.is_folder === true),
+              )
+            : itemsFromFile;
         await doTheMigration(
             {
                 itemsToMigrate,
@@ -412,19 +427,47 @@ export const migrateProvidedComponentsDataInStories = async (
                 migrationConfigFileContent,
                 to,
             },
-            config
+            config,
         );
     } else if (migrateFrom === "space") {
         // Get all stories to be migrated from storyblok space
         let itemsToMigrate: any[] = [];
         if (itemType === "story") {
-            itemsToMigrate = await managementApi.stories.getAllStories(
-                {},
-                {
-                    ...config,
-                    spaceId: from,
-                }
-            );
+            if (filters?.withSlug && filters.withSlug.length > 0) {
+                const results = await Promise.all(
+                    filters.withSlug.map((slug) =>
+                        managementApi.stories.getStoryBySlug(slug, {
+                            ...config,
+                            spaceId: from,
+                        }),
+                    ),
+                );
+                itemsToMigrate = (results.filter(Boolean) as any[]).filter(
+                    (it: any) => !(it?.story?.is_folder === true),
+                );
+            } else if (filters?.startsWith) {
+                itemsToMigrate = await managementApi.stories.getAllStories(
+                    { options: { starts_with: filters.startsWith } as any },
+                    {
+                        ...config,
+                        spaceId: from,
+                    },
+                );
+                itemsToMigrate = itemsToMigrate.filter(
+                    (it: any) => !(it?.story?.is_folder === true),
+                );
+            } else {
+                itemsToMigrate = await managementApi.stories.getAllStories(
+                    {},
+                    {
+                        ...config,
+                        spaceId: from,
+                    },
+                );
+                itemsToMigrate = itemsToMigrate.filter(
+                    (it: any) => !(it?.story?.is_folder === true),
+                );
+            }
         } else if (itemType === "preset") {
             itemsToMigrate = await managementApi.presets.getAllPresets({
                 ...config,
@@ -442,7 +485,7 @@ export const migrateProvidedComponentsDataInStories = async (
                 folder: backupFolder,
                 res: itemsToMigrate,
             },
-            config
+            config,
         );
 
         await doTheMigration(
@@ -455,7 +498,7 @@ export const migrateProvidedComponentsDataInStories = async (
                 from,
                 to,
             },
-            config
+            config,
         );
     }
 };

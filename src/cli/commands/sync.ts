@@ -160,13 +160,6 @@ export const sync = async (props: CLIOptions) => {
                 });
             }
 
-            console.log({
-                from,
-                to,
-                ...flags,
-                syncDirection,
-                test: "Test",
-            });
 
             if (syncDirection) {
                 if (isIt("all")) {
