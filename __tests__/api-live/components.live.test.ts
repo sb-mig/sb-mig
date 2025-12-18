@@ -12,14 +12,16 @@ import type { RequestBaseConfig } from "../../src/api/utils/request.js";
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
 
-import {
+import { managementApi } from "../../src/api/managementApi.js";
+
+const {
     getAllComponents,
     getComponent,
     createComponent,
     updateComponent,
     removeComponent,
     getAllComponentsGroups,
-} from "../../src/api/components/components.js";
+} = managementApi.components;
 
 import {
     skipIfNoLiveTests,

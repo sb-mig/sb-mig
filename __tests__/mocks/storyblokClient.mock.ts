@@ -1,5 +1,6 @@
-import { vi } from "vitest";
 import type { RequestBaseConfig } from "../../src/api/utils/request.js";
+
+import { vi } from "vitest";
 
 /**
  * Mock Storyblok API response structure

@@ -12,14 +12,16 @@ import type { RequestBaseConfig } from "../../src/api/utils/request.js";
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
 
-import {
+import { managementApi } from "../../src/api/managementApi.js";
+
+const {
     getAllStories,
     getStoryById,
     getStoryBySlug,
     createStory,
     updateStory,
     removeStory,
-} from "../../src/api/stories/stories.js";
+} = managementApi.stories;
 
 import {
     skipIfNoLiveTests,

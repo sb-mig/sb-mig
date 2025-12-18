@@ -11,7 +11,9 @@ import type { RequestBaseConfig } from "../../src/api/utils/request.js";
 
 import { describe, it, expect, beforeAll, beforeEach } from "vitest";
 
-import { getSpace, getAllSpaces } from "../../src/api/spaces/spaces.js";
+import { managementApi } from "../../src/api/managementApi.js";
+
+const { getSpace, getAllSpaces } = managementApi.spaces;
 
 import {
     skipIfNoLiveTests,

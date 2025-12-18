@@ -38,7 +38,7 @@
     "import/no-unresolved": [
       "error",
       {
-        "ignore": ["\\.js$"]
+        "ignore": ["\\.js$", "^vitest"]
       }
     ],
   },

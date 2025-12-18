@@ -4,10 +4,20 @@
  * This module provides utilities for testing against the real Storyblok API.
  * These tests make actual HTTP requests and require valid credentials.
  *
- * Environment Variables Required:
+ * IMPORTANT: This uses sb-mig's REAL configuration chain!
+ * - Loads storyblok.config.js/.mjs from project root
+ * - Merges with defaultConfig
+ * - Uses environment variables from .env
+ *
+ * This means we're testing the full integration:
+ * - Config file discovery
+ * - Config merging
+ * - StoryblokClient creation
+ * - API wrapper functions
+ *
+ * Environment Variables Required (in .env):
  * - STORYBLOK_SPACE_ID: Your Storyblok space ID
- * - STORYBLOK_ACCESS_TOKEN: Personal access token (Management API)
- * - STORYBLOK_OAUTH_TOKEN: OAuth token (optional, for OAuth-based auth)
+ * - STORYBLOK_ACCESS_TOKEN or NEXT_PUBLIC_STORYBLOK_ACCESS_TOKEN: Personal access token
  *
  * Usage:
  *   Run live tests: yarn test:api-live
@@ -16,18 +26,15 @@
 
 import type { RequestBaseConfig } from "../../src/api/utils/request.js";
 
-import StoryblokClient from "storyblok-js-client";
+// Import the REAL apiConfig from sb-mig - this tests the entire config chain!
+import { managementApi } from "../../src/api/managementApi.js";
+import { apiConfig } from "../../src/cli/api-config.js";
+
+// Import management API using barrel export
 
 // ============================================================================
 // Environment Configuration
 // ============================================================================
-
-export interface LiveTestConfig {
-    spaceId: string;
-    accessToken: string;
-    oauthToken?: string;
-    apiUrl: string;
-}
 
 /**
  * Check if live API tests should run
@@ -38,79 +45,18 @@ export const shouldRunLiveTests = (): boolean => {
 };
 
 /**
- * Check if required environment variables are set
+ * Check if the real apiConfig has required values
  */
-export const hasRequiredEnvVars = (): boolean => {
-    return !!(
-        process.env.STORYBLOK_SPACE_ID && process.env.STORYBLOK_ACCESS_TOKEN
-    );
+export const hasRequiredConfig = (): boolean => {
+    return !!(apiConfig.spaceId && apiConfig.accessToken);
 };
 
 /**
- * Get live test configuration from environment
- */
-export const getLiveTestConfig = (): LiveTestConfig => {
-    const spaceId = process.env.STORYBLOK_SPACE_ID;
-    const accessToken = process.env.STORYBLOK_ACCESS_TOKEN;
-    const oauthToken = process.env.STORYBLOK_OAUTH_TOKEN;
-    const apiUrl =
-        process.env.STORYBLOK_API_URL || "https://mapi.storyblok.com/v1";
-
-    if (!spaceId || !accessToken) {
-        throw new Error(
-            "Missing required environment variables: STORYBLOK_SPACE_ID, STORYBLOK_ACCESS_TOKEN",
-        );
-    }
-
-    return {
-        spaceId,
-        accessToken,
-        oauthToken,
-        apiUrl,
-    };
-};
-
-// ============================================================================
-// API Client Factory
-// ============================================================================
-
-/**
- * Create a real Storyblok client for live tests
- */
-export const createLiveStoryblokClient = (
-    config: LiveTestConfig,
-): StoryblokClient => {
-    return new StoryblokClient(
-        {
-            accessToken: config.accessToken,
-            oauthToken: config.oauthToken,
-            rateLimit: 3, // Be gentle with rate limits during tests
-            cache: {
-                clear: "auto",
-                type: "none",
-            },
-        },
-        config.apiUrl,
-    );
-};
-
-/**
- * Create a complete RequestBaseConfig for live tests
+ * Get the REAL sb-mig apiConfig
+ * This uses the same config chain as the CLI!
  */
 export const createLiveApiConfig = (): RequestBaseConfig => {
-    const config = getLiveTestConfig();
-    const sbApi = createLiveStoryblokClient(config);
-
-    return {
-        spaceId: config.spaceId,
-        sbApi,
-        accessToken: config.accessToken,
-        oauthToken: config.oauthToken,
-        storyblokApiUrl: config.apiUrl,
-        sbmigWorkingDirectory: ".sbmig-test",
-        debug: process.env.STORYBLOK_DEBUG === "true",
-        rateLimit: 3,
-    };
+    return apiConfig;
 };
 
 // ============================================================================
@@ -124,8 +70,8 @@ export const skipIfNoLiveTests = () => {
     if (!shouldRunLiveTests()) {
         return "Live API tests are disabled. Set STORYBLOK_LIVE_TESTS=true to enable.";
     }
-    if (!hasRequiredEnvVars()) {
-        return "Missing required environment variables for live tests.";
+    if (!hasRequiredConfig()) {
+        return "Missing required config (spaceId or accessToken). Check your storyblok.config.js and .env file.";
     }
     return false;
 };
@@ -152,20 +98,21 @@ export const generateTestStorySlug = (prefix = "test"): string => {
 };
 
 // ============================================================================
-// Cleanup Helpers
+// Cleanup Helpers (using managementApi barrel export)
 // ============================================================================
 
 /**
  * Cleanup helper - delete a component by ID
+ * Uses managementApi.components.removeComponent
  */
 export const cleanupComponent = async (
     componentId: number,
     config: RequestBaseConfig,
 ): Promise<void> => {
     try {
-        await config.sbApi.delete(
-            `spaces/${config.spaceId}/components/${componentId}`,
-            {},
+        await managementApi.components.removeComponent(
+            { id: componentId, name: `cleanup-${componentId}` },
+            config,
         );
     } catch (error) {
         console.warn(`Failed to cleanup component ${componentId}:`, error);
@@ -174,16 +121,14 @@ export const cleanupComponent = async (
 
 /**
  * Cleanup helper - delete a story by ID
+ * Uses managementApi.stories.removeStory
  */
 export const cleanupStory = async (
     storyId: number,
     config: RequestBaseConfig,
 ): Promise<void> => {
     try {
-        await config.sbApi.delete(
-            `spaces/${config.spaceId}/stories/${storyId}`,
-            {},
-        );
+        await managementApi.stories.removeStory({ storyId: String(storyId) }, config);
     } catch (error) {
         console.warn(`Failed to cleanup story ${storyId}:`, error);
     }
@@ -191,15 +136,16 @@ export const cleanupStory = async (
 
 /**
  * Cleanup helper - delete a component group by ID
+ * Uses managementApi.components.removeComponentGroup
  */
 export const cleanupComponentGroup = async (
     groupId: number,
     config: RequestBaseConfig,
 ): Promise<void> => {
     try {
-        await config.sbApi.delete(
-            `spaces/${config.spaceId}/component_groups/${groupId}`,
-            {},
+        await managementApi.components.removeComponentGroup(
+            { id: groupId, name: `cleanup-group-${groupId}` },
+            config,
         );
     } catch (error) {
         console.warn(`Failed to cleanup component group ${groupId}:`, error);

@@ -5,8 +5,8 @@ import type {
     GetPlugin,
     GetPluginDetails,
     UpdatePlugin,
+    SyncProvidedPlugins,
 } from "./plugins.types.js";
-import type { SyncProvidedPlugins } from "./plugins.types.js";
 
 import { readFile } from "../../utils/files.js";
 import Logger from "../../utils/logger.js";

@@ -1,5 +1,6 @@
-import { vi } from "vitest";
 import type { IStoryblokConfig } from "../../src/config/config.js";
+
+import { vi } from "vitest";
 
 /**
  * Create a mock configuration object
