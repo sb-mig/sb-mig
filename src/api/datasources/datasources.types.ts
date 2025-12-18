@@ -24,8 +24,10 @@ export type SyncDatasources = (
 export type SyncProvidedDatasources = (
     args: { datasources: string[] },
     config: RequestBaseConfig,
-) => void;
-export type SyncAllDatasources = (config: RequestBaseConfig) => void;
+) => Promise<void>;
+export type SyncAllDatasources = (
+    config: RequestBaseConfig,
+) => Promise<void>;
 
 // Datasource Entries
 export type GetDatasourceEntries = (

@@ -156,56 +156,56 @@ export const syncDatasources: SyncDatasources = async (args, config) => {
     Logger.log(`Trying to sync provided datasources: `);
 
     const providedDatasourcesContent = await Promise.all(
-        providedDatasources.map((datasource) => {
-            return getFileContentWithRequire({ file: datasource.p });
-        }),
+        providedDatasources.map((datasource) =>
+            getFileContentWithRequire({ file: datasource.p }),
+        ),
     );
 
     const remoteDatasources = await getAllDatasources(config);
 
-    Promise.all(
-        providedDatasourcesContent.map((datasource: any) => {
-            const datasourceToBeUpdated = remoteDatasources.find(
-                (remoteDatasource: any) =>
-                    datasource.name === remoteDatasource.name,
-            );
-            if (datasourceToBeUpdated) {
-                return updateDatasource(
-                    { datasource: datasource, datasourceToBeUpdated },
-                    config,
+    try {
+        const res = await Promise.all(
+            providedDatasourcesContent.map((datasource: any) => {
+                const datasourceToBeUpdated = remoteDatasources.find(
+                    (remoteDatasource: any) =>
+                        datasource.name === remoteDatasource.name,
                 );
-            }
-            return createDatasource({ datasource: datasource }, config);
-        }),
-    )
-        .then((res) => {
-            // After create or after update datasource
-            res.map(async ({ data, datasource_entries }: any) => {
-                const remoteDatasourceEntries = await getDatasourceEntries(
-                    {
-                        datasourceName: data.datasource.name,
-                    },
-                    config,
-                );
+                if (datasourceToBeUpdated) {
+                    return updateDatasource(
+                        { datasource, datasourceToBeUpdated },
+                        config,
+                    );
+                }
+                return createDatasource({ datasource }, config);
+            }),
+        );
 
-                console.log(" ");
-                Logger.warning(
-                    `Start async syncing of '${data.datasource.name}' datasource entries.`,
-                );
-                createDatasourceEntries(
-                    {
-                        data,
-                        datasource_entries,
-                        remoteDatasourceEntries,
-                    },
-                    config,
-                );
-            });
-            return res;
-        })
-        .catch((err) => {
-            console.log(err);
-            Logger.warning("There is error inside promise.all from datasource");
-            return false;
-        });
+        for (const { data, datasource_entries } of res as any) {
+            const remoteDatasourceEntries = await getDatasourceEntries(
+                {
+                    datasourceName: data.datasource.name,
+                },
+                config,
+            );
+
+            console.log(" ");
+            Logger.warning(
+                `Start async syncing of '${data.datasource.name}' datasource entries.`,
+            );
+            createDatasourceEntries(
+                {
+                    data,
+                    datasource_entries,
+                    remoteDatasourceEntries,
+                },
+                config,
+            );
+        }
+
+        return res;
+    } catch (err) {
+        console.log(err);
+        Logger.warning("There is error inside promise.all from datasource");
+        return false;
+    }
 };
