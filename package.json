@@ -25,6 +25,7 @@
   "type": "module",
   "exports": {
     ".": "./dist/cli/index.js",
+    "./api-v2": "./dist/api-v2/index.js",
     "./dist/*": "./dist/*"
   },
   "engines": {
