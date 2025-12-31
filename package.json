@@ -25,7 +25,11 @@
   "type": "module",
   "exports": {
     ".": "./dist/cli/index.js",
-    "./api-v2": "./dist/api-v2/index.js",
+    "./api-v2": {
+      "types": "./dist/api-v2/index.d.ts",
+      "import": "./dist/api-v2/index.js",
+      "require": "./dist-cjs/api-v2/index.js"
+    },
     "./dist/*": "./dist/*"
   },
   "engines": {
@@ -33,11 +37,12 @@
   },
   "files": [
     "/dist",
+    "/dist-cjs",
     "README.md"
   ],
   "scripts": {
     "lint-staged": "node ./src/scripts/fix-esm.js && lint-staged",
-    "build": "rm -rf dist && tsc -p tsconfig.json && chmod +x ./dist/cli/index.js",
+    "build": "rm -rf dist dist-cjs && tsc -p tsconfig.json && tsc -p tsconfig.api-v2.cjs.json && node ./src/scripts/write-cjs-package.js && chmod +x ./dist/cli/index.js",
     "build:dev": "chokidar 'src/**/*.{js,ts,cjs,mjs}' -c 'npm run build'",
     "build:dev:yalc": "chokidar 'src/**/*.{js,ts,cjs,mjs}' -c 'npm run build && yalc push'",
     "lint": "eslint . --max-warnings=0",

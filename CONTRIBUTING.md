@@ -1,15 +1,15 @@
 ## Contributing
 
-First fork this project.  
+First fork this project.
 
-* git clone <your-forked-repo>
-* npm
+- git clone <your-forked-repo>
+- npm
 
-* git checkout -b my-fix
+- git checkout -b my-fix
 
 #### fix some code...
 
-* git commit -m "added this feature"
-* git push origin my-fix
+- git commit -m "added this feature"
+- git push origin my-fix
 
 Lastly, open a pull request on Github.

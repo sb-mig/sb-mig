@@ -17,7 +17,6 @@ import chalk from "chalk";
 
 import Logger from "../../utils/logger.js";
 import { notNullish } from "../../utils/object-utils.js";
-import { managementApi } from "../managementApi.js";
 import { getAllItemsWithPagination } from "../utils/request.js";
 
 export const removeStory: RemoveStory = (args, config) => {
@@ -225,10 +224,7 @@ export const upsertStory: UpsertStory = async (args, config) => {
     } else if (storySlug) {
         // if this exist than we update story with this slug (probably when we try to add story from one space to another,
         console.log("You've selected slug!");
-        const foundStory = await managementApi.stories.getStoryBySlug(
-            storySlug,
-            config,
-        );
+        const foundStory = await getStoryBySlug(storySlug, config);
         console.log("This is story");
         console.log(foundStory);
 
@@ -239,10 +235,7 @@ export const upsertStory: UpsertStory = async (args, config) => {
                 story: { parent_id, id, parent, ...rest },
             } = content;
             console.log("We are going to create story");
-            const response = await managementApi.stories.createStory(
-                rest,
-                config,
-            );
+            const response = await createStory(rest, config);
             console.log("This is response");
             console.log(response);
         }

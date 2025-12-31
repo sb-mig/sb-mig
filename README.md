@@ -1,4 +1,3 @@
-
 <p align="center">
     <img width="250" height="250" src="./sb-mig-logo.png" alt="Logo" />
 </p>
@@ -10,17 +9,16 @@ If you've found an issue or you have feature request - <a href="https://github.c
 [![GitHub issues](https://img.shields.io/github/issues/sb-mig/sb-mig.svg?style=flat-square&v=1)](https://github.com/sb-mig/sb-mig/issues?q=is%3Aopen+is%3Aissue)
 ![npm](https://img.shields.io/npms-io/maintenance-score/sb-mig)
 
-
-
 # Requirements:
 
-|               |               |
-| ------------- | ------------- |
-| Node          | LTS (18.x.x)  |
+|      |              |
+| ---- | ------------ |
+| Node | LTS (18.x.x) |
 
 # 5.x.x version released!
 
 ## Important Updates
+
 - Complete codebase overhaul to facilitate the utilization of features and requests to Storyblok. This development decreases the tight coupling with CLI, while improving folder and file structure.
 - New feature: Content synchronization (including stories and assets) in various directions, ranging from space to space, from space to file, and from file to space.
 - New feature: Introduced support for TypeScript Schema, with the added ability to precompile them on-the-fly before synchronization, improving usage with sb-mig.
@@ -33,11 +31,11 @@ If you've found an issue or you have feature request - <a href="https://github.c
 - Expanded test coverage (with more additions anticipated).
 
 ## Breaking changes
+
 - Please note that sb-mig no longer extends support for Node versions older than 18.x.x, as part of its adoption of native ESM support.
 - The sb-mig backup command has now been aligned with all other commands, causing minor changes in its execution (although functionalities have been preserved).
 
 Do not hesitate to get in touch if you encounter any issues or require further clarification on any points.
-
 
 # 4.x.x version released!
 
@@ -57,10 +55,10 @@ Do not hesitate to get in touch if you encounter any issues or require further c
 
 - [How to install and configure](#how-to-install-and-configure)
 - [Schema documentation:](#schema-documentation)
-  - [Basics](#basics)
-  - [Syncing components](#syncing-components)
-  - [Syncing datasources](#syncing-datasources)
-  - [Presets support](#presets-support)
+    - [Basics](#basics)
+    - [Syncing components](#syncing-components)
+    - [Syncing datasources](#syncing-datasources)
+    - [Presets support](#presets-support)
 - [Development](#development)
 - [Roadmap](#roadmap)
 
@@ -189,7 +187,6 @@ sb-mig sync components row column
 
 This command will look for `row.sb.js` and `column.sb.js` files inside a directories mentioned in `componentDirectories` field. (You can change directories name mapping by modifying `componentDirectories` inside `storyblok.config.js`). You can also change the extension searched by changing `schemaFileExt`. [How to install and configure](#how-to-install-and-configure))
 
-
 ## Syncing datasources
 
 You can also sync your `datasources`.
@@ -269,7 +266,6 @@ You can also sync all datasources, and that's the command we strongly recommend.
 sb-mig sync datasources --all
 ```
 
-
 ## Presets support
 
 Writing your own predefined data (presets) for components can be a pain, so with `sb-mig` you can create presets for your components in the storyblok gui, and then export them to a schema based `.sb.js` file to be picked up while syncing.
@@ -346,32 +342,37 @@ npm install
 ```
 
 Run development command
+
 ```bash
 npm run build:dev
 ```
 
 It will watch a file change, and on every change, will rebuild typescript and build the whole lib/cli.
 
-The you can use 
+The you can use
+
 ```
-node dist/index.js debug 
+node dist/index.js debug
 ```
+
 to access `sb-mig`
 
 For your conveniece, you can also, link it to proper `sb-mi` name:
+
 ```
 npm link
 ```
 
 And then you can use it like that:
+
 ```
 sb-mig debug
 ```
 
-
 # Releasing
 
 ## Flow of branching out and merging
+
 - Before creating feature branch from beta, make sure you have newest beta. (by `git pull origin beta`).
 - Create feature branch from beta
 - Do your changes

@@ -78,11 +78,13 @@ module.exports = {
 ```
 
 ## Adding scoped storyblok components
+
 ** this feature is still experimental **
 
 For that feature to work you need to install [add-components-plugin](https://github.com/sb-mig/sb-mig/tree/master/%40sb-mig/plugin-add-components).
 
 To do that, run (from root of your project)
+
 ```
 sb-mig plugins:install add-components
 ```
@@ -92,6 +94,7 @@ Now you have access to `sb-mig add components`.
 ### Adding components and Lock file
 
 Let's say we want to add `@storyblok-components/text-block` and `@storyblok-components/heading` component. Lets run:
+
 ```
 sb-mig add components @storyblok-components/text-block @storyblok-components/heading
 ```
@@ -139,11 +142,13 @@ module.exports = {
 We can also install our components with `--copy` flag, which will copy all files of the component from `node_modules` to local file system, and will use them in needed imports.
 
 Command:
+
 ```
 sb-mig add components @storyblok-components/image --copy
 ```
 
 Will add
+
 ```
 ...
 "@storyblok-components/image": {
@@ -169,6 +174,7 @@ to `storyblok.components.lock.js`
 As you can see, `location`, `locationPath` and also imports inside `links` are reffering now to local file system.
 
 After all this, you can easy schema part of components by running
+
 ```
 sb-mig sync components --all --ext
 ```
@@ -176,15 +182,17 @@ sb-mig sync components --all --ext
 This command will sync all your components, `local one`, those from `node_modules`. Command will always favor local schema components, that way you can also overwrites schema files, which will be shown in next section.
 
 ## Overwriting schema files from scoped components
+
 So, you can install components with `sb-mig add components` command, but let's say you want to restrict something in schema of that components, or you want to change `description` of the component, or even a `component_group_name`. We have overwrites mechanism.
 
 Let's say you've installed `@storyblok-components/section` component which has following original schema:
+
 ```
 module.exports = {
   name: 'section',
   schema: {
-    title: { 
-      type: 'text', 
+    title: {
+      type: 'text',
     },
     content: {
       type: 'bloks',
@@ -243,6 +251,7 @@ STORYBLOK_OAUTH_TOKEN=1234567890qwertyuiop
 ```
 
 4. Install `generate-project` `sb-mig` plugin.
+
 ```
 sb-mig plugins:install generate-project
 ```
@@ -262,6 +271,7 @@ sb-mig generate "My Greatest Project" --add @custom-scope/ui-text-block @storybl
 ```
 
 6. You can also pass `--copy` flag, which will copy component files from `node_modules` to your local, and add it properly to `components.js` file.
+
 ```
 sb-mig generate "My Greatest Project" --add @custom-scope/ui-text-block @storyblok-components/ui-surface --copy
 ```
@@ -298,16 +308,17 @@ COMMANDS
 # Commands
 
 <!-- commands -->
-* [`sb-mig backup`](#sb-mig-backup)
-* [`sb-mig debug`](#sb-mig-debug)
-* [`sb-mig help [COMMAND]`](#sb-mig-help-command)
-* [`sb-mig plugins`](#sb-mig-plugins)
-* [`sb-mig plugins:inspect PLUGIN...`](#sb-mig-pluginsinspect-plugin)
-* [`sb-mig plugins:install PLUGIN...`](#sb-mig-pluginsinstall-plugin)
-* [`sb-mig plugins:link PLUGIN`](#sb-mig-pluginslink-plugin)
-* [`sb-mig plugins:uninstall PLUGIN...`](#sb-mig-pluginsuninstall-plugin)
-* [`sb-mig plugins:update`](#sb-mig-pluginsupdate)
-* [`sb-mig sync TYPE [LIST]`](#sb-mig-sync-type-list)
+
+- [`sb-mig backup`](#sb-mig-backup)
+- [`sb-mig debug`](#sb-mig-debug)
+- [`sb-mig help [COMMAND]`](#sb-mig-help-command)
+- [`sb-mig plugins`](#sb-mig-plugins)
+- [`sb-mig plugins:inspect PLUGIN...`](#sb-mig-pluginsinspect-plugin)
+- [`sb-mig plugins:install PLUGIN...`](#sb-mig-pluginsinstall-plugin)
+- [`sb-mig plugins:link PLUGIN`](#sb-mig-pluginslink-plugin)
+- [`sb-mig plugins:uninstall PLUGIN...`](#sb-mig-pluginsuninstall-plugin)
+- [`sb-mig plugins:update`](#sb-mig-pluginsupdate)
+- [`sb-mig sync TYPE [LIST]`](#sb-mig-sync-type-list)
 
 ## `sb-mig backup`
 
@@ -443,15 +454,15 @@ DESCRIPTION
 
   Installation of a user-installed plugin will override a core plugin.
 
-  e.g. If you have a core plugin that has a 'hello' command, installing a user-installed plugin with a 'hello' command 
-  will override the core plugin implementation. This is useful if a user needs to update core plugin functionality in 
+  e.g. If you have a core plugin that has a 'hello' command, installing a user-installed plugin with a 'hello' command
+  will override the core plugin implementation. This is useful if a user needs to update core plugin functionality in
   the CLI without the need to patch and update the whole CLI.
 
 ALIASES
   $ sb-mig plugins:add
 
 EXAMPLES
-  $ sb-mig plugins:install myplugin 
+  $ sb-mig plugins:install myplugin
   $ sb-mig plugins:install https://github.com/someuser/someplugin
   $ sb-mig plugins:install someuser/someplugin
 ```
@@ -482,7 +493,7 @@ OPTIONS
 DESCRIPTION
   Installation of a linked plugin will override a user-installed or core plugin.
 
-  e.g. If you have a user-installed or core plugin that has a 'hello' command, installing a linked plugin with a 'hello' 
+  e.g. If you have a user-installed or core plugin that has a 'hello' command, installing a linked plugin with a 'hello'
   command will override the user-installed or core plugin implementation. This is useful for development work.
 
 EXAMPLE
@@ -564,9 +575,11 @@ EXAMPLES
 ```
 
 _See code: [lib/commands/sync.js](https://github.com/sb-mig/sb-mig/blob/v2.9.11/lib/commands/sync.js)_
+
 <!-- commandsstop -->
 
 # Plugins
+
 `sb-mig` core features are part of this repository. But `sb-mig` is build in a way that you can easily add your own command as a plugin. Here will be the list of plugins, which are already supported by `sb-mig`. For installation instructions see: [TBD](#)
 
 - [plugin-add-components](https://github.com/sb-mig/plugin-add-components) - with this plugin, you can easily install storyblok react components to your project ( compliant with `components.js` file syntax: [TBD](#) )
@@ -733,7 +746,6 @@ You can also sync all datasources, and that's the command we strongly recommend.
 ```
 sb-mig sync datasources --all --ext
 ```
-
 
 ## Presets support
 

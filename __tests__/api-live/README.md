@@ -59,14 +59,14 @@ npm run test:api-live -- components.live.test.ts
 
 ### Contract Tests
 
--   API response structure matches what our code expects
--   Detects breaking changes in `storyblok-js-client`
+- API response structure matches what our code expects
+- Detects breaking changes in `storyblok-js-client`
 
 ### Integration Tests
 
--   Our wrapper functions work correctly with real API
--   Pagination works as expected
--   Error handling works correctly
+- Our wrapper functions work correctly with real API
+- Pagination works as expected
+- Error handling works correctly
 
 ## Adding New Tests
 

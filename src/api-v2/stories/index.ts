@@ -10,21 +10,7 @@ import {
     createStory as apiCreateStory,
 } from "../../api/stories/stories.js";
 import { getAllItemsWithPagination } from "../../api/utils/request.js";
-
-/**
- * Convert ApiClient to RequestBaseConfig format used by existing API
- */
-function toRequestConfig(
-    client: ApiClient,
-    spaceId?: string,
-): RequestBaseConfig {
-    return {
-        spaceId: spaceId ?? client.spaceId,
-        sbApi: client.sbApi,
-        oauthToken: client.config.oauthToken,
-        accessToken: client.config.accessToken,
-    };
-}
+import { toRequestConfig } from "../requestConfig.js";
 
 /**
  * Build a tree structure from flat story list

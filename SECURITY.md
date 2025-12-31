@@ -24,11 +24,11 @@ The OAuth token is a **personal access token** that grants full access to all St
 
 **Security implications:**
 
--   ⚠️ Grants full read/write access to all your spaces
--   ⚠️ Cannot be scoped to specific spaces
--   ⚠️ Should be treated as a password
--   ✅ Can be revoked at any time
--   ✅ Can have expiration date
+- ⚠️ Grants full read/write access to all your spaces
+- ⚠️ Cannot be scoped to specific spaces
+- ⚠️ Should be treated as a password
+- ✅ Can be revoked at any time
+- ✅ Can have expiration date
 
 ### Access Token
 
@@ -36,15 +36,15 @@ Access tokens are **space-specific** and grant read access via the Delivery API.
 
 **Types:**
 
--   **Preview token**: Can read draft (unpublished) content
--   **Public token**: Can only read published content
+- **Preview token**: Can read draft (unpublished) content
+- **Public token**: Can only read published content
 
 **Security implications:**
 
--   ✅ Scoped to single space
--   ✅ Read-only access
--   ⚠️ Preview token exposes unpublished content
--   ✅ Can be regenerated in space settings
+- ✅ Scoped to single space
+- ✅ Read-only access
+- ⚠️ Preview token exposes unpublished content
+- ✅ Can be regenerated in space settings
 
 ---
 
@@ -73,11 +73,11 @@ module.exports = {
 
 **Best Practices:**
 
--   ✅ Always use environment variables for secrets
--   ✅ Add `.env` to `.gitignore`
--   ✅ Use different tokens for development/production
--   ❌ Never commit tokens to version control
--   ❌ Never log tokens to console
+- ✅ Always use environment variables for secrets
+- ✅ Add `.env` to `.gitignore`
+- ✅ Use different tokens for development/production
+- ❌ Never commit tokens to version control
+- ❌ Never log tokens to console
 
 ### GUI Storage
 
@@ -90,22 +90,22 @@ Location: ~/Library/Application Support/sb-mig-gui/settings.db (macOS)
 
 **Storage mechanism:**
 
--   SQLite database with key-value pairs
--   File permissions set to user-only (0600)
--   Not encrypted at rest
+- SQLite database with key-value pairs
+- File permissions set to user-only (0600)
+- Not encrypted at rest
 
 **Security considerations:**
 
--   ⚠️ Tokens stored in plaintext in SQLite
--   ⚠️ Accessible if machine is compromised
--   ✅ Isolated to user's application data directory
--   ✅ Not synced to cloud by default
+- ⚠️ Tokens stored in plaintext in SQLite
+- ⚠️ Accessible if machine is compromised
+- ✅ Isolated to user's application data directory
+- ✅ Not synced to cloud by default
 
 **Future improvements:**
 
--   [ ] Use OS keychain (Keychain on macOS, Credential Manager on Windows)
--   [ ] Encrypt database at rest
--   [ ] Add option to require password on app launch
+- [ ] Use OS keychain (Keychain on macOS, Credential Manager on Windows)
+- [ ] Encrypt database at rest
+- [ ] Add option to require password on app launch
 
 ---
 
@@ -115,16 +115,16 @@ Location: ~/Library/Application Support/sb-mig-gui/settings.db (macOS)
 
 **Endpoints:**
 
--   Management API: `https://mapi.storyblok.com/v1`
--   Delivery API: `https://api.storyblok.com/v2`
--   GraphQL API: `https://gapi.storyblok.com/v1`
+- Management API: `https://mapi.storyblok.com/v1`
+- Delivery API: `https://api.storyblok.com/v2`
+- GraphQL API: `https://gapi.storyblok.com/v1`
 
 **Security features:**
 
--   ✅ All communication over HTTPS (TLS 1.2+)
--   ✅ OAuth token sent in `Authorization` header
--   ✅ No sensitive data in URL parameters
--   ✅ Rate limiting enforced by Storyblok
+- ✅ All communication over HTTPS (TLS 1.2+)
+- ✅ OAuth token sent in `Authorization` header
+- ✅ No sensitive data in URL parameters
+- ✅ Rate limiting enforced by Storyblok
 
 **Request example:**
 
@@ -138,9 +138,9 @@ Content-Type: application/json
 
 sb-mig respects Storyblok's rate limits:
 
--   Default: 2 requests per second
--   Configurable via `rateLimit` config option
--   Uses `storyblok-js-client` built-in rate limiter
+- Default: 2 requests per second
+- Configurable via `rateLimit` config option
+- Uses `storyblok-js-client` built-in rate limiter
 
 ---
 
@@ -159,9 +159,9 @@ sb-mig respects Storyblok's rate limits:
 
 ### Data in Transit
 
--   All API calls use HTTPS
--   No caching of sensitive data in transit
--   Request/response logging can be enabled (debug mode) - avoid in production
+- All API calls use HTTPS
+- No caching of sensitive data in transit
+- Request/response logging can be enabled (debug mode) - avoid in production
 
 ### Data at Rest
 
@@ -181,10 +181,10 @@ sb-mig respects Storyblok's rate limits:
 
 ### Test Environment Isolation
 
--   Tests use **mock utilities** - no real API calls
--   Mock tokens: `mock-oauth-token`, `mock-access-token`
--   Mock space ID: `12345`
--   Virtual file system for file operations
+- Tests use **mock utilities** - no real API calls
+- Mock tokens: `mock-oauth-token`, `mock-access-token`
+- Mock space ID: `12345`
+- Virtual file system for file operations
 
 ### Test Files Location
 
@@ -199,10 +199,10 @@ __tests__/
 
 **Security notes:**
 
--   ✅ No real credentials in test files
--   ✅ Tests don't make network requests
--   ✅ Test fixtures contain synthetic data only
--   ✅ Coverage reports don't contain sensitive data
+- ✅ No real credentials in test files
+- ✅ Tests don't make network requests
+- ✅ Test fixtures contain synthetic data only
+- ✅ Coverage reports don't contain sensitive data
 
 ---
 
@@ -214,15 +214,15 @@ __tests__/
 
 **Mitigations:**
 
--   sb-mig does not log credentials
--   GUI masks token input fields
--   Documentation warns against hardcoding tokens
+- sb-mig does not log credentials
+- GUI masks token input fields
+- Documentation warns against hardcoding tokens
 
 **User actions:**
 
--   Never commit `.env` files
--   Review debug output before sharing
--   Rotate tokens if exposed
+- Never commit `.env` files
+- Review debug output before sharing
+- Rotate tokens if exposed
 
 ### Risk 2: Malicious Schema Files
 
@@ -230,14 +230,14 @@ __tests__/
 
 **Mitigations:**
 
--   Only execute schema files from configured directories
--   Use `import()` with limited scope
--   Consider sandboxing in future
+- Only execute schema files from configured directories
+- Use `import()` with limited scope
+- Consider sandboxing in future
 
 **User actions:**
 
--   Review dependencies before installing
--   Audit `componentsDirectories` configuration
+- Review dependencies before installing
+- Audit `componentsDirectories` configuration
 
 ### Risk 3: Cross-Space Access
 
@@ -245,15 +245,15 @@ __tests__/
 
 **Mitigations:**
 
--   Space ID is explicit in configuration
--   GUI shows active space prominently
--   Sync operations confirm before destructive actions
+- Space ID is explicit in configuration
+- GUI shows active space prominently
+- Sync operations confirm before destructive actions
 
 **User actions:**
 
--   Double-check `STORYBLOK_SPACE_ID`
--   Use separate configs for dev/prod
--   Review before using `--yes` flag
+- Double-check `STORYBLOK_SPACE_ID`
+- Use separate configs for dev/prod
+- Review before using `--yes` flag
 
 ### Risk 4: Data Loss
 
@@ -261,15 +261,15 @@ __tests__/
 
 **Mitigations:**
 
--   Confirmation prompts before destructive actions
--   Automatic backup before `--ssot` sync
--   Stories can be restored from Storyblok's Activity Log
+- Confirmation prompts before destructive actions
+- Automatic backup before `--ssot` sync
+- Stories can be restored from Storyblok's Activity Log
 
 **User actions:**
 
--   Always backup before major operations
--   Test in development space first
--   Use version control for schema files
+- Always backup before major operations
+- Test in development space first
+- Use version control for schema files
 
 ---
 
@@ -279,22 +279,22 @@ __tests__/
 
 **Normal mode:**
 
--   Command being executed
--   Success/failure of operations
--   Summary counts (X components synced)
+- Command being executed
+- Success/failure of operations
+- Summary counts (X components synced)
 
 **Debug mode (`debug: true`):**
 
--   API request/response bodies
--   Configuration values (tokens masked)
--   File paths being processed
+- API request/response bodies
+- Configuration values (tokens masked)
+- File paths being processed
 
 ### Sensitive Data in Logs
 
--   ✅ OAuth tokens are NOT logged
--   ✅ Access tokens are NOT logged
--   ⚠️ Story content may appear in debug output
--   ⚠️ File paths may reveal system structure
+- ✅ OAuth tokens are NOT logged
+- ✅ Access tokens are NOT logged
+- ⚠️ Story content may appear in debug output
+- ⚠️ File paths may reveal system structure
 
 ### Log File Locations
 
@@ -387,24 +387,24 @@ GUI stores terminal output in memory only - cleared on app restart.
 
 ### Before First Use
 
--   [ ] OAuth token stored in environment variable
--   [ ] `.env` added to `.gitignore`
--   [ ] Correct space ID configured
--   [ ] Tested in development space first
+- [ ] OAuth token stored in environment variable
+- [ ] `.env` added to `.gitignore`
+- [ ] Correct space ID configured
+- [ ] Tested in development space first
 
 ### Before Production Deployment
 
--   [ ] Production tokens are separate from development
--   [ ] CI/CD uses secrets management
--   [ ] Destructive operations require confirmation
--   [ ] Backup strategy in place
+- [ ] Production tokens are separate from development
+- [ ] CI/CD uses secrets management
+- [ ] Destructive operations require confirmation
+- [ ] Backup strategy in place
 
 ### Periodic Review
 
--   [ ] Rotate OAuth tokens (quarterly recommended)
--   [ ] Audit who has access to credentials
--   [ ] Review Storyblok Activity Log
--   [ ] Update dependencies for security patches
+- [ ] Rotate OAuth tokens (quarterly recommended)
+- [ ] Audit who has access to credentials
+- [ ] Review Storyblok Activity Log
+- [ ] Update dependencies for security patches
 
 ---
 
@@ -435,9 +435,9 @@ npm outdated
 
 **Recommended:**
 
--   Run `npm audit` in CI pipeline
--   Enable Dependabot or similar for automated updates
--   Review changelogs before major updates
+- Run `npm audit` in CI pipeline
+- Enable Dependabot or similar for automated updates
+- Review changelogs before major updates
 
 ---
 

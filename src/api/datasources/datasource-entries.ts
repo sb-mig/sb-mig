@@ -10,7 +10,6 @@ import type {
 
 import chalk from "chalk";
 
-import storyblokConfig from "../../config/config.js";
 import Logger from "../../utils/logger.js";
 import { isObjectEmpty } from "../../utils/object-utils.js";
 
@@ -128,7 +127,7 @@ const _createDatasourceEntry: _CreateDatasourceEntry = (args, config) => {
     const { currentDatasource, finalDatasource_entry } = args;
     const { spaceId, sbApi } = config;
 
-    if (storyblokConfig.debug) {
+    if (config.debug) {
         console.log("############# Entity to Create: ");
         console.log(finalDatasource_entry);
         console.log("################################");
@@ -148,7 +147,7 @@ const _createDatasourceEntry: _CreateDatasourceEntry = (args, config) => {
             return data;
         })
         .catch((err) => {
-            if (storyblokConfig.debug) {
+            if (config.debug) {
                 console.log("Full Create error: ");
                 console.log(err);
             }
@@ -212,7 +211,7 @@ const _updateDatasourceEntry: _UpdateDatasourceEntry = (args, config) => {
             return true;
         })
         .catch((err) => {
-            if (storyblokConfig.debug) {
+            if (config.debug) {
                 console.log("Full update error: ");
                 console.log(err);
             }

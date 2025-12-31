@@ -202,6 +202,7 @@ sb-mig-gui/
 ### Test Framework: Vitest
 
 We use **Vitest** for testing due to:
+
 - Native ESM support (no `esm` package workaround needed)
 - Built-in mocking (`vi.mock()`, `vi.fn()`, `vi.spyOn()`)
 - TypeScript support out of the box
@@ -393,6 +394,7 @@ Priority (highest to lowest):
 ```
 
 **Key config values:**
+
 - `oauthToken` - Personal access token for Management API
 - `spaceId` - Target space ID
 - `accessToken` - Preview/public token for Delivery API
@@ -402,6 +404,7 @@ Priority (highest to lowest):
 ### Storyblok Client (`src/cli/api-config.ts`)
 
 Uses `storyblok-js-client` with:
+
 - OAuth token authentication
 - Rate limiting (configurable, default 2 req/sec)
 - Auto cache clearing
@@ -409,6 +412,7 @@ Uses `storyblok-js-client` with:
 ### Discovery System (`src/cli/utils/discover.ts`)
 
 Finds schema files using glob patterns:
+
 - **Local scope**: Files in `componentsDirectories` (excluding `node_modules`)
 - **External scope**: Files in `node_modules`
 - **Comparison**: Local files override external with same name
@@ -416,6 +420,7 @@ Finds schema files using glob patterns:
 ### On-the-fly Compilation (`src/rollup/build-on-the-fly.ts`)
 
 Compiles TypeScript schema files (`.sb.ts`) to JavaScript at runtime using:
+
 - Rollup
 - SWC for TypeScript transformation
 - Temporary file caching
@@ -446,7 +451,7 @@ managementApi.spaces.*
 
 ```typescript
 // Clean public API
-import { 
+import {
   createClient,
   components,
   stories,
@@ -474,17 +479,17 @@ await discover.components(client, { directories: ['src'] });
 
 ## 🧩 Module Responsibilities
 
-| Module | Responsibility | CLI Commands |
-|--------|---------------|--------------|
-| `components` | CRUD operations, group management, sync | `sync components` |
-| `stories` | CRUD, tree building, copying | `copy stories`, `backup stories` |
-| `datasources` | Datasource & entries management | `sync datasources` |
-| `roles` | Role management | `sync roles` |
-| `assets` | Asset upload, migration | `sync content --assets` |
-| `presets` | Preset resolution, creation | `sync components --presets` |
-| `discover` | File system scanning for schemas | `discover components` |
-| `migrate` | High-level sync orchestration | `sync content` |
-| `backup` | Export to local files | `backup` |
+| Module        | Responsibility                          | CLI Commands                     |
+| ------------- | --------------------------------------- | -------------------------------- |
+| `components`  | CRUD operations, group management, sync | `sync components`                |
+| `stories`     | CRUD, tree building, copying            | `copy stories`, `backup stories` |
+| `datasources` | Datasource & entries management         | `sync datasources`               |
+| `roles`       | Role management                         | `sync roles`                     |
+| `assets`      | Asset upload, migration                 | `sync content --assets`          |
+| `presets`     | Preset resolution, creation             | `sync components --presets`      |
+| `discover`    | File system scanning for schemas        | `discover components`            |
+| `migrate`     | High-level sync orchestration           | `sync content`                   |
+| `backup`      | Export to local files                   | `backup`                         |
 
 ---
 
@@ -493,6 +498,7 @@ await discover.components(client, { directories: ['src'] });
 See [SECURITY.md](./SECURITY.md) for detailed security information.
 
 **Quick overview:**
+
 - OAuth Token: For Management API operations (write access)
 - Access Token: For Delivery API (read-only, preview/public content)
 - Both stored in environment variables or config file
@@ -503,11 +509,13 @@ See [SECURITY.md](./SECURITY.md) for detailed security information.
 ## 📝 Design Decisions
 
 ### Why Meow instead of Oclif?
+
 - Oclif was too heavy for the use case
 - Meow is lightweight and ESM-native
 - Simpler plugin model (we removed plugin support)
 
 ### Why Vitest instead of Mocha?
+
 - Native ESM support (no `esm` workaround)
 - Built-in mocking (no sinon needed)
 - TypeScript support out of the box
@@ -515,16 +523,19 @@ See [SECURITY.md](./SECURITY.md) for detailed security information.
 - Better developer experience
 
 ### Why not a monorepo?
+
 - Historical decision - sb-mig predates GUI
 - Could be reconsidered during refactor
 - Would enable shared types package
 
 ### Why storyblok-js-client?
+
 - Official Storyblok client
 - Handles rate limiting, retries
 - TypeScript support
 
 ### Why SQLite in GUI?
+
 - Simple, file-based persistence
 - No external dependencies
 - Fast for small datasets (settings)
@@ -541,4 +552,4 @@ See [SECURITY.md](./SECURITY.md) for detailed security information.
 
 ---
 
-*Last updated: December 2024*
+_Last updated: December 2024_

@@ -1,4 +1,4 @@
-import type { IStoryblokConfig } from "./config.js";
+import type { IStoryblokConfig } from "./config.types.js";
 
 import { SCHEMA } from "./constants.js";
 

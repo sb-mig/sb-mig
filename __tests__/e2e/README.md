@@ -59,16 +59,16 @@ npm run test:e2e -- sync-components.e2e.test.ts
 
 ### CLI Functionality
 
--   Commands execute without errors
--   Help text is displayed correctly
--   Version is displayed correctly
+- Commands execute without errors
+- Help text is displayed correctly
+- Version is displayed correctly
 
 ### Sync Workflow
 
--   Components are discovered correctly
--   Components are synced to Storyblok
--   Components are updated when changed
--   `--all` flag syncs all components
+- Components are discovered correctly
+- Components are synced to Storyblok
+- Components are updated when changed
+- `--all` flag syncs all components
 
 ## Adding New Tests
 

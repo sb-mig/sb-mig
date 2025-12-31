@@ -1,10 +1,69 @@
 import { readdir, stat, readFile } from "fs/promises";
 import { join } from "path";
+import { pathToFileURL } from "url";
 
 export interface DiscoveredResource {
     name: string;
     filePath: string;
     type: "local" | "external";
+}
+
+export interface LoadedResource {
+    name: string;
+    filePath: string;
+    data: any;
+    error?: string;
+}
+
+/**
+ * Load the content of a resource file (.sb.js, .datasource.js, etc.)
+ * Uses dynamic import to load ES modules and CommonJS
+ */
+export async function loadResourceContent(filePath: string): Promise<any> {
+    try {
+        // Use dynamic import which works for both ESM and CJS
+        const fileUrl = pathToFileURL(filePath).href;
+        const module = await import(fileUrl);
+        return module.default || module;
+    } catch (error) {
+        throw new Error(
+            `Failed to load ${filePath}: ${error instanceof Error ? error.message : String(error)}`,
+        );
+    }
+}
+
+/**
+ * Load multiple resources by file path
+ */
+export async function loadResources(
+    filePaths: string[],
+): Promise<LoadedResource[]> {
+    const results: LoadedResource[] = [];
+
+    for (const filePath of filePaths) {
+        const name =
+            filePath
+                .split("/")
+                .pop()
+                ?.replace(/\.sb\.(js|cjs|mjs|ts)$/, "")
+                .replace(/\.(datasource|roles)\.(js|cjs|ts)$/, "")
+                .replace(/\.sb\.(datasource|roles)\.(js|cjs|ts)$/, "") ||
+            "unknown";
+
+        try {
+            const data = await loadResourceContent(filePath);
+            results.push({ name, filePath, data });
+        } catch (error) {
+            results.push({
+                name,
+                filePath,
+                data: null,
+                error: error instanceof Error ? error.message : String(error),
+            });
+        }
+    }
+
+    return results;
 }
 
 /**
