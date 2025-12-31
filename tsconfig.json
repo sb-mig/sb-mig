@@ -2,6 +2,7 @@
   "extends": "@sindresorhus/tsconfig",
   "compilerOptions": {
     "noPropertyAccessFromIndexSignature": false, // this is ignoring for storyblok-js-client error
+    "skipLibCheck": true, // skip type checking in declaration files (node_modules)
     "module": "esnext",
     "esModuleInterop": true,
     "moduleResolution": "node",
@@ -14,5 +15,6 @@
       "ESNext"
     ]
   },
-  "include": ["src"]
+  "include": ["src"],
+  "exclude": ["node_modules"]
 }

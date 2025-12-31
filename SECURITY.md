@@ -424,18 +424,18 @@ GUI stores terminal output in memory only - cleared on app restart.
 
 ```bash
 # Check for vulnerabilities
-yarn audit
+npm audit
 
 # Update dependencies
-yarn upgrade-interactive
+npm update
 
 # Check for outdated packages
-yarn outdated
+npm outdated
 ```
 
 **Recommended:**
 
--   Run `yarn audit` in CI pipeline
+-   Run `npm audit` in CI pipeline
 -   Enable Dependabot or similar for automated updates
 -   Review changelogs before major updates
 

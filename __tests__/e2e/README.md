@@ -6,7 +6,7 @@ These tests run **actual CLI commands** and verify the complete end-to-end workf
 
 1. **These tests modify real data!** - They sync components to your Storyblok space.
 2. **Use a dedicated test space** - Never run these tests against a production space.
-3. **CLI must be built first** - Run `yarn build` before running E2E tests.
+3. **CLI must be built first** - Run `npm run build` before running E2E tests.
 
 ## Setup
 
@@ -31,20 +31,20 @@ These tests run **actual CLI commands** and verify the complete end-to-end workf
 
 4. Build the CLI:
     ```bash
-    yarn build
+    npm run build
     ```
 
 ## Running Tests
 
 ```bash
 # Run only E2E tests
-yarn test:e2e
+npm run test:e2e
 
 # Run with verbose output
-STORYBLOK_DEBUG=true yarn test:e2e
+STORYBLOK_DEBUG=true npm run test:e2e
 
 # Run a specific test file
-yarn test:e2e -- sync-components.e2e.test.ts
+npm run test:e2e -- sync-components.e2e.test.ts
 ```
 
 ## Test Structure

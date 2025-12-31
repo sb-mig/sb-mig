@@ -37,13 +37,13 @@ These tests make **real HTTP requests** to the Storyblok Management API. They ve
 
 ```bash
 # Run only live API tests
-yarn test:api-live
+npm run test:api-live
 
 # Run with verbose output
-STORYBLOK_DEBUG=true yarn test:api-live
+STORYBLOK_DEBUG=true npm run test:api-live
 
 # Run a specific test file
-yarn test:api-live -- components.live.test.ts
+npm run test:api-live -- components.live.test.ts
 ```
 
 ## Test Structure

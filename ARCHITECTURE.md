@@ -272,9 +272,9 @@ __tests__/
 ### Running Tests
 
 ```bash
-yarn test           # Run all tests once
-yarn test:watch     # Watch mode
-yarn test:coverage  # With coverage report
+npm test           # Run all tests once
+npm run test:watch     # Watch mode
+npm run test:coverage  # With coverage report
 ```
 
 ---

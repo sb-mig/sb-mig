@@ -434,7 +434,7 @@ ARGUMENTS
   PLUGIN  Plugin to install.
 
 OPTIONS
-  -f, --force    Run yarn install with force flag.
+  -f, --force    Run npm install with force flag.
   -h, --help     Show CLI help.
   -v, --verbose
 
@@ -809,13 +809,13 @@ git clone git@github.com:sb-mig/sb-mig.git
 Install packages
 
 ```
-yarn
+npm install
 ```
 
 Link package to easy test it with `sb-mig` command
 
 ```
-yarn link
+npm link
 ```
 
 or use it like that without linking:

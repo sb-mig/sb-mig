@@ -36,19 +36,19 @@ jobs:
               uses: actions/setup-node@v4
               with:
                   node-version: ${{ env.NODE_VERSION }}
-                  cache: "yarn"
+                  cache: "npm"
 
             - name: Install dependencies
-              run: yarn install --frozen-lockfile
+              run: npm ci
 
             - name: Type Check
-              run: yarn typecheck
+              run: npm run typecheck
 
             - name: Lint
-              run: yarn lint
+              run: npm run lint
 
             - name: Prettier Check
-              run: yarn prettier --check .
+              run: npx prettier --check .
 
     # ============================================================================
     # Job 2: Build
@@ -68,13 +68,13 @@ jobs:
               uses: actions/setup-node@v4
               with:
                   node-version: ${{ env.NODE_VERSION }}
-                  cache: "yarn"
+                  cache: "npm"
 
             - name: Install dependencies
-              run: yarn install --frozen-lockfile
+              run: npm ci
 
             - name: Build
-              run: yarn build
+              run: npm run build
 
             - name: Upload build artifacts
               uses: actions/upload-artifact@v4
@@ -101,13 +101,13 @@ jobs:
               uses: actions/setup-node@v4
               with:
                   node-version: ${{ env.NODE_VERSION }}
-                  cache: "yarn"
+                  cache: "npm"
 
             - name: Install dependencies
-              run: yarn install --frozen-lockfile
+              run: npm ci
 
             - name: Run Unit Tests
-              run: yarn test:unit
+              run: npm run test:unit
 
     # ============================================================================
     # Job 4: Live API Tests
@@ -128,10 +128,10 @@ jobs:
               uses: actions/setup-node@v4
               with:
                   node-version: ${{ env.NODE_VERSION }}
-                  cache: "yarn"
+                  cache: "npm"
 
             - name: Install dependencies
-              run: yarn install --frozen-lockfile
+              run: npm ci
 
             - name: Create .env file
               run: |
@@ -143,7 +143,7 @@ jobs:
                   STORYBLOK_LIVE_TESTS: "true"
                   STORYBLOK_SPACE_ID: ${{ secrets.STORYBLOK_SPACE_ID }}
                   STORYBLOK_OAUTH_TOKEN: ${{ secrets.STORYBLOK_OAUTH_TOKEN }}
-              run: yarn test:api-live
+              run: npm run test:api-live
 
     # ============================================================================
     # Job 5: E2E Tests
@@ -165,10 +165,10 @@ jobs:
               uses: actions/setup-node@v4
               with:
                   node-version: ${{ env.NODE_VERSION }}
-                  cache: "yarn"
+                  cache: "npm"
 
             - name: Install dependencies
-              run: yarn install --frozen-lockfile
+              run: npm ci
 
             - name: Download build artifacts
               uses: actions/download-artifact@v4
@@ -186,7 +186,7 @@ jobs:
                   STORYBLOK_E2E_TESTS: "true"
                   STORYBLOK_SPACE_ID: ${{ secrets.STORYBLOK_SPACE_ID }}
                   STORYBLOK_OAUTH_TOKEN: ${{ secrets.STORYBLOK_OAUTH_TOKEN }}
-              run: yarn test:e2e
+              run: npm run test:e2e
 
     # ============================================================================
     # Summary Job

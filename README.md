@@ -342,12 +342,12 @@ git clone git@github.com:sb-mig/sb-mig.git
 Install packages
 
 ```
-yarn
+npm install
 ```
 
 Run development command
 ```bash
-yarn build:dev
+npm run build:dev
 ```
 
 It will watch a file change, and on every change, will rebuild typescript and build the whole lib/cli.
@@ -360,7 +360,7 @@ to access `sb-mig`
 
 For your conveniece, you can also, link it to proper `sb-mi` name:
 ```
-yarn link
+npm link
 ```
 
 And then you can use it like that:
