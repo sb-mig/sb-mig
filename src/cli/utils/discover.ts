@@ -8,7 +8,14 @@ import glob from "glob";
 
 import storyblokConfig, { SCHEMA } from "../../config/config.js";
 import { buildOnTheFly } from "../../rollup/build-on-the-fly.js";
-import { getFileContentWithRequire } from "../../utils/main.js";
+import { getFileContentWithRequire } from "../../utils/files.js";
+import {
+    normalizeDiscover,
+    filesPattern,
+    compare,
+    type CompareResult,
+    type OneFileElement,
+} from "../../utils/path-utils.js";
 
 export enum SCOPE {
     local = "local",
@@ -43,77 +50,17 @@ interface DiscoverManyByPackageNameRequest {
     scope: SCOPE;
 }
 
-interface CompareRequest {
-    local: string[];
-    external: string[];
-}
-
-export interface OneFileElement {
-    name: string;
-    p: string;
-}
-
-export interface CompareResult {
-    local: OneFileElement[];
-    external: OneFileElement[];
-}
-
 type DiscoverResult = string[];
 
-// problem with glob sync is, that when there is only one folder to search for
-// we have to omit { } and when a lot, we have to use {folder1, folder2}
-// so this function will normalize it based on amount of folders provided
-export const normalizeDiscover = ({ segments }: { segments: string[] }) => {
-    if (segments.length === 0) {
-        return "";
-    }
-    if (segments.length === 1) {
-        return segments[0];
-    }
-    return `{${segments.join(",")}}`;
-};
+// Re-export types for backwards compatibility
+export type { CompareResult, OneFileElement };
 
-export const compare = (request: CompareRequest): CompareResult => {
-    const { local, external } = request;
-
-    const splittedLocal = local.map((p) => {
-        return {
-            name: p.split(path.sep)[p.split(path.sep).length - 1], // last element of splited array - file name
-            p,
-        };
-    });
-    const splittedExternal = external
-        .map((p) => {
-            return {
-                name: p.split(path.sep)[p.split(path.sep).length - 1], // last element of splited array - file name
-                p,
-            };
-        })
-        .filter((file) => {
-            // 1. check if the file has node_modules > 1
-            const nodeModulesCount = (file.p.match(/node_modules/g) || [])
-                .length;
-            return nodeModulesCount <= 1;
-        });
-
-    // we only want to modify external array, because we want sometimes remove stuff which are already on local (overwrite node_modules ones)
-    const result = {
-        local: splittedLocal,
-        external: splittedExternal.filter((externalComponent) => {
-            if (
-                splittedLocal.find(
-                    (localComponent) =>
-                        externalComponent.name === localComponent.name,
-                )
-            ) {
-                return false;
-            }
-            return true;
-        }),
-    } as CompareResult;
-
-    return result;
-};
+// Re-export functions for backwards compatibility
+export {
+    normalizeDiscover,
+    compare,
+    filesPattern,
+} from "../../utils/path-utils.js";
 
 export const discoverManyByPackageName = (
     request: DiscoverManyByPackageNameRequest,
@@ -908,30 +855,6 @@ export const discoverDatasources = async (
     }
 
     return listOfFiles;
-};
-
-export const filesPattern = ({
-    mainDirectory,
-    componentDirectories,
-    ext,
-}: {
-    mainDirectory: string;
-    componentDirectories: string[];
-    ext: string;
-}): string => {
-    return componentDirectories.length === 1
-        ? path.join(
-              `${mainDirectory}`,
-              `${componentDirectories[0]}`,
-              "**",
-              `[^_]*.${ext}`, // all files with 'ext' extension, without files beggining with _
-          )
-        : path.join(
-              `${mainDirectory}`,
-              `{${componentDirectories.join(",")}}`,
-              "**",
-              `[^_]*.${ext}`, // all files with 'ext' extension, without files beggining with _
-          );
 };
 
 export const discover = async (

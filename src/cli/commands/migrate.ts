@@ -9,10 +9,14 @@ import { managementApi } from "../../api/managementApi.js";
 import { backupStories } from "../../api/stories/backup.js";
 import { createAndSaveToFile } from "../../utils/files.js";
 import Logger from "../../utils/logger.js";
-import { isItFactory, unpackElements } from "../../utils/main.js";
-import { getFrom, getTo } from "../../utils/others.js";
 import { apiConfig } from "../api-config.js";
 import { askForConfirmation } from "../helpers.js";
+import {
+    isItFactory,
+    unpackElements,
+    getFrom,
+    getTo,
+} from "../utils/cli-utils.js";
 
 const MIGRATE_COMMANDS = {
     content: "content",

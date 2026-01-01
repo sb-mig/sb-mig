@@ -1,18 +1,16 @@
 {
-  "extends": "@sindresorhus/tsconfig",
-  "compilerOptions": {
-    "noPropertyAccessFromIndexSignature": false, // this is ignoring for storyblok-js-client error
-    "module": "esnext",
-    "esModuleInterop": true,
-    "moduleResolution": "node",
-    "target": "ESNext",
-    "outDir": "dist",
-    "noUnusedLocals": false,
-    "lib": [
-      "DOM",
-      "DOM.Iterable",
-      "ESNext"
-    ]
-  },
-  "include": ["src"]
+    "extends": "@sindresorhus/tsconfig",
+    "compilerOptions": {
+        "noPropertyAccessFromIndexSignature": false, // this is ignoring for storyblok-js-client error
+        "skipLibCheck": true, // skip type checking in declaration files (node_modules)
+        "module": "esnext",
+        "esModuleInterop": true,
+        "moduleResolution": "node",
+        "target": "ESNext",
+        "outDir": "dist",
+        "noUnusedLocals": false,
+        "lib": ["DOM", "DOM.Iterable", "ESNext"]
+    },
+    "include": ["src"],
+    "exclude": ["node_modules"]
 }

@@ -29,10 +29,10 @@ export const getStoryblokConfigContent = (data: {
                 })
                 .catch(() => {
                     Logger.error(
-                        "Cannot find requested file with .mjs extension."
+                        "Cannot find requested file with .mjs extension.",
                     );
                     Logger.log(
-                        "Create storyblok.config.js or storyblok.config.mjs in your project. If u want to have custom configuration"
+                        "Create storyblok.config.js or storyblok.config.mjs in your project. If u want to have custom configuration",
                     );
 
                     Logger.log("Using default configruration.");

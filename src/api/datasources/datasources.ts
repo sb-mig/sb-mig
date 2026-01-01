@@ -5,12 +5,9 @@ import type {
     SyncDatasources,
     UpdateDatasource,
 } from "./datasources.types.js";
+import type { SyncResult } from "../sync/sync.types.js";
 
 import Logger from "../../utils/logger.js";
-import {
-    getFileContentWithRequire,
-    getFilesContentWithRequire,
-} from "../../utils/main.js";
 import { getAllItemsWithPagination } from "../utils/request.js";
 
 import {
@@ -151,61 +148,68 @@ export const updateDatasource: UpdateDatasource = (args, config) => {
         .catch((err) => Logger.error(err));
 };
 
-export const syncDatasources: SyncDatasources = async (args, config) => {
-    const { providedDatasources } = args;
-    Logger.log(`Trying to sync provided datasources: `);
+// File-based sync wrapper lives in `datasources.sync.ts` to keep this module CJS-safe.
 
-    const providedDatasourcesContent = await Promise.all(
-        providedDatasources.map((datasource) => {
-            return getFileContentWithRequire({ file: datasource.p });
-        }),
-    );
+export const syncDatasourcesData = async (
+    { datasources }: { datasources: any[] },
+    config: any,
+): Promise<SyncResult> => {
+    const result: SyncResult = {
+        created: [],
+        updated: [],
+        skipped: [],
+        errors: [],
+    };
 
-    const remoteDatasources = await getAllDatasources(config);
+    const remoteDatasourcesRaw = await getAllDatasources(config);
+    const remoteDatasources = Array.isArray(remoteDatasourcesRaw)
+        ? remoteDatasourcesRaw
+        : [];
 
-    Promise.all(
-        providedDatasourcesContent.map((datasource: any) => {
+    for (const datasource of datasources) {
+        const name = String(datasource?.name ?? "unknown");
+        if (!datasource || typeof datasource !== "object" || !datasource.name) {
+            result.skipped.push(name);
+            continue;
+        }
+
+        try {
             const datasourceToBeUpdated = remoteDatasources.find(
                 (remoteDatasource: any) =>
                     datasource.name === remoteDatasource.name,
             );
-            if (datasourceToBeUpdated) {
-                return updateDatasource(
-                    { datasource: datasource, datasourceToBeUpdated },
-                    config,
-                );
-            }
-            return createDatasource({ datasource: datasource }, config);
-        }),
-    )
-        .then((res) => {
-            // After create or after update datasource
-            res.map(async ({ data, datasource_entries }: any) => {
+
+            const opResult = datasourceToBeUpdated
+                ? await updateDatasource(
+                      { datasource, datasourceToBeUpdated },
+                      config,
+                  )
+                : await createDatasource({ datasource }, config);
+
+            if (datasourceToBeUpdated) result.updated.push(name);
+            else result.created.push(name);
+
+            if (opResult?.data?.datasource && opResult?.datasource_entries) {
                 const remoteDatasourceEntries = await getDatasourceEntries(
                     {
-                        datasourceName: data.datasource.name,
+                        datasourceName: opResult.data.datasource.name,
                     },
                     config,
                 );
 
-                console.log(" ");
-                Logger.warning(
-                    `Start async syncing of '${data.datasource.name}' datasource entries.`,
-                );
-                createDatasourceEntries(
+                await createDatasourceEntries(
                     {
-                        data,
-                        datasource_entries,
+                        data: opResult.data,
+                        datasource_entries: opResult.datasource_entries,
                         remoteDatasourceEntries,
                     },
                     config,
                 );
-            });
-            return res;
-        })
-        .catch((err) => {
-            console.log(err);
-            Logger.warning("There is error inside promise.all from datasource");
-            return false;
-        });
+            }
+        } catch (e) {
+            result.errors.push({ name, message: String(e) });
+        }
+    }
+
+    return result;
 };

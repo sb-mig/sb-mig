@@ -4,5 +4,6 @@ export {
     updatePlugin,
     createPlugin,
     getPluginDetails,
-    syncProvidedPlugins,
 } from "./plugins.js";
+
+export { syncProvidedPlugins } from "./plugins.sync.js";

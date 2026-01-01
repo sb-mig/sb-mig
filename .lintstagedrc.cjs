@@ -1,12 +1,15 @@
-const path = require('path');
+const path = require("path");
 
 module.exports = {
-  "src/**/!(*dist)/*.{js,jsx,ts,tsx}": [
-    "npx prettier --write",
-    'yarn lint:fix',
-  ],
-  '**/*.{ts,tsx}': [`tsc-files --noEmit`],
-}
+    "src/**/!(*dist)/*.{js,jsx,ts,tsx}": [
+        "npx prettier --write",
+        "npm run lint:fix",
+    ],
+    "src/**/*.{ts,tsx}": [`tsc-files --noEmit`],
+    "__tests__/**/*.{ts,tsx}": [
+        `tsc-files --noEmit -p __tests__/tsconfig.json`,
+    ],
+};
 
 /*
  *

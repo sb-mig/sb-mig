@@ -20,7 +20,7 @@ export const getPreset: GetPresetById = (args, config) => {
         .then((response) => {
             if (Array.isArray(response.presets)) {
                 Logger.warning(
-                    `There is no preset for '${presetId}' preset id`
+                    `There is no preset for '${presetId}' preset id`,
                 );
                 return false;
             }
@@ -68,7 +68,7 @@ export const createPreset = (p: any, config: RequestBaseConfig) => {
             console.log("!!!!!!!!!!");
             console.log(e);
             Logger.error(
-                `Error happened. Preset: '${p.preset.name}' has been not created.`
+                `Error happened. Preset: '${p.preset.name}' has been not created.`,
             );
         });
 };
@@ -84,13 +84,13 @@ export const updatePreset: UpdatePreset = (args, config: RequestBaseConfig) => {
         } as any)
         .then((res: any) => {
             Logger.warning(
-                `Preset: '${p.preset.name}' with '${p.preset.id}' id has been updated.`
+                `Preset: '${p.preset.name}' with '${p.preset.id}' id has been updated.`,
             );
             return res;
         })
         .catch(() => {
             Logger.error(
-                `Error happened. Preset: '${p.preset.name}' with '${p.preset.id}' id has been not updated.`
+                `Error happened. Preset: '${p.preset.name}' with '${p.preset.id}' id has been not updated.`,
             );
         });
 };
@@ -106,8 +106,8 @@ export const updatePresets: UpdatePresets = (args, config) => {
                         preset: item,
                     },
                 },
-                { ...config, spaceId }
+                { ...config, spaceId },
             );
-        })
+        }),
     );
 };

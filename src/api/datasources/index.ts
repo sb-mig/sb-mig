@@ -2,6 +2,7 @@ export {
     createDatasource,
     getDatasource,
     getAllDatasources,
-    syncDatasources,
     updateDatasource,
 } from "./datasources.js";
+
+export { syncDatasources } from "./datasources.sync.js";

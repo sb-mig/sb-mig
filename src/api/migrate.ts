@@ -26,21 +26,22 @@ import {
     SCOPE,
 } from "../cli/utils/discover.js";
 import config from "../config/config.js";
-import { dumpToFile } from "../utils/files.js";
-import Logger from "../utils/logger.js";
+import { uniqueValuesFrom } from "../utils/array-utils.js";
 import {
+    dumpToFile,
     getFileContentWithRequire,
     getFilesContentWithRequire,
-    isObjectEmpty,
-} from "../utils/main.js";
+} from "../utils/files.js";
+import Logger from "../utils/logger.js";
+import { isObjectEmpty } from "../utils/object-utils.js";
 
 import { getAllAssets, migrateAsset } from "./assets/assets.js";
+import { syncComponentsData } from "./components/components.sync.js";
 import { contentHubApi } from "./contentHubApi.js";
 import { managementApi } from "./managementApi.js";
 import { backupStories } from "./stories/backup.js";
 import { getAllStories } from "./stories/stories.js";
 import { createTree, traverseAndCreate } from "./stories/tree.js";
-import { _uniqueValuesFrom } from "./utils/helper-functions.js";
 import { resolveGlobalTransformations } from "./utils/resolverTransformations.js";
 
 const _checkAndPrepareGroups: CheckAndPrepareGroups = async (
@@ -78,7 +79,6 @@ export const removeAllComponents = async (config: RequestBaseConfig) => {
             );
         }),
     ]);
-
 };
 
 export const removeSpecifiedComponents: RemoveSpecificComponents = async (
@@ -149,98 +149,10 @@ export const syncComponents: SyncComponents = async (
         specifiedComponentsContent,
     );
 
-    const groupsToCheck = _uniqueValuesFrom(
-        specifiedComponentsContent
-            .filter((component) => component.component_group_name)
-            .map((component) => component.component_group_name),
+    await syncComponentsData(
+        { components: specifiedComponentsContent, presets },
+        config,
     );
-
-    await _checkAndPrepareGroups(groupsToCheck, config);
-
-    // after checkAndPrepareGroups remoteComponents will have synced groups with local groups
-    // updates of the groups had to happen before creation of them, cause creation/updates of components
-    // happens async, so if one component will have the same group, as other one
-    // it will be race of condition kinda issue - we will never now, if the group for current processed component
-    // already exist or is being created by other request
-    const remoteComponents =
-        await managementApi.components.getAllComponents(config);
-
-    const componentsToUpdate = [];
-    const componentsToCreate = [];
-
-    for (const component of specifiedComponentsContent) {
-        if (!isObjectEmpty(component)) {
-            const shouldBeUpdated = remoteComponents.find(
-                (remoteComponent: any) =>
-                    component.name === remoteComponent.name,
-            );
-            if (shouldBeUpdated) {
-                componentsToUpdate.push({
-                    id: shouldBeUpdated.id,
-                    ...component,
-                });
-            } else {
-                componentsToCreate.push(component);
-            }
-        }
-    }
-
-    const componentsGroups =
-        await managementApi.components.getAllComponentsGroups(config);
-
-    const groupsResolvedForComponentsToUpdate =
-        componentsToUpdate.length > 0 &&
-        (await Promise.all(
-            componentsToUpdate.map((component) =>
-                _resolveGroups(
-                    component,
-                    groupsToCheck,
-                    componentsGroups,
-                    config,
-                ),
-            ),
-        ));
-
-    Logger.log("Components to update after check: ");
-    if (groupsResolvedForComponentsToUpdate) {
-        await Promise.allSettled(
-            groupsResolvedForComponentsToUpdate.map((component) => {
-                Logger.warning(`   ${component.name}`);
-                return managementApi.components.updateComponent(
-                    component,
-                    presets,
-                    config,
-                );
-            }),
-        );
-    }
-
-    const groupsResolvedForComponentToCreate =
-        componentsToCreate.length > 0 &&
-        (await Promise.all(
-            componentsToCreate.map((component) =>
-                _resolveGroups(
-                    component,
-                    groupsToCheck,
-                    componentsGroups,
-                    config,
-                ),
-            ),
-        ));
-
-    Logger.log("Components to create after check: ");
-    if (groupsResolvedForComponentToCreate) {
-        await Promise.allSettled(
-            groupsResolvedForComponentToCreate.map((component) => {
-                Logger.warning(`   ${component.name}`);
-                return managementApi.components.createComponent(
-                    component,
-                    presets,
-                    config,
-                );
-            }),
-        );
-    }
 };
 
 export const syncAllComponents: SyncAllComponents = async (presets, config) => {

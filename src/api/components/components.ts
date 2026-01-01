@@ -81,7 +81,7 @@ export const createComponent: CreateComponent = (
     const componentWithPresets = component;
     const { all_presets, ...componentWithoutPresets } = componentWithPresets;
 
-    sbApi
+    return sbApi
         .post(`spaces/${spaceId}/components/`, {
             component: componentWithoutPresets,
         })
@@ -95,6 +95,7 @@ export const createComponent: CreateComponent = (
             Logger.error(
                 `${err.message} in migration of ${component.name} in createComponent function`,
             );
+            throw err;
         });
 };
 

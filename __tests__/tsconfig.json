@@ -1,0 +1,22 @@
+{
+    "compilerOptions": {
+        "module": "ESNext",
+        "moduleResolution": "node",
+        "target": "ESNext",
+        "esModuleInterop": true,
+        "types": ["vitest/globals", "node"],
+        "noEmit": true,
+        "strict": false,
+        "noImplicitAny": false,
+        "skipLibCheck": true,
+        "resolveJsonModule": true,
+        "allowSyntheticDefaultImports": true,
+        "lib": ["DOM", "DOM.Iterable", "ESNext"],
+        "baseUrl": "..",
+        "paths": {
+            "../src/*": ["src/*"]
+        }
+    },
+    "include": ["./**/*.ts", "../src/**/*.ts"],
+    "exclude": ["../node_modules", "../dist"]
+}
