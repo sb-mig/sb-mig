@@ -1,8 +1,7 @@
-export type SyncError = { name: string; message: string };
-
-export interface SyncResult {
-    created: string[];
-    updated: string[];
-    skipped: string[];
-    errors: SyncError[];
-}
+// Re-export from main sync types
+export type {
+    SyncError,
+    SyncResult,
+    SyncProgressEvent,
+    SyncProgressCallback,
+} from "../../api/sync/sync.types.js";

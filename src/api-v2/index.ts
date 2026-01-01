@@ -26,8 +26,20 @@ export * as spaces from "./spaces/index.js";
 
 // Sync (data-only)
 export * as sync from "./sync/index.js";
-export type { SyncResult, SyncError } from "./sync/types.js";
+export type {
+    SyncResult,
+    SyncError,
+    SyncProgressEvent,
+    SyncProgressCallback,
+} from "./sync/types.js";
 
 // Discovery
 export * as discover from "./discover/index.js";
 export type { DiscoveredResource } from "./discover/index.js";
+
+// Precompile (TypeScript to JS using Rollup + SWC)
+export * as precompile from "./precompile/index.js";
+export type {
+    PrecompileOptions,
+    PrecompileResult,
+} from "./precompile/index.js";

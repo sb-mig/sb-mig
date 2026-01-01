@@ -1,9 +1,36 @@
-import type { SyncResult } from "../sync/sync.types.js";
+import type { SyncProgressCallback, SyncResult } from "../sync/sync.types.js";
 import type { RequestBaseConfig } from "../utils/request.js";
 
 import { uniqueValuesFrom } from "../../utils/array-utils.js";
 import Logger from "../../utils/logger.js";
 import { isObjectEmpty } from "../../utils/object-utils.js";
+
+/**
+ * Default progress callback that logs to console
+ */
+const defaultProgress: SyncProgressCallback = (event) => {
+    if (event.type === "start") {
+        Logger.log(`Starting sync of ${event.total} components...`);
+    } else if (event.type === "progress" && event.name) {
+        const status =
+            event.action === "creating"
+                ? "Creating"
+                : event.action === "updating"
+                  ? "Updating"
+                  : event.action === "created"
+                    ? "✓ Created"
+                    : event.action === "updated"
+                      ? "✓ Updated"
+                      : event.action === "skipped"
+                        ? "⏭ Skipped"
+                        : "✘ Error";
+        Logger.log(
+            `[${event.current}/${event.total}] ${status}: ${event.name}`,
+        );
+    } else if (event.type === "complete") {
+        Logger.success(`Sync complete: ${event.message ?? "done"}`);
+    }
+};
 
 import {
     createComponent,
@@ -19,13 +46,20 @@ async function ensureComponentGroupsExist(
     groupNames: string[],
     config: RequestBaseConfig,
 ): Promise<void> {
-    const existing = await getAllComponentsGroups(config);
-    const existingNames = new Set((existing ?? []).map((g: any) => g.name));
+    try {
+        const existing = await getAllComponentsGroups(config);
+        const existingNames = new Set((existing ?? []).map((g: any) => g.name));
 
-    for (const groupName of groupNames) {
-        if (!existingNames.has(groupName)) {
-            await createComponentsGroup(groupName, config);
+        for (const groupName of groupNames) {
+            if (!existingNames.has(groupName)) {
+                await createComponentsGroup(groupName, config);
+            }
         }
+    } catch (error) {
+        // Log but don't fail - component groups are optional
+        Logger.warning(
+            `Could not fetch component groups: ${error instanceof Error ? error.message : String(error)}`,
+        );
     }
 }
 
@@ -42,10 +76,16 @@ function resolveGroupUuid(component: any, remoteGroups: any[]): any {
 }
 
 export async function syncComponentsData(
-    args: { components: any[]; presets: boolean; ssot?: boolean },
+    args: {
+        components: any[];
+        presets: boolean;
+        ssot?: boolean;
+        onProgress?: SyncProgressCallback;
+    },
     config: RequestBaseConfig,
 ): Promise<SyncResult> {
-    const { components, presets, ssot } = args;
+    const { components, presets, ssot, onProgress } = args;
+    const progress = onProgress ?? defaultProgress;
 
     const result: SyncResult = {
         created: [],
@@ -76,8 +116,24 @@ export async function syncComponentsData(
 
     await ensureComponentGroupsExist(groupsToCheck, config);
 
-    const remoteComponents = await getAllComponents(config);
-    const remoteGroups = await getAllComponentsGroups(config);
+    let remoteComponents: any[] = [];
+    let remoteGroups: any[] = [];
+
+    try {
+        remoteComponents = (await getAllComponents(config)) ?? [];
+    } catch (error) {
+        Logger.warning(
+            `Could not fetch remote components: ${error instanceof Error ? error.message : String(error)}`,
+        );
+    }
+
+    try {
+        remoteGroups = (await getAllComponentsGroups(config)) ?? [];
+    } catch (error) {
+        Logger.warning(
+            `Could not fetch remote groups: ${error instanceof Error ? error.message : String(error)}`,
+        );
+    }
 
     const componentsToUpdate: any[] = [];
     const componentsToCreate: any[] = [];
@@ -106,24 +162,95 @@ export async function syncComponentsData(
         resolveGroupUuid(c, remoteGroups),
     );
 
-    Logger.log("Components to update after check: ");
-    const updateResults = await Promise.allSettled(
-        updatePayloads.map((c) => updateComponent(c, presets, config) as any),
-    );
-    updateResults.forEach((r, idx) => {
-        const name = String(updatePayloads[idx]?.name ?? "unknown");
-        if (r.status === "fulfilled") result.updated.push(name);
-        else result.errors.push({ name, message: String(r.reason) });
-    });
+    const totalComponents = updatePayloads.length + createPayloads.length;
+    let currentIndex = 0;
 
-    Logger.log("Components to create after check: ");
-    const createResults = await Promise.allSettled(
-        createPayloads.map((c) => createComponent(c, presets, config) as any),
-    );
-    createResults.forEach((r, idx) => {
-        const name = String(createPayloads[idx]?.name ?? "unknown");
-        if (r.status === "fulfilled") result.created.push(name);
-        else result.errors.push({ name, message: String(r.reason) });
+    // Report start
+    progress({ type: "start", total: totalComponents });
+
+    // Process updates sequentially for progress reporting
+    for (const component of updatePayloads) {
+        const name = String(component?.name ?? "unknown");
+        currentIndex++;
+
+        progress({
+            type: "progress",
+            current: currentIndex,
+            total: totalComponents,
+            name,
+            action: "updating",
+        });
+
+        try {
+            await updateComponent(component, presets, config);
+            result.updated.push(name);
+            progress({
+                type: "progress",
+                current: currentIndex,
+                total: totalComponents,
+                name,
+                action: "updated",
+            });
+        } catch (error) {
+            result.errors.push({
+                name,
+                message: error instanceof Error ? error.message : String(error),
+            });
+            progress({
+                type: "progress",
+                current: currentIndex,
+                total: totalComponents,
+                name,
+                action: "error",
+                message: error instanceof Error ? error.message : String(error),
+            });
+        }
+    }
+
+    // Process creates sequentially for progress reporting
+    for (const component of createPayloads) {
+        const name = String(component?.name ?? "unknown");
+        currentIndex++;
+
+        progress({
+            type: "progress",
+            current: currentIndex,
+            total: totalComponents,
+            name,
+            action: "creating",
+        });
+
+        try {
+            await createComponent(component, presets, config);
+            result.created.push(name);
+            progress({
+                type: "progress",
+                current: currentIndex,
+                total: totalComponents,
+                name,
+                action: "created",
+            });
+        } catch (error) {
+            result.errors.push({
+                name,
+                message: error instanceof Error ? error.message : String(error),
+            });
+            progress({
+                type: "progress",
+                current: currentIndex,
+                total: totalComponents,
+                name,
+                action: "error",
+                message: error instanceof Error ? error.message : String(error),
+            });
+        }
+    }
+
+    // Report completion
+    progress({
+        type: "complete",
+        total: totalComponents,
+        message: `${result.created.length} created, ${result.updated.length} updated, ${result.errors.length} errors`,
     });
 
     return result;

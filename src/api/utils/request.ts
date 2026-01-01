@@ -30,8 +30,17 @@ export const getAllItemsWithPagination = async ({
     do {
         const response = await apiFn({ per_page, page, ...params });
 
+        // Handle case where API call failed and returned undefined
+        if (!response || !response.data) {
+            Logger.warning(`API returned no data for ${itemsKey}`);
+            return allItems;
+        }
+
         if (!totalPages) {
-            totalPages = Math.ceil(response.total / response.perPage);
+            totalPages =
+                Math.ceil(
+                    (response.total ?? 0) / (response.perPage ?? per_page),
+                ) || 1;
         }
 
         /**
@@ -53,7 +62,10 @@ export const getAllItemsWithPagination = async ({
             }
         }
 
-        allItems.push(...response.data[itemsKey]);
+        const items = response.data?.[itemsKey];
+        if (Array.isArray(items)) {
+            allItems.push(...items);
+        }
 
         page++;
     } while (page <= totalPages);

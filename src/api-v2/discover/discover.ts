@@ -101,18 +101,17 @@ async function readComponentDirectories(workingDir: string): Promise<string[]> {
 
 /**
  * Discover components in the working directory
+ * Prefers .ts for local files and .cjs for external (node_modules) files
+ * to avoid duplicates when both ESM and CJS versions exist
  */
 export async function discoverComponents(
     workingDir: string,
     options?: { extensions?: string[] },
 ): Promise<DiscoveredResource[]> {
     const components: DiscoveredResource[] = [];
-    const extensions = options?.extensions ?? [
-        ".sb.js",
-        ".sb.cjs",
-        ".sb.ts",
-        ".sb.mjs",
-    ];
+    // Priority order: .ts first (local), then .cjs (for node_modules)
+    // Skip .js and .mjs to avoid duplicates
+    const extensions = options?.extensions ?? [".sb.ts", ".sb.cjs"];
 
     const componentDirs = await readComponentDirectories(workingDir);
 
@@ -195,15 +194,41 @@ export async function discoverComponents(
         // Ignore
     }
 
+    // Deduplicate: prefer .ts over .cjs for same component name
+    const seen = new Map<string, DiscoveredResource>();
+    for (const component of components) {
+        const existing = seen.get(component.name);
+        if (!existing) {
+            seen.set(component.name, component);
+        } else {
+            // Prefer .ts files over .cjs
+            if (
+                component.filePath.endsWith(".ts") &&
+                !existing.filePath.endsWith(".ts")
+            ) {
+                seen.set(component.name, component);
+            }
+            // Prefer local over external
+            else if (
+                component.type === "local" &&
+                existing.type === "external"
+            ) {
+                seen.set(component.name, component);
+            }
+        }
+    }
+
+    const deduplicated = Array.from(seen.values());
+
     // Sort: local first, then by name
-    components.sort((a, b) => {
+    deduplicated.sort((a, b) => {
         if (a.type !== b.type) {
             return a.type === "local" ? -1 : 1;
         }
         return a.name.localeCompare(b.name);
     });
 
-    return components;
+    return deduplicated;
 }
 
 /**

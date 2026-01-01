@@ -1,5 +1,5 @@
 import type { ApiClient } from "../client.js";
-import type { SyncResult } from "./types.js";
+import type { SyncProgressCallback, SyncResult } from "./types.js";
 
 import { syncComponentsData } from "../../api/components/components.sync.js";
 import { syncDatasourcesData } from "../../api/datasources/datasources.js";
@@ -14,6 +14,7 @@ export async function syncComponents(
         presets?: boolean;
         ssot?: boolean;
         dryRun?: boolean;
+        onProgress?: SyncProgressCallback;
     },
 ): Promise<SyncResult> {
     const presets = args.presets ?? false;
@@ -48,7 +49,12 @@ export async function syncComponents(
     }
 
     return (await syncComponentsData(
-        { components: args.components, presets, ssot: args.ssot },
+        {
+            components: args.components,
+            presets,
+            ssot: args.ssot,
+            onProgress: args.onProgress,
+        },
         toRequestConfig(client),
     )) as any;
 }
