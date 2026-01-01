@@ -83,116 +83,73 @@ sb-mig/
 │   │   │   ├── assets.ts       # Asset operations
 │   │   │   ├── assets.types.ts # Type definitions
 │   │   │   └── index.ts        # Public exports
-│   │   ├── auth/
-│   │   ├── components/
-│   │   │   ├── components.ts   # Component CRUD + sync
-│   │   │   ├── components.types.ts
-│   │   │   └── index.ts
-│   │   ├── datasources/
-│   │   ├── discover/           # 🆕 To be created (Phase 1)
-│   │   │   ├── discover.ts
-│   │   │   ├── discover.types.ts
-│   │   │   └── index.ts
-│   │   ├── plugins/
-│   │   ├── presets/
-│   │   ├── roles/
-│   │   ├── spaces/
-│   │   ├── stories/
-│   │   │   ├── stories.ts      # Story CRUD
-│   │   │   ├── backup.ts       # Story backup
-│   │   │   ├── tree.ts         # Tree building
-│   │   │   ├── copy.ts         # 🆕 Story copying (Phase 1)
-│   │   │   └── index.ts
-│   │   ├── utils/
-│   │   │   ├── request.ts      # Pagination helpers
-│   │   │   └── helper-functions.ts
+│   │   ├── auth/               # Authentication
+│   │   ├── components/         # Component CRUD + sync
+│   │   ├── datasources/        # Datasource management
+│   │   ├── plugins/            # Plugin sync
+│   │   ├── presets/            # Preset resolution
+│   │   ├── roles/              # Role management
+│   │   ├── spaces/             # Space operations
+│   │   ├── stories/            # Story CRUD, backup, tree
+│   │   ├── utils/              # API utilities
 │   │   ├── managementApi.ts    # Main API export
 │   │   ├── deliveryApi.ts      # Delivery API (read-only)
 │   │   └── migrate.ts          # Sync/migration orchestration
 │   │
+│   ├── api-v2/                 # 🆕 New API Layer (for GUI)
+│   │   ├── client.ts           # Client factory
+│   │   ├── components/         # Component operations
+│   │   ├── stories/            # Story operations
+│   │   ├── discover/           # File discovery
+│   │   ├── sync/               # Sync operations
+│   │   └── index.ts            # Public exports
+│   │
 │   ├── cli/                    # 🟢 CLI Layer (thin wrapper)
-│   │   ├── commands/
+│   │   ├── commands/           # CLI commands
 │   │   │   ├── sync.ts         # sb-mig sync ...
 │   │   │   ├── backup.ts       # sb-mig backup ...
 │   │   │   ├── copy.ts         # sb-mig copy ...
 │   │   │   ├── discover.ts     # sb-mig discover ...
-│   │   │   ├── migrate.ts      # sb-mig migrate ...
-│   │   │   ├── remove.ts       # sb-mig remove ...
 │   │   │   └── ...
 │   │   ├── utils/
-│   │   │   └── discover.ts     # 🔄 Moving to api/discover/ (Phase 1)
+│   │   │   └── discover.ts     # File discovery with glob
 │   │   ├── index.ts            # CLI entry point
-│   │   ├── api-config.ts       # API client setup
-│   │   └── cli-descriptions.ts # Help text
+│   │   └── api-config.ts       # API client setup
 │   │
 │   ├── config/                 # ⚙️ Configuration
 │   │   ├── config.ts           # Config loader
 │   │   ├── defaultConfig.ts    # Default values
-│   │   ├── constants.ts        # Schema types, etc.
-│   │   └── helper.ts           # Config utilities
+│   │   └── constants.ts        # Schema types, etc.
 │   │
 │   ├── rollup/                 # 🔧 Build utilities
 │   │   ├── build-on-the-fly.ts # TypeScript schema compilation
-│   │   └── setup-rollup.ts
+│   │   └── setup-rollup.ts     # Rollup configuration
 │   │
 │   └── utils/                  # 🛠️ Shared utilities
 │       ├── logger.ts           # Logging
 │       ├── files.ts            # File operations
-│       ├── main.ts             # Functional utilities
+│       ├── path-utils.ts       # Path manipulation
+│       ├── string-utils.ts     # String utilities
 │       └── ...
 │
 ├── __tests__/                  # 🧪 Test Suite
-│   ├── tsconfig.json           # Test-specific TypeScript config
 │   ├── mocks/                  # Mock utilities
-│   │   ├── index.ts
-│   │   ├── storyblokClient.mock.ts
-│   │   ├── config.mock.ts
-│   │   └── filesystem.mock.ts
 │   ├── fixtures/               # Test data
-│   │   ├── api-responses/
-│   │   └── components/
 │   ├── api/                    # API layer tests
-│   │   ├── pagination.test.ts
-│   │   ├── components.test.ts
-│   │   └── stories.test.ts
-│   ├── discover/               # Discovery tests
-│   │   └── discover.test.ts
+│   ├── api-live/               # Live API tests (real requests)
+│   ├── integration/            # Integration tests
 │   ├── cli/                    # CLI integration tests
-│   │   └── sync.test.ts
-│   └── *.test.ts               # Utility tests
+│   ├── e2e/                    # End-to-end tests
+│   └── utils/                  # Utility tests
 │
-├── dist/                       # Compiled output
-├── coverage/                   # Test coverage reports
-├── vitest.config.ts            # Vitest configuration
-├── ARCHITECTURE.md             # This file
-├── REFACTORING.md              # Refactoring roadmap
-└── SECURITY.md                 # Security documentation
-```
-
-### sb-mig-gui (Electron App)
-
-```
-sb-mig-gui/
-├── electron/
-│   ├── main/
-│   │   └── index.ts            # Main process, IPC handlers
-│   ├── preload/
-│   │   └── index.ts            # Context bridge
-│   └── services/
-│       ├── sbmig.service.ts    # 🔄 To be replaced with API imports
-│       ├── storyblok.service.ts# 🔄 To be replaced with API imports
-│       └── database.service.ts # SQLite settings storage
+├── docs/                       # 📚 Documentation
+│   ├── architecture.md         # This file
+│   ├── security.md             # Security documentation
+│   └── roadmap.md              # Future plans
 │
-├── src/
-│   ├── App.tsx                 # Main React app (needs splitting)
-│   ├── components/
-│   │   └── ui/                 # shadcn/ui components
-│   ├── screens/
-│   │   └── Settings/           # Settings screen
-│   └── types/
-│       └── global.d.ts         # TypeScript declarations
-│
-└── ...
+├── dist/                       # Compiled ESM output
+├── dist-cjs/                   # Compiled CJS output (for api-v2)
+└── coverage/                   # Test coverage reports
 ```
 
 ---
@@ -209,73 +166,24 @@ We use **Vitest** for testing due to:
 - Fast parallel execution
 - Compatible with Jest API
 
-### Test Structure
+### Test Categories
 
-```
-__tests__/
-├── tsconfig.json           # Separate TS config for tests
-│                           # - Vitest globals types
-│                           # - Relaxed strict mode
-│                           # - Includes src/ for imports
-│
-├── mocks/                  # Reusable mock utilities
-│   ├── storyblokClient.mock.ts
-│   │   ├── createMockStoryblokClient()  # Mock API client
-│   │   ├── createMockApiConfig()        # Mock config
-│   │   ├── createMockComponent()        # Component factory
-│   │   ├── createMockStory()            # Story factory
-│   │   └── setup*Mock()                 # Helper functions
-│   │
-│   ├── config.mock.ts
-│   │   ├── createMockConfig()           # Full config factory
-│   │   └── createMockEnv()              # Environment vars
-│   │
-│   └── filesystem.mock.ts
-│       ├── VirtualFileSystem            # In-memory file system
-│       ├── createMockFs()               # Mock fs module
-│       └── createComponentSchemaContent() # Schema generators
-│
-├── fixtures/               # Static test data
-│   ├── api-responses/      # Sample API response JSONs
-│   └── components/         # Sample .sb.js files
-│
-├── api/                    # API layer tests
-├── discover/               # Discovery tests
-├── cli/                    # CLI integration tests
-└── *.test.ts               # Utility function tests
-```
-
-### Test Configuration
-
-```typescript
-// vitest.config.ts
-{
-  test: {
-    globals: true,              // describe, it, expect without imports
-    environment: "node",
-    pool: "threads",            // Single-thread for ESM stability
-    poolOptions: {
-      threads: { singleThread: true }
-    },
-    coverage: {
-      provider: "v8",
-      thresholds: {
-        lines: 15,
-        functions: 15,
-        branches: 10,
-        statements: 15
-      }
-    }
-  }
-}
-```
+| Category | Location | Purpose | Count |
+|----------|----------|---------|-------|
+| **Unit Tests** | `__tests__/utils/`, `__tests__/api/` | Test utilities, logic | 327 |
+| **Integration Tests** | `__tests__/integration/` | Test package upgrades | 25 |
+| **Live API Tests** | `__tests__/api-live/` | Real Storyblok API calls | 18 |
+| **E2E Tests** | `__tests__/e2e/` | Full CLI workflows | varies |
+| **Total** | | | **370+** |
 
 ### Running Tests
 
 ```bash
-npm test           # Run all tests once
-npm run test:watch     # Watch mode
-npm run test:coverage  # With coverage report
+npm test              # Run all unit tests
+npm run test:unit     # Run only unit tests (exclude live/e2e)
+npm run test:api-live # Run live API tests (requires credentials)
+npm run test:e2e      # Run end-to-end tests
+npm run test:coverage # With coverage report
 ```
 
 ---
@@ -300,7 +208,7 @@ User runs: sb-mig sync components --all
     ┌──────────────────────────────────────────────────────────────┐
     │                         API Layer                             │
     │                                                               │
-    │  4. Discover local schema files                              │
+    │  4. Discover local schema files (using glob)                 │
     │  5. Discover external schema files (node_modules)            │
     │  6. Compare & deduplicate                                    │
     │  7. Load schema content (with on-the-fly TS compilation)     │
@@ -319,61 +227,6 @@ User runs: sb-mig sync components --all
     │  10. HTTP requests with rate limiting                        │
     │  11. Response handling                                       │
     │                                                               │
-    └──────────────────────────────────────────────────────────────┘
-```
-
-### GUI Command Execution (Current - Problematic)
-
-```
-User clicks "Sync Components" button
-
-    ┌──────────────────────────────────────────────────────────────┐
-    │                      React Frontend                           │
-    │  1. User interaction                                         │
-    └──────────────────────────┬───────────────────────────────────┘
-                               │ IPC
-                               ▼
-    ┌──────────────────────────────────────────────────────────────┐
-    │                    Electron Main                              │
-    │  2. IPC handler receives request                             │
-    └──────────────────────────┬───────────────────────────────────┘
-                               │
-                               ▼
-    ┌──────────────────────────────────────────────────────────────┐
-    │                   sbmig.service.ts                            │
-    │  3. Spawns child process: `sb-mig sync components --all`     │  ❌ Problem
-    │  4. Streams stdout/stderr to renderer                        │
-    └──────────────────────────┬───────────────────────────────────┘
-                               │
-                               ▼
-    ┌──────────────────────────────────────────────────────────────┐
-    │                      sb-mig CLI                               │
-    │  5. Full CLI execution                                       │
-    └──────────────────────────────────────────────────────────────┘
-```
-
-### GUI Command Execution (Target - Direct API)
-
-```
-User clicks "Sync Components" button
-
-    ┌──────────────────────────────────────────────────────────────┐
-    │                      React Frontend                           │
-    │  1. User interaction                                         │
-    └──────────────────────────┬───────────────────────────────────┘
-                               │ IPC
-                               ▼
-    ┌──────────────────────────────────────────────────────────────┐
-    │                    Electron Main                              │
-    │  2. IPC handler receives request                             │
-    └──────────────────────────┬───────────────────────────────────┘
-                               │
-                               ▼
-    ┌──────────────────────────────────────────────────────────────┐
-    │              import { syncAllComponents } from 'sb-mig'       │
-    │                                                               │  ✅ Direct API
-    │  3. Call API function directly                               │
-    │  4. Return structured result                                 │
     └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -403,7 +256,7 @@ Priority (highest to lowest):
 
 ### Storyblok Client (`src/cli/api-config.ts`)
 
-Uses `storyblok-js-client` with:
+Uses `storyblok-js-client` v7.x with:
 
 - OAuth token authentication
 - Rate limiting (configurable, default 2 req/sec)
@@ -411,7 +264,7 @@ Uses `storyblok-js-client` with:
 
 ### Discovery System (`src/cli/utils/discover.ts`)
 
-Finds schema files using glob patterns:
+Finds schema files using `glob` v11.x patterns:
 
 - **Local scope**: Files in `componentsDirectories` (excluding `node_modules`)
 - **External scope**: Files in `node_modules`
@@ -423,86 +276,80 @@ Compiles TypeScript schema files (`.sb.ts`) to JavaScript at runtime using:
 
 - Rollup
 - SWC for TypeScript transformation
-- Temporary file caching
+- Temporary file caching in `.next/cache/sb-mig`
 
 ---
 
 ## 🔌 Public API Surface
 
-### Current Exports
+### CLI Entry Point
 
-```typescript
-// Main entry point
-import { managementApi } from 'sb-mig/dist/api/managementApi.js';
-
-// Available modules
-managementApi.assets.*
-managementApi.auth.*
-managementApi.components.*
-managementApi.datasources.*
-managementApi.plugins.*
-managementApi.presets.*
-managementApi.roles.*
-managementApi.stories.*
-managementApi.spaces.*
+```bash
+sb-mig <command> [options]
 ```
 
-### Target Exports (After Refactor)
+### Programmatic API
 
 ```typescript
-// Clean public API
-import {
-  createClient,
-  components,
-  stories,
-  datasources,
-  roles,
-  assets,
-  discover,
-  sync,
-  backup,
-} from 'sb-mig';
+// Main management API
+import { managementApi } from 'sb-mig/dist/api/managementApi.js';
 
-// Create a configured client
+managementApi.components.*
+managementApi.stories.*
+managementApi.datasources.*
+managementApi.roles.*
+managementApi.assets.*
+managementApi.presets.*
+managementApi.spaces.*
+
+// New API v2 (for GUI integration)
+import { createClient } from 'sb-mig/api-v2';
+
 const client = createClient({
   oauthToken: '...',
   spaceId: '...',
 });
-
-// Use typed functions
-await components.syncAll(client, { presets: true });
-await stories.copy(client, { from: 'space1', to: 'space2', storyIds: [...] });
-await discover.components(client, { directories: ['src'] });
 ```
 
 ---
 
 ## 🧩 Module Responsibilities
 
-| Module        | Responsibility                          | CLI Commands                     |
-| ------------- | --------------------------------------- | -------------------------------- |
-| `components`  | CRUD operations, group management, sync | `sync components`                |
-| `stories`     | CRUD, tree building, copying            | `copy stories`, `backup stories` |
-| `datasources` | Datasource & entries management         | `sync datasources`               |
-| `roles`       | Role management                         | `sync roles`                     |
-| `assets`      | Asset upload, migration                 | `sync content --assets`          |
-| `presets`     | Preset resolution, creation             | `sync components --presets`      |
-| `discover`    | File system scanning for schemas        | `discover components`            |
-| `migrate`     | High-level sync orchestration           | `sync content`                   |
-| `backup`      | Export to local files                   | `backup`                         |
+| Module | Responsibility | CLI Commands |
+|--------|----------------|--------------|
+| `components` | CRUD operations, group management, sync | `sync components` |
+| `stories` | CRUD, tree building, copying | `copy stories`, `backup stories` |
+| `datasources` | Datasource & entries management | `sync datasources` |
+| `roles` | Role management | `sync roles` |
+| `assets` | Asset upload, migration | `sync content --assets` |
+| `presets` | Preset resolution, creation | `sync components --presets` |
+| `discover` | File system scanning for schemas | `discover components` |
+| `migrate` | High-level sync orchestration | `sync content` |
+| `backup` | Export to local files | `backup` |
 
 ---
 
-## 🔐 Authentication
+## 📦 Dependencies
 
-See [SECURITY.md](./SECURITY.md) for detailed security information.
+### Core Dependencies (Production)
 
-**Quick overview:**
+| Package | Version | Purpose |
+|---------|---------|---------|
+| `storyblok-js-client` | ^7.2.1 | Official Storyblok API client |
+| `glob` | ^11.0.3 | File pattern matching |
+| `meow` | ^11.0.0 | CLI argument parsing |
+| `dotenv` | ^17.2.3 | Environment variable loading |
+| `rollup` + `@swc/core` | ^3.28.0 / 1.3.41 | TypeScript compilation |
+| `chalk` | ^4.1.2 | Terminal colors |
 
-- OAuth Token: For Management API operations (write access)
-- Access Token: For Delivery API (read-only, preview/public content)
-- Both stored in environment variables or config file
-- GUI stores tokens in local SQLite database
+### Dev Dependencies
+
+| Package | Version | Purpose |
+|---------|---------|---------|
+| `vitest` | ^2.1.0 | Testing framework |
+| `typescript` | ^5.1.6 | Type checking |
+| `eslint` | ^8.47.0 | Linting |
+| `semantic-release` | ^21.0.9 | Automated releases |
 
 ---
 
@@ -520,25 +367,13 @@ See [SECURITY.md](./SECURITY.md) for detailed security information.
 - Built-in mocking (no sinon needed)
 - TypeScript support out of the box
 - Faster parallel execution
-- Better developer experience
-
-### Why not a monorepo?
-
-- Historical decision - sb-mig predates GUI
-- Could be reconsidered during refactor
-- Would enable shared types package
 
 ### Why storyblok-js-client?
 
 - Official Storyblok client
 - Handles rate limiting, retries
 - TypeScript support
-
-### Why SQLite in GUI?
-
-- Simple, file-based persistence
-- No external dependencies
-- Fast for small datasets (settings)
+- Actively maintained
 
 ---
 
@@ -546,10 +381,10 @@ See [SECURITY.md](./SECURITY.md) for detailed security information.
 
 1. **Config loaded at startup**: Cannot change config at runtime
 2. **Global API client**: Makes testing harder
-3. **CLI spawning in GUI**: Suboptimal, should use API directly
-4. **Large files**: `discover.ts` (1355 lines), `App.tsx` (1534 lines)
-5. **Any types**: Type safety is incomplete
+3. **Large files**: `discover.ts` (1355 lines) could be split
+4. **Any types**: Type safety is incomplete in some areas
 
 ---
 
-_Last updated: December 2024_
+_Last updated: January 2026_
+
