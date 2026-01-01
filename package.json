@@ -33,7 +33,7 @@
     "./dist/*": "./dist/*"
   },
   "engines": {
-    "node": "^12.20.0 || ^14.13.1 || >=16.0.0"
+    "node": ">=18.0.0"
   },
   "files": [
     "/dist",
@@ -76,19 +76,19 @@
   },
   "dependencies": {
     "@swc/core": "1.3.41",
-    "@swc/helpers": "0.4.14",
+    "@swc/helpers": "^0.5.18",
     "chalk": "^4.1.2",
-    "dotenv": "^16.4.5",
+    "dotenv": "^17.2.3",
     "form-data": "^4.0.0",
     "fs-extra": "^11.2.0",
-    "glob": "8",
+    "glob": "^11.0.3",
     "meow": "^11.0.0",
     "ncp": "^2.0.0",
     "node-fetch": "^3.3.2",
     "rollup": "^3.28.0",
     "rollup-plugin-ts": "^3.4.4",
     "semver": "^7.6.2",
-    "storyblok-js-client": "5.12.0",
+    "storyblok-js-client": "^7.2.1",
     "storyblok-schema-types": "^1.2.4",
     "typescript": "^5.1.6",
     "uuid": "^9.0.0"
@@ -104,10 +104,9 @@
     "@sindresorhus/tsconfig": "^3.0.1",
     "@storyblok/react": "^3.0.10",
     "@types/fs-extra": "^11.0.4",
-    "@types/glob": "^8.1.0",
     "@types/ncp": "^2.0.8",
-    "@types/node": "18.16.18",
-    "@types/uuid": "^9.0.7",
+    "@types/node": "^22.15.0",
+    "@types/uuid": "^10.0.0",
     "@typescript-eslint/eslint-plugin": "^6.4.1",
     "@typescript-eslint/parser": "^6.4.1",
     "@vitest/coverage-v8": "^2.1.0",

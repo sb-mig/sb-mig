@@ -6,11 +6,11 @@
 
 ### Credential Types
 
-| Credential                 | Purpose                       | Permissions                 | Where Used |
-| -------------------------- | ----------------------------- | --------------------------- | ---------- |
-| **OAuth Token**            | Management API authentication | Full write access to space  | CLI, GUI   |
-| **Access Token (Preview)** | Delivery API authentication   | Read draft content          | Optional   |
-| **Access Token (Public)**  | Delivery API authentication   | Read published content only | Optional   |
+| Credential | Purpose | Permissions | Where Used |
+|------------|---------|-------------|------------|
+| **OAuth Token** | Management API authentication | Full write access to space | CLI, GUI |
+| **Access Token (Preview)** | Delivery API authentication | Read draft content | Optional |
+| **Access Token (Public)** | Delivery API authentication | Read published content only | Optional |
 
 ### OAuth Token
 
@@ -148,14 +148,14 @@ sb-mig respects Storyblok's rate limits:
 
 ### What Data is Accessed
 
-| Data Type      | Operations                   | Risk Level |
-| -------------- | ---------------------------- | ---------- |
-| Components     | Read, Create, Update, Delete | Medium     |
-| Stories        | Read, Create, Update, Delete | High       |
-| Assets         | Read, Upload, Delete         | Medium     |
-| Datasources    | Read, Create, Update, Delete | Low        |
-| Roles          | Read, Create, Update         | High       |
-| Space Settings | Read only                    | Low        |
+| Data Type | Operations | Risk Level |
+|-----------|------------|------------|
+| Components | Read, Create, Update, Delete | Medium |
+| Stories | Read, Create, Update, Delete | High |
+| Assets | Read, Upload, Delete | Medium |
+| Datasources | Read, Create, Update, Delete | Low |
+| Roles | Read, Create, Update | High |
+| Space Settings | Read only | Low |
 
 ### Data in Transit
 
@@ -167,13 +167,13 @@ sb-mig respects Storyblok's rate limits:
 
 **Local files created by sb-mig:**
 
-| File Type         | Location                 | Contains Sensitive Data? |
-| ----------------- | ------------------------ | ------------------------ |
-| Backup JSON files | `./sbmig/`               | May contain content      |
-| Component schemas | `./src/`, `./storyblok/` | No                       |
-| Config file       | `./storyblok.config.js`  | May reference env vars   |
-| Build cache       | `./.next/cache/`         | No                       |
-| Test coverage     | `./coverage/`            | No                       |
+| File Type | Location | Contains Sensitive Data? |
+|-----------|----------|--------------------------|
+| Backup JSON files | `./sbmig/` | May contain content |
+| Component schemas | `./src/`, `./storyblok/` | No |
+| Config file | `./storyblok.config.js` | May reference env vars |
+| Build cache | `./.next/cache/` | No |
+| Test coverage | `./coverage/` | No |
 
 ---
 
@@ -181,7 +181,8 @@ sb-mig respects Storyblok's rate limits:
 
 ### Test Environment Isolation
 
-- Tests use **mock utilities** - no real API calls
+- Tests use **mock utilities** - no real API calls in unit tests
+- Live API tests run only with `STORYBLOK_LIVE_TESTS=true`
 - Mock tokens: `mock-oauth-token`, `mock-access-token`
 - Mock space ID: `12345`
 - Virtual file system for file operations
@@ -193,16 +194,17 @@ __tests__/
 ├── mocks/
 │   ├── storyblokClient.mock.ts  # Contains mock tokens only
 │   └── config.mock.ts           # Contains mock config only
-└── fixtures/
-    └── ...                      # Sample data, no real credentials
+├── fixtures/                    # Sample data, no real credentials
+├── api-live/                    # Real API tests (guarded)
+└── integration/                 # Package integration tests
 ```
 
 **Security notes:**
 
 - ✅ No real credentials in test files
-- ✅ Tests don't make network requests
+- ✅ Unit tests don't make network requests
+- ✅ Live tests require explicit opt-in
 - ✅ Test fixtures contain synthetic data only
-- ✅ Coverage reports don't contain sensitive data
 
 ---
 
@@ -327,15 +329,9 @@ GUI stores terminal output in memory only - cleared on app restart.
     STORYBLOK_SPACE_ID=prod-space
     ```
 
-3. **Limit OAuth token scope** (when Storyblok supports it)
+3. **Rotate tokens periodically** (quarterly recommended)
 
-4. **Rotate tokens periodically**
-
-5. **Review before production sync**
-    ```bash
-    # Test in dev first
-    sb-mig sync components --all --dry-run  # (future feature)
-    ```
+4. **Review before production sync**
 
 ### For CI/CD
 
@@ -412,13 +408,14 @@ GUI stores terminal output in memory only - cleared on app restart.
 
 ### Key Dependencies
 
-| Package                | Purpose                      | Security Notes             |
-| ---------------------- | ---------------------------- | -------------------------- |
-| `storyblok-js-client`  | API communication            | Official Storyblok package |
-| `meow`                 | CLI argument parsing         | Minimal attack surface     |
-| `dotenv`               | Environment variable loading | Well-maintained            |
-| `rollup` + `@swc/core` | TypeScript compilation       | Build-time only            |
-| `vitest`               | Testing                      | Dev dependency only        |
+| Package | Purpose | Security Notes |
+|---------|---------|----------------|
+| `storyblok-js-client` ^7.2.1 | API communication | Official Storyblok package |
+| `meow` ^11.0.0 | CLI argument parsing | Minimal attack surface |
+| `dotenv` ^17.2.3 | Environment variable loading | Well-maintained |
+| `glob` ^11.0.3 | File pattern matching | Well-maintained |
+| `rollup` + `@swc/core` | TypeScript compilation | Build-time only |
+| `vitest` ^2.1.0 | Testing | Dev dependency only |
 
 ### Keeping Dependencies Updated
 
@@ -457,4 +454,5 @@ We will respond within 48 hours and work on a fix promptly.
 
 ---
 
-_Last updated: December 2024_
+_Last updated: January 2026_
+
