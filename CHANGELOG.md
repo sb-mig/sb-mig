@@ -1,3 +1,16 @@
+# [5.6.0-beta.3](https://github.com/sb-mig/sb-mig/compare/v5.6.0-beta.2...v5.6.0-beta.3) (2026-01-01)
+
+
+### Bug Fixes
+
+* add some more tests, this time on workflow_dispatch ([7f789b5](https://github.com/sb-mig/sb-mig/commit/7f789b5e4eacb1e79437660656232ea33cc17909))
+* migrate and update outdated packages ([ee0f9ca](https://github.com/sb-mig/sb-mig/commit/ee0f9ca001b6736b28038f34668f95eec2b815bc))
+
+
+### Features
+
+* integration tests ([e5db53a](https://github.com/sb-mig/sb-mig/commit/e5db53a182457243b29fdb56a5f4e02888193316))
+
 # [5.6.0-beta.2](https://github.com/sb-mig/sb-mig/compare/v5.6.0-beta.1...v5.6.0-beta.2) (2026-01-01)
 
 
