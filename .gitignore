@@ -81,4 +81,4 @@ __tests__/*.js
 __tests__/*.d.ts
 
 # Misc
-package-lock.json
+# Note: package-lock.json should be committed for npm ci to work in CI/CD

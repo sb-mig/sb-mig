@@ -50,11 +50,15 @@ export function createMockConfig(
 /**
  * Mock the config module
  * Use this in tests to replace the global config
+ *
+ * Note: Uses vi.doMock() instead of vi.mock() because vi.mock() is hoisted to
+ * the top of the file at compile time, which means the mockConfig variable
+ * wouldn't exist yet when the factory function is evaluated.
  */
 export function mockConfigModule(config: Partial<IStoryblokConfig> = {}) {
     const mockConfig = createMockConfig(config);
 
-    vi.mock("../../src/config/config.js", () => ({
+    vi.doMock("../../src/config/config.js", () => ({
         default: mockConfig,
         SCHEMA: {
             JS: "JS",
