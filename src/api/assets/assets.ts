@@ -65,6 +65,7 @@ const requestSignedUploadUrl: RequestSignedUploadUrl = (
         asset_folder_id,
         ext_id,
         space_id,
+        deleted_at: _2,
         ...restPayload
     } = payload;
     const filename = getFileName(payload.filename);

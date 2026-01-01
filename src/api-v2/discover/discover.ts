@@ -1,5 +1,5 @@
-import { readdir, stat, readFile } from "fs/promises";
-import { join } from "path";
+import { readdir, stat, readFile, realpath } from "fs/promises";
+import { join, resolve } from "path";
 import { pathToFileURL } from "url";
 
 export interface DiscoveredResource {
@@ -100,22 +100,78 @@ async function readComponentDirectories(workingDir: string): Promise<string[]> {
 }
 
 /**
+ * Options for component discovery
+ */
+export interface DiscoverComponentsOptions {
+    /** File extensions to search for (default: [".sb.ts", ".sb.cjs"]) */
+    extensions?: string[];
+    /** Whether to include external (node_modules) components (default: true) */
+    includeExternal?: boolean;
+    /** Maximum depth to scan (default: 20, prevents runaway scanning) */
+    maxDepth?: number;
+}
+
+/**
+ * Check if a path is within the project directory
+ * Resolves symlinks and ensures we don't escape the project bounds
+ */
+async function isWithinProject(
+    targetPath: string,
+    projectRoot: string,
+): Promise<boolean> {
+    try {
+        // Resolve both paths to handle symlinks
+        const resolvedTarget = await realpath(targetPath);
+        const resolvedRoot = await realpath(projectRoot);
+        // Check if target is within project root
+        return (
+            resolvedTarget.startsWith(resolvedRoot + "/") ||
+            resolvedTarget === resolvedRoot
+        );
+    } catch {
+        // If we can't resolve the path, assume it's not safe
+        return false;
+    }
+}
+
+/**
  * Discover components in the working directory
  * Prefers .ts for local files and .cjs for external (node_modules) files
  * to avoid duplicates when both ESM and CJS versions exist
+ *
+ * Security: Stays within project bounds and doesn't follow symlinks outside
  */
 export async function discoverComponents(
     workingDir: string,
-    options?: { extensions?: string[] },
+    options?: DiscoverComponentsOptions,
 ): Promise<DiscoveredResource[]> {
     const components: DiscoveredResource[] = [];
     // Priority order: .ts first (local), then .cjs (for node_modules)
     // Skip .js and .mjs to avoid duplicates
     const extensions = options?.extensions ?? [".sb.ts", ".sb.cjs"];
+    const includeExternal = options?.includeExternal ?? true;
+    const maxDepth = options?.maxDepth ?? 20;
+
+    // Resolve the project root for security checks
+    const projectRoot = resolve(workingDir);
 
     const componentDirs = await readComponentDirectories(workingDir);
 
-    const scanDir = async (dir: string, isExternal: boolean): Promise<void> => {
+    const scanDir = async (
+        dir: string,
+        isExternal: boolean,
+        depth: number,
+    ): Promise<void> => {
+        // Prevent excessive depth
+        if (depth > maxDepth) {
+            return;
+        }
+
+        // Security: Ensure we're still within project bounds
+        if (!(await isWithinProject(dir, projectRoot))) {
+            return;
+        }
+
         try {
             const entries = await readdir(dir, { withFileTypes: true });
 
@@ -123,17 +179,28 @@ export async function discoverComponents(
                 const fullPath = join(dir, entry.name);
 
                 if (entry.isDirectory()) {
+                    // Skip common non-source directories
                     if (
                         entry.name === ".git" ||
                         entry.name === ".next" ||
-                        entry.name === "dist"
+                        entry.name === "dist" ||
+                        entry.name === ".cache" ||
+                        entry.name === "coverage"
                     ) {
+                        continue;
+                    }
+                    // Skip node_modules entirely if not including external
+                    if (entry.name === "node_modules" && !includeExternal) {
                         continue;
                     }
                     const isNowExternal =
                         isExternal || entry.name === "node_modules";
-                    await scanDir(fullPath, isNowExternal);
+                    await scanDir(fullPath, isNowExternal, depth + 1);
                 } else if (entry.isFile()) {
+                    // Skip external files if not including them
+                    if (isExternal && !includeExternal) {
+                        continue;
+                    }
                     for (const ext of extensions) {
                         if (
                             entry.name.endsWith(ext) &&
@@ -157,10 +224,14 @@ export async function discoverComponents(
 
     for (const dir of componentDirs) {
         const fullDir = join(workingDir, dir);
+        // Skip if the directory path includes node_modules and we're not including external
+        if (dir.includes("node_modules") && !includeExternal) {
+            continue;
+        }
         try {
             const dirStat = await stat(fullDir);
             if (dirStat.isDirectory()) {
-                await scanDir(fullDir, dir.includes("node_modules"));
+                await scanDir(fullDir, dir.includes("node_modules"), 0);
             }
         } catch {
             // Directory doesn't exist
