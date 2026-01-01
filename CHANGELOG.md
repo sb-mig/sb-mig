@@ -1,3 +1,26 @@
+# [5.6.0-beta.2](https://github.com/sb-mig/sb-mig/compare/v5.6.0-beta.1...v5.6.0-beta.2) (2026-01-01)
+
+
+### Bug Fixes
+
+* github action ([22c6fa7](https://github.com/sb-mig/sb-mig/commit/22c6fa7aaa04e27092e49417342b5f7c78b79d38))
+* make test coverage infomrational ([4c65a0d](https://github.com/sb-mig/sb-mig/commit/4c65a0da2e9422656e7edbf57907cabe10ca6573))
+* migrate to npm from yarn ([25cc0da](https://github.com/sb-mig/sb-mig/commit/25cc0da916d84c4457213686d849d3b233e091ea))
+* package-lock and test mocks from copilot feedback ([3849637](https://github.com/sb-mig/sb-mig/commit/38496371d52012d2092bfded7ec3f0d5f770e808))
+* release beta github action ([b8785a8](https://github.com/sb-mig/sb-mig/commit/b8785a8eebcc132d0c0457a689f8e73ebc246f7d))
+* tests for windows ([3cd683f](https://github.com/sb-mig/sb-mig/commit/3cd683fc138722992a71ae771c7d48802a85c45c))
+* tests for windows ([031f19f](https://github.com/sb-mig/sb-mig/commit/031f19feb1a5ad0303145463f54b1dfebedd4f70))
+
+
+### Features
+
+* add full test suite ([bd72e2c](https://github.com/sb-mig/sb-mig/commit/bd72e2cac62f2943e9d0c6d72731c179207e705b))
+* add github action for testing all on workflow_dispatch ([08a1a9f](https://github.com/sb-mig/sb-mig/commit/08a1a9f1f8b5804e55f7c4900e2c471a74b79711))
+* api v2 ([77394f4](https://github.com/sb-mig/sb-mig/commit/77394f43c0f46b2555badf63e2168c2c69fb49f4))
+* integration and e2e tests start ([0f6aac1](https://github.com/sb-mig/sb-mig/commit/0f6aac1a53018c334eaaa2b2628ac81efdf169cb))
+* introduce api v2 that will be used by cli and gui ([93d3080](https://github.com/sb-mig/sb-mig/commit/93d3080617c8f67cd74fb58ec1f789471609b573))
+* start implementing api-v2 ([32f23b1](https://github.com/sb-mig/sb-mig/commit/32f23b1503dbb0aa0da2afcceea13f431cc8f4ba))
+
 # [5.6.0-beta.1](https://github.com/sb-mig/sb-mig/compare/v5.5.4-beta.1...v5.6.0-beta.1) (2025-09-03)
 
 
