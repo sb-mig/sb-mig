@@ -2,7 +2,7 @@ import path from "path";
 
 import { describe, it, expect } from "vitest";
 
-import { filesPattern, normalizeDiscover } from "../src/cli/utils/discover.js";
+import { filesPattern, normalizeDiscover } from "../src/utils/path-utils.js";
 
 describe("Discovering files", () => {
     it("pattern passed to glob work correctly for sb.ts extension for unix paths", () => {

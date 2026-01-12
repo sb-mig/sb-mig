@@ -5,16 +5,12 @@ import ts from "rollup-plugin-ts";
 
 import storyblokConfig from "../config/config.js";
 import Logger from "../utils/logger.js";
+import { extractComponentName } from "../utils/path-utils.js";
 
 import { build } from "./setup-rollup.js";
 
-export const _extractComponentName = (filePath: string): string => {
-    const separator = "/"; // this guy is like in unix, becasue what glob is returning is always like that... that's why we are NOT using path.sep here...
-    const sP = filePath.split(separator);
-    const lastElement = sP[sP.length - 1] as string;
-
-    return lastElement.replaceAll(".ts", "");
-};
+// Re-export for backward compatibility
+export const _extractComponentName = extractComponentName;
 
 interface BuildOnTheFly {
     files: string[];

@@ -194,6 +194,56 @@ sb-mig migrations status
 
 ---
 
+## 🏗️ Monorepo Migration Plan
+
+### Overview
+Convert sb-mig into a Turborepo monorepo to add a documentation website alongside the CLI/API.
+
+### Proposed Structure
+```
+sb-mig/
+├── apps/
+│   └── docs/                 # Next.js documentation website
+│       ├── app/              # App router
+│       ├── content/          # MDX documentation files
+│       └── ...
+├── packages/
+│   └── sb-mig/               # Current CLI + API (moved here)
+│       ├── src/
+│       ├── package.json
+│       └── ...
+├── turbo.json                # Turborepo config
+├── package.json              # Root workspace config
+└── pnpm-workspace.yaml       # Workspace definition
+```
+
+### Tech Stack for Documentation Site
+- **Framework**: Next.js 14+ with App Router
+- **Docs Framework**: Fumadocs or Nextra (MDX-based, great for API docs)
+- **Styling**: Tailwind CSS
+- **Hosting**: Vercel or GitHub Pages
+
+### Benefits
+1. **Shared tooling** - ESLint, TypeScript, Prettier configs can be shared
+2. **Efficient builds** - Turborepo caching speeds up CI/CD
+3. **Easy cross-referencing** - Docs site can import types/examples from sb-mig
+4. **Future-proof** - Easy to add more packages later (e.g., `@sb-mig/core`, `@sb-mig/cli`)
+
+### Migration Steps
+1. Install Turborepo and set up workspace structure
+2. Move current codebase to `packages/sb-mig/`
+3. Create `apps/docs/` with Next.js
+4. Update CI/CD workflows for monorepo
+5. Update npm publishing configuration
+6. Set up documentation content structure
+
+### Open Questions
+- **Package manager**: Stick with npm, or switch to pnpm (more common with Turborepo)?
+- **Package naming**: Keep `sb-mig` as-is, or consider scoped packages like `@sb-mig/cli`?
+- **Docs framework**: Simple custom Next.js, or use Fumadocs/Nextra?
+
+---
+
 ## 🔮 Long-term Vision (2026+)
 
 ### 9. Visual Schema Editor

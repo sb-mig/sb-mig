@@ -10,7 +10,7 @@ jobs:
 
     strategy:
       matrix:
-        node-version: [20.x]
+        node-version: [20.x, 22.x]
 
     steps:
       - name: Checkout
@@ -44,6 +44,7 @@ jobs:
           npm run test
 
       - name: Retry Release
+        if: matrix.node-version == '20.x'
         uses: nick-fields/retry@v2
         env:
           NO_HUSKY: 1
