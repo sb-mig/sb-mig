@@ -1,3 +1,11 @@
+# [5.6.0-beta.4](https://github.com/sb-mig/sb-mig/compare/v5.6.0-beta.3...v5.6.0-beta.4) (2026-01-12)
+
+
+### Bug Fixes
+
+* test issues and add roadmap plan for to monorepo refactor ([3fcd05b](https://github.com/sb-mig/sb-mig/commit/3fcd05b72f8a97a890f8fad3b57b86aa208640db))
+* update tests and update gitignore, update to node 20 and 22 ([20948d5](https://github.com/sb-mig/sb-mig/commit/20948d5c226cb173f8c9f5b923734d4e8fc3a5a7))
+
 # [5.6.0-beta.3](https://github.com/sb-mig/sb-mig/compare/v5.6.0-beta.2...v5.6.0-beta.3) (2026-01-01)
 
 
