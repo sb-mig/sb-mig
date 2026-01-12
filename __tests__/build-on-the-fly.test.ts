@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 
-import { _extractComponentName } from "../src/rollup/build-on-the-fly.js";
+import { extractComponentName as _extractComponentName } from "../src/utils/path-utils.js";
 
 describe("Build Typescript on-the-fly", () => {
     if (process.platform === "win32") {

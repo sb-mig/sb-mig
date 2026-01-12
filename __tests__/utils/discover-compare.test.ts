@@ -6,7 +6,7 @@ import {
     compare,
     normalizeDiscover,
     filesPattern,
-} from "../../src/cli/utils/discover.js";
+} from "../../src/utils/path-utils.js";
 
 // Helper to create cross-platform paths
 const p = (...segments: string[]) => path.join(...segments);
