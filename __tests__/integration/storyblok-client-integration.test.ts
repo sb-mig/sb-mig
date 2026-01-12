@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import StoryblokClient, { ISbResult, ISbConfig } from "storyblok-js-client";
+import StoryblokClient, { type ISbResult, type ISbConfig } from "storyblok-js-client";
+import { beforeAll, describe, expect, it } from "vitest";
 
 /**
  * Integration tests for storyblok-js-client v7 migration

@@ -39,6 +39,10 @@ pnpm-debug.log*
 # Cursor IDE
 .cursor/*
 !.cursor/rules/
+
+# Claude Code
+.claude/*
+!.claude/settings.json
 *.suo
 *.ntvs*
 *.njsproj

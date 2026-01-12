@@ -1,8 +1,9 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { globSync } from "glob";
 import fs from "fs";
-import path from "path";
 import os from "os";
+import path from "path";
+
+import { globSync } from "glob";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
 
 /**
  * Integration tests for glob v11 migration
