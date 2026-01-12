@@ -109,7 +109,7 @@
     "@types/uuid": "^10.0.0",
     "@typescript-eslint/eslint-plugin": "^6.4.1",
     "@typescript-eslint/parser": "^6.4.1",
-    "@vitest/coverage-v8": "^2.1.0",
+    "@vitest/coverage-v8": "^4.0.17",
     "chokidar-cli": "^3.0.0",
     "eslint": "^8.47.0",
     "eslint-config-prettier": "^9.0.0",
@@ -120,7 +120,7 @@
     "semantic-release": "^21.0.9",
     "semantic-release-slack-bot": "^4.0.1",
     "tsc-files": "^1.1.4",
-    "vitest": "^2.1.0"
+    "vitest": "^4.0.17"
   },
   "config": {
     "commitizen": {
