@@ -1,3 +1,11 @@
+# [5.6.0-beta.5](https://github.com/sb-mig/sb-mig/compare/v5.6.0-beta.4...v5.6.0-beta.5) (2026-02-03)
+
+
+### Bug Fixes
+
+* add comment about interoperability ([12cff1a](https://github.com/sb-mig/sb-mig/commit/12cff1a48273210c707adf3e3bbf52b01295b651))
+* interoperability of glob ([abb3cf6](https://github.com/sb-mig/sb-mig/commit/abb3cf693cb2222def3733418d38c0b774894ce3))
+
 # [5.6.0-beta.4](https://github.com/sb-mig/sb-mig/compare/v5.6.0-beta.3...v5.6.0-beta.4) (2026-01-12)
 
 
