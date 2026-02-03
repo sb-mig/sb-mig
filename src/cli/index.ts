@@ -176,8 +176,8 @@ const cli = (cliObject: any, level = 0): any => {
     return subCommand
         ? cli(subCommand, level + 1)
         : nextCli.flags.help
-        ? nextCli.showHelp()
-        : action(nextCli);
+          ? nextCli.showHelp()
+          : action(nextCli);
 };
 
 cli(app);
