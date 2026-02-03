@@ -4,7 +4,8 @@
 
 import path from "path";
 
-import { globSync } from "glob";
+import glob from "glob";
+const { globSync } = glob;
 
 import storyblokConfig, { SCHEMA } from "../../config/config.js";
 import { buildOnTheFly } from "../../rollup/build-on-the-fly.js";
