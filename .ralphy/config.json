@@ -1,0 +1,28 @@
+{
+  "version": 2,
+  "provider": {
+    "type": "linear",
+    "config": {
+      "projectId": "ade28acf-35ff-4b7c-a354-31569292a5a0",
+      "projectName": "sb-mig",
+      "teamId": "459972b1-6f24-4177-8321-b2aceac3a426"
+    }
+  },
+  "labels": {
+    "ready": "ralph-ready",
+    "candidate": "ralph-candidate",
+    "enriched": "ralph-enriched",
+    "prFeedback": "ralph-pr-feedback"
+  },
+  "claude": {
+    "maxIterations": 20,
+    "timeout": 1200000,
+    "model": "sonnet"
+  },
+  "integrations": {
+    "github": {
+      "owner": "sb-mig",
+      "repo": "sb-mig"
+    }
+  }
+}
