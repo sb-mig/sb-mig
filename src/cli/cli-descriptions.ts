@@ -4,7 +4,7 @@ export const mainDescription = `
     
     COMMANDS
         sync      Synchronize components, datasources, roles, stories, assets with Storyblok space.
-        discover  Discover components and write to file or stdout.
+        discover  Discover components, migration configs and write to file or stdout.
         backup    Command for backing up anything related to Storyblok
         migrate   Migrate content from space to space, or from file to space.
         debug     Output extra debugging information
@@ -91,8 +91,9 @@ export const migrateDescription = `
         --migration       - File name of migration file (without extension)
         --withSlug        - Filter stories by full slug (can be repeated)
         --startsWith      - Filter stories by starts_with prefix
-        --yes             - Skip ask for confirmation (dangerous, but useful in CI/CD) 
-    
+        --yes             - Skip ask for confirmation (dangerous, but useful in CI/CD)
+        --dry-run         - Preview what would be migrated without making any API changes
+
     EXAMPLES
         $ sb-mig migrate content --all --from 12345 --to 12345 --migration file-with-migration
         $ sb-mig migrate content --all --from 12345 --to 12345 --migration file-with-migration --withSlug blog/home --withSlug docs/getting-started
@@ -122,21 +123,23 @@ export const revertDescription = `
 
 export const discoverDescription = `
     Usage
-        $ sb-mig discover [components] --all --write
-        
+        $ sb-mig discover [components|migrations] --all --write
+
     Description
-        Discover all component and write to file or stdout
-        
+        Discover all components or migration configs and write to file or stdout
+
     COMMANDS
         components     - discover components
-     
+        migrations     - discover migration config files
+
     FLAGS
-        --all          - Discover all components
-        --write        - Write to file 
-    
+        --all          - Discover all components or migration configs
+        --write        - Write to file
+
     EXAMPLES
         $ sb-mig discover components --all
-        $ sb-mig discover components --all -- write
+        $ sb-mig discover components --all --write
+        $ sb-mig discover migrations --all
 `;
 
 export const migrationsDescription = `

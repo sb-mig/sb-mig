@@ -78,6 +78,10 @@ app.migrate = () => ({
             startsWith: {
                 type: "string",
             },
+            dryRun: {
+                type: "boolean",
+                default: false,
+            },
         },
     }),
     action: (cli: any) => {

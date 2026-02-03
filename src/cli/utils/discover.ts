@@ -12,7 +12,7 @@ const { globSync } = glob;
 
 import storyblokConfig, { SCHEMA } from "../../config/config.js";
 import { buildOnTheFly } from "../../rollup/build-on-the-fly.js";
-import { getFileContentWithRequire } from "../../utils/files.js";
+import { getFileContentWithRequire, readFile } from "../../utils/files.js";
 import {
     normalizeDiscover,
     filesPattern,
@@ -707,6 +707,75 @@ export const discoverMigrationConfig = (
     return listOfFiles;
 };
 
+export const discoverAllMigrationConfigs = (
+    request: DiscoverRequest,
+): DiscoverResult => {
+    const rootDirectory = "./";
+    const directory = path.resolve(process.cwd(), rootDirectory);
+    let pattern;
+    let listOfFiles: string[] = [];
+
+    switch (request.scope) {
+        case SCOPE.local: {
+            const onlyLocalComponentsDirectories =
+                storyblokConfig.componentsDirectories.filter(
+                    (p: string) => !p.includes("node_modules"),
+                );
+            pattern = path.join(
+                `${directory}`,
+                `${normalizeDiscover({
+                    segments: onlyLocalComponentsDirectories,
+                })}`,
+                "**",
+                `[^_]*.${storyblokConfig.migrationConfigExt}`,
+            );
+
+            listOfFiles = globSync(pattern.replace(/\\/g, "/"), {
+                follow: true,
+            });
+            break;
+        }
+        case SCOPE.external: {
+            const onlyNodeModulesPackagesComponentsDirectories =
+                storyblokConfig.componentsDirectories.filter((p: string) =>
+                    p.includes("node_modules"),
+                );
+            pattern = path.join(
+                `${directory}`,
+                `${normalizeDiscover({
+                    segments: onlyNodeModulesPackagesComponentsDirectories,
+                })}`,
+                "**",
+                `[^_]*.${storyblokConfig.migrationConfigExt}`,
+            );
+
+            listOfFiles = globSync(pattern.replace(/\\/g, "/"), {
+                follow: true,
+            });
+            break;
+        }
+        case SCOPE.all: {
+            pattern = path.join(
+                `${directory}`,
+                `${normalizeDiscover({
+                    segments: storyblokConfig.componentsDirectories,
+                })}`,
+                "**",
+                `[^_]*.${storyblokConfig.migrationConfigExt}`,
+            );
+
+            listOfFiles = globSync(pattern.replace(/\\/g, "/"), {
+                follow: true,
+            });
+            break;
+        }
+        default:
+            break;
+    }
+
+    return listOfFiles;
+};
+
 export const discoverVersionMapping = (
     request: DiscoverManyRequest,
 ): DiscoverResult => {
@@ -1278,4 +1347,95 @@ export const discoverAllComponents = async () => {
     });
 
     return { local, external };
+};
+
+export const discoverAllMigrations = () => {
+    const allLocalMigrationFiles = discoverAllMigrationConfigs({
+        scope: SCOPE.local,
+        type: LOOKUP_TYPE.fileName,
+    });
+
+    const allExternalMigrationFiles = discoverAllMigrationConfigs({
+        scope: SCOPE.external,
+        type: LOOKUP_TYPE.fileName,
+    });
+
+    const { local, external } = compare({
+        local: allLocalMigrationFiles,
+        external: allExternalMigrationFiles,
+    });
+
+    return { local, external };
+};
+
+export interface MigrationInfo {
+    name: string;
+    filePath: string;
+    scope: "local" | "external";
+    targetComponents: string[];
+    applied: { story: boolean; preset: boolean };
+}
+
+export const enrichMigrationInfo = async (allMigrations: {
+    local: OneFileElement[];
+    external: OneFileElement[];
+}): Promise<MigrationInfo[]> => {
+    let appliedMigrations: { story: string[]; preset: string[] } = {
+        story: [],
+        preset: [],
+    };
+
+    try {
+        const fileContent = (await readFile(
+            "applied-backpack-migrations.json",
+        )) as string;
+        const parsed = JSON.parse(fileContent);
+        appliedMigrations = parsed.migrations || { story: [], preset: [] };
+        if (Array.isArray(appliedMigrations)) {
+            appliedMigrations = {
+                story: appliedMigrations as unknown as string[],
+                preset: [],
+            };
+        }
+    } catch {
+        // File doesn't exist or is invalid — treat as no migrations applied
+    }
+
+    const ext = storyblokConfig.migrationConfigExt;
+    const results: MigrationInfo[] = [];
+
+    const processFiles = (
+        files: OneFileElement[],
+        scope: "local" | "external",
+    ) => {
+        for (const file of files) {
+            const name = file.name.replace(`.${ext}`, "");
+
+            let targetComponents: string[];
+            try {
+                const content = getFileContentWithRequire({
+                    file: file.p,
+                });
+                targetComponents = Object.keys(content);
+            } catch {
+                targetComponents = ["<error loading>"];
+            }
+
+            results.push({
+                name,
+                filePath: file.p,
+                scope,
+                targetComponents,
+                applied: {
+                    story: appliedMigrations.story.includes(name),
+                    preset: appliedMigrations.preset.includes(name),
+                },
+            });
+        }
+    };
+
+    processFiles(allMigrations.local, "local");
+    processFiles(allMigrations.external, "external");
+
+    return results;
 };
