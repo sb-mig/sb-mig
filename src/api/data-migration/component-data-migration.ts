@@ -33,6 +33,7 @@ interface MigrateItems {
         withSlug?: string[];
         startsWith?: string;
     };
+    dryRun?: boolean;
 }
 
 interface ReplaceComponentData {
@@ -200,6 +201,7 @@ export const migrateAllComponentsDataInStories = async (
         from,
         to,
         filters,
+        dryRun,
     }: Omit<MigrateItems, "componentsToMigrate">,
     config: RequestBaseConfig,
 ) => {
@@ -230,6 +232,7 @@ export const migrateAllComponentsDataInStories = async (
             to,
             componentsToMigrate,
             filters,
+            dryRun,
         },
         config,
     );
@@ -244,6 +247,7 @@ export const doTheMigration = async (
         migrationConfigFileContent,
         migrationConfig,
         to,
+        dryRun,
     }: any,
     config: RequestBaseConfig,
 ) => {
@@ -340,12 +344,23 @@ export const doTheMigration = async (
         {
             datestamp: true,
             ext: "json",
-            filename: `${from}---${itemType}-to-migrate`,
+            filename: `${dryRun ? "dry-run--" : ""}${from}---${itemType}-to-migrate`,
             folder: "migrations",
             res: notNullMigratedItems,
         },
         config,
     );
+
+    if (dryRun) {
+        console.log(" ");
+        Logger.success(
+            `[DRY RUN] Migration preview complete. ${notNullMigratedItems.length} ${itemType}(s) would be affected.`,
+        );
+        Logger.success(
+            `[DRY RUN] No API changes were made. Review the saved migration file for details.`,
+        );
+        return;
+    }
 
     await modifyOrCreateAppliedMigrationsFile(migrationConfig, itemType);
 
@@ -406,6 +421,7 @@ export const migrateProvidedComponentsDataInStories = async (
         to,
         componentsToMigrate,
         filters,
+        dryRun,
     }: MigrateItems,
     config: RequestBaseConfig,
 ) => {
@@ -429,6 +445,7 @@ export const migrateProvidedComponentsDataInStories = async (
                 componentsToMigrate,
                 migrationConfigFileContent,
                 to,
+                dryRun,
             },
             config,
         );
@@ -480,16 +497,18 @@ export const migrateProvidedComponentsDataInStories = async (
 
         const backupFolder = path.join("backup", itemType);
 
-        // save stories to file as backup
-        await saveBackupToFile(
-            {
-                itemType,
-                filename: `before__${migrationConfig}__${from}`,
-                folder: backupFolder,
-                res: itemsToMigrate,
-            },
-            config,
-        );
+        if (!dryRun) {
+            // save stories to file as backup
+            await saveBackupToFile(
+                {
+                    itemType,
+                    filename: `before__${migrationConfig}__${from}`,
+                    folder: backupFolder,
+                    res: itemsToMigrate,
+                },
+                config,
+            );
+        }
 
         await doTheMigration(
             {
@@ -500,6 +519,7 @@ export const migrateProvidedComponentsDataInStories = async (
                 migrationConfig,
                 from,
                 to,
+                dryRun,
             },
             config,
         );

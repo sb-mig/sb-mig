@@ -53,6 +53,7 @@ export const migrate = async (props: CLIOptions) => {
             const from = getFrom(flags, apiConfig);
             const to = getTo(flags, apiConfig);
             const migrationConfig = flags["migration"];
+            const dryRun = flags["dryRun"] as boolean | undefined;
             const withSlugFlag = flags["withSlug"] as
                 | string
                 | string[]
@@ -60,8 +61,8 @@ export const migrate = async (props: CLIOptions) => {
             const withSlug = Array.isArray(withSlugFlag)
                 ? withSlugFlag
                 : withSlugFlag
-                ? [withSlugFlag]
-                : undefined;
+                  ? [withSlugFlag]
+                  : undefined;
             const startsWith =
                 (flags["startsWith"] as string | undefined) || undefined;
 
@@ -70,11 +71,10 @@ export const migrate = async (props: CLIOptions) => {
 
                 const migrateFrom: MigrateFrom = "space";
 
-                await askForConfirmation(
-                    "Are you sure you want to MIGRATE content (stories) in your space ? (it will overwrite stories)",
-                    async () => {
-                        Logger.warning("Preparing to migrate...");
+                const runMigration = async () => {
+                    Logger.warning("Preparing to migrate...");
 
+                    if (!dryRun) {
                         await backupStories(
                             {
                                 filename: `${from}--backup-before-migration___${migrationConfig}`,
@@ -83,56 +83,72 @@ export const migrate = async (props: CLIOptions) => {
                             },
                             apiConfig,
                         );
+                    }
 
-                        // Migrating provided components
-                        await migrateProvidedComponentsDataInStories(
-                            {
-                                itemType: "story",
-                                from,
-                                to,
-                                migrateFrom,
-                                componentsToMigrate,
-                                migrationConfig,
-                                filters: { withSlug, startsWith },
-                            },
-                            apiConfig,
-                        );
-                    },
-                    () => {
-                        Logger.warning(
-                            "Migration not started, exiting the program...",
-                        );
-                    },
-                    flags["yes"],
-                );
+                    // Migrating provided components
+                    await migrateProvidedComponentsDataInStories(
+                        {
+                            itemType: "story",
+                            from,
+                            to,
+                            migrateFrom,
+                            componentsToMigrate,
+                            migrationConfig,
+                            filters: { withSlug, startsWith },
+                            dryRun,
+                        },
+                        apiConfig,
+                    );
+                };
+
+                if (dryRun) {
+                    await runMigration();
+                } else {
+                    await askForConfirmation(
+                        "Are you sure you want to MIGRATE content (stories) in your space ? (it will overwrite stories)",
+                        runMigration,
+                        () => {
+                            Logger.warning(
+                                "Migration not started, exiting the program...",
+                            );
+                        },
+                        flags["yes"],
+                    );
+                }
             } else if (isIt("all")) {
                 const migrateFrom: MigrateFrom = flags["migrateFrom"];
-                const dryRun = flags["dryRun"];
 
-                await askForConfirmation(
-                    "Are you sure you want to MIGRATE content (stories) in your space ? (it will overwrite stories)",
-                    async () => {
-                        Logger.warning("Preparing to migrate...");
+                const runMigration = async () => {
+                    Logger.warning("Preparing to migrate...");
 
-                        await migrateAllComponentsDataInStories(
-                            {
-                                itemType: "story",
-                                from,
-                                to,
-                                migrateFrom,
-                                migrationConfig,
-                                filters: { withSlug, startsWith },
-                            },
-                            apiConfig,
-                        );
-                    },
-                    () => {
-                        Logger.warning(
-                            "Migration not started, exiting the program...",
-                        );
-                    },
-                    flags["yes"],
-                );
+                    await migrateAllComponentsDataInStories(
+                        {
+                            itemType: "story",
+                            from,
+                            to,
+                            migrateFrom,
+                            migrationConfig,
+                            filters: { withSlug, startsWith },
+                            dryRun,
+                        },
+                        apiConfig,
+                    );
+                };
+
+                if (dryRun) {
+                    await runMigration();
+                } else {
+                    await askForConfirmation(
+                        "Are you sure you want to MIGRATE content (stories) in your space ? (it will overwrite stories)",
+                        runMigration,
+                        () => {
+                            Logger.warning(
+                                "Migration not started, exiting the program...",
+                            );
+                        },
+                        flags["yes"],
+                    );
+                }
             } else {
                 Logger.error(
                     "Wrong combination of flags. check help for more info.",
@@ -153,13 +169,12 @@ export const migrate = async (props: CLIOptions) => {
 
             if (isIt("all")) {
                 const migrateFrom: MigrateFrom = flags["migrateFrom"];
-                const dryRun = flags["dryRun"];
+                const dryRun = flags["dryRun"] as boolean | undefined;
 
-                await askForConfirmation(
-                    "Are you sure you want to MIGRATE presets in your space ? (it will overwrite them)",
-                    async () => {
-                        Logger.warning("Preparing to migrate...");
+                const runMigration = async () => {
+                    Logger.warning("Preparing to migrate...");
 
+                    if (!dryRun) {
                         const response =
                             await managementApi.presets.getAllPresets(
                                 apiConfig,
@@ -172,25 +187,35 @@ export const migrate = async (props: CLIOptions) => {
                             },
                             apiConfig,
                         );
+                    }
 
-                        await migrateAllComponentsDataInStories(
-                            {
-                                itemType: "preset",
-                                from,
-                                to,
-                                migrateFrom,
-                                migrationConfig,
-                            },
-                            apiConfig,
-                        );
-                    },
-                    () => {
-                        Logger.warning(
-                            "Migration not started, exiting the program...",
-                        );
-                    },
-                    flags["yes"],
-                );
+                    await migrateAllComponentsDataInStories(
+                        {
+                            itemType: "preset",
+                            from,
+                            to,
+                            migrateFrom,
+                            migrationConfig,
+                            dryRun,
+                        },
+                        apiConfig,
+                    );
+                };
+
+                if (dryRun) {
+                    await runMigration();
+                } else {
+                    await askForConfirmation(
+                        "Are you sure you want to MIGRATE presets in your space ? (it will overwrite them)",
+                        runMigration,
+                        () => {
+                            Logger.warning(
+                                "Migration not started, exiting the program...",
+                            );
+                        },
+                        flags["yes"],
+                    );
+                }
             } else {
                 Logger.error(
                     "Wrong combination of flags. check help for more info.",
