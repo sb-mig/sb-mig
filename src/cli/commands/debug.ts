@@ -15,6 +15,8 @@ export const debug = async () => {
     Logger.log(" ");
     Logger.log(" ");
 
+    console.log("whatever man just testing");
+
     try {
         const fileContent = await getSbMigPackageJson();
         const consumerPkg = await getConsumerPackageJson();

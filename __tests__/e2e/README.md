@@ -54,6 +54,7 @@ npm run test:e2e -- sync-components.e2e.test.ts
 | `setup.ts`                    | CLI execution helpers and test utilities |
 | `cli-basic.e2e.test.ts`       | Basic CLI commands (--help, --version)   |
 | `sync-components.e2e.test.ts` | Full sync workflow tests                 |
+| `migrate-content.e2e.test.ts` | Content migration workflow tests         |
 
 ## What These Tests Verify
 

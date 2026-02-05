@@ -165,12 +165,24 @@ export const createTestDirectory = (name: string): string => {
 
     fs.mkdirSync(testDir, { recursive: true });
 
+    // Create minimal package.json to satisfy config resolution
+    const packageJson = {
+        name: "sb-mig-e2e-fixture",
+        private: true,
+        type: "module",
+    };
+    fs.writeFileSync(
+        path.join(testDir, "package.json"),
+        JSON.stringify(packageJson, null, 2),
+    );
+
     // Create minimal storyblok config
     const configContent = `
 export default {
     componentsDirectories: ["components"],
     accessToken: process.env.STORYBLOK_ACCESS_TOKEN,
     spaceId: process.env.STORYBLOK_SPACE_ID,
+    migrationConfigExt: "sb.migration.cjs",
 };
 `;
 
@@ -204,6 +216,35 @@ export const createTestComponentFile = (
     const content = `module.exports = ${JSON.stringify(schema, null, 2)};`;
 
     fs.writeFileSync(filePath, content);
+
+    return filePath;
+};
+
+/**
+ * Create a test migration file from fixture template
+ */
+export const createTestMigrationFileFromFixture = (
+    testDir: string,
+    fileName: string,
+    componentName: string,
+): string => {
+    const fixturePath = path.join(
+        process.cwd(),
+        "__tests__",
+        "fixtures",
+        "migrations",
+        "status-migration.sb.migration.cjs",
+    );
+    const fileContent = fs
+        .readFileSync(fixturePath, "utf8")
+        .replaceAll("__COMPONENT_NAME__", componentName);
+    const filePath = path.join(
+        testDir,
+        "components",
+        `${fileName}.sb.migration.cjs`,
+    );
+
+    fs.writeFileSync(filePath, fileContent);
 
     return filePath;
 };

@@ -4,11 +4,25 @@
 
 import path from "path";
 
-// NOTE: Do NOT change this to `import { globSync } from "glob"` - the default import pattern
-// is required for ESM/CommonJS interop when sb-mig is used as a dependency in other projects
-// that may have older versions of glob installed
-import glob from "glob";
-const { globSync } = glob;
+// Support both ESM and CommonJS glob exports across versions
+import * as glob from "glob";
+const globSync =
+    (glob as unknown as { globSync?: typeof import("glob").globSync })
+        .globSync ??
+    (glob as unknown as { sync?: typeof import("glob").globSync }).sync ??
+    (
+        glob as unknown as {
+            default?: { globSync?: typeof import("glob").globSync };
+        }
+    ).default?.globSync ??
+    (glob as unknown as { default?: { sync?: typeof import("glob").globSync } })
+        .default?.sync;
+
+if (!globSync) {
+    throw new Error(
+        "Unable to resolve globSync from 'glob'. Please ensure a compatible glob version is installed.",
+    );
+}
 
 import storyblokConfig, { SCHEMA } from "../../config/config.js";
 import { buildOnTheFly } from "../../rollup/build-on-the-fly.js";
