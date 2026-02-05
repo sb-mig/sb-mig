@@ -1,3 +1,16 @@
+# [5.6.0-beta.6](https://github.com/sb-mig/sb-mig/compare/v5.6.0-beta.5...v5.6.0-beta.6) (2026-02-05)
+
+
+### Bug Fixes
+
+* add ralphy config ([229ba52](https://github.com/sb-mig/sb-mig/commit/229ba527ff703b85a44f69007d7a6202181487a6))
+* migrate commands ([605f83a](https://github.com/sb-mig/sb-mig/commit/605f83a68efa2469c5e87235990db3fd64340f4b))
+
+
+### Features
+
+* improvements to migrations and migrate command ([0e5dcfc](https://github.com/sb-mig/sb-mig/commit/0e5dcfc131928d9c2996d5b05d660c7960efaf0e))
+
 # [5.6.0-beta.5](https://github.com/sb-mig/sb-mig/compare/v5.6.0-beta.4...v5.6.0-beta.5) (2026-02-03)
 
 
