@@ -57,6 +57,7 @@ export const migrate = async (props: CLIOptions) => {
         "withSlug",
         "startsWith",
         "dryRun",
+        "fileName",
     ]);
 
     Logger.warning(
@@ -84,6 +85,7 @@ export const migrate = async (props: CLIOptions) => {
                 flags["migration"] as string | string[] | undefined,
             );
             const dryRun = flags["dryRun"] as boolean | undefined;
+            const fileName = flags["fileName"] as string | undefined;
             const withSlugFlag = flags["withSlug"] as
                 | string
                 | string[]
@@ -134,6 +136,7 @@ export const migrate = async (props: CLIOptions) => {
                             filters: { withSlug, startsWith },
                             dryRun,
                             fromFilePath,
+                            fileName,
                         },
                         apiConfig,
                     );
@@ -169,6 +172,7 @@ export const migrate = async (props: CLIOptions) => {
                             filters: { withSlug, startsWith },
                             dryRun,
                             fromFilePath,
+                            fileName,
                         },
                         apiConfig,
                     );
@@ -235,6 +239,7 @@ export const migrate = async (props: CLIOptions) => {
             if (isIt("all")) {
                 const migrateFrom: MigrateFrom = flags["migrateFrom"];
                 const dryRun = flags["dryRun"] as boolean | undefined;
+                const fileName = flags["fileName"] as string | undefined;
 
                 const runMigration = async () => {
                     Logger.warning("Preparing to migrate...");
@@ -263,6 +268,7 @@ export const migrate = async (props: CLIOptions) => {
                             migrationConfig: migrationConfigs[0] as string,
                             dryRun,
                             fromFilePath,
+                            fileName,
                         },
                         apiConfig,
                     );

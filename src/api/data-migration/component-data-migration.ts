@@ -21,12 +21,29 @@ import { modifyOrCreateAppliedMigrationsFile } from "../../utils/migrations.js";
 import { isObjectEmpty } from "../../utils/object-utils.js";
 import { managementApi } from "../managementApi.js";
 
+import {
+    discoverMigrationValidatorForMigrationFile,
+    MigrationValidationFailedError,
+    runPreparedMigrationValidator,
+    type MigrationValidationIssue,
+    type PreparedMigrationValidator,
+} from "./migration-validation.js";
+
 export type MigrateFrom = "file" | "space";
 
 export interface PreparedMigrationConfig {
     migrationConfigName: string;
+    migrationConfigPath: string;
     migrationConfigFileContent: Record<string, MapperDefinition>;
     componentsToMigrate: string[];
+    validator: PreparedMigrationValidator | null;
+}
+
+export interface MigrationStepValidationReport {
+    validatorId: string;
+    validatorName: string;
+    issueCount: number;
+    sourcePath: string;
 }
 
 export interface MigrationStepReport {
@@ -35,6 +52,7 @@ export interface MigrationStepReport {
     totalComponentReplacements: number;
     replacementsByComponent: Record<string, number>;
     maxDepth: number;
+    validation: MigrationStepValidationReport | null;
 }
 
 export interface MigrationPipelineResult {
@@ -57,6 +75,7 @@ interface MigrateItems {
     };
     dryRun?: boolean;
     fromFilePath?: string;
+    fileName?: string;
     preparedMigrationConfigs?: PreparedMigrationConfig[];
 }
 
@@ -259,9 +278,17 @@ export const prepareMigrationConfigs = ({
                 fileNames: [migrationConfigName],
             });
 
-            const migrationConfigFileContent = getFilesContentWithRequire({
-                files: migrationConfigFiles,
-            })[0] as Record<string, MapperDefinition> | undefined;
+            const migrationConfigPath = migrationConfigFiles[0];
+
+            if (!migrationConfigPath) {
+                throw new Error(
+                    `Migration config '${migrationConfigName}' probably doesnt exist. Create one`,
+                );
+            }
+
+            const migrationConfigFileContent = getFileContentWithRequire({
+                file: migrationConfigPath,
+            }) as Record<string, MapperDefinition> | undefined;
 
             if (isObjectEmpty(migrationConfigFileContent)) {
                 throw new Error(
@@ -275,6 +302,17 @@ export const prepareMigrationConfigs = ({
                 );
             }
 
+            const validator = discoverMigrationValidatorForMigrationFile({
+                migrationConfigName,
+                migrationConfigPath,
+            });
+
+            if (!validator) {
+                Logger.warning(
+                    `[VALIDATION] No co-located validator found for migration '${migrationConfigName}'. Expected a sibling '*.validation.*' file.`,
+                );
+            }
+
             const resolvedComponentsToMigrate =
                 componentsToMigrate && componentsToMigrate.length > 0
                     ? componentsToMigrate
@@ -282,8 +320,10 @@ export const prepareMigrationConfigs = ({
 
             return {
                 migrationConfigName,
+                migrationConfigPath,
                 migrationConfigFileContent,
                 componentsToMigrate: resolvedComponentsToMigrate,
+                validator,
             };
         },
     );
@@ -312,6 +352,35 @@ const deepClone = <T>(input: T): T => JSON.parse(JSON.stringify(input));
 
 const sumValues = (obj: Record<string, number>): number =>
     Object.values(obj).reduce((sum, value) => sum + value, 0);
+
+const sanitizeOutputFileBaseName = (value: string): string => {
+    const sanitized = value
+        .trim()
+        .replace(/[\\/]/g, "-")
+        .replace(/\s+/g, "-")
+        .replace(/[^a-zA-Z0-9._-]/g, "-")
+        .replace(/-+/g, "-")
+        .replace(/^[-.]+|[-.]+$/g, "");
+
+    return sanitized || "migration-output";
+};
+
+const resolveOutputFileBaseName = ({
+    from,
+    fileName,
+}: {
+    from: string;
+    fileName?: string;
+}): string => {
+    if (typeof fileName === "string" && fileName.trim().length > 0) {
+        return sanitizeOutputFileBaseName(fileName);
+    }
+
+    return sanitizeOutputFileBaseName(from);
+};
+
+const shouldUseDatestampForArtifacts = (fileName?: string): boolean =>
+    !(typeof fileName === "string" && fileName.trim().length > 0);
 
 const applySingleMigrationToItems = ({
     itemType,
@@ -424,6 +493,7 @@ const applySingleMigrationToItems = ({
             maxDepth,
             replacementsByComponent,
             totalComponentReplacements: sumValues(replacementsByComponent),
+            validation: null,
         },
     };
 };
@@ -442,7 +512,7 @@ export const runMigrationPipelineInMemory = ({
 
     const stepReports: MigrationStepReport[] = [];
 
-    preparedMigrationConfigs.forEach((preparedMigrationConfig) => {
+    for (const preparedMigrationConfig of preparedMigrationConfigs) {
         const { updatedItems, stepReport } = applySingleMigrationToItems({
             itemType,
             itemsToMigrate: workingItems,
@@ -450,8 +520,43 @@ export const runMigrationPipelineInMemory = ({
         });
 
         workingItems = updatedItems;
+
+        if (preparedMigrationConfig.validator) {
+            Logger.log(
+                `[VALIDATION] Running '${preparedMigrationConfig.validator.id}' after migration '${preparedMigrationConfig.migrationConfigName}'...`,
+            );
+
+            const validationResult = runPreparedMigrationValidator({
+                validator: preparedMigrationConfig.validator,
+                data: workingItems,
+                isDebug: storyblokConfig.debug,
+            });
+
+            stepReport.validation = {
+                validatorId: preparedMigrationConfig.validator.id,
+                validatorName: preparedMigrationConfig.validator.name,
+                issueCount: validationResult.issueCount,
+                sourcePath: preparedMigrationConfig.validator.sourcePath,
+            };
+
+            if (!validationResult.ok) {
+                throw new MigrationValidationFailedError({
+                    migrationConfig:
+                        preparedMigrationConfig.migrationConfigName,
+                    validatorId: preparedMigrationConfig.validator.id,
+                    validatorName: preparedMigrationConfig.validator.name,
+                    issueCount: validationResult.issueCount,
+                    issues: validationResult.issues,
+                });
+            }
+
+            Logger.success(
+                `[VALIDATION] Passed '${preparedMigrationConfig.validator.id}' after migration '${preparedMigrationConfig.migrationConfigName}'.`,
+            );
+        }
+
         stepReports.push(stepReport);
-    });
+    }
 
     const changedItems = workingItems.filter((item, index) => {
         const originalItem = originalItems[index];
@@ -473,6 +578,8 @@ export const runMigrationPipelineInMemory = ({
 
 const savePipelineSummary = async (
     {
+        artifactBaseName,
+        useDatestamp,
         from,
         itemType,
         dryRun,
@@ -480,6 +587,8 @@ const savePipelineSummary = async (
         fromFilePath,
         pipelineResult,
     }: {
+        artifactBaseName: string;
+        useDatestamp: boolean;
         from: string;
         itemType: "story" | "preset";
         dryRun?: boolean;
@@ -491,11 +600,11 @@ const savePipelineSummary = async (
 ) => {
     await createAndSaveToFile(
         {
-            datestamp: true,
+            datestamp: useDatestamp,
             ext: "json",
             filename: `${
                 dryRun ? "dry-run--" : ""
-            }${from}---${itemType}-migration-pipeline-summary`,
+            }${artifactBaseName}---${itemType}-migration-pipeline-summary`,
             folder: "migrations",
             res: {
                 itemType,
@@ -508,6 +617,51 @@ const savePipelineSummary = async (
                 totalChangedItems: pipelineResult.changedItems.length,
                 steps: pipelineResult.stepReports,
             },
+        },
+        config,
+    );
+};
+
+const saveDryRunDiffArtifacts = async (
+    {
+        artifactBaseName,
+        useDatestamp,
+        itemType,
+        dryRun,
+        inputItems,
+        finalItems,
+    }: {
+        artifactBaseName: string;
+        useDatestamp: boolean;
+        itemType: "story" | "preset";
+        dryRun?: boolean;
+        inputItems: any[];
+        finalItems: any[];
+    },
+    config: RequestBaseConfig,
+) => {
+    if (!dryRun) {
+        return;
+    }
+
+    await createAndSaveToFile(
+        {
+            datestamp: useDatestamp,
+            ext: "json",
+            filename: `dry-run--${artifactBaseName}---${itemType}-input-full`,
+            folder: "migrations",
+            res: inputItems,
+        },
+        config,
+    );
+
+    await createAndSaveToFile(
+        {
+            datestamp: useDatestamp,
+            ext: "json",
+            filename: `dry-run--${artifactBaseName}---${itemType}-after-full`,
+            folder: "migrations",
+            res: finalItems,
         },
         config,
     );
@@ -610,6 +764,7 @@ export const migrateAllComponentsDataInStories = async (
         filters,
         dryRun,
         fromFilePath,
+        fileName,
     }: Omit<MigrateItems, "componentsToMigrate" | "preparedMigrationConfigs">,
     config: RequestBaseConfig,
 ) => {
@@ -647,6 +802,7 @@ export const migrateAllComponentsDataInStories = async (
             filters,
             dryRun,
             fromFilePath,
+            fileName,
             preparedMigrationConfigs,
         },
         config,
@@ -664,6 +820,7 @@ export const doTheMigration = async (
         dryRun,
         migrateFrom,
         fromFilePath,
+        fileName,
     }: {
         itemType?: "story" | "preset";
         from: string;
@@ -674,6 +831,7 @@ export const doTheMigration = async (
         dryRun?: boolean;
         migrateFrom: MigrateFrom;
         fromFilePath?: string;
+        fileName?: string;
     },
     config: RequestBaseConfig,
 ) => {
@@ -682,12 +840,58 @@ export const doTheMigration = async (
         prepareMigrationConfigs({
             migrationConfig: migrationConfig || [],
         });
+    const artifactBaseName = resolveOutputFileBaseName({ from, fileName });
+    const useDatestamp = shouldUseDatestampForArtifacts(fileName);
 
-    const pipelineResult = runMigrationPipelineInMemory({
-        itemType,
-        itemsToMigrate,
-        preparedMigrationConfigs,
-    });
+    let pipelineResult: MigrationPipelineResult;
+
+    try {
+        pipelineResult = runMigrationPipelineInMemory({
+            itemType,
+            itemsToMigrate,
+            preparedMigrationConfigs,
+        });
+    } catch (error) {
+        if (error instanceof MigrationValidationFailedError) {
+            await createAndSaveToFile(
+                {
+                    datestamp: useDatestamp,
+                    ext: "json",
+                    filename: `${dryRun ? "dry-run--" : ""}${artifactBaseName}---${itemType}-validation-failed`,
+                    folder: "migrations",
+                    res: {
+                        migrationConfig: error.migrationConfig,
+                        validatorId: error.validatorId,
+                        validatorName: error.validatorName,
+                        issueCount: error.issueCount,
+                        issues: error.issues,
+                    },
+                },
+                config,
+            );
+
+            Logger.error(
+                `[VALIDATION] Migration '${error.migrationConfig}' failed in step validator '${error.validatorId}' with ${error.issueCount} issue(s).`,
+            );
+
+            error.issues
+                .slice(0, 20)
+                .forEach((issue: MigrationValidationIssue) => {
+                    const uid = issue.uid ? ` (_uid: ${issue.uid})` : "";
+                    console.log(
+                        `  ${issue.componentPath} -> ${issue.component}${uid}  ${issue.message}`,
+                    );
+                });
+
+            if (error.issueCount > 20) {
+                Logger.warning(
+                    "[VALIDATION] Showing first 20 issues only. Full report saved to migrations folder.",
+                );
+            }
+        }
+
+        throw error;
+    }
 
     if (pipelineResult.changedItems.length === 0) {
         console.log("# No Stories to update #");
@@ -695,11 +899,23 @@ export const doTheMigration = async (
         console.log(`${pipelineResult.changedItems.length} stories to migrate`);
     }
 
+    await saveDryRunDiffArtifacts(
+        {
+            artifactBaseName,
+            useDatestamp,
+            itemType,
+            dryRun,
+            inputItems: itemsToMigrate,
+            finalItems: pipelineResult.finalItems,
+        },
+        config,
+    );
+
     await createAndSaveToFile(
         {
-            datestamp: true,
+            datestamp: useDatestamp,
             ext: "json",
-            filename: `${dryRun ? "dry-run--" : ""}${from}---${itemType}-to-migrate`,
+            filename: `${dryRun ? "dry-run--" : ""}${artifactBaseName}---${itemType}-to-migrate`,
             folder: "migrations",
             res: pipelineResult.changedItems,
         },
@@ -708,6 +924,8 @@ export const doTheMigration = async (
 
     await savePipelineSummary(
         {
+            artifactBaseName,
+            useDatestamp,
             from,
             itemType,
             dryRun,
@@ -799,6 +1017,7 @@ export const migrateProvidedComponentsDataInStories = async (
         filters,
         dryRun,
         fromFilePath,
+        fileName,
         preparedMigrationConfigs,
     }: MigrateItems,
     config: RequestBaseConfig,
@@ -852,6 +1071,7 @@ export const migrateProvidedComponentsDataInStories = async (
             dryRun,
             migrateFrom,
             fromFilePath,
+            fileName,
         },
         config,
     );

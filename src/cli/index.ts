@@ -89,6 +89,9 @@ app.migrate = () => ({
                 type: "boolean",
                 default: false,
             },
+            fileName: {
+                type: "string",
+            },
         },
     }),
     action: (cli: any) => {
