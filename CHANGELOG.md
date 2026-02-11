@@ -1,3 +1,11 @@
+# [5.6.0-beta.7](https://github.com/sb-mig/sb-mig/compare/v5.6.0-beta.6...v5.6.0-beta.7) (2026-02-11)
+
+
+### Features
+
+* improve migrate command ([b733637](https://github.com/sb-mig/sb-mig/commit/b733637c3afcbb6c4d76b2712e6aa6f33e647b7f))
+* imrpove migrate command - add fileName arg ([a8661bc](https://github.com/sb-mig/sb-mig/commit/a8661bc4572a8051a3796792ac3868ac2e99f8db))
+
 # [5.6.0-beta.6](https://github.com/sb-mig/sb-mig/compare/v5.6.0-beta.5...v5.6.0-beta.6) (2026-02-05)
 
 
