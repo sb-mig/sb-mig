@@ -63,6 +63,9 @@ app.migrate = () => ({
             from: {
                 type: "string",
             },
+            fromFilePath: {
+                type: "string",
+            },
             to: {
                 type: "string",
             },
@@ -70,6 +73,10 @@ app.migrate = () => ({
                 type: "string",
                 default: "space",
                 isRequired: true,
+            },
+            migration: {
+                type: "string",
+                isMultiple: true,
             },
             withSlug: {
                 type: "string",
@@ -81,6 +88,9 @@ app.migrate = () => ({
             dryRun: {
                 type: "boolean",
                 default: false,
+            },
+            fileName: {
+                type: "string",
             },
         },
     }),

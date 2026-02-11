@@ -5,5 +5,5 @@ export default {
         "src/components",
         "src/storyblok",
     ],
-    rateLimit: 2,
+    rateLimit: 6,
 };

@@ -76,6 +76,7 @@ export const copyDescription = `
 export const migrateDescription = `
     Usage
         $ sb-mig migrate [content] [space separated file names] or --all --from [spaceId] --to [spaceId] --migration [migration-config-filename]
+        $ sb-mig migrate content --all --migration migration-a --migration migration-b --migration migration-c
         
     Description
         Migrate content from space to space, or from file to space. It's potentially dangerous command, so it will ask for confirmation.
@@ -86,19 +87,24 @@ export const migrateDescription = `
      
     FLAGS
         --from            - Space ID from which you want to migrate / or file name if passed '--migrate-from file'
+        --fromFilePath    - Direct path to stories JSON file when using '--migrate-from file'
         --to              - Space ID to which you want to migrate
         --migrate-from    - Migrate from (space, file) default: space
-        --migration       - File name of migration file (without extension)
+        --migration       - File name of migration file (without extension). Can be repeated for ordered pipeline in content migration.
         --withSlug        - Filter stories by full slug (can be repeated)
         --startsWith      - Filter stories by starts_with prefix
         --yes             - Skip ask for confirmation (dangerous, but useful in CI/CD)
         --dry-run         - Preview what would be migrated without making any API changes
+        --fileName        - Stable base name for migration output files (disables timestamp suffix for migration artifacts)
 
     EXAMPLES
         $ sb-mig migrate content --all --from 12345 --to 12345 --migration file-with-migration
+        $ sb-mig migrate content --all --from 12345 --to 12345 --migration migration-a --migration migration-b --migration migration-c
         $ sb-mig migrate content --all --from 12345 --to 12345 --migration file-with-migration --withSlug blog/home --withSlug docs/getting-started
         $ sb-mig migrate content --all --from 12345 --to 12345 --migration file-with-migration --startsWith blog/
+        $ sb-mig migrate content --all --from 12345 --to 12345 --migration v3toV4AllMigrations --dry-run --fileName brand-hub-v3-v4-run
         $ sb-mig migrate content --all --migrate-from file --from file-with-stories --to 12345 --migration file-with-migration
+        $ sb-mig migrate content --all --migrate-from file --fromFilePath sbmig/migrations/dry-run--123---story-to-migrate__2026-2-9_20-51.json --to 12345 --migration migration-a --migration migration-b
         $ sb-mig migrate content my-component-1 my-component-2 --from 12345 --to 12345 --migration file-with-migration
         $ sb-mig migrate content my-component-1 my-component-2 --migrate-from file --from file-with-stories --to 12345 --migration file-with-migration        
 `;

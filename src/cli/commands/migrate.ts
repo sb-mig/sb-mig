@@ -1,6 +1,8 @@
 import type { MigrateFrom } from "../../api/data-migration/component-data-migration.js";
 import type { CLIOptions } from "../../utils/interfaces.js";
 
+import path from "path";
+
 import {
     migrateAllComponentsDataInStories,
     migrateProvidedComponentsDataInStories,
@@ -23,6 +25,20 @@ const MIGRATE_COMMANDS = {
     presets: "presets",
 };
 
+const normalizeMigrationFlags = (
+    migrationFlag: string | string[] | undefined,
+): string[] => {
+    if (Array.isArray(migrationFlag)) {
+        return migrationFlag.filter(Boolean);
+    }
+
+    if (typeof migrationFlag === "string" && migrationFlag.length > 0) {
+        return [migrationFlag];
+    }
+
+    return [];
+};
+
 export const migrate = async (props: CLIOptions) => {
     const { input, flags } = props;
 
@@ -34,12 +50,14 @@ export const migrate = async (props: CLIOptions) => {
     const isIt = isItFactory<keyof typeof rules>(flags, rules, [
         "to",
         "from",
+        "fromFilePath",
         "pageId",
         "migration",
         "yes",
         "withSlug",
         "startsWith",
         "dryRun",
+        "fileName",
     ]);
 
     Logger.warning(
@@ -50,10 +68,24 @@ export const migrate = async (props: CLIOptions) => {
         case MIGRATE_COMMANDS.content: {
             Logger.log(`Migrating content with command: ${command}`);
 
-            const from = getFrom(flags, apiConfig);
+            const fromFilePath = flags["fromFilePath"] as string | undefined;
+            const migrateFromFlag = flags["migrateFrom"] as
+                | MigrateFrom
+                | undefined;
+            const fromFallback =
+                migrateFromFlag === "file" && fromFilePath
+                    ? path.parse(fromFilePath).name
+                    : undefined;
+            const from =
+                (flags["from"] as string | undefined) ||
+                fromFallback ||
+                getFrom(flags, apiConfig);
             const to = getTo(flags, apiConfig);
-            const migrationConfig = flags["migration"];
+            const migrationConfigs = normalizeMigrationFlags(
+                flags["migration"] as string | string[] | undefined,
+            );
             const dryRun = flags["dryRun"] as boolean | undefined;
+            const fileName = flags["fileName"] as string | undefined;
             const withSlugFlag = flags["withSlug"] as
                 | string
                 | string[]
@@ -66,6 +98,12 @@ export const migrate = async (props: CLIOptions) => {
             const startsWith =
                 (flags["startsWith"] as string | undefined) || undefined;
 
+            if (migrationConfigs.length === 0) {
+                throw new Error(
+                    "Missing migration config. Pass at least one --migration value.",
+                );
+            }
+
             if (isIt("empty")) {
                 const componentsToMigrate = unpackElements(input) || [""];
 
@@ -77,7 +115,9 @@ export const migrate = async (props: CLIOptions) => {
                     if (!dryRun) {
                         await backupStories(
                             {
-                                filename: `${from}--backup-before-migration___${migrationConfig}`,
+                                filename: `${from}--backup-before-migration___${migrationConfigs.join(
+                                    "__",
+                                )}`,
                                 suffix: ".sb.stories",
                                 spaceId: from,
                             },
@@ -85,7 +125,6 @@ export const migrate = async (props: CLIOptions) => {
                         );
                     }
 
-                    // Migrating provided components
                     await migrateProvidedComponentsDataInStories(
                         {
                             itemType: "story",
@@ -93,9 +132,11 @@ export const migrate = async (props: CLIOptions) => {
                             to,
                             migrateFrom,
                             componentsToMigrate,
-                            migrationConfig,
+                            migrationConfig: migrationConfigs,
                             filters: { withSlug, startsWith },
                             dryRun,
+                            fromFilePath,
+                            fileName,
                         },
                         apiConfig,
                     );
@@ -127,9 +168,11 @@ export const migrate = async (props: CLIOptions) => {
                             from,
                             to,
                             migrateFrom,
-                            migrationConfig,
+                            migrationConfig: migrationConfigs,
                             filters: { withSlug, startsWith },
                             dryRun,
+                            fromFilePath,
+                            fileName,
                         },
                         apiConfig,
                     );
@@ -162,14 +205,41 @@ export const migrate = async (props: CLIOptions) => {
         case MIGRATE_COMMANDS.presets: {
             Logger.log(`Migrating content with command: ${command}`);
 
-            const from = getFrom(flags, apiConfig);
+            const migrationConfigs = normalizeMigrationFlags(
+                flags["migration"] as string | string[] | undefined,
+            );
+            const fromFilePath = flags["fromFilePath"] as string | undefined;
+            const migrateFromFlag = flags["migrateFrom"] as
+                | MigrateFrom
+                | undefined;
+            const fromFallback =
+                migrateFromFlag === "file" && fromFilePath
+                    ? path.parse(fromFilePath).name
+                    : undefined;
+            const from =
+                (flags["from"] as string | undefined) ||
+                fromFallback ||
+                getFrom(flags, apiConfig);
             const to = getTo(flags, apiConfig);
-            const migrationConfig = flags["migration"];
+
+            if (migrationConfigs.length === 0) {
+                throw new Error(
+                    "Missing migration config. Pass exactly one --migration value for presets.",
+                );
+            }
+
+            if (migrationConfigs.length > 1) {
+                throw new Error(
+                    "Multiple --migration values are currently supported only for 'migrate content'. Presets support a single migration config.",
+                );
+            }
+
             console.log("Migrating with presets");
 
             if (isIt("all")) {
                 const migrateFrom: MigrateFrom = flags["migrateFrom"];
                 const dryRun = flags["dryRun"] as boolean | undefined;
+                const fileName = flags["fileName"] as string | undefined;
 
                 const runMigration = async () => {
                     Logger.warning("Preparing to migrate...");
@@ -195,8 +265,10 @@ export const migrate = async (props: CLIOptions) => {
                             from,
                             to,
                             migrateFrom,
-                            migrationConfig,
+                            migrationConfig: migrationConfigs[0] as string,
                             dryRun,
+                            fromFilePath,
+                            fileName,
                         },
                         apiConfig,
                     );
