@@ -2,15 +2,77 @@ import type { RequestBaseConfig } from "../api/utils/request.js";
 
 import * as fs from "fs";
 import { writeFile } from "fs";
+import { createRequire } from "module";
 import path from "path";
 
 import pkg from "ncp";
 
+import { generateDatestamp } from "./date-utils.js";
 import Logger from "./logger.js";
-import { getFileContentWithRequire } from "./main.js";
-import { generateDatestamp } from "./others.js";
 
 const { ncp } = pkg;
+
+// ============================================================================
+// File Content Loading
+// ============================================================================
+
+/**
+ * Asynchronously load a file using dynamic import
+ * Returns the default export of the module
+ *
+ * @param data - Object containing the file path
+ * @returns The default export of the imported module
+ */
+export const getFileContent = (data: { file: string }): any => {
+    return import(data.file)
+        .then((res) => {
+            return res.default;
+        })
+        .catch((err) => {
+            console.log(err);
+            console.log("Cannot find requested file.");
+        });
+};
+
+/**
+ * Synchronously load a file using require
+ * Handles both CommonJS and ES modules with default exports
+ *
+ * @param data - Object containing the file path
+ * @returns The file content (default export if available)
+ */
+export const getFileContentWithRequire = (data: { file: string }) => {
+    const require = createRequire(import.meta.url);
+    const fileContent = require(data.file);
+
+    if (fileContent.default) {
+        return fileContent.default;
+    }
+
+    return fileContent;
+};
+
+/**
+ * Load multiple files using require
+ *
+ * @param data - Object containing array of file paths
+ * @returns Array of file contents
+ */
+export const getFilesContentWithRequire = (data: { files: string[] }) => {
+    return data.files.map((file) => getFileContentWithRequire({ file }));
+};
+
+/**
+ * Read and parse the package.json from current working directory
+ *
+ * @returns Parsed package.json object
+ */
+export const getPackageJson = () => {
+    const packageJsonPath = path.join(process.cwd(), "package.json");
+    const packageJsonContent = fs.readFileSync(packageJsonPath, "utf-8");
+    const packageJson = JSON.parse(packageJsonContent);
+    return packageJson;
+};
 
 export const isDirectoryExists = (path: string) => fs.existsSync(path);
 

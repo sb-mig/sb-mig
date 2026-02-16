@@ -17,24 +17,24 @@ interface SyncProvidedPluginsDTO {
 
 export type GetPlugin = (
     pluginName: string | undefined,
-    config: RequestBaseConfig
+    config: RequestBaseConfig,
 ) => Promise<any>;
 export type GetAllPlugins = (config: RequestBaseConfig) => Promise<any>;
 export type GetPluginDetails = (
     plugin: Plugin,
-    config: RequestBaseConfig
+    config: RequestBaseConfig,
 ) => Promise<any>;
 
 export type UpdatePlugin = (
     plugin: UpdatePluginDTO,
-    config: RequestBaseConfig
+    config: RequestBaseConfig,
 ) => Promise<any>;
 export type CreatePlugin = (
     pluginName: string,
-    config: RequestBaseConfig
+    config: RequestBaseConfig,
 ) => Promise<any>;
 
 export type SyncProvidedPlugins = (
     plugin: SyncProvidedPluginsDTO,
-    config: RequestBaseConfig
+    config: RequestBaseConfig,
 ) => Promise<void>;

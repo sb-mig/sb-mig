@@ -1,7 +1,3 @@
-export {
-    createRole,
-    getRole,
-    getAllRoles,
-    syncRoles,
-    updateRole,
-} from "./roles.js";
+export { createRole, getRole, getAllRoles, updateRole } from "./roles.js";
+
+export { syncRoles } from "./roles.sync.js";

@@ -6,9 +6,8 @@ import type {
     GetPluginDetails,
     UpdatePlugin,
 } from "./plugins.types.js";
-import type { SyncProvidedPlugins } from "./plugins.types.js";
+import type { SyncResult } from "../sync/sync.types.js";
 
-import { readFile } from "../../utils/files.js";
 import Logger from "../../utils/logger.js";
 import { getAllItemsWithPagination } from "../utils/request.js";
 
@@ -36,7 +35,7 @@ export const getAllPlugins: GetAllPlugins = (config) => {
 
 export const getPlugin: GetPlugin = (
     pluginName: string | undefined,
-    config
+    config,
 ) => {
     return getAllPlugins(config)
         .then((res) => res.find((plugin: any) => plugin.name === pluginName))
@@ -111,29 +110,46 @@ export const createPlugin: CreatePlugin = (pluginName: string, config) => {
         });
 };
 
-export const syncProvidedPlugins: SyncProvidedPlugins = async (
-    { plugins },
-    config
-) => {
-    const body = await readFile("dist/export.js");
-    if (plugins.length === 1) {
-        const pluginName = plugins[0];
-        const plugin = await getPlugin(pluginName, config);
-        if (plugin) {
-            Logger.log("Plugin exist.");
-            Logger.log("Start updating plugin....");
-            return await updatePlugin(
-                { plugin: plugin.field_type, body },
-                config
-            );
-        } else {
-            Logger.log("Start creating plugin...");
-            const { field_type } = await createPlugin(
-                pluginName as string,
-                config
-            );
-            Logger.log("Start updating plugin...");
-            return await updatePlugin({ plugin: field_type, body }, config);
+// File-based sync wrapper lives in `plugins.sync.ts` to keep this module CJS-safe.
+
+export const syncPluginsData = async (
+    { plugins }: { plugins: { name: string; body: string }[] },
+    config: any,
+): Promise<SyncResult> => {
+    const result: SyncResult = {
+        created: [],
+        updated: [],
+        skipped: [],
+        errors: [],
+    };
+
+    for (const p of plugins) {
+        const name = String(p?.name ?? "unknown");
+        if (!p?.name) {
+            result.skipped.push(name);
+            continue;
+        }
+
+        try {
+            const plugin = await getPlugin(name, config);
+            if (plugin) {
+                await updatePlugin(
+                    { plugin: plugin.field_type, body: p.body },
+                    config,
+                );
+                result.updated.push(name);
+            } else {
+                const created = await createPlugin(name, config);
+                await updatePlugin(
+                    { plugin: created.field_type, body: p.body },
+                    config,
+                );
+                result.created.push(name);
+            }
+        } catch (e) {
+            result.errors.push({ name, message: String(e) });
         }
     }
+
+    return result;
 };

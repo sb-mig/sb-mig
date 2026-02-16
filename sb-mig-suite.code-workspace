@@ -1,0 +1,14 @@
+{
+    "folders": [
+        {
+            "path": ".",
+        },
+        {
+            "path": "../sb-mig-gui",
+        },
+        {
+            "path": "../../Private/MobileHorizon",
+        },
+    ],
+    "settings": {},
+}

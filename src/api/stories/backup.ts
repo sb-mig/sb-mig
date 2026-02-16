@@ -7,7 +7,7 @@ import { getAllStories } from "./stories.js";
 
 export const backupStories: BackupStories = async (
     { suffix, spaceId, filename },
-    config
+    config,
 ) => {
     Logger.log(`Making backup of your stories.`);
     await getAllStories({}, { ...config, spaceId })
@@ -21,7 +21,7 @@ export const backupStories: BackupStories = async (
                     folder: "stories",
                     res,
                 },
-                config
+                config,
             );
         })
         .catch((err: any) => {

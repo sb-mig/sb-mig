@@ -1,16 +1,20 @@
 name: Release Stable
+
 on:
   push:
     branches:
       - master
-jobs:
-  release:
-    name: Release
-    runs-on: ubuntu-latest
 
-    strategy:
-      matrix:
-        node-version: [ 20.x ]
+env:
+  NODE_VERSION: "20.x"
+
+jobs:
+  # ============================================================================
+  # Job 1: Type Check & Lint
+  # ============================================================================
+  typecheck-and-lint:
+    name: Type Check & Lint
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
@@ -18,43 +22,296 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Use Node.js ${{ matrix.node-version }}
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type Check
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+  # ============================================================================
+  # Job 2: Build
+  # ============================================================================
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: typecheck-and-lint
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: |
+            dist/
+            dist-cjs/
+          retention-days: 1
+
+  # ============================================================================
+  # Job 3: Unit Tests (Matrix for Node 20 and 22)
+  # ============================================================================
+  unit-tests:
+    name: Unit Tests (Node ${{ matrix.node-version }})
+    runs-on: ubuntu-latest
+    needs: build
+
+    strategy:
+      matrix:
+        node-version: [20.x, 22.x]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
-          registry-url: 'https://registry.npmjs.org'
+          cache: "npm"
 
       - name: Install dependencies
-        run: yarn
+        run: npm ci
 
-      - name: Build
-        env:
-          NODE_AUTH_TOKEN: ${{secrets.GITHUB_TOKEN}}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: |
-          yarn build:test
-          yarn build
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: .
 
-      - name: Test
-        env:
-          NODE_AUTH_TOKEN: ${{secrets.GITHUB_TOKEN}}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Run Unit Tests
+        run: npm run test:unit
+
+  # ============================================================================
+  # Job 4: Integration Tests (Matrix for Node 20 and 22)
+  # ============================================================================
+  integration-tests:
+    name: Integration Tests (Node ${{ matrix.node-version }})
+    runs-on: ubuntu-latest
+    needs: build
+
+    strategy:
+      matrix:
+        node-version: [20.x, 22.x]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: .
+
+      - name: Run Integration Tests
+        run: npm run test -- __tests__/integration
+
+  # ============================================================================
+  # Job 5: Live API Tests
+  # ============================================================================
+  live-api-tests:
+    name: Live API Tests
+    runs-on: ubuntu-latest
+    needs: [unit-tests, integration-tests]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: .
+
+      - name: Create .env file
         run: |
-          yarn test
+          echo "STORYBLOK_SPACE_ID=${{ secrets.STORYBLOK_SPACE_ID }}" >> .env
+          echo "STORYBLOK_OAUTH_TOKEN=${{ secrets.STORYBLOK_OAUTH_TOKEN }}" >> .env
+
+      - name: Run Live API Tests
+        env:
+          STORYBLOK_LIVE_TESTS: "true"
+          STORYBLOK_SPACE_ID: ${{ secrets.STORYBLOK_SPACE_ID }}
+          STORYBLOK_OAUTH_TOKEN: ${{ secrets.STORYBLOK_OAUTH_TOKEN }}
+        run: npm run test:api-live
+
+  # ============================================================================
+  # Job 6: E2E Tests
+  # ============================================================================
+  e2e-tests:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    needs: [unit-tests, integration-tests]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: .
+
+      - name: Create .env file
+        run: |
+          echo "STORYBLOK_SPACE_ID=${{ secrets.STORYBLOK_SPACE_ID }}" >> .env
+          echo "STORYBLOK_OAUTH_TOKEN=${{ secrets.STORYBLOK_OAUTH_TOKEN }}" >> .env
+
+      - name: Run E2E Tests
+        env:
+          STORYBLOK_E2E_TESTS: "true"
+          STORYBLOK_SPACE_ID: ${{ secrets.STORYBLOK_SPACE_ID }}
+          STORYBLOK_OAUTH_TOKEN: ${{ secrets.STORYBLOK_OAUTH_TOKEN }}
+        run: npm run test:e2e
+
+  # ============================================================================
+  # Job 7: Release (only after ALL tests pass)
+  # ============================================================================
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    needs: [typecheck-and-lint, build, unit-tests, integration-tests, live-api-tests, e2e-tests]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          registry-url: "https://registry.npmjs.org"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: .
 
       - name: Retry Release
         uses: nick-fields/retry@v2
         env:
           NO_HUSKY: 1
-          NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           NODE_OPTIONS: "--max_old_space_size=8192"
         with:
-          command: |
-            npx semantic-release
+          command: npx semantic-release
           max_attempts: 3
           retry_wait_seconds: 300
           timeout_minutes: 10
+
+  # ============================================================================
+  # Summary Job
+  # ============================================================================
+  release-summary:
+    name: Release Summary
+    runs-on: ubuntu-latest
+    needs: [typecheck-and-lint, build, unit-tests, integration-tests, live-api-tests, e2e-tests, release]
+    if: always()
+
+    steps:
+      - name: Generate Summary
+        run: |
+          echo "## 🚀 Stable Release Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Job | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Type Check & Lint | ${{ needs.typecheck-and-lint.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Build | ${{ needs.build.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Unit Tests | ${{ needs.unit-tests.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Integration Tests | ${{ needs.integration-tests.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Live API Tests | ${{ needs.live-api-tests.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| E2E Tests | ${{ needs.e2e-tests.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Release | ${{ needs.release.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Test Requirements for Stable Release" >> $GITHUB_STEP_SUMMARY
+          echo "All tests must pass before publishing to npm:" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Type checking" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Linting" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Unit tests" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Integration tests" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Live API tests" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ E2E tests" >> $GITHUB_STEP_SUMMARY
+
+      - name: Check for failures
+        if: |
+          needs.typecheck-and-lint.result == 'failure' ||
+          needs.build.result == 'failure' ||
+          needs.unit-tests.result == 'failure' ||
+          needs.integration-tests.result == 'failure' ||
+          needs.live-api-tests.result == 'failure' ||
+          needs.e2e-tests.result == 'failure' ||
+          needs.release.result == 'failure'
+        run: |
+          echo "❌ One or more jobs failed. Release was blocked." >> $GITHUB_STEP_SUMMARY
+          exit 1

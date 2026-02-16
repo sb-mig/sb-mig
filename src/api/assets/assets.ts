@@ -16,6 +16,7 @@ import FormData from "form-data";
 
 import { createDir, isDirectoryExists } from "../../utils/files.js";
 import Logger from "../../utils/logger.js";
+import { getFileName, getSizeFromURL } from "../../utils/string-utils.js";
 
 // GET
 export const getAllAssets: GetAllAssets = async (args, config) => {
@@ -32,7 +33,7 @@ export const getAllAssets: GetAllAssets = async (args, config) => {
         .catch((err) => {
             if (err.response.status === 404) {
                 Logger.error(
-                    `There is no assets in your Storyblok ${spaceId} space.`
+                    `There is no assets in your Storyblok ${spaceId} space.`,
                 );
                 return true;
             } else {
@@ -44,7 +45,7 @@ export const getAllAssets: GetAllAssets = async (args, config) => {
 
 export const getAssetByName: GetAssetByName = async (
     { spaceId, fileName },
-    config
+    config,
 ) => {
     const result = await getAllAssets({ spaceId, search: fileName }, config);
     if (result.assets.length === 1) {
@@ -56,7 +57,7 @@ export const getAssetByName: GetAssetByName = async (
 
 const requestSignedUploadUrl: RequestSignedUploadUrl = (
     { spaceId, payload },
-    config
+    config,
 ) => {
     const { sbApi, debug } = config;
     const {
@@ -64,6 +65,7 @@ const requestSignedUploadUrl: RequestSignedUploadUrl = (
         asset_folder_id,
         ext_id,
         space_id,
+        deleted_at: _2,
         ...restPayload
     } = payload;
     const filename = getFileName(payload.filename);
@@ -77,7 +79,7 @@ const requestSignedUploadUrl: RequestSignedUploadUrl = (
         .then((signedResponseObject) => {
             if (debug) {
                 Logger.log(
-                    `Signed upload URL has been requested for ${filename}.`
+                    `Signed upload URL has been requested for ${filename}.`,
                 );
             }
             return (signedResponseObject as any as { data: any }).data; // this is very bad... but storyblok-js-client types are pretty broken
@@ -110,21 +112,6 @@ const uploadFile: UploadFile = ({ signedResponseObject, pathToFile }) => {
     });
 };
 
-const getFileName = (fileUrl: string) => {
-    const fileName = fileUrl.split("/").pop();
-    if (fileName) {
-        return fileName;
-    } else {
-        throw Error("File name couldn't be extracted from URL.");
-    }
-};
-
-const getSizeFromURL = (fileUrl: string) => {
-    const data = fileUrl.split("/");
-    const sizePos = data.length - 3;
-    return data[sizePos];
-};
-
 const downloadAsset: DownloadAsset = async (args, config) => {
     const { debug, sbmigWorkingDirectory } = config;
     const { payload } = args;
@@ -135,12 +122,12 @@ const downloadAsset: DownloadAsset = async (args, config) => {
     const fileUrl = payload.filename;
     const downloadedAssetsFolder = path.join(
         sbmigWorkingDirectory,
-        "downloadedAssets"
+        "downloadedAssets",
     );
     Logger.log(
         `Downloading ${fileName} asset ${
             debug ? `from ${fileUrl} to ${downloadedAssetsFolder}` : ""
-        }`
+        }`,
     );
 
     if (!isDirectoryExists(downloadedAssetsFolder)) {
@@ -149,7 +136,7 @@ const downloadAsset: DownloadAsset = async (args, config) => {
 
     return new Promise<string>((resolve, reject) => {
         const file = fs.createWriteStream(
-            path.join(downloadedAssetsFolder, fileName)
+            path.join(downloadedAssetsFolder, fileName),
         );
 
         https
@@ -160,8 +147,8 @@ const downloadAsset: DownloadAsset = async (args, config) => {
                     Logger.download(
                         `Asset downloaded to ${path.join(
                             downloadedAssetsFolder,
-                            fileName
-                        )}`
+                            fileName,
+                        )}`,
                     );
                     resolve(path.join(downloadedAssetsFolder, fileName));
                 });
@@ -175,7 +162,7 @@ const downloadAsset: DownloadAsset = async (args, config) => {
 
 export const migrateAsset: MigrateAsset = async (
     { migrateTo, payload, syncDirection },
-    config
+    config,
 ) => {
     const pathToFile = await downloadAsset({ payload }, config);
     if (syncDirection === "fromSpaceToSpace") {
@@ -184,7 +171,7 @@ export const migrateAsset: MigrateAsset = async (
                 spaceId: migrateTo,
                 payload,
             },
-            config
+            config,
         );
         if (pathToFile) {
             await uploadFile({ signedResponseObject, pathToFile });
@@ -197,7 +184,7 @@ export const migrateAsset: MigrateAsset = async (
 // GET
 export const getAssetById: GetAssetById = async (
     { spaceId, assetId },
-    config
+    config,
 ) => {
     const { sbApi } = config;
     Logger.log(`Trying to get '${assetId}' asset.`);
@@ -208,7 +195,7 @@ export const getAssetById: GetAssetById = async (
         .catch((err) => {
             if (err.response.status === 404) {
                 Logger.error(
-                    `There is no assets in your Storyblok ${spaceId} space.`
+                    `There is no assets in your Storyblok ${spaceId} space.`,
                 );
                 return true;
             } else {

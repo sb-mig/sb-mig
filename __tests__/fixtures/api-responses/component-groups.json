@@ -1,0 +1,23 @@
+{
+    "component_groups": [
+        {
+            "id": 3001,
+            "name": "Content",
+            "uuid": "group-uuid-1"
+        },
+        {
+            "id": 3002,
+            "name": "Layout",
+            "uuid": "group-uuid-2"
+        },
+        {
+            "id": 3003,
+            "name": "Navigation",
+            "uuid": "group-uuid-3"
+        }
+    ],
+    "total": 3,
+    "perPage": 100
+}
+
+

@@ -1,19 +1,88 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build outputs
+dist/
+dist-cjs/
+dist-tests/
+lib/
+out/
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Logs
+logs/
+*.log
 *-debug.log
 *-error.log
-/.nyc_output
-/dist
-/dist-tests
-/package-lock.json
-/tmp
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Environment (contains secrets!)
 .env
-node_modules
-backup
-.vscode
-sbmig
-storyblok
-dist
-lib
-.idea
+.env.local
+.env.*.local
+.env.development
+.env.production
+.env.staging
+
+# IDE
+.idea/
+.vscode/
+
+# Cursor IDE
+.cursor/*
+!.cursor/rules/
+
+# Claude Code
+.claude/*
+!.claude/settings.json
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS
 .DS_Store
+.DS_Store?
+._*
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# TypeScript
+*.tsbuildinfo
+
+# Cache
+.cache/
+.eslintcache
+.turbo/
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+tmp/
+
+# sb-mig specific
+backup/
+sbmig/
+storyblok/
+
+# sb-mig precompile cache (generated during component compilation)
+.sb-mig-cache/
+.next/cache/sb-mig/
+
+# Test artifacts
 __tests__/*.js
 __tests__/*.d.ts
+
+# Misc
+# Note: package-lock.json should be committed for npm ci to work in CI/CD

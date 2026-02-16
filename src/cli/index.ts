@@ -1,8 +1,6 @@
 #! /usr/bin/env node
 import meow from "meow";
 
-import { pipe, prop } from "../utils/main.js";
-
 import {
     backupDescription,
     debugDescription,
@@ -27,6 +25,7 @@ import { remove } from "./commands/remove.js";
 import { revert } from "./commands/revert.js";
 import { sync } from "./commands/sync.js";
 import { testCommand } from "./commands/test.js";
+import { pipe, prop } from "./utils/cli-utils.js";
 
 const app = () => ({
     cli: meow(mainDescription, {
@@ -64,6 +63,9 @@ app.migrate = () => ({
             from: {
                 type: "string",
             },
+            fromFilePath: {
+                type: "string",
+            },
             to: {
                 type: "string",
             },
@@ -72,11 +74,22 @@ app.migrate = () => ({
                 default: "space",
                 isRequired: true,
             },
+            migration: {
+                type: "string",
+                isMultiple: true,
+            },
             withSlug: {
                 type: "string",
                 isMultiple: true,
             },
             startsWith: {
+                type: "string",
+            },
+            dryRun: {
+                type: "boolean",
+                default: false,
+            },
+            fileName: {
                 type: "string",
             },
         },
@@ -177,8 +190,8 @@ const cli = (cliObject: any, level = 0): any => {
     return subCommand
         ? cli(subCommand, level + 1)
         : nextCli.flags.help
-        ? nextCli.showHelp()
-        : action(nextCli);
+          ? nextCli.showHelp()
+          : action(nextCli);
 };
 
 cli(app);

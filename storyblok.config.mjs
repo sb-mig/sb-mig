@@ -1,5 +1,9 @@
 // storyblok.config.js
 export default {
-    componentsDirectories: ['components'],
-    accessToken: process.env.NEXT_PUBLIC_STORYBLOK_ACCESS_TOKEN
+    componentsDirectories: [
+        "node_modules/@ef-global",
+        "src/components",
+        "src/storyblok",
+    ],
+    rateLimit: 6,
 };

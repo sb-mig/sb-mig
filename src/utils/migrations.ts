@@ -2,13 +2,20 @@ import semver from "semver";
 
 import { createJsonFile, readFile } from "./files.js";
 
-type MigrationNames =
+/**
+ * Known migration names (can be extended as new migrations are added)
+ */
+export type MigrationNames =
     | "transitionsOnEnter"
     | "otherMigration"
     | "cardsMigration"
     | "hideToVisibility";
 
-type VersionMapping = Record<string, MigrationNames[]>;
+/**
+ * Version mapping - maps semver versions to arrays of migration names
+ * Uses string[] to allow flexibility for new migrations
+ */
+export type VersionMapping = Record<string, string[]>;
 
 export const preselectMigrations = (
     currentVersion: string,

@@ -1,5 +1,5 @@
 import type { RequestBaseConfig } from "../utils/request.js";
-import type { ISbResult } from "storyblok-js-client/src/interfaces";
+import type { ISbResult } from "storyblok-js-client";
 
 export interface Org {}
 export interface CurrentUserResult extends ISbResult {
@@ -41,5 +41,5 @@ export interface CurrentUserResult extends ISbResult {
 export type GetCurrentUser = (config: RequestBaseConfig) => Promise<any>;
 export type HasAccessToSpace = (
     args: { spaceId: string },
-    config: RequestBaseConfig
+    config: RequestBaseConfig,
 ) => Promise<boolean>;

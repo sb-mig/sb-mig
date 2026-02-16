@@ -6,8 +6,8 @@ import {
     removeSpecifiedComponents,
 } from "../../api/migrate.js";
 import Logger from "../../utils/logger.js";
-import { unpackElements } from "../../utils/main.js";
 import { apiConfig } from "../api-config.js";
+import { unpackElements } from "../utils/cli-utils.js";
 
 const REMOVE_COMMANDS = {
     story: "story",
@@ -37,7 +37,7 @@ export const remove = async (props: CLIOptions) => {
                     {
                         components: componentToRemove,
                     },
-                    apiConfig
+                    apiConfig,
                 );
             }
 

@@ -6,7 +6,7 @@ export const askForConfirmation = async (
     message: string,
     resolveYes: () => void,
     resolveNo: () => void,
-    ci?: boolean
+    ci?: boolean,
 ) => {
     if (ci) {
         resolveYes();

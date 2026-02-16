@@ -1,3 +1,76 @@
+# [5.6.0-beta.7](https://github.com/sb-mig/sb-mig/compare/v5.6.0-beta.6...v5.6.0-beta.7) (2026-02-11)
+
+
+### Features
+
+* improve migrate command ([b733637](https://github.com/sb-mig/sb-mig/commit/b733637c3afcbb6c4d76b2712e6aa6f33e647b7f))
+* imrpove migrate command - add fileName arg ([a8661bc](https://github.com/sb-mig/sb-mig/commit/a8661bc4572a8051a3796792ac3868ac2e99f8db))
+
+# [5.6.0-beta.6](https://github.com/sb-mig/sb-mig/compare/v5.6.0-beta.5...v5.6.0-beta.6) (2026-02-05)
+
+
+### Bug Fixes
+
+* add ralphy config ([229ba52](https://github.com/sb-mig/sb-mig/commit/229ba527ff703b85a44f69007d7a6202181487a6))
+* migrate commands ([605f83a](https://github.com/sb-mig/sb-mig/commit/605f83a68efa2469c5e87235990db3fd64340f4b))
+
+
+### Features
+
+* improvements to migrations and migrate command ([0e5dcfc](https://github.com/sb-mig/sb-mig/commit/0e5dcfc131928d9c2996d5b05d660c7960efaf0e))
+
+# [5.6.0-beta.5](https://github.com/sb-mig/sb-mig/compare/v5.6.0-beta.4...v5.6.0-beta.5) (2026-02-03)
+
+
+### Bug Fixes
+
+* add comment about interoperability ([12cff1a](https://github.com/sb-mig/sb-mig/commit/12cff1a48273210c707adf3e3bbf52b01295b651))
+* interoperability of glob ([abb3cf6](https://github.com/sb-mig/sb-mig/commit/abb3cf693cb2222def3733418d38c0b774894ce3))
+
+# [5.6.0-beta.4](https://github.com/sb-mig/sb-mig/compare/v5.6.0-beta.3...v5.6.0-beta.4) (2026-01-12)
+
+
+### Bug Fixes
+
+* test issues and add roadmap plan for to monorepo refactor ([3fcd05b](https://github.com/sb-mig/sb-mig/commit/3fcd05b72f8a97a890f8fad3b57b86aa208640db))
+* update tests and update gitignore, update to node 20 and 22 ([20948d5](https://github.com/sb-mig/sb-mig/commit/20948d5c226cb173f8c9f5b923734d4e8fc3a5a7))
+
+# [5.6.0-beta.3](https://github.com/sb-mig/sb-mig/compare/v5.6.0-beta.2...v5.6.0-beta.3) (2026-01-01)
+
+
+### Bug Fixes
+
+* add some more tests, this time on workflow_dispatch ([7f789b5](https://github.com/sb-mig/sb-mig/commit/7f789b5e4eacb1e79437660656232ea33cc17909))
+* migrate and update outdated packages ([ee0f9ca](https://github.com/sb-mig/sb-mig/commit/ee0f9ca001b6736b28038f34668f95eec2b815bc))
+
+
+### Features
+
+* integration tests ([e5db53a](https://github.com/sb-mig/sb-mig/commit/e5db53a182457243b29fdb56a5f4e02888193316))
+
+# [5.6.0-beta.2](https://github.com/sb-mig/sb-mig/compare/v5.6.0-beta.1...v5.6.0-beta.2) (2026-01-01)
+
+
+### Bug Fixes
+
+* github action ([22c6fa7](https://github.com/sb-mig/sb-mig/commit/22c6fa7aaa04e27092e49417342b5f7c78b79d38))
+* make test coverage infomrational ([4c65a0d](https://github.com/sb-mig/sb-mig/commit/4c65a0da2e9422656e7edbf57907cabe10ca6573))
+* migrate to npm from yarn ([25cc0da](https://github.com/sb-mig/sb-mig/commit/25cc0da916d84c4457213686d849d3b233e091ea))
+* package-lock and test mocks from copilot feedback ([3849637](https://github.com/sb-mig/sb-mig/commit/38496371d52012d2092bfded7ec3f0d5f770e808))
+* release beta github action ([b8785a8](https://github.com/sb-mig/sb-mig/commit/b8785a8eebcc132d0c0457a689f8e73ebc246f7d))
+* tests for windows ([3cd683f](https://github.com/sb-mig/sb-mig/commit/3cd683fc138722992a71ae771c7d48802a85c45c))
+* tests for windows ([031f19f](https://github.com/sb-mig/sb-mig/commit/031f19feb1a5ad0303145463f54b1dfebedd4f70))
+
+
+### Features
+
+* add full test suite ([bd72e2c](https://github.com/sb-mig/sb-mig/commit/bd72e2cac62f2943e9d0c6d72731c179207e705b))
+* add github action for testing all on workflow_dispatch ([08a1a9f](https://github.com/sb-mig/sb-mig/commit/08a1a9f1f8b5804e55f7c4900e2c471a74b79711))
+* api v2 ([77394f4](https://github.com/sb-mig/sb-mig/commit/77394f43c0f46b2555badf63e2168c2c69fb49f4))
+* integration and e2e tests start ([0f6aac1](https://github.com/sb-mig/sb-mig/commit/0f6aac1a53018c334eaaa2b2628ac81efdf169cb))
+* introduce api v2 that will be used by cli and gui ([93d3080](https://github.com/sb-mig/sb-mig/commit/93d3080617c8f67cd74fb58ec1f789471609b573))
+* start implementing api-v2 ([32f23b1](https://github.com/sb-mig/sb-mig/commit/32f23b1503dbb0aa0da2afcceea13f431cc8f4ba))
+
 # [5.6.0-beta.1](https://github.com/sb-mig/sb-mig/compare/v5.5.4-beta.1...v5.6.0-beta.1) (2025-09-03)
 
 

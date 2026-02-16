@@ -4,11 +4,36 @@
 
 import path from "path";
 
-import glob from "glob";
+// Support both ESM and CommonJS glob exports across versions
+import * as glob from "glob";
+const globSync =
+    (glob as unknown as { globSync?: typeof import("glob").globSync })
+        .globSync ??
+    (glob as unknown as { sync?: typeof import("glob").globSync }).sync ??
+    (
+        glob as unknown as {
+            default?: { globSync?: typeof import("glob").globSync };
+        }
+    ).default?.globSync ??
+    (glob as unknown as { default?: { sync?: typeof import("glob").globSync } })
+        .default?.sync;
+
+if (!globSync) {
+    throw new Error(
+        "Unable to resolve globSync from 'glob'. Please ensure a compatible glob version is installed.",
+    );
+}
 
 import storyblokConfig, { SCHEMA } from "../../config/config.js";
 import { buildOnTheFly } from "../../rollup/build-on-the-fly.js";
-import { getFileContentWithRequire } from "../../utils/main.js";
+import { getFileContentWithRequire, readFile } from "../../utils/files.js";
+import {
+    normalizeDiscover,
+    filesPattern,
+    compare,
+    type CompareResult,
+    type OneFileElement,
+} from "../../utils/path-utils.js";
 
 export enum SCOPE {
     local = "local",
@@ -43,77 +68,17 @@ interface DiscoverManyByPackageNameRequest {
     scope: SCOPE;
 }
 
-interface CompareRequest {
-    local: string[];
-    external: string[];
-}
-
-export interface OneFileElement {
-    name: string;
-    p: string;
-}
-
-export interface CompareResult {
-    local: OneFileElement[];
-    external: OneFileElement[];
-}
-
 type DiscoverResult = string[];
 
-// problem with glob sync is, that when there is only one folder to search for
-// we have to omit { } and when a lot, we have to use {folder1, folder2}
-// so this function will normalize it based on amount of folders provided
-export const normalizeDiscover = ({ segments }: { segments: string[] }) => {
-    if (segments.length === 0) {
-        return "";
-    }
-    if (segments.length === 1) {
-        return segments[0];
-    }
-    return `{${segments.join(",")}}`;
-};
+// Re-export types for backwards compatibility
+export type { CompareResult, OneFileElement };
 
-export const compare = (request: CompareRequest): CompareResult => {
-    const { local, external } = request;
-
-    const splittedLocal = local.map((p) => {
-        return {
-            name: p.split(path.sep)[p.split(path.sep).length - 1], // last element of splited array - file name
-            p,
-        };
-    });
-    const splittedExternal = external
-        .map((p) => {
-            return {
-                name: p.split(path.sep)[p.split(path.sep).length - 1], // last element of splited array - file name
-                p,
-            };
-        })
-        .filter((file) => {
-            // 1. check if the file has node_modules > 1
-            const nodeModulesCount = (file.p.match(/node_modules/g) || [])
-                .length;
-            return nodeModulesCount <= 1;
-        });
-
-    // we only want to modify external array, because we want sometimes remove stuff which are already on local (overwrite node_modules ones)
-    const result = {
-        local: splittedLocal,
-        external: splittedExternal.filter((externalComponent) => {
-            if (
-                splittedLocal.find(
-                    (localComponent) =>
-                        externalComponent.name === localComponent.name,
-                )
-            ) {
-                return false;
-            }
-            return true;
-        }),
-    } as CompareResult;
-
-    return result;
-};
+// Re-export functions for backwards compatibility
+export {
+    normalizeDiscover,
+    compare,
+    filesPattern,
+} from "../../utils/path-utils.js";
 
 export const discoverManyByPackageName = (
     request: DiscoverManyByPackageNameRequest,
@@ -140,7 +105,7 @@ export const discoverManyByPackageName = (
                 "package.json",
             );
 
-            listOfPackagesJsonFiles = glob.sync(pattern.replace(/\\/g, "/"), {
+            listOfPackagesJsonFiles = globSync(pattern.replace(/\\/g, "/"), {
                 follow: true,
             });
 
@@ -163,7 +128,7 @@ export const discoverManyByPackageName = (
                             `[^_]*.${storyblokConfig.schemaFileExt}`,
                         );
 
-                    return glob.sync(
+                    return globSync(
                         allStoryblokSchemaFilesWithinFolderPattern.replace(
                             /\\/g,
                             "/",
@@ -188,7 +153,7 @@ export const discoverManyByPackageName = (
                 "package.json",
             );
 
-            listOfPackagesJsonFiles = glob.sync(pattern.replace(/\\/g, "/"), {
+            listOfPackagesJsonFiles = globSync(pattern.replace(/\\/g, "/"), {
                 follow: true,
             });
 
@@ -211,7 +176,7 @@ export const discoverManyByPackageName = (
                             `[^_]*.${storyblokConfig.schemaFileExt}`,
                         );
 
-                    return glob.sync(
+                    return globSync(
                         allStoryblokSchemaFilesWithinFolderPattern.replace(
                             /\\/g,
                             "/",
@@ -232,7 +197,7 @@ export const discoverManyByPackageName = (
                 "package.json",
             );
 
-            listOfPackagesJsonFiles = glob.sync(pattern.replace(/\\/g, "/"), {
+            listOfPackagesJsonFiles = globSync(pattern.replace(/\\/g, "/"), {
                 follow: true,
             });
 
@@ -255,7 +220,7 @@ export const discoverManyByPackageName = (
                             `[^_]*.${storyblokConfig.schemaFileExt}`,
                         );
 
-                    return glob.sync(
+                    return globSync(
                         allStoryblokSchemaFilesWithinFolderPattern.replace(
                             /\\/g,
                             "/",
@@ -298,7 +263,7 @@ export const discoverOneByPackageName = (
                 "package.json",
             );
 
-            listOfPackagesJsonFiles = glob.sync(pattern.replace(/\\/g, "/"), {
+            listOfPackagesJsonFiles = globSync(pattern.replace(/\\/g, "/"), {
                 follow: true,
             });
 
@@ -321,7 +286,7 @@ export const discoverOneByPackageName = (
                             `[^_]*.${storyblokConfig.schemaFileExt}`,
                         );
 
-                    return glob.sync(
+                    return globSync(
                         allStoryblokSchemaFilesWithinFolderPattern.replace(
                             /\\/g,
                             "/",
@@ -346,7 +311,7 @@ export const discoverOneByPackageName = (
                 "package.json",
             );
 
-            listOfPackagesJsonFiles = glob.sync(pattern.replace(/\\/g, "/"), {
+            listOfPackagesJsonFiles = globSync(pattern.replace(/\\/g, "/"), {
                 follow: true,
             });
 
@@ -369,7 +334,7 @@ export const discoverOneByPackageName = (
                             `[^_]*.${storyblokConfig.schemaFileExt}`,
                         );
 
-                    return glob.sync(
+                    return globSync(
                         allStoryblokSchemaFilesWithinFolderPattern.replace(
                             /\\/g,
                             "/",
@@ -390,7 +355,7 @@ export const discoverOneByPackageName = (
                 "package.json",
             );
 
-            listOfPackagesJsonFiles = glob.sync(pattern.replace(/\\/g, "/"), {
+            listOfPackagesJsonFiles = globSync(pattern.replace(/\\/g, "/"), {
                 follow: true,
             });
 
@@ -413,7 +378,7 @@ export const discoverOneByPackageName = (
                             `[^_]*.${storyblokConfig.schemaFileExt}`,
                         );
 
-                    return glob.sync(
+                    return globSync(
                         allStoryblokSchemaFilesWithinFolderPattern.replace(
                             /\\/g,
                             "/",
@@ -461,7 +426,7 @@ export const discoverMany = async (
                     }`,
                 );
 
-                const listOfFilesToCompile = glob.sync(
+                const listOfFilesToCompile = globSync(
                     pattern.replace(/\\/g, "/"),
                     {
                         follow: true,
@@ -481,7 +446,7 @@ export const discoverMany = async (
                     }`,
                 );
 
-                listOFSchemaTSFilesCompiled = glob.sync(
+                listOFSchemaTSFilesCompiled = globSync(
                     pattern.replace(/\\/g, "/"),
                     {
                         follow: true,
@@ -500,7 +465,7 @@ export const discoverMany = async (
                 }`,
             );
 
-            listOfFiles = glob.sync(pattern.replace(/\\/g, "/"), {
+            listOfFiles = globSync(pattern.replace(/\\/g, "/"), {
                 follow: true,
             });
             listOfFiles = [...listOfFiles, ...listOFSchemaTSFilesCompiled];
@@ -523,7 +488,7 @@ export const discoverMany = async (
                 }`,
             );
 
-            listOfFiles = glob.sync(pattern.replace(/\\/g, "/"), {
+            listOfFiles = globSync(pattern.replace(/\\/g, "/"), {
                 follow: true,
             });
             break;
@@ -543,7 +508,7 @@ export const discoverMany = async (
                 }`,
             );
 
-            listOfFiles = glob.sync(pattern.replace(/\\/g, "/"), {
+            listOfFiles = globSync(pattern.replace(/\\/g, "/"), {
                 follow: true,
             });
             break;
@@ -585,7 +550,7 @@ export const discoverManyDatasources = async (
                     })}.sb.datasource.${storyblokConfig.schemaType}`,
                 );
 
-                const listOfFilesToCompile = glob.sync(
+                const listOfFilesToCompile = globSync(
                     pattern.replace(/\\/g, "/"),
                     {
                         follow: true,
@@ -605,7 +570,7 @@ export const discoverManyDatasources = async (
                     })}.${storyblokConfig.datasourceExt}`,
                 );
 
-                listOFSchemaTSFilesCompiled = glob.sync(
+                listOFSchemaTSFilesCompiled = globSync(
                     pattern.replace(/\\/g, "/"),
                     {
                         follow: true,
@@ -624,7 +589,7 @@ export const discoverManyDatasources = async (
                 })}.${storyblokConfig.datasourceExt}`,
             );
 
-            listOfFiles = glob.sync(pattern.replace(/\\/g, "/"), {
+            listOfFiles = globSync(pattern.replace(/\\/g, "/"), {
                 follow: true,
             });
 
@@ -648,7 +613,7 @@ export const discoverManyDatasources = async (
                 }`,
             );
 
-            listOfFiles = glob.sync(pattern.replace(/\\/g, "/"), {
+            listOfFiles = globSync(pattern.replace(/\\/g, "/"), {
                 follow: true,
             });
             break;
@@ -666,7 +631,7 @@ export const discoverManyDatasources = async (
                 }`,
             );
 
-            listOfFiles = glob.sync(pattern.replace(/\\/g, "/"), {
+            listOfFiles = globSync(pattern.replace(/\\/g, "/"), {
                 follow: true,
             });
             break;
@@ -704,7 +669,7 @@ export const discoverStories = (
                 }`,
             );
 
-            listOfFiles = glob.sync(pattern.replace(/\\/g, "/"), {
+            listOfFiles = globSync(pattern.replace(/\\/g, "/"), {
                 follow: true,
             });
 
@@ -743,12 +708,81 @@ export const discoverMigrationConfig = (
                 }`,
             );
 
-            listOfFiles = glob.sync(pattern.replace(/\\/g, "/"), {
+            listOfFiles = globSync(pattern.replace(/\\/g, "/"), {
                 follow: true,
             });
 
             break;
 
+        default:
+            break;
+    }
+
+    return listOfFiles;
+};
+
+export const discoverAllMigrationConfigs = (
+    request: DiscoverRequest,
+): DiscoverResult => {
+    const rootDirectory = "./";
+    const directory = path.resolve(process.cwd(), rootDirectory);
+    let pattern;
+    let listOfFiles: string[] = [];
+
+    switch (request.scope) {
+        case SCOPE.local: {
+            const onlyLocalComponentsDirectories =
+                storyblokConfig.componentsDirectories.filter(
+                    (p: string) => !p.includes("node_modules"),
+                );
+            pattern = path.join(
+                `${directory}`,
+                `${normalizeDiscover({
+                    segments: onlyLocalComponentsDirectories,
+                })}`,
+                "**",
+                `[^_]*.${storyblokConfig.migrationConfigExt}`,
+            );
+
+            listOfFiles = globSync(pattern.replace(/\\/g, "/"), {
+                follow: true,
+            });
+            break;
+        }
+        case SCOPE.external: {
+            const onlyNodeModulesPackagesComponentsDirectories =
+                storyblokConfig.componentsDirectories.filter((p: string) =>
+                    p.includes("node_modules"),
+                );
+            pattern = path.join(
+                `${directory}`,
+                `${normalizeDiscover({
+                    segments: onlyNodeModulesPackagesComponentsDirectories,
+                })}`,
+                "**",
+                `[^_]*.${storyblokConfig.migrationConfigExt}`,
+            );
+
+            listOfFiles = globSync(pattern.replace(/\\/g, "/"), {
+                follow: true,
+            });
+            break;
+        }
+        case SCOPE.all: {
+            pattern = path.join(
+                `${directory}`,
+                `${normalizeDiscover({
+                    segments: storyblokConfig.componentsDirectories,
+                })}`,
+                "**",
+                `[^_]*.${storyblokConfig.migrationConfigExt}`,
+            );
+
+            listOfFiles = globSync(pattern.replace(/\\/g, "/"), {
+                follow: true,
+            });
+            break;
+        }
         default:
             break;
     }
@@ -777,7 +811,7 @@ export const discoverVersionMapping = (
                 })}.${"sb.migrations.cjs"}`,
             );
 
-            listOfFiles = glob.sync(pattern.replace(/\\/g, "/"), {
+            listOfFiles = globSync(pattern.replace(/\\/g, "/"), {
                 follow: true,
             });
 
@@ -818,7 +852,7 @@ export const discoverDatasources = async (
                     `[^_]*.sb.datasource.${storyblokConfig.schemaType}`, // all files with 'ext' extension, without files beggining with _
                 );
 
-                const listOfFilesToCompile = glob.sync(
+                const listOfFilesToCompile = globSync(
                     pattern.replace(/\\/g, "/"),
                     {
                         follow: true,
@@ -846,7 +880,7 @@ export const discoverDatasources = async (
                     `[^_]*.${storyblokConfig.datasourceExt}`, // all files with 'ext' extension, without files beggining with _
                 );
 
-                listOFSchemaTSFilesCompiled = glob.sync(
+                listOFSchemaTSFilesCompiled = globSync(
                     pattern.replace(/\\/g, "/"),
                     {
                         follow: true,
@@ -863,7 +897,7 @@ export const discoverDatasources = async (
                 `[^_]*.${storyblokConfig.datasourceExt}`, // all files with 'ext' extension, without files beggining with _
             );
 
-            listOfFiles = glob.sync(pattern.replace(/\\/g, "/"), {
+            listOfFiles = globSync(pattern.replace(/\\/g, "/"), {
                 follow: true,
             });
 
@@ -884,7 +918,7 @@ export const discoverDatasources = async (
                 `[^_]*.${storyblokConfig.datasourceExt}`, // all files with 'ext' extension, without files beggining with _
             );
 
-            listOfFiles = glob.sync(pattern.replace(/\\/g, "/"), {
+            listOfFiles = globSync(pattern.replace(/\\/g, "/"), {
                 follow: true,
             });
             break;
@@ -899,7 +933,7 @@ export const discoverDatasources = async (
                 `[^_]*.${storyblokConfig.datasourceExt}`, // all files with 'ext' extension, without files beggining with _
             );
 
-            listOfFiles = glob.sync(pattern.replace(/\\/g, "/"), {
+            listOfFiles = globSync(pattern.replace(/\\/g, "/"), {
                 follow: true,
             });
             break;
@@ -908,30 +942,6 @@ export const discoverDatasources = async (
     }
 
     return listOfFiles;
-};
-
-export const filesPattern = ({
-    mainDirectory,
-    componentDirectories,
-    ext,
-}: {
-    mainDirectory: string;
-    componentDirectories: string[];
-    ext: string;
-}): string => {
-    return componentDirectories.length === 1
-        ? path.join(
-              `${mainDirectory}`,
-              `${componentDirectories[0]}`,
-              "**",
-              `[^_]*.${ext}`, // all files with 'ext' extension, without files beggining with _
-          )
-        : path.join(
-              `${mainDirectory}`,
-              `{${componentDirectories.join(",")}}`,
-              "**",
-              `[^_]*.${ext}`, // all files with 'ext' extension, without files beggining with _
-          );
 };
 
 export const discover = async (
@@ -959,7 +969,7 @@ export const discover = async (
                     ext: "sb.ts",
                 });
 
-                const listOfFilesToCompile = glob.sync(
+                const listOfFilesToCompile = globSync(
                     pattern.replace(/\\/g, "/"),
                     {
                         follow: true,
@@ -977,7 +987,7 @@ export const discover = async (
                     `[^_]*.${storyblokConfig.schemaFileExt}`,
                 );
 
-                listOFSchemaTSFilesCompiled = glob.sync(
+                listOFSchemaTSFilesCompiled = globSync(
                     pattern.replace(/\\/g, "/"),
                     {
                         follow: true,
@@ -991,7 +1001,7 @@ export const discover = async (
                 ext: storyblokConfig.schemaFileExt,
             });
 
-            listOfFiles = glob.sync(pattern.replace(/\\/g, "/"), {
+            listOfFiles = globSync(pattern.replace(/\\/g, "/"), {
                 follow: true,
             });
             listOfFiles = [...listOfFiles, ...listOFSchemaTSFilesCompiled];
@@ -1009,7 +1019,7 @@ export const discover = async (
                 ext: storyblokConfig.schemaFileExt,
             });
 
-            listOfFiles = glob.sync(pattern.replace(/\\/g, "/"), {
+            listOfFiles = globSync(pattern.replace(/\\/g, "/"), {
                 follow: true,
             });
             break;
@@ -1021,7 +1031,7 @@ export const discover = async (
                 ext: storyblokConfig.schemaFileExt,
             });
 
-            listOfFiles = glob.sync(pattern.replace(/\\/g, "/"), {
+            listOfFiles = globSync(pattern.replace(/\\/g, "/"), {
                 follow: true,
             });
             break;
@@ -1057,7 +1067,7 @@ export const discoverResolvers = async (
                     ext: "sb.resolvers.ts",
                 });
 
-                const listOfFilesToCompile = glob.sync(
+                const listOfFilesToCompile = globSync(
                     pattern.replace(/\\/g, "/"),
                     {
                         follow: true,
@@ -1075,7 +1085,7 @@ export const discoverResolvers = async (
                     `[^_]*.sb.resolvers.cjs`,
                 );
 
-                listOFSchemaTSFilesCompiled = glob.sync(
+                listOFSchemaTSFilesCompiled = globSync(
                     pattern.replace(/\\/g, "/"),
                     {
                         follow: true,
@@ -1089,7 +1099,7 @@ export const discoverResolvers = async (
                 ext: "sb.resolvers.cjs",
             });
 
-            listOfFiles = glob.sync(pattern.replace(/\\/g, "/"), {
+            listOfFiles = globSync(pattern.replace(/\\/g, "/"), {
                 follow: true,
             });
             listOfFiles = [...listOfFiles, ...listOFSchemaTSFilesCompiled];
@@ -1129,7 +1139,7 @@ export const discoverRoles = async (
                     `[^_]*.sb.roles.${storyblokConfig.schemaType}`, // all files with 'ext' extension, without files beggining with _
                 );
 
-                const listOfFilesToCompile = glob.sync(
+                const listOfFilesToCompile = globSync(
                     pattern.replace(/\\/g, "/"),
                     {
                         follow: true,
@@ -1147,7 +1157,7 @@ export const discoverRoles = async (
                     `[^_]*.${storyblokConfig.rolesExt}`, // all files with 'ext' extension, without files beggining with _
                 );
 
-                listOFSchemaTSFilesCompiled = glob.sync(
+                listOFSchemaTSFilesCompiled = globSync(
                     pattern.replace(/\\/g, "/"),
                     {
                         follow: true,
@@ -1164,7 +1174,7 @@ export const discoverRoles = async (
                 `[^_]*.${storyblokConfig.rolesExt}`, // all files with 'ext' extension, without files beggining with _
             );
 
-            listOfFiles = glob.sync(pattern.replace(/\\/g, "/"), {
+            listOfFiles = globSync(pattern.replace(/\\/g, "/"), {
                 follow: true,
             });
 
@@ -1186,7 +1196,7 @@ export const discoverRoles = async (
                 `[^_]*.${storyblokConfig.rolesExt}`, // all files with 'ext' extension, without files beggining with _
             );
 
-            listOfFiles = glob.sync(pattern.replace(/\\/g, "/"), {
+            listOfFiles = globSync(pattern.replace(/\\/g, "/"), {
                 follow: true,
             });
             break;
@@ -1201,7 +1211,7 @@ export const discoverRoles = async (
                 `[^_]*.${storyblokConfig.rolesExt}`, // all files with 'ext' extension, without files beggining with _
             );
 
-            listOfFiles = glob.sync(pattern.replace(/\\/g, "/"), {
+            listOfFiles = globSync(pattern.replace(/\\/g, "/"), {
                 follow: true,
             });
             break;
@@ -1242,7 +1252,7 @@ export const discoverManyRoles = async (
                     })}.sb.roles.${storyblokConfig.schemaType}`,
                 );
 
-                const listOfFilesToCompile = glob.sync(
+                const listOfFilesToCompile = globSync(
                     pattern.replace(/\\/g, "/"),
                     {
                         follow: true,
@@ -1262,7 +1272,7 @@ export const discoverManyRoles = async (
                     })}.${storyblokConfig.rolesExt}`,
                 );
 
-                listOFSchemaTSFilesCompiled = glob.sync(
+                listOFSchemaTSFilesCompiled = globSync(
                     pattern.replace(/\\/g, "/"),
                     {
                         follow: true,
@@ -1281,7 +1291,7 @@ export const discoverManyRoles = async (
                 }`,
             );
 
-            listOfFiles = glob.sync(pattern.replace(/\\/g, "/"), {
+            listOfFiles = globSync(pattern.replace(/\\/g, "/"), {
                 follow: true,
             });
 
@@ -1304,7 +1314,7 @@ export const discoverManyRoles = async (
                 }`,
             );
 
-            listOfFiles = glob.sync(pattern.replace(/\\/g, "/"), {
+            listOfFiles = globSync(pattern.replace(/\\/g, "/"), {
                 follow: true,
             });
             break;
@@ -1321,7 +1331,7 @@ export const discoverManyRoles = async (
                 }`,
             );
 
-            listOfFiles = glob.sync(pattern.replace(/\\/g, "/"), {
+            listOfFiles = globSync(pattern.replace(/\\/g, "/"), {
                 follow: true,
             });
             break;
@@ -1351,4 +1361,95 @@ export const discoverAllComponents = async () => {
     });
 
     return { local, external };
+};
+
+export const discoverAllMigrations = () => {
+    const allLocalMigrationFiles = discoverAllMigrationConfigs({
+        scope: SCOPE.local,
+        type: LOOKUP_TYPE.fileName,
+    });
+
+    const allExternalMigrationFiles = discoverAllMigrationConfigs({
+        scope: SCOPE.external,
+        type: LOOKUP_TYPE.fileName,
+    });
+
+    const { local, external } = compare({
+        local: allLocalMigrationFiles,
+        external: allExternalMigrationFiles,
+    });
+
+    return { local, external };
+};
+
+export interface MigrationInfo {
+    name: string;
+    filePath: string;
+    scope: "local" | "external";
+    targetComponents: string[];
+    applied: { story: boolean; preset: boolean };
+}
+
+export const enrichMigrationInfo = async (allMigrations: {
+    local: OneFileElement[];
+    external: OneFileElement[];
+}): Promise<MigrationInfo[]> => {
+    let appliedMigrations: { story: string[]; preset: string[] } = {
+        story: [],
+        preset: [],
+    };
+
+    try {
+        const fileContent = (await readFile(
+            "applied-backpack-migrations.json",
+        )) as string;
+        const parsed = JSON.parse(fileContent);
+        appliedMigrations = parsed.migrations || { story: [], preset: [] };
+        if (Array.isArray(appliedMigrations)) {
+            appliedMigrations = {
+                story: appliedMigrations as unknown as string[],
+                preset: [],
+            };
+        }
+    } catch {
+        // File doesn't exist or is invalid — treat as no migrations applied
+    }
+
+    const ext = storyblokConfig.migrationConfigExt;
+    const results: MigrationInfo[] = [];
+
+    const processFiles = (
+        files: OneFileElement[],
+        scope: "local" | "external",
+    ) => {
+        for (const file of files) {
+            const name = file.name.replace(`.${ext}`, "");
+
+            let targetComponents: string[];
+            try {
+                const content = getFileContentWithRequire({
+                    file: file.p,
+                });
+                targetComponents = Object.keys(content);
+            } catch {
+                targetComponents = ["<error loading>"];
+            }
+
+            results.push({
+                name,
+                filePath: file.p,
+                scope,
+                targetComponents,
+                applied: {
+                    story: appliedMigrations.story.includes(name),
+                    preset: appliedMigrations.preset.includes(name),
+                },
+            });
+        }
+    };
+
+    processFiles(allMigrations.local, "local");
+    processFiles(allMigrations.external, "external");
+
+    return results;
 };

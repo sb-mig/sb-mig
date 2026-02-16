@@ -1,0 +1,103 @@
+name: Live API Tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      node_version:
+        description: "Node.js version"
+        required: false
+        default: "20.x"
+        type: choice
+        options:
+          - "18.x"
+          - "20.x"
+          - "22.x"
+      test_scope:
+        description: "Test scope"
+        required: false
+        default: "all"
+        type: choice
+        options:
+          - "all"
+          - "components"
+          - "stories"
+          - "spaces"
+
+env:
+  NODE_VERSION: ${{ inputs.node_version || '20.x' }}
+
+jobs:
+  live-api-tests:
+    name: Run Live API Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Create .env file
+        run: |
+          echo "STORYBLOK_SPACE_ID=${{ secrets.STORYBLOK_SPACE_ID }}" >> .env
+          echo "STORYBLOK_OAUTH_TOKEN=${{ secrets.STORYBLOK_OAUTH_TOKEN }}" >> .env
+
+      - name: Run Live API Tests (All)
+        if: ${{ inputs.test_scope == 'all' || inputs.test_scope == '' }}
+        env:
+          STORYBLOK_LIVE_TESTS: "true"
+          STORYBLOK_SPACE_ID: ${{ secrets.STORYBLOK_SPACE_ID }}
+          STORYBLOK_OAUTH_TOKEN: ${{ secrets.STORYBLOK_OAUTH_TOKEN }}
+        run: npm run test:api-live
+
+      - name: Run Live API Tests (Components)
+        if: ${{ inputs.test_scope == 'components' }}
+        env:
+          STORYBLOK_LIVE_TESTS: "true"
+          STORYBLOK_SPACE_ID: ${{ secrets.STORYBLOK_SPACE_ID }}
+          STORYBLOK_OAUTH_TOKEN: ${{ secrets.STORYBLOK_OAUTH_TOKEN }}
+        run: npm run test:api-live:components
+
+      - name: Run Live API Tests (Stories)
+        if: ${{ inputs.test_scope == 'stories' }}
+        env:
+          STORYBLOK_LIVE_TESTS: "true"
+          STORYBLOK_SPACE_ID: ${{ secrets.STORYBLOK_SPACE_ID }}
+          STORYBLOK_OAUTH_TOKEN: ${{ secrets.STORYBLOK_OAUTH_TOKEN }}
+        run: npm run test:api-live:stories
+
+      - name: Run Live API Tests (Spaces)
+        if: ${{ inputs.test_scope == 'spaces' }}
+        env:
+          STORYBLOK_LIVE_TESTS: "true"
+          STORYBLOK_SPACE_ID: ${{ secrets.STORYBLOK_SPACE_ID }}
+          STORYBLOK_OAUTH_TOKEN: ${{ secrets.STORYBLOK_OAUTH_TOKEN }}
+        run: npm run test:api-live:spaces
+
+      - name: Generate Summary
+        if: always()
+        run: |
+          echo "## 🌐 Live API Tests Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Node.js Version:** ${{ env.NODE_VERSION }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Test Scope:** ${{ inputs.test_scope || 'all' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status:** ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### ⚠️ Important" >> $GITHUB_STEP_SUMMARY
+          echo "These tests make **real API calls** to Storyblok." >> $GITHUB_STEP_SUMMARY
+          echo "They require valid credentials in repository secrets:" >> $GITHUB_STEP_SUMMARY
+          echo "- \`STORYBLOK_SPACE_ID\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`STORYBLOK_OAUTH_TOKEN\`" >> $GITHUB_STEP_SUMMARY
+
