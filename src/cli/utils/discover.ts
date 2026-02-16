@@ -6,17 +6,16 @@ import path from "path";
 
 // Support both ESM and CommonJS glob exports across versions
 import * as glob from "glob";
+type GlobSync = typeof glob.globSync;
 const globSync =
-    (glob as unknown as { globSync?: typeof import("glob").globSync })
-        .globSync ??
-    (glob as unknown as { sync?: typeof import("glob").globSync }).sync ??
+    (glob as unknown as { globSync?: GlobSync }).globSync ??
+    (glob as unknown as { sync?: GlobSync }).sync ??
     (
         glob as unknown as {
-            default?: { globSync?: typeof import("glob").globSync };
+            default?: { globSync?: GlobSync };
         }
     ).default?.globSync ??
-    (glob as unknown as { default?: { sync?: typeof import("glob").globSync } })
-        .default?.sync;
+    (glob as unknown as { default?: { sync?: GlobSync } }).default?.sync;
 
 if (!globSync) {
     throw new Error(
