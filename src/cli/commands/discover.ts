@@ -32,21 +32,25 @@ export const discover = async (props: CLIOptions) => {
                 );
 
                 const allComponents = await discoverAllComponents();
+                const content: string[] = [];
 
-                const content = [
-                    ...allComponents.local.map((component: any) =>
+                for (const component of allComponents.local) {
+                    content.push(
                         component.name
                             .replaceAll(".sb.js", "")
                             .replaceAll(".sb.cjs", "")
                             .replaceAll(".sb.mjs", ""),
-                    ),
-                    ...allComponents.external.map((component: any) =>
+                    );
+                }
+
+                for (const component of allComponents.external) {
+                    content.push(
                         component.name
                             .replaceAll(".sb.js", "")
                             .replaceAll(".sb.cjs", "")
                             .replaceAll(".sb.mjs", ""),
-                    ),
-                ];
+                    );
+                }
 
                 if (flags["write"]) {
                     await createAndSaveComponentListToFile(
