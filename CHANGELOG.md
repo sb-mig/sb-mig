@@ -1,3 +1,10 @@
+# [5.6.0-beta.9](https://github.com/sb-mig/sb-mig/compare/v5.6.0-beta.8...v5.6.0-beta.9) (2026-03-02)
+
+
+### Bug Fixes
+
+* **discover:** prevent OOM in component discovery ([3ede17c](https://github.com/sb-mig/sb-mig/commit/3ede17c553210487c564358767fdd2fe6607f41b))
+
 # [5.6.0-beta.8](https://github.com/sb-mig/sb-mig/compare/v5.6.0-beta.7...v5.6.0-beta.8) (2026-02-16)
 
 
