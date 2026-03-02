@@ -143,20 +143,18 @@ export const filesPattern = ({
 export const compare = (request: CompareRequest): CompareResult => {
     const { local, external } = request;
 
-    const splittedLocal = local.map((p) => {
-        return {
-            name: p.split(path.sep)[p.split(path.sep).length - 1], // last element of split array - file name
-            p,
-        };
-    });
+    const splittedLocal = local.map((p) => ({
+        name: path.basename(p),
+        p,
+    }));
+
+    const localNames = new Set(splittedLocal.map((file) => file.name));
 
     const splittedExternal = external
-        .map((p) => {
-            return {
-                name: p.split(path.sep)[p.split(path.sep).length - 1], // last element of split array - file name
-                p,
-            };
-        })
+        .map((p) => ({
+            name: path.basename(p),
+            p,
+        }))
         .filter((file) => {
             // Filter out files from nested node_modules (node_modules within node_modules)
             const nodeModulesCount = (file.p.match(/node_modules/g) || [])
@@ -168,15 +166,7 @@ export const compare = (request: CompareRequest): CompareResult => {
     const result = {
         local: splittedLocal,
         external: splittedExternal.filter((externalComponent) => {
-            if (
-                splittedLocal.find(
-                    (localComponent) =>
-                        externalComponent.name === localComponent.name,
-                )
-            ) {
-                return false;
-            }
-            return true;
+            return !localNames.has(externalComponent.name);
         }),
     } as CompareResult;
 

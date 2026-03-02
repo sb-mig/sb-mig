@@ -14,7 +14,6 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
 
 import { getComponent } from "../../src/api/components/components.js";
 import { managementApi } from "../../src/api/managementApi.js";
-
 import {
     createLiveApiConfig,
     cleanupComponent,
