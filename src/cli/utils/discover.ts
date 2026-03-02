@@ -4,28 +4,10 @@
 
 import path from "path";
 
-// Support both ESM and CommonJS glob exports across versions
-import * as glob from "glob";
-type GlobSync = typeof glob.globSync;
-const globSync =
-    (glob as unknown as { globSync?: GlobSync }).globSync ??
-    (glob as unknown as { sync?: GlobSync }).sync ??
-    (
-        glob as unknown as {
-            default?: { globSync?: GlobSync };
-        }
-    ).default?.globSync ??
-    (glob as unknown as { default?: { sync?: GlobSync } }).default?.sync;
-
-if (!globSync) {
-    throw new Error(
-        "Unable to resolve globSync from 'glob'. Please ensure a compatible glob version is installed.",
-    );
-}
-
 import storyblokConfig, { SCHEMA } from "../../config/config.js";
 import { buildOnTheFly } from "../../rollup/build-on-the-fly.js";
 import { getFileContentWithRequire, readFile } from "../../utils/files.js";
+import { safeGlobSync as globSync } from "../../utils/glob-utils.js";
 import {
     normalizeDiscover,
     filesPattern,
