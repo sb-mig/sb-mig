@@ -97,7 +97,7 @@ export const createDatasourceEntries: CreateDatasourceEntries = (
 ) => {
     const { datasource_entries, remoteDatasourceEntries, data } = args;
 
-    Promise.all(
+    return Promise.all(
         datasource_entries.map((datasourceEntry: any) => {
             const datasourceToBeUpdated =
                 remoteDatasourceEntries.datasource_entries.find(

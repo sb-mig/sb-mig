@@ -117,27 +117,27 @@ export const sync = async (props: CLIOptions) => {
             if (isIt("all")) {
                 Logger.log("Syncing all roles...");
 
-                syncAllRoles(apiConfig);
+                await syncAllRoles(apiConfig);
             }
 
             if (isIt("empty")) {
                 Logger.log("Syncing provided roles...");
                 const rolesToSync = unpackElements(input);
 
-                syncProvidedRoles({ roles: rolesToSync }, apiConfig);
+                await syncProvidedRoles({ roles: rolesToSync }, apiConfig);
             }
             break;
         case SYNC_COMMANDS.datasources:
             if (isIt("all")) {
                 Logger.log("Syncing all datasources with extension...");
-                syncAllDatasources(apiConfig);
+                await syncAllDatasources(apiConfig);
             }
 
             if (!flags["all"]) {
                 Logger.log("Syncing provided datasources with extension...");
                 const datasourcesToSync = unpackElements(input);
 
-                syncProvidedDatasources(
+                await syncProvidedDatasources(
                     { datasources: datasourcesToSync },
                     apiConfig,
                 );

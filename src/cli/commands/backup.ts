@@ -92,7 +92,7 @@ export const backup = async (props: CLIOptions) => {
         case BACKUP_COMMANDS.stories:
             Logger.warning(`back up stories... with command: ${command}`);
             if (flags["all"]) {
-                backupStories(
+                await backupStories(
                     {
                         filename: "all-stories-backup",
                         suffix: ".stories",
@@ -326,30 +326,32 @@ export const backup = async (props: CLIOptions) => {
                     };
                 }
 
-                allRemoteComponents.forEach(async (component: any) => {
-                    managementApi.presets
-                        .getComponentPresets(component.name, apiConfig)
-                        .then(async (res: any) => {
-                            if (res) {
-                                await createAndSaveToFile(
-                                    {
-                                        ext: "json",
-                                        filename: `${component.name}.presets.sb`,
-                                        res: { allPresets: res, ...metadata },
-                                        folder: storyblokConfig.presetsBackupDirectory,
-                                    },
-                                    {
-                                        ...apiConfig,
-                                        sbmigWorkingDirectory: ".",
-                                    },
-                                );
-                            }
-                        })
-                        .catch((err: any) => {
-                            console.log(err);
-                            Logger.error("error happened... :(");
-                        });
-                });
+                for (const component of allRemoteComponents) {
+                    try {
+                        const res =
+                            await managementApi.presets.getComponentPresets(
+                                component.name,
+                                apiConfig,
+                            );
+                        if (res) {
+                            await createAndSaveToFile(
+                                {
+                                    ext: "json",
+                                    filename: `${component.name}.presets.sb`,
+                                    res: { allPresets: res, ...metadata },
+                                    folder: storyblokConfig.presetsBackupDirectory,
+                                },
+                                {
+                                    ...apiConfig,
+                                    sbmigWorkingDirectory: ".",
+                                },
+                            );
+                        }
+                    } catch (err: any) {
+                        console.log(err);
+                        Logger.error("error happened... :(");
+                    }
+                }
             }
             break;
         case BACKUP_COMMANDS.plugins:
