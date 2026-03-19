@@ -27,38 +27,50 @@ export const buildOnTheFly = async ({ files }: BuildOnTheFly) => {
         `sb-mig`,
     );
 
-    await Promise.all(
-        files.map(async (filePath) => {
-            const inputOptions = {
-                input: filePath,
-                plugins: [
-                    ts({
-                        transpileOnly: true,
-                        transpiler: "swc",
-                    }),
-                ],
-            };
+    const BATCH_SIZE = 5;
+    const total = files.length;
 
-            const outputOptionsList = [
-                {
-                    file: path.join(
-                        `${cacheDir}`,
-                        `${_extractComponentName(filePath)}.cjs`,
-                    ),
-                    format: "cjs",
-                },
-                {
-                    file: path.join(
-                        `${cacheDir}`,
-                        `${_extractComponentName(filePath)}.js`,
-                    ),
-                    format: "es",
-                },
-            ];
+    Logger.log(`Compiling ${total} schema files...`);
 
-            await build({ inputOptions, outputOptionsList });
-        }),
-    );
+    for (let i = 0; i < total; i += BATCH_SIZE) {
+        const batch = files.slice(i, i + BATCH_SIZE);
+        const batchEnd = Math.min(i + BATCH_SIZE, total);
 
-    Logger.success("Precompile successfull!.");
+        Logger.log(`[${i + 1}-${batchEnd}/${total}] Compiling batch...`);
+
+        await Promise.all(
+            batch.map(async (filePath) => {
+                const inputOptions = {
+                    input: filePath,
+                    plugins: [
+                        ts({
+                            transpileOnly: true,
+                            transpiler: "swc",
+                        }),
+                    ],
+                };
+
+                const outputOptionsList = [
+                    {
+                        file: path.join(
+                            `${cacheDir}`,
+                            `${_extractComponentName(filePath)}.cjs`,
+                        ),
+                        format: "cjs",
+                    },
+                    {
+                        file: path.join(
+                            `${cacheDir}`,
+                            `${_extractComponentName(filePath)}.js`,
+                        ),
+                        format: "es",
+                    },
+                ];
+
+                await build({ inputOptions, outputOptionsList });
+            }),
+        );
+    }
+
+    Logger.success(`Precompile successful! (${total} files)`);
 };
