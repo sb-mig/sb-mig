@@ -18,4 +18,4 @@ export type TraverseAndCreate = (
         spaceId: string;
     },
     config: RequestBaseConfig,
-) => void;
+) => Promise<void>;

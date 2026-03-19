@@ -53,14 +53,14 @@ const _checkAndPrepareGroups: CheckAndPrepareGroups = async (
     const groupExist = (groupName: any) =>
         componentsGroups.find((group: any) => group.name === groupName);
 
-    groupsToCheck.forEach(async (groupName: string) => {
+    for (const groupName of groupsToCheck) {
         if (!groupExist(groupName)) {
             await managementApi.components.createComponentsGroup(
                 groupName,
                 config,
             );
         }
-    });
+    }
 };
 
 export const removeAllComponents = async (config: RequestBaseConfig) => {
@@ -100,7 +100,10 @@ export const removeSpecifiedComponents: RemoveSpecificComponents = async (
         componentsToRemove.length > 0 &&
         Promise.all(
             componentsToRemove.map((component: any) => {
-                managementApi.components.removeComponent(component, config);
+                return managementApi.components.removeComponent(
+                    component,
+                    config,
+                );
             }),
         )
     );
@@ -235,17 +238,19 @@ export const syncAssets: SyncAssets = async (
     Logger.log(`We would try to migrate Assets data from: ${from} to: ${to}`);
 
     const allAssets = await getAllAssets({ spaceId: from }, config);
-    allAssets.assets.map((asset) => {
-        const { id, created_at, updated_at, ...newAssetPayload } = asset;
-        migrateAsset(
-            {
-                migrateTo: to,
-                payload: newAssetPayload,
-                syncDirection,
-            },
-            config,
-        );
-    });
+    await Promise.all(
+        allAssets.assets.map((asset) => {
+            const { id, created_at, updated_at, ...newAssetPayload } = asset;
+            return migrateAsset(
+                {
+                    migrateTo: to,
+                    payload: newAssetPayload,
+                    syncDirection,
+                },
+                config,
+            );
+        }),
+    );
 };
 
 const syncStories: SyncStories = async (
@@ -411,7 +416,7 @@ export const setComponentDefaultPreset = async ({
         Logger.warning("Updating componet with default presets...");
         return Promise.all(
             finalRemoteComponents.map((component: any) => {
-                managementApi.components.updateComponent(
+                return managementApi.components.updateComponent(
                     component,
                     false,
                     apiConfig,

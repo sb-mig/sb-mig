@@ -33,7 +33,7 @@ export const remove = async (props: CLIOptions) => {
                 Logger.warning("Removing PROVIDED components...");
                 const componentToRemove = unpackElements(input);
 
-                removeSpecifiedComponents(
+                await removeSpecifiedComponents(
                     {
                         components: componentToRemove,
                     },
