@@ -1,3 +1,10 @@
+## [5.6.1-beta.1](https://github.com/sb-mig/sb-mig/compare/v5.6.0...v5.6.1-beta.1) (2026-03-19)
+
+
+### Bug Fixes
+
+* **cli:** await datasource sync commands ([4437a20](https://github.com/sb-mig/sb-mig/commit/4437a2067789eeed065d12898a8ff2da4f88015b))
+
 # [5.6.0](https://github.com/sb-mig/sb-mig/compare/v5.5.3...v5.6.0) (2026-03-02)
 
 
