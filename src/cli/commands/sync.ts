@@ -130,14 +130,14 @@ export const sync = async (props: CLIOptions) => {
         case SYNC_COMMANDS.datasources:
             if (isIt("all")) {
                 Logger.log("Syncing all datasources with extension...");
-                syncAllDatasources(apiConfig);
+                await syncAllDatasources(apiConfig);
             }
 
             if (!flags["all"]) {
                 Logger.log("Syncing provided datasources with extension...");
                 const datasourcesToSync = unpackElements(input);
 
-                syncProvidedDatasources(
+                await syncProvidedDatasources(
                     { datasources: datasourcesToSync },
                     apiConfig,
                 );
