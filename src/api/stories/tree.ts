@@ -34,9 +34,9 @@ const buildTree = (
     return tree;
 };
 
-export const traverseAndCreate: TraverseAndCreate = (input, config) => {
+export const traverseAndCreate: TraverseAndCreate = async (input, config) => {
     const { tree, realParentId, spaceId } = input;
-    tree.forEach(async (node) => {
+    for (const node of tree) {
         try {
             const { action, story } = node;
             const { parent, ...content } = story;
@@ -58,7 +58,7 @@ export const traverseAndCreate: TraverseAndCreate = (input, config) => {
             }
 
             if (node.children) {
-                traverseAndCreate(
+                await traverseAndCreate(
                     {
                         tree: node.children,
                         realParentId: storyId,
@@ -71,5 +71,5 @@ export const traverseAndCreate: TraverseAndCreate = (input, config) => {
             Logger.error("Error happened");
             Logger.error(e);
         }
-    });
+    }
 };

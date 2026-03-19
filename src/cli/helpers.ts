@@ -4,12 +4,12 @@ import chalk from "chalk";
 
 export const askForConfirmation = async (
     message: string,
-    resolveYes: () => void,
-    resolveNo: () => void,
+    resolveYes: () => void | Promise<void>,
+    resolveNo: () => void | Promise<void>,
     ci?: boolean,
 ) => {
     if (ci) {
-        resolveYes();
+        await resolveYes();
         return;
     }
     // This section has to be changed, it was fast solution to asking for confirmation
@@ -31,11 +31,11 @@ export const askForConfirmation = async (
     rl.prompt();
     for await (const deletionConfirmation of rl) {
         if (deletionConfirmation.trim() !== "y") {
-            resolveNo();
+            await resolveNo();
             process.exit(0);
         } else {
             if (deletionConfirmation) {
-                resolveYes();
+                await resolveYes();
 
                 break;
             }

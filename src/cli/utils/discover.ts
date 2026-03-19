@@ -91,9 +91,9 @@ export const discoverManyByPackageName = (
             });
 
             listOfFiles = listOfPackagesJsonFiles
-                .filter(async (file) =>
+                .filter((file) =>
                     request.packageNames.includes(
-                        await getFileContentWithRequire({ file }).name,
+                        getFileContentWithRequire({ file }).name,
                     ),
                 ) // filter only package.json from provided request.packageNames
                 .map((file) => {
