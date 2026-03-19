@@ -16,20 +16,18 @@ interface Build {
 
 export async function build({ inputOptions, outputOptionsList }: Build) {
     let bundle;
-    let buildFailed = false;
     try {
         bundle = await rollup(inputOptions);
-
         await generateOutputs({ bundle, outputOptionsList });
         return [];
     } catch (error) {
-        buildFailed = true;
         console.error(error);
+        throw error;
+    } finally {
+        if (bundle) {
+            await bundle.close();
+        }
     }
-    if (bundle) {
-        await bundle.close();
-    }
-    process.exit(buildFailed ? 1 : 0);
 }
 
 interface GenerateOutputs {
