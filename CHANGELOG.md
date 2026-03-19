@@ -1,3 +1,10 @@
+## [5.6.1-beta.2](https://github.com/sb-mig/sb-mig/compare/v5.6.1-beta.1...v5.6.1-beta.2) (2026-03-19)
+
+
+### Bug Fixes
+
+* resolve fire-and-forget async bugs across CLI and API layers ([965158d](https://github.com/sb-mig/sb-mig/commit/965158d34154037bd9b8c6556a80baa1ea5a3aa2))
+
 ## [5.6.1-beta.1](https://github.com/sb-mig/sb-mig/compare/v5.6.0...v5.6.1-beta.1) (2026-03-19)
 
 
