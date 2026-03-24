@@ -1,3 +1,10 @@
+## [5.6.2-beta.1](https://github.com/sb-mig/sb-mig/compare/v5.6.1...v5.6.2-beta.1) (2026-03-24)
+
+
+### Bug Fixes
+
+* **discover:** resolve migrations in mixed directories ([9143d95](https://github.com/sb-mig/sb-mig/commit/9143d958415383bcba7243d411354fc289baab93))
+
 ## [5.6.1](https://github.com/sb-mig/sb-mig/compare/v5.6.0...v5.6.1) (2026-03-19)
 
 
