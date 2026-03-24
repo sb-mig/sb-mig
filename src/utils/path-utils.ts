@@ -123,6 +123,34 @@ export const filesPattern = ({
 };
 
 /**
+ * Builds glob file patterns for discovering exact file names across directories.
+ * Uses one pattern per directory/name pair so relative paths like ../../node_modules
+ * are preserved and not corrupted by path.join on brace-expanded segments.
+ */
+export const exactFilesPatterns = ({
+    mainDirectory,
+    componentDirectories,
+    fileNames,
+    ext,
+}: {
+    mainDirectory: string;
+    componentDirectories: string[];
+    fileNames: string[];
+    ext: string;
+}): string[] => {
+    return componentDirectories.flatMap((componentDirectory) =>
+        fileNames.map((fileName) =>
+            path.join(
+                `${mainDirectory}`,
+                `${componentDirectory}`,
+                "**",
+                `${fileName}.${ext}`,
+            ),
+        ),
+    );
+};
+
+/**
  * Compares local and external file path arrays.
  * Splits paths to extract file names, filters out duplicates from external
  * (preferring local files), and filters out nested node_modules.
