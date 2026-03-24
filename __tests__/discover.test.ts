@@ -2,7 +2,11 @@ import path from "path";
 
 import { describe, it, expect } from "vitest";
 
-import { filesPattern, normalizeDiscover } from "../src/utils/path-utils.js";
+import {
+    exactFilesPatterns,
+    filesPattern,
+    normalizeDiscover,
+} from "../src/utils/path-utils.js";
 
 describe("Discovering files", () => {
     it("pattern passed to glob work correctly for sb.ts extension for unix paths", () => {
@@ -65,5 +69,38 @@ describe("Discovering files", () => {
         });
 
         expect(normalized).toBe("");
+    });
+
+    it("exactFilesPatterns preserves relative node_modules directories", () => {
+        if (process.platform === "win32") return expect(true).toBe(true);
+
+        const directory = path.join(
+            "Users",
+            "someone",
+            "Projects",
+            "digital-experience-web",
+            "apps",
+            "web",
+        );
+        const componentDirectories = [
+            "src/components",
+            "src/storyblok",
+            "../../node_modules/@ef-global",
+            "./node_modules/@ef-global",
+        ];
+
+        const patterns = exactFilesPatterns({
+            mainDirectory: directory,
+            componentDirectories,
+            fileNames: ["itemsToContent"],
+            ext: "sb.migration.cjs",
+        }).map((pattern) => pattern.replace(/\\/g, "/"));
+
+        expect(patterns).toEqual([
+            "Users/someone/Projects/digital-experience-web/apps/web/src/components/**/itemsToContent.sb.migration.cjs",
+            "Users/someone/Projects/digital-experience-web/apps/web/src/storyblok/**/itemsToContent.sb.migration.cjs",
+            "Users/someone/Projects/digital-experience-web/node_modules/@ef-global/**/itemsToContent.sb.migration.cjs",
+            "Users/someone/Projects/digital-experience-web/apps/web/node_modules/@ef-global/**/itemsToContent.sb.migration.cjs",
+        ]);
     });
 });
