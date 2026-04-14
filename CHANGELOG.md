@@ -1,3 +1,15 @@
+# [5.7.0-beta.1](https://github.com/sb-mig/sb-mig/compare/v5.6.2-beta.1...v5.7.0-beta.1) (2026-04-14)
+
+
+### Bug Fixes
+
+* **migrate:** shorten backups and report write failures ([6a7f6e0](https://github.com/sb-mig/sb-mig/commit/6a7f6e05fdce3611a079b7b0f0594e6fa32217b3))
+
+
+### Features
+
+* **migrate:** support extending migration component scope ([aa48ce3](https://github.com/sb-mig/sb-mig/commit/aa48ce36a16df27369baf38f2923a0174d3a2011))
+
 ## [5.6.2-beta.1](https://github.com/sb-mig/sb-mig/compare/v5.6.1...v5.6.2-beta.1) (2026-03-24)
 
 
