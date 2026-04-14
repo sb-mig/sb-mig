@@ -191,7 +191,9 @@ describe("Stories API - Live Tests", () => {
                 );
 
                 expect(updated).toBeDefined();
-                expect(updated.story.name).toBe("Updated CRUD Test Story");
+                expect(updated.ok).toBe(true);
+                expect(updated.name).toBe("Updated CRUD Test Story");
+                expect(updated.data.story.name).toBe("Updated CRUD Test Story");
                 await waitForRateLimit(500);
 
                 // DELETE

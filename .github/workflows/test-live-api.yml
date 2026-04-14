@@ -1,6 +1,9 @@
 name: Live API Tests
 
 on:
+  pull_request:
+    branches:
+      - beta
   workflow_dispatch:
     inputs:
       node_version:
@@ -24,7 +27,7 @@ on:
           - "spaces"
 
 env:
-  NODE_VERSION: ${{ inputs.node_version || '20.x' }}
+  NODE_VERSION: ${{ github.event_name == 'workflow_dispatch' && inputs.node_version || '20.x' }}
 
 jobs:
   live-api-tests:
@@ -55,7 +58,7 @@ jobs:
           echo "STORYBLOK_OAUTH_TOKEN=${{ secrets.STORYBLOK_OAUTH_TOKEN }}" >> .env
 
       - name: Run Live API Tests (All)
-        if: ${{ inputs.test_scope == 'all' || inputs.test_scope == '' }}
+        if: ${{ github.event_name == 'pull_request' || inputs.test_scope == 'all' || inputs.test_scope == '' }}
         env:
           STORYBLOK_LIVE_TESTS: "true"
           STORYBLOK_SPACE_ID: ${{ secrets.STORYBLOK_SPACE_ID }}
@@ -100,4 +103,3 @@ jobs:
           echo "They require valid credentials in repository secrets:" >> $GITHUB_STEP_SUMMARY
           echo "- \`STORYBLOK_SPACE_ID\`" >> $GITHUB_STEP_SUMMARY
           echo "- \`STORYBLOK_OAUTH_TOKEN\`" >> $GITHUB_STEP_SUMMARY
-
