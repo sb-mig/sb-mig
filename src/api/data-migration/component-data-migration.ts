@@ -27,6 +27,12 @@ import {
     shouldUseDatestampForArtifacts,
 } from "./file-naming.js";
 import {
+    extendMigrationMapperWithAliases,
+    type MigrationComponentAliasesByMigration,
+    type MigrationComponentOverridesByMigration,
+    resolveMigrationComponentsToMigrate,
+} from "./migration-component-scope.js";
+import {
     discoverMigrationValidatorForMigrationFile,
     MigrationValidationFailedError,
     runPreparedMigrationValidator,
@@ -75,6 +81,8 @@ interface MigrateItems {
     migrateFrom: MigrateFrom;
     migrationConfig: string | string[];
     componentsToMigrate?: string[];
+    migrationComponentAliases?: MigrationComponentAliasesByMigration;
+    migrationComponentOverrides?: MigrationComponentOverridesByMigration;
     filters?: {
         withSlug?: string[];
         startsWith?: string;
@@ -264,9 +272,13 @@ export const prepareStoriesFromLocalFile = ({
 export const prepareMigrationConfigs = ({
     migrationConfig,
     componentsToMigrate,
+    migrationComponentAliases,
+    migrationComponentOverrides,
 }: {
     migrationConfig: string | string[];
     componentsToMigrate?: string[];
+    migrationComponentAliases?: MigrationComponentAliasesByMigration;
+    migrationComponentOverrides?: MigrationComponentOverridesByMigration;
 }): PreparedMigrationConfig[] => {
     const migrationConfigNames = normalizeMigrationConfigNames(migrationConfig);
 
@@ -319,15 +331,24 @@ export const prepareMigrationConfigs = ({
                 );
             }
 
+            const aliasedMigrationConfigFileContent =
+                extendMigrationMapperWithAliases(
+                    migrationConfigFileContent,
+                    migrationComponentAliases?.[migrationConfigName],
+                );
+
             const resolvedComponentsToMigrate =
-                componentsToMigrate && componentsToMigrate.length > 0
-                    ? componentsToMigrate
-                    : Object.keys(migrationConfigFileContent);
+                resolveMigrationComponentsToMigrate({
+                    mapper: aliasedMigrationConfigFileContent,
+                    migrationName: migrationConfigName,
+                    globalComponentsToMigrate: componentsToMigrate,
+                    perMigrationOverrides: migrationComponentOverrides,
+                });
 
             return {
                 migrationConfigName,
                 migrationConfigPath,
-                migrationConfigFileContent,
+                migrationConfigFileContent: aliasedMigrationConfigFileContent,
                 componentsToMigrate: resolvedComponentsToMigrate,
                 validator,
             };
@@ -742,6 +763,8 @@ export const migrateAllComponentsDataInStories = async (
         dryRun,
         fromFilePath,
         fileName,
+        migrationComponentAliases,
+        migrationComponentOverrides,
     }: Omit<MigrateItems, "componentsToMigrate" | "preparedMigrationConfigs">,
     config: RequestBaseConfig,
 ) => {
@@ -751,6 +774,8 @@ export const migrateAllComponentsDataInStories = async (
 
     const preparedMigrationConfigs = prepareMigrationConfigs({
         migrationConfig,
+        migrationComponentAliases,
+        migrationComponentOverrides,
     });
 
     if (storyblokConfig.debug) {
@@ -1022,6 +1047,8 @@ export const migrateProvidedComponentsDataInStories = async (
         fromFilePath,
         fileName,
         preparedMigrationConfigs,
+        migrationComponentAliases,
+        migrationComponentOverrides,
     }: MigrateItems,
     config: RequestBaseConfig,
 ) => {
@@ -1030,6 +1057,8 @@ export const migrateProvidedComponentsDataInStories = async (
         prepareMigrationConfigs({
             migrationConfig,
             componentsToMigrate,
+            migrationComponentAliases,
+            migrationComponentOverrides,
         });
 
     const itemsToMigrate = await loadItemsToMigrate(
