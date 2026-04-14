@@ -28,18 +28,22 @@ export const askForConfirmation = async (
         prompt: chalk.red(`${message} (y/n) > `),
     });
 
-    rl.prompt();
-    for await (const deletionConfirmation of rl) {
-        if (deletionConfirmation.trim() !== "y") {
-            await resolveNo();
-            process.exit(0);
-        } else {
-            if (deletionConfirmation) {
-                await resolveYes();
-
-                break;
-            }
-        }
+    try {
         rl.prompt();
+        for await (const deletionConfirmation of rl) {
+            if (deletionConfirmation.trim() !== "y") {
+                await resolveNo();
+                process.exit(0);
+            } else {
+                if (deletionConfirmation) {
+                    await resolveYes();
+
+                    break;
+                }
+            }
+            rl.prompt();
+        }
+    } finally {
+        rl.close();
     }
 };

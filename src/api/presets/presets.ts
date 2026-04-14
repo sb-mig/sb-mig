@@ -86,12 +86,24 @@ export const updatePreset: UpdatePreset = (args, config: RequestBaseConfig) => {
             Logger.warning(
                 `Preset: '${p.preset.name}' with '${p.preset.id}' id has been updated.`,
             );
-            return res;
+            return {
+                ok: true,
+                id: p.preset.id,
+                name: p.preset.name,
+                data: res,
+            };
         })
-        .catch(() => {
+        .catch((error) => {
             Logger.error(
                 `Error happened. Preset: '${p.preset.name}' with '${p.preset.id}' id has been not updated.`,
             );
+
+            return {
+                ok: false,
+                id: p.preset.id,
+                name: p.preset.name,
+                error,
+            };
         });
 };
 

@@ -7,6 +7,7 @@ import {
     migrateAllComponentsDataInStories,
     migrateProvidedComponentsDataInStories,
 } from "../../api/data-migration/component-data-migration.js";
+import { buildStoryBackupBaseName } from "../../api/data-migration/file-naming.js";
 import { managementApi } from "../../api/managementApi.js";
 import { backupStories } from "../../api/stories/backup.js";
 import { createAndSaveToFile } from "../../utils/files.js";
@@ -115,9 +116,10 @@ export const migrate = async (props: CLIOptions) => {
                     if (!dryRun) {
                         await backupStories(
                             {
-                                filename: `${from}--backup-before-migration___${migrationConfigs.join(
-                                    "__",
-                                )}`,
+                                filename: buildStoryBackupBaseName({
+                                    from,
+                                    fileName,
+                                }),
                                 suffix: ".sb.stories",
                                 spaceId: from,
                             },
