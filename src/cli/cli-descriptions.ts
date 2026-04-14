@@ -91,6 +91,8 @@ export const migrateDescription = `
         --to              - Space ID to which you want to migrate
         --migrate-from    - Migrate from (space, file) default: space
         --migration       - File name of migration file (without extension). Can be repeated for ordered pipeline in content migration.
+        --migrationComponentAlias - Add extra component aliases for a migration. Repeatable. Format: <migration>:<source>=<alias1>,<alias2>
+        --migrationComponents - Override the exact component scope for a migration. Repeatable. Format: <migration>:<component1>,<component2>
         --withSlug        - Filter stories by full slug (can be repeated)
         --startsWith      - Filter stories by starts_with prefix
         --yes             - Skip ask for confirmation (dangerous, but useful in CI/CD)
@@ -100,6 +102,8 @@ export const migrateDescription = `
     EXAMPLES
         $ sb-mig migrate content --all --from 12345 --to 12345 --migration file-with-migration
         $ sb-mig migrate content --all --from 12345 --to 12345 --migration migration-a --migration migration-b --migration migration-c
+        $ sb-mig migrate content --all --from 12345 --to 12345 --migration colorPickerModeValues --migrationComponentAlias colorPickerModeValues:sb-button=sb-open-drift-button
+        $ sb-mig migrate content --all --from 12345 --to 12345 --migration colorPickerModeValues --migrationComponentAlias colorPickerModeValues:sb-section=sb-tour-page-section --migrationComponents colorPickerModeValues:sb-section,sb-tour-page-section
         $ sb-mig migrate content --all --from 12345 --to 12345 --migration file-with-migration --withSlug blog/home --withSlug docs/getting-started
         $ sb-mig migrate content --all --from 12345 --to 12345 --migration file-with-migration --startsWith blog/
         $ sb-mig migrate content --all --from 12345 --to 12345 --migration v3toV4AllMigrations --dry-run --fileName brand-hub-v3-v4-run

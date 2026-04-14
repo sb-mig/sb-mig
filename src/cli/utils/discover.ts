@@ -11,6 +11,7 @@ import { safeGlobSync as globSync } from "../../utils/glob-utils.js";
 import {
     normalizeDiscover,
     filesPattern,
+    exactFilesPatterns,
     compare,
     type CompareResult,
     type OneFileElement,
@@ -59,6 +60,7 @@ export {
     normalizeDiscover,
     compare,
     filesPattern,
+    exactFilesPatterns,
 } from "../../utils/path-utils.js";
 
 export const discoverManyByPackageName = (
@@ -668,30 +670,20 @@ export const discoverMigrationConfig = (
 ): DiscoverResult => {
     const rootDirectory = "./";
     const directory = path.resolve(process.cwd(), rootDirectory);
-    let pattern;
-    let listOfFiles = [""];
+    let listOfFiles: string[] = [];
 
     switch (request.scope) {
         case SCOPE.local:
-            // ### MANY - LOCAL - fileName ###
-            // const onlyLocalComponentsDirectories =
-            //     storyblokConfig.componentsDirectories.filter(
-            //         (p: string) => !p.includes("node_modules")
-            //     );
-            pattern = path.join(
-                `${directory}`,
-                `${normalizeDiscover({
-                    segments: storyblokConfig.componentsDirectories,
-                })}`,
-                "**",
-                `${normalizeDiscover({ segments: request.fileNames })}.${
-                    storyblokConfig.migrationConfigExt
-                }`,
+            listOfFiles = exactFilesPatterns({
+                mainDirectory: directory,
+                componentDirectories: storyblokConfig.componentsDirectories,
+                fileNames: request.fileNames,
+                ext: storyblokConfig.migrationConfigExt,
+            }).flatMap((pattern) =>
+                globSync(pattern.replace(/\\/g, "/"), {
+                    follow: true,
+                }),
             );
-
-            listOfFiles = globSync(pattern.replace(/\\/g, "/"), {
-                follow: true,
-            });
 
             break;
 
@@ -776,25 +768,20 @@ export const discoverVersionMapping = (
 ): DiscoverResult => {
     const rootDirectory = "./";
     const directory = path.resolve(process.cwd(), rootDirectory);
-    let pattern;
-    let listOfFiles = [""];
+    let listOfFiles: string[] = [];
 
     switch (request.scope) {
         case SCOPE.all:
-            pattern = path.join(
-                `${directory}`,
-                `${normalizeDiscover({
-                    segments: storyblokConfig.componentsDirectories,
-                })}`,
-                "**",
-                `${normalizeDiscover({
-                    segments: request.fileNames,
-                })}.${"sb.migrations.cjs"}`,
+            listOfFiles = exactFilesPatterns({
+                mainDirectory: directory,
+                componentDirectories: storyblokConfig.componentsDirectories,
+                fileNames: request.fileNames,
+                ext: "sb.migrations.cjs",
+            }).flatMap((pattern) =>
+                globSync(pattern.replace(/\\/g, "/"), {
+                    follow: true,
+                }),
             );
-
-            listOfFiles = globSync(pattern.replace(/\\/g, "/"), {
-                follow: true,
-            });
 
             break;
 

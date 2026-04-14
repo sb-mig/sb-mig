@@ -22,12 +22,24 @@ import { isObjectEmpty } from "../../utils/object-utils.js";
 import { managementApi } from "../managementApi.js";
 
 import {
+    buildPreMigrationBackupBaseName,
+    resolveOutputFileBaseName,
+    shouldUseDatestampForArtifacts,
+} from "./file-naming.js";
+import {
+    extendMigrationMapperWithAliases,
+    type MigrationComponentAliasesByMigration,
+    type MigrationComponentOverridesByMigration,
+    resolveMigrationComponentsToMigrate,
+} from "./migration-component-scope.js";
+import {
     discoverMigrationValidatorForMigrationFile,
     MigrationValidationFailedError,
     runPreparedMigrationValidator,
     type MigrationValidationIssue,
     type PreparedMigrationValidator,
 } from "./migration-validation.js";
+import { summarizeMutationWriteResults } from "./write-summary.js";
 
 export type MigrateFrom = "file" | "space";
 
@@ -69,6 +81,8 @@ interface MigrateItems {
     migrateFrom: MigrateFrom;
     migrationConfig: string | string[];
     componentsToMigrate?: string[];
+    migrationComponentAliases?: MigrationComponentAliasesByMigration;
+    migrationComponentOverrides?: MigrationComponentOverridesByMigration;
     filters?: {
         withSlug?: string[];
         startsWith?: string;
@@ -258,9 +272,13 @@ export const prepareStoriesFromLocalFile = ({
 export const prepareMigrationConfigs = ({
     migrationConfig,
     componentsToMigrate,
+    migrationComponentAliases,
+    migrationComponentOverrides,
 }: {
     migrationConfig: string | string[];
     componentsToMigrate?: string[];
+    migrationComponentAliases?: MigrationComponentAliasesByMigration;
+    migrationComponentOverrides?: MigrationComponentOverridesByMigration;
 }): PreparedMigrationConfig[] => {
     const migrationConfigNames = normalizeMigrationConfigNames(migrationConfig);
 
@@ -313,15 +331,24 @@ export const prepareMigrationConfigs = ({
                 );
             }
 
+            const aliasedMigrationConfigFileContent =
+                extendMigrationMapperWithAliases(
+                    migrationConfigFileContent,
+                    migrationComponentAliases?.[migrationConfigName],
+                );
+
             const resolvedComponentsToMigrate =
-                componentsToMigrate && componentsToMigrate.length > 0
-                    ? componentsToMigrate
-                    : Object.keys(migrationConfigFileContent);
+                resolveMigrationComponentsToMigrate({
+                    mapper: aliasedMigrationConfigFileContent,
+                    migrationName: migrationConfigName,
+                    globalComponentsToMigrate: componentsToMigrate,
+                    perMigrationOverrides: migrationComponentOverrides,
+                });
 
             return {
                 migrationConfigName,
                 migrationConfigPath,
-                migrationConfigFileContent,
+                migrationConfigFileContent: aliasedMigrationConfigFileContent,
                 componentsToMigrate: resolvedComponentsToMigrate,
                 validator,
             };
@@ -352,35 +379,6 @@ const deepClone = <T>(input: T): T => JSON.parse(JSON.stringify(input));
 
 const sumValues = (obj: Record<string, number>): number =>
     Object.values(obj).reduce((sum, value) => sum + value, 0);
-
-const sanitizeOutputFileBaseName = (value: string): string => {
-    const sanitized = value
-        .trim()
-        .replace(/[\\/]/g, "-")
-        .replace(/\s+/g, "-")
-        .replace(/[^a-zA-Z0-9._-]/g, "-")
-        .replace(/-+/g, "-")
-        .replace(/^[-.]+|[-.]+$/g, "");
-
-    return sanitized || "migration-output";
-};
-
-const resolveOutputFileBaseName = ({
-    from,
-    fileName,
-}: {
-    from: string;
-    fileName?: string;
-}): string => {
-    if (typeof fileName === "string" && fileName.trim().length > 0) {
-        return sanitizeOutputFileBaseName(fileName);
-    }
-
-    return sanitizeOutputFileBaseName(from);
-};
-
-const shouldUseDatestampForArtifacts = (fileName?: string): boolean =>
-    !(typeof fileName === "string" && fileName.trim().length > 0);
 
 const applySingleMigrationToItems = ({
     itemType,
@@ -765,6 +763,8 @@ export const migrateAllComponentsDataInStories = async (
         dryRun,
         fromFilePath,
         fileName,
+        migrationComponentAliases,
+        migrationComponentOverrides,
     }: Omit<MigrateItems, "componentsToMigrate" | "preparedMigrationConfigs">,
     config: RequestBaseConfig,
 ) => {
@@ -774,6 +774,8 @@ export const migrateAllComponentsDataInStories = async (
 
     const preparedMigrationConfigs = prepareMigrationConfigs({
         migrationConfig,
+        migrationComponentAliases,
+        migrationComponentOverrides,
     });
 
     if (storyblokConfig.debug) {
@@ -958,8 +960,10 @@ export const doTheMigration = async (
         return;
     }
 
+    let writeResults: PromiseSettledResult<any>[] = [];
+
     if (itemType === "story") {
-        await managementApi.stories.updateStories(
+        writeResults = await managementApi.stories.updateStories(
             {
                 stories: pipelineResult.changedItems,
                 spaceId: to,
@@ -968,13 +972,37 @@ export const doTheMigration = async (
             config,
         );
     } else if (itemType === "preset") {
-        await managementApi.presets.updatePresets(
+        writeResults = await managementApi.presets.updatePresets(
             {
                 presets: pipelineResult.changedItems,
                 spaceId: to,
                 options: {},
             },
             config,
+        );
+    }
+
+    const writeSummary = summarizeMutationWriteResults(writeResults);
+
+    if (writeSummary.failed === 0) {
+        Logger.success(
+            `[MIGRATION] Update complete. ${writeSummary.successful}/${writeSummary.total} ${itemType}(s) updated successfully.`,
+        );
+        return;
+    }
+
+    Logger.warning(
+        `[MIGRATION] Update complete with partial failures. ${writeSummary.successful}/${writeSummary.total} ${itemType}(s) updated successfully, ${writeSummary.failed} failed.`,
+    );
+
+    writeSummary.failedItems.slice(0, 10).forEach((item) => {
+        const label = item.slug || item.name || item.id || "unknown";
+        Logger.error(`[MIGRATION] Failed ${itemType}: ${String(label)}`);
+    });
+
+    if (writeSummary.failedItems.length > 10) {
+        Logger.warning(
+            `[MIGRATION] Showing first 10 failed ${itemType}(s) only.`,
         );
     }
 };
@@ -1019,6 +1047,8 @@ export const migrateProvidedComponentsDataInStories = async (
         fromFilePath,
         fileName,
         preparedMigrationConfigs,
+        migrationComponentAliases,
+        migrationComponentOverrides,
     }: MigrateItems,
     config: RequestBaseConfig,
 ) => {
@@ -1027,6 +1057,8 @@ export const migrateProvidedComponentsDataInStories = async (
         prepareMigrationConfigs({
             migrationConfig,
             componentsToMigrate,
+            migrationComponentAliases,
+            migrationComponentOverrides,
         });
 
     const itemsToMigrate = await loadItemsToMigrate(
@@ -1042,17 +1074,14 @@ export const migrateProvidedComponentsDataInStories = async (
 
     if (migrateFrom === "space" && !dryRun) {
         const backupFolder = path.join("backup", itemType);
-        const migrationLabel = resolvedMigrationConfigs
-            .map(
-                (preparedMigrationConfig) =>
-                    preparedMigrationConfig.migrationConfigName,
-            )
-            .join("__");
 
         await saveBackupToFile(
             {
                 itemType,
-                filename: `before__${migrationLabel}__${from}`,
+                filename: buildPreMigrationBackupBaseName({
+                    from,
+                    fileName,
+                }),
                 folder: backupFolder,
                 res: itemsToMigrate,
             },
