@@ -7,6 +7,11 @@ import {
     migrateAllComponentsDataInStories,
     migrateProvidedComponentsDataInStories,
 } from "../../api/data-migration/component-data-migration.js";
+import { buildStoryBackupBaseName } from "../../api/data-migration/file-naming.js";
+import {
+    parseMigrationComponentAliasFlags,
+    parseMigrationComponentOverrideFlags,
+} from "../../api/data-migration/migration-component-scope.js";
 import { managementApi } from "../../api/managementApi.js";
 import { backupStories } from "../../api/stories/backup.js";
 import { createAndSaveToFile } from "../../utils/files.js";
@@ -53,6 +58,8 @@ export const migrate = async (props: CLIOptions) => {
         "fromFilePath",
         "pageId",
         "migration",
+        "migrationComponentAlias",
+        "migrationComponents",
         "yes",
         "withSlug",
         "startsWith",
@@ -84,6 +91,20 @@ export const migrate = async (props: CLIOptions) => {
             const migrationConfigs = normalizeMigrationFlags(
                 flags["migration"] as string | string[] | undefined,
             );
+            const migrationComponentAliases =
+                parseMigrationComponentAliasFlags(
+                    flags["migrationComponentAlias"] as
+                        | string
+                        | string[]
+                        | undefined,
+                );
+            const migrationComponentOverrides =
+                parseMigrationComponentOverrideFlags(
+                    flags["migrationComponents"] as
+                        | string
+                        | string[]
+                        | undefined,
+                );
             const dryRun = flags["dryRun"] as boolean | undefined;
             const fileName = flags["fileName"] as string | undefined;
             const withSlugFlag = flags["withSlug"] as
@@ -115,9 +136,10 @@ export const migrate = async (props: CLIOptions) => {
                     if (!dryRun) {
                         await backupStories(
                             {
-                                filename: `${from}--backup-before-migration___${migrationConfigs.join(
-                                    "__",
-                                )}`,
+                                filename: buildStoryBackupBaseName({
+                                    from,
+                                    fileName,
+                                }),
                                 suffix: ".sb.stories",
                                 spaceId: from,
                             },
@@ -133,6 +155,8 @@ export const migrate = async (props: CLIOptions) => {
                             migrateFrom,
                             componentsToMigrate,
                             migrationConfig: migrationConfigs,
+                            migrationComponentAliases,
+                            migrationComponentOverrides,
                             filters: { withSlug, startsWith },
                             dryRun,
                             fromFilePath,
@@ -169,6 +193,8 @@ export const migrate = async (props: CLIOptions) => {
                             to,
                             migrateFrom,
                             migrationConfig: migrationConfigs,
+                            migrationComponentAliases,
+                            migrationComponentOverrides,
                             filters: { withSlug, startsWith },
                             dryRun,
                             fromFilePath,
@@ -208,6 +234,20 @@ export const migrate = async (props: CLIOptions) => {
             const migrationConfigs = normalizeMigrationFlags(
                 flags["migration"] as string | string[] | undefined,
             );
+            const migrationComponentAliases =
+                parseMigrationComponentAliasFlags(
+                    flags["migrationComponentAlias"] as
+                        | string
+                        | string[]
+                        | undefined,
+                );
+            const migrationComponentOverrides =
+                parseMigrationComponentOverrideFlags(
+                    flags["migrationComponents"] as
+                        | string
+                        | string[]
+                        | undefined,
+                );
             const fromFilePath = flags["fromFilePath"] as string | undefined;
             const migrateFromFlag = flags["migrateFrom"] as
                 | MigrateFrom
@@ -266,6 +306,8 @@ export const migrate = async (props: CLIOptions) => {
                             to,
                             migrateFrom,
                             migrationConfig: migrationConfigs[0] as string,
+                            migrationComponentAliases,
+                            migrationComponentOverrides,
                             dryRun,
                             fromFilePath,
                             fileName,

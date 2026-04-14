@@ -78,6 +78,14 @@ app.migrate = () => ({
                 type: "string",
                 isMultiple: true,
             },
+            migrationComponentAlias: {
+                type: "string",
+                isMultiple: true,
+            },
+            migrationComponents: {
+                type: "string",
+                isMultiple: true,
+            },
             withSlug: {
                 type: "string",
                 isMultiple: true,

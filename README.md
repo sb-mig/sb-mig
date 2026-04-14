@@ -189,6 +189,49 @@ This command will look for `row.sb.js` and `column.sb.js` files inside a directo
 
 ## Syncing datasources
 
+## Migrating content
+
+Use `sb-mig migrate content` to run one or more migration configs against
+stories from a space or from a file.
+
+```bash
+sb-mig migrate content --all --from 12345 --to 12345 --migration itemsToContent
+```
+
+### Extending migration component scope
+
+Migration files export a mapper keyed by component name. By default, `sb-mig`
+runs a migration only for the component keys exported by that migration file.
+
+Use these flags when a consuming app has wrapper components that should reuse an
+existing migration function:
+
+- `--migrationComponentAlias`
+  Format: `<migration>:<source>=<alias1>,<alias2>`
+- `--migrationComponents`
+  Format: `<migration>:<component1>,<component2>`
+
+`--migrationComponentAlias` extends the migration mapper at runtime by reusing
+the source component's migration function for extra component names.
+
+`--migrationComponents` overrides the exact component scope for that migration.
+
+Example:
+
+```bash
+sb-mig migrate content --all \
+  --from 12345 \
+  --to 12345 \
+  --migration colorPickerModeValues \
+  --migrationComponentAlias colorPickerModeValues:sb-button=sb-open-drift-button \
+  --migrationComponentAlias colorPickerModeValues:sb-section=sb-tour-page-section \
+  --migrationComponents colorPickerModeValues:sb-button,sb-open-drift-button,sb-section,sb-tour-page-section
+```
+
+This runs `colorPickerModeValues` for the normal Backpack keys and also for the
+two wrapper component names by aliasing them onto the existing `sb-button` and
+`sb-section` migration handlers.
+
 You can also sync your `datasources`.
 
 Add `datasourceExt: "your-own-extension",` to your `storyblok.config.js`. If u will not add it, will be used default one (`sb.datasource.js`)

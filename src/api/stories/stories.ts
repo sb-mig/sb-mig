@@ -189,9 +189,25 @@ export const updateStory: UpdateStory = (content, storyId, options, config) => {
         })
         .then((res: any) => {
             console.log(`${chalk.green(res.data.story.full_slug)} updated.`);
-            return res.data;
+            return {
+                ok: true,
+                id: res.data.story.id,
+                name: res.data.story.name,
+                slug: res.data.story.full_slug,
+                data: res.data,
+            };
         })
-        .catch((err: any) => console.error(err));
+        .catch((err: any) => {
+            console.error(err);
+
+            return {
+                ok: false,
+                id: storyId,
+                name: content?.name,
+                slug: content?.full_slug || content?.slug,
+                error: err,
+            };
+        });
 };
 
 export const updateStories: UpdateStories = (args, config) => {
