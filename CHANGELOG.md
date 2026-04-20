@@ -1,3 +1,10 @@
+# [5.7.0-beta.2](https://github.com/sb-mig/sb-mig/compare/v5.7.0-beta.1...v5.7.0-beta.2) (2026-04-20)
+
+
+### Bug Fixes
+
+* **stories:** improve migration update error logging ([314af5f](https://github.com/sb-mig/sb-mig/commit/314af5f90c8850c96a444f588ea71d1a03e0a484))
+
 # [5.7.0-beta.1](https://github.com/sb-mig/sb-mig/compare/v5.6.2-beta.1...v5.7.0-beta.1) (2026-04-14)
 
 
