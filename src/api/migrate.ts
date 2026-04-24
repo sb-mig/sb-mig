@@ -134,6 +134,7 @@ export const syncComponents: SyncComponents = async (
     specifiedComponents,
     presets,
     config,
+    options = {},
 ) => {
     Logger.log("sync2Components: ");
 
@@ -153,12 +154,21 @@ export const syncComponents: SyncComponents = async (
     );
 
     await syncComponentsData(
-        { components: specifiedComponentsContent, presets },
+        {
+            components: specifiedComponentsContent,
+            presets,
+            ssot: options.ssot,
+            dryRun: options.dryRun,
+        },
         config,
     );
 };
 
-export const syncAllComponents: SyncAllComponents = async (presets, config) => {
+export const syncAllComponents: SyncAllComponents = async (
+    presets,
+    config,
+    options = {},
+) => {
     // #1: discover all external .sb.js files
     const allLocalSbComponentsSchemaFiles = await discover({
         scope: SCOPE.local,
@@ -178,7 +188,10 @@ export const syncAllComponents: SyncAllComponents = async (presets, config) => {
     });
 
     // #4: sync - do all stuff already done (groups resolving, and so on)
-    return await syncComponents([...local, ...external], presets, config);
+    return await syncComponents([...local, ...external], presets, config, {
+        dryRun: options.dryRun,
+        ssot: options.ssot,
+    });
 };
 
 export const syncProvidedComponents: SyncProvidedComponents = async (
@@ -186,6 +199,7 @@ export const syncProvidedComponents: SyncProvidedComponents = async (
     components,
     packageName,
     config,
+    options = {},
 ) => {
     if (!packageName) {
         // #1: discover all external .sb.js files
@@ -208,7 +222,9 @@ export const syncProvidedComponents: SyncProvidedComponents = async (
         });
 
         // #4: sync - do all stuff already done (groups resolving, and so on)
-        return await syncComponents([...local, ...external], presets, config);
+        return await syncComponents([...local, ...external], presets, config, {
+            dryRun: options.dryRun,
+        });
     } else {
         // implement discovering and syncrhonizing with packageName
         // #1: discover all external .sb.js files
@@ -227,19 +243,30 @@ export const syncProvidedComponents: SyncProvidedComponents = async (
             external: allExternalSbComponentsSchemaFiles,
         });
         // #4: sync - do all stuff already done (groups resolving, and so on)
-        return syncComponents([...local, ...external], presets, config);
+        return syncComponents([...local, ...external], presets, config, {
+            dryRun: options.dryRun,
+        });
     }
 };
 
 export const syncAssets: SyncAssets = async (
-    { transmission: { from, to }, syncDirection },
+    { transmission: { from, to }, syncDirection, dryRun },
     config,
 ) => {
     Logger.log(`We would try to migrate Assets data from: ${from} to: ${to}`);
 
     const allAssets = await getAllAssets({ spaceId: from }, config);
+    const assets = Array.isArray(allAssets?.assets) ? allAssets.assets : [];
+
+    if (dryRun) {
+        Logger.warning(
+            `[dry-run] Would sync ${assets.length} assets from ${from} to ${to}.`,
+        );
+        return true;
+    }
+
     await Promise.all(
-        allAssets.assets.map((asset) => {
+        assets.map((asset) => {
             const { id, created_at, updated_at, ...newAssetPayload } = asset;
             return migrateAsset(
                 {
@@ -251,10 +278,12 @@ export const syncAssets: SyncAssets = async (
             );
         }),
     );
+
+    return true;
 };
 
 const syncStories: SyncStories = async (
-    { transmission: { from, to }, stories, toSpaceId },
+    { transmission: { from, to }, stories, toSpaceId, dryRun },
     config,
 ) => {
     Logger.log(`We would try to migrate Stories data from: ${from} to: ${to}`);
@@ -266,6 +295,13 @@ const syncStories: SyncStories = async (
         );
 
     Logger.warning(`Amount of all stories to migrate: ${storiesToPass.length}`);
+
+    if (dryRun) {
+        Logger.warning(
+            `[dry-run] Would sync ${storiesToPass.length} stories from ${from} to ${to}.`,
+        );
+        return true;
+    }
 
     const storiesToPassJson = JSON.stringify(storiesToPass, null, 2);
 
@@ -283,14 +319,37 @@ const syncStories: SyncStories = async (
         { tree, realParentId: null, spaceId: toSpaceId },
         config,
     );
+
+    return true;
 };
 
 export const syncContent: SyncContentFunction = async (
-    { type, transmission, syncDirection, filename },
+    { type, transmission, syncDirection, filename, dryRun },
     config,
 ) => {
+    if (dryRun) {
+        Logger.warning(
+            "[dry-run] Content sync will only read source data and report planned changes.",
+        );
+    }
+
     if (type === "stories") {
         if (syncDirection === "fromSpaceToFile") {
+            if (dryRun) {
+                const stories = await getAllStories(
+                    {},
+                    {
+                        ...config,
+                        spaceId: transmission.from,
+                        sbApi: config.sbApi,
+                    },
+                );
+                Logger.warning(
+                    `[dry-run] Would back up ${stories.length} stories from ${transmission.from} to '${transmission.to}'.`,
+                );
+                return true;
+            }
+
             await backupStories(
                 {
                     filename: transmission.to,
@@ -315,6 +374,7 @@ export const syncContent: SyncContentFunction = async (
                     transmission,
                     stories,
                     toSpaceId: transmission.to,
+                    dryRun,
                 },
                 config,
             );
@@ -336,6 +396,7 @@ export const syncContent: SyncContentFunction = async (
                     transmission,
                     stories: storiesFileContent[0],
                     toSpaceId: transmission.to,
+                    dryRun,
                 },
                 config,
             );
@@ -352,6 +413,7 @@ export const syncContent: SyncContentFunction = async (
                     transmission,
                     stories: data.stories,
                     toSpaceId: transmission.to,
+                    dryRun,
                 },
                 config,
             );
@@ -367,7 +429,7 @@ export const syncContent: SyncContentFunction = async (
             syncDirection === "fromSpaceToSpace" ||
             syncDirection === "fromSpaceToFile"
         ) {
-            await syncAssets({ transmission, syncDirection }, config);
+            await syncAssets({ transmission, syncDirection, dryRun }, config);
         } else {
             Logger.warning(
                 `${syncDirection} with ${type} This is not implemented yet!`,

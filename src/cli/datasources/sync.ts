@@ -16,7 +16,7 @@ export const syncProvidedDatasources: SyncProvidedDatasources = async (
     args,
     config,
 ) => {
-    const { datasources } = args;
+    const { datasources, dryRun } = args;
 
     const allLocalDatasources = await discoverManyDatasources({
         scope: SCOPE.local,
@@ -39,12 +39,18 @@ export const syncProvidedDatasources: SyncProvidedDatasources = async (
     await managementApi.datasources.syncDatasources(
         {
             providedDatasources: [...local, ...external],
+            dryRun,
         },
         config,
     );
 };
 
-export const syncAllDatasources: SyncAllDatasources = async (config) => {
+export const syncAllDatasources: SyncAllDatasources = async (
+    config,
+    args = {},
+) => {
+    const { dryRun } = args;
+
     const allLocalDatasources = await discoverDatasources({
         scope: SCOPE.local,
         type: LOOKUP_TYPE.fileName,
@@ -63,6 +69,7 @@ export const syncAllDatasources: SyncAllDatasources = async (config) => {
     await managementApi.datasources.syncDatasources(
         {
             providedDatasources: [...local, ...external],
+            dryRun,
         },
         config,
     );

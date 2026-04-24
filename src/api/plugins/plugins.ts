@@ -113,7 +113,10 @@ export const createPlugin: CreatePlugin = (pluginName: string, config) => {
 // File-based sync wrapper lives in `plugins.sync.ts` to keep this module CJS-safe.
 
 export const syncPluginsData = async (
-    { plugins }: { plugins: { name: string; body: string }[] },
+    {
+        plugins,
+        dryRun,
+    }: { plugins: { name: string; body: string }[]; dryRun?: boolean },
     config: any,
 ): Promise<SyncResult> => {
     const result: SyncResult = {
@@ -123,6 +126,14 @@ export const syncPluginsData = async (
         errors: [],
     };
 
+    if (dryRun) {
+        Logger.warning(
+            "[dry-run] Plugin sync will only read remote data and report planned changes.",
+        );
+    }
+
+    const remotePlugins = dryRun ? await getAllPlugins(config) : [];
+
     for (const p of plugins) {
         const name = String(p?.name ?? "unknown");
         if (!p?.name) {
@@ -131,6 +142,24 @@ export const syncPluginsData = async (
         }
 
         try {
+            if (dryRun) {
+                const plugin = Array.isArray(remotePlugins)
+                    ? remotePlugins.find(
+                          (remotePlugin: any) => remotePlugin.name === name,
+                      )
+                    : undefined;
+
+                if (plugin) {
+                    Logger.warning(`[dry-run] Would update plugin '${name}'.`);
+                    result.updated.push(name);
+                } else {
+                    Logger.warning(`[dry-run] Would create plugin '${name}'.`);
+                    result.created.push(name);
+                }
+
+                continue;
+            }
+
             const plugin = await getPlugin(name, config);
             if (plugin) {
                 await updatePlugin(

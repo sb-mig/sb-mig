@@ -1,4 +1,8 @@
-import type { SyncProgressCallback, SyncResult } from "../sync/sync.types.js";
+import type {
+    SyncOptions,
+    SyncProgressCallback,
+    SyncResult,
+} from "../sync/sync.types.js";
 import type { RequestBaseConfig } from "../utils/request.js";
 
 import { uniqueValuesFrom } from "../../utils/array-utils.js";
@@ -45,6 +49,7 @@ import {
 async function ensureComponentGroupsExist(
     groupNames: string[],
     config: RequestBaseConfig,
+    options: SyncOptions = {},
 ): Promise<void> {
     try {
         const existing = await getAllComponentsGroups(config);
@@ -52,6 +57,13 @@ async function ensureComponentGroupsExist(
 
         for (const groupName of groupNames) {
             if (!existingNames.has(groupName)) {
+                if (options.dryRun) {
+                    Logger.warning(
+                        `[dry-run] Would create component group '${groupName}'.`,
+                    );
+                    continue;
+                }
+
                 await createComponentsGroup(groupName, config);
             }
         }
@@ -80,11 +92,12 @@ export async function syncComponentsData(
         components: any[];
         presets: boolean;
         ssot?: boolean;
+        dryRun?: boolean;
         onProgress?: SyncProgressCallback;
     },
     config: RequestBaseConfig,
 ): Promise<SyncResult> {
-    const { components, presets, ssot, onProgress } = args;
+    const { components, presets, ssot, dryRun, onProgress } = args;
     const progress = onProgress ?? defaultProgress;
 
     const result: SyncResult = {
@@ -94,17 +107,37 @@ export async function syncComponentsData(
         errors: [],
     };
 
+    if (dryRun) {
+        Logger.warning(
+            "[dry-run] Component sync will only read remote data and report planned changes.",
+        );
+    }
+
     if (ssot) {
         const existingComponents = await getAllComponents(config);
         const existingGroups = await getAllComponentsGroups(config);
-        await Promise.allSettled([
-            ...(existingComponents ?? []).map((c: any) =>
-                removeComponent(c, config),
-            ),
-            ...(existingGroups ?? []).map((g: any) =>
-                removeComponentGroup(g, config),
-            ),
-        ]);
+
+        if (dryRun) {
+            for (const component of existingComponents ?? []) {
+                Logger.warning(
+                    `[dry-run] Would remove component '${component.name}'.`,
+                );
+            }
+            for (const group of existingGroups ?? []) {
+                Logger.warning(
+                    `[dry-run] Would remove component group '${group.name}'.`,
+                );
+            }
+        } else {
+            await Promise.allSettled([
+                ...(existingComponents ?? []).map((c: any) =>
+                    removeComponent(c, config),
+                ),
+                ...(existingGroups ?? []).map((g: any) =>
+                    removeComponentGroup(g, config),
+                ),
+            ]);
+        }
     }
 
     const nonEmptyComponents = components.filter((c) => !isObjectEmpty(c));
@@ -114,13 +147,14 @@ export async function syncComponentsData(
             .map((c) => c.component_group_name),
     );
 
-    await ensureComponentGroupsExist(groupsToCheck, config);
+    await ensureComponentGroupsExist(groupsToCheck, config, { dryRun });
 
     let remoteComponents: any[] = [];
     let remoteGroups: any[] = [];
 
     try {
-        remoteComponents = (await getAllComponents(config)) ?? [];
+        remoteComponents =
+            ssot && dryRun ? [] : ((await getAllComponents(config)) ?? []);
     } catch (error) {
         Logger.warning(
             `Could not fetch remote components: ${error instanceof Error ? error.message : String(error)}`,
@@ -182,6 +216,19 @@ export async function syncComponentsData(
         });
 
         try {
+            if (dryRun) {
+                Logger.warning(`[dry-run] Would update component '${name}'.`);
+                result.updated.push(name);
+                progress({
+                    type: "progress",
+                    current: currentIndex,
+                    total: totalComponents,
+                    name,
+                    action: "updated",
+                });
+                continue;
+            }
+
             await updateComponent(component, presets, config);
             result.updated.push(name);
             progress({
@@ -221,6 +268,19 @@ export async function syncComponentsData(
         });
 
         try {
+            if (dryRun) {
+                Logger.warning(`[dry-run] Would create component '${name}'.`);
+                result.created.push(name);
+                progress({
+                    type: "progress",
+                    current: currentIndex,
+                    total: totalComponents,
+                    name,
+                    action: "created",
+                });
+                continue;
+            }
+
             await createComponent(component, presets, config);
             result.created.push(name);
             progress({

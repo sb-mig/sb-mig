@@ -95,16 +95,30 @@ export const createDatasourceEntries: CreateDatasourceEntries = (
     args,
     config,
 ) => {
-    const { datasource_entries, remoteDatasourceEntries, data } = args;
+    const { datasource_entries, remoteDatasourceEntries, data, dryRun } = args;
+    const remoteEntries = Array.isArray(
+        remoteDatasourceEntries?.datasource_entries,
+    )
+        ? remoteDatasourceEntries.datasource_entries
+        : [];
 
     return Promise.all(
         datasource_entries.map((datasourceEntry: any) => {
-            const datasourceToBeUpdated =
-                remoteDatasourceEntries.datasource_entries.find(
-                    (remoteDatasourceEntry: any) =>
-                        remoteDatasourceEntry.name ===
-                        Object.values(datasourceEntry)[0],
+            const datasourceEntryName =
+                datasourceEntry.name ?? Object.values(datasourceEntry)[0];
+            const datasourceToBeUpdated = remoteEntries.find(
+                (remoteDatasourceEntry: any) =>
+                    remoteDatasourceEntry.name === datasourceEntryName,
+            );
+
+            if (dryRun) {
+                const action = datasourceToBeUpdated ? "update" : "create";
+                Logger.warning(
+                    `[dry-run] Would ${action} datasource entry '${datasourceEntryName}' in '${data.datasource.name}' datasource.`,
                 );
+                return data;
+            }
+
             if (datasourceToBeUpdated) {
                 return updateDatasourceEntry(
                     { data, datasourceEntry, datasourceToBeUpdated },
@@ -115,6 +129,13 @@ export const createDatasourceEntries: CreateDatasourceEntries = (
         }),
     )
         .then((_: any) => {
+            if (dryRun) {
+                Logger.warning(
+                    `[dry-run] Datasource entries for ${data.datasource.id} datasource id were planned without API writes.`,
+                );
+                return data;
+            }
+
             Logger.success(
                 `Datasource entries for ${data.datasource.id} datasource id has been successfully synced.`,
             );

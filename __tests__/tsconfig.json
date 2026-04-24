@@ -14,6 +14,10 @@
         "lib": ["DOM", "DOM.Iterable", "ESNext"],
         "baseUrl": "..",
         "paths": {
+            "@storyblok/react": [
+                "node_modules/@storyblok/react/dist/types/index.d.ts",
+                "sb-mig/node_modules/@storyblok/react/dist/types/index.d.ts"
+            ],
             "../src/*": ["src/*"]
         }
     },

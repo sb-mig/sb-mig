@@ -1,4 +1,5 @@
 import type { OneFileElement } from "../../utils/path-utils.js";
+import type { SyncOptions } from "../sync/sync.types.js";
 import type { RequestBaseConfig } from "../utils/request.js";
 
 export type GetRole = (
@@ -11,11 +12,17 @@ export type CreateRole = (role: any, config: RequestBaseConfig) => void;
 export type UpdateRole = (role: any, config: RequestBaseConfig) => void;
 
 export type SyncRoles = (
-    { specifiedRoles }: { specifiedRoles: OneFileElement[] },
+    {
+        specifiedRoles,
+        dryRun,
+    }: { specifiedRoles: OneFileElement[]; dryRun?: boolean },
     config: RequestBaseConfig,
 ) => Promise<void>;
-export type SyncAllRoles = (config: RequestBaseConfig) => Promise<void>;
+export type SyncAllRoles = (
+    config: RequestBaseConfig,
+    options?: SyncOptions,
+) => Promise<void>;
 export type SyncProvidedRoles = (
-    { roles }: { roles: string[] },
+    { roles, dryRun }: { roles: string[]; dryRun?: boolean },
     config: RequestBaseConfig,
 ) => Promise<void>;

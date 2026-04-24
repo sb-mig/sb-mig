@@ -92,4 +92,31 @@ describe("Datasource sync CLI helpers", () => {
             syncProvidedDatasources({ datasources: ["colors"] }, {} as any),
         );
     });
+
+    it("passes dry-run through for --all datasource sync", async () => {
+        await syncAllDatasources({} as any, { dryRun: true });
+
+        expect(syncDatasources).toHaveBeenCalledWith(
+            {
+                providedDatasources: [],
+                dryRun: true,
+            },
+            {},
+        );
+    });
+
+    it("passes dry-run through for provided datasource names", async () => {
+        await syncProvidedDatasources(
+            { datasources: ["colors"], dryRun: true },
+            {} as any,
+        );
+
+        expect(syncDatasources).toHaveBeenCalledWith(
+            {
+                providedDatasources: [],
+                dryRun: true,
+            },
+            {},
+        );
+    });
 });
