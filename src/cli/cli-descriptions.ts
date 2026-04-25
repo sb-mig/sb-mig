@@ -32,6 +32,7 @@ export const syncDescription = `
     FLAGS
         --all           - Sync all components, roles, datasources                            [components, roles, datasources]
         --presets       - Pass it, if u want to sync also with presets (will take longer)    [components only]
+        --dry-run       - Preview planned changes without making writes                      [components, roles, datasources, plugins, content]
         
         --yes           - Skip ask for confirmation (dangerous, but useful in CI/CD)         [content only]
         --from          - Space ID from which you want to sync content                       [content only]
@@ -41,13 +42,16 @@ export const syncDescription = `
     
     EXAMPLES
         $ sb-mig sync components --all
+        $ sb-mig sync components --all --dry-run
         $ sb-mig sync components --all --presets
         $ sb-mig sync components accordion accordion-item
         $ sb-mig sync components accordion accordion-item --presets
         
         $ sb-mig sync roles --all
+        $ sb-mig sync roles --all --dry-run
         
         $ sb-mig sync datasources --all
+        $ sb-mig sync datasources --all --dry-run
         
         $ sb-mig sync plugins my-awesome-plugin - (you have to be in catalog which has ./dist/export.js file with compiled plugin)
         

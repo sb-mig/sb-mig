@@ -151,7 +151,7 @@ export const updateDatasource: UpdateDatasource = (args, config) => {
 // File-based sync wrapper lives in `datasources.sync.ts` to keep this module CJS-safe.
 
 export const syncDatasourcesData = async (
-    { datasources }: { datasources: any[] },
+    { datasources, dryRun }: { datasources: any[]; dryRun?: boolean },
     config: any,
 ): Promise<SyncResult> => {
     const result: SyncResult = {
@@ -160,6 +160,12 @@ export const syncDatasourcesData = async (
         skipped: [],
         errors: [],
     };
+
+    if (dryRun) {
+        Logger.warning(
+            "[dry-run] Datasource sync will only read remote data and report planned changes.",
+        );
+    }
 
     const remoteDatasourcesRaw = await getAllDatasources(config);
     const remoteDatasources = Array.isArray(remoteDatasourcesRaw)
@@ -178,6 +184,52 @@ export const syncDatasourcesData = async (
                 (remoteDatasource: any) =>
                     datasource.name === remoteDatasource.name,
             );
+
+            if (dryRun) {
+                if (datasourceToBeUpdated) {
+                    result.updated.push(name);
+                    Logger.warning(
+                        `[dry-run] Would update datasource '${name}'.`,
+                    );
+
+                    const remoteDatasourceEntries = await getDatasourceEntries(
+                        {
+                            datasourceName: name,
+                        },
+                        config,
+                    );
+
+                    await createDatasourceEntries(
+                        {
+                            data: { datasource: datasourceToBeUpdated },
+                            datasource_entries:
+                                datasource.datasource_entries ?? [],
+                            remoteDatasourceEntries,
+                            dryRun,
+                        },
+                        config,
+                    );
+                } else {
+                    const entriesCount = Array.isArray(
+                        datasource.datasource_entries,
+                    )
+                        ? datasource.datasource_entries.length
+                        : 0;
+
+                    result.created.push(name);
+                    Logger.warning(
+                        `[dry-run] Would create datasource '${name}'.`,
+                    );
+
+                    if (entriesCount > 0) {
+                        Logger.warning(
+                            `[dry-run] Would create ${entriesCount} datasource entries for '${name}' after datasource creation.`,
+                        );
+                    }
+                }
+
+                continue;
+            }
 
             const opResult = datasourceToBeUpdated
                 ? await updateDatasource(
