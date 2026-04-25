@@ -1,3 +1,10 @@
+# [5.7.0-beta.3](https://github.com/sb-mig/sb-mig/compare/v5.7.0-beta.2...v5.7.0-beta.3) (2026-04-25)
+
+
+### Features
+
+* **sync:** add consistent dry-run support ([5301359](https://github.com/sb-mig/sb-mig/commit/53013596743256f45660351756d2f86b8d5a0958))
+
 # [5.7.0-beta.2](https://github.com/sb-mig/sb-mig/compare/v5.7.0-beta.1...v5.7.0-beta.2) (2026-04-20)
 
 
