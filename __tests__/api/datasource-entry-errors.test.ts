@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createDatasourceEntry } from "../../src/api/datasources/datasource-entries.js";
+import {
+    createDatasourceEntry,
+    getDatasourceEntries,
+} from "../../src/api/datasources/datasource-entries.js";
 import {
     createDatasource,
     updateDatasource,
@@ -131,6 +134,77 @@ describe("datasource API error logging", () => {
         );
         expect(Logger.error).toHaveBeenCalledWith(
             expect.stringContaining("message: Network unavailable"),
+        );
+    });
+});
+
+describe("datasource entry fetching", () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+    });
+
+    it("fetches all datasource entry pages", async () => {
+        const config = createMockApiConfig();
+
+        config.sbApi.get.mockImplementation((path: string, params: any) => {
+            if (path.includes("datasource_entries")) {
+                const entriesByPage: Record<number, any[]> = {
+                    1: [{ id: 1, name: "first", value: "first" }],
+                    2: [{ id: 2, name: "second", value: "second" }],
+                };
+
+                return Promise.resolve({
+                    data: {
+                        datasource_entries:
+                            entriesByPage[params.page as number] ?? [],
+                    },
+                    total: 2,
+                    perPage: 1,
+                });
+            }
+
+            return Promise.resolve({
+                data: {
+                    datasources: [
+                        {
+                            id: 123,
+                            name: "colors-theme-dark",
+                            slug: "colors-theme-dark",
+                            dimensions: [],
+                        },
+                    ],
+                },
+                total: 1,
+                perPage: 100,
+            });
+        });
+
+        const result = await getDatasourceEntries(
+            { datasourceName: "colors-theme-dark" },
+            config,
+        );
+
+        expect(result).toEqual({
+            datasource_entries: [
+                { id: 1, name: "first", value: "first" },
+                { id: 2, name: "second", value: "second" },
+            ],
+        });
+        expect(config.sbApi.get).toHaveBeenCalledWith(
+            "spaces/12345/datasource_entries/",
+            expect.objectContaining({
+                datasource_id: 123,
+                page: 1,
+                per_page: 100,
+            }),
+        );
+        expect(config.sbApi.get).toHaveBeenCalledWith(
+            "spaces/12345/datasource_entries/",
+            expect.objectContaining({
+                datasource_id: 123,
+                page: 2,
+                per_page: 100,
+            }),
         );
     });
 });

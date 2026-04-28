@@ -12,6 +12,7 @@ import chalk from "chalk";
 
 import Logger from "../../utils/logger.js";
 import { isObjectEmpty } from "../../utils/object-utils.js";
+import { getAllItemsWithPagination } from "../utils/request.js";
 
 import { getDatasource } from "./datasources.js";
 import { formatDatasourceApiError } from "./error-formatting.js";
@@ -77,19 +78,25 @@ export const getDatasourceEntries: GetDatasourceEntries = async (
     const data = await getDatasource({ datasourceName }, config); // TODO: maybe this step is not needed, i think we can retrieve entries directly using slug (but using delivery api, not management)
 
     if (data) {
-        return sbApi
-            .get(`spaces/${spaceId}/datasource_entries/`, {
-                datasource_id: data[0].id,
-            } as any)
-            .then(async (response: any) => {
-                Logger.success(
-                    `Datasource Entries for '${datasourceName}' datasource successfully retrieved.`,
-                );
-                const { data } = response;
-                return data;
-            })
-            .catch((err) => Logger.error(err));
+        const datasourceEntries = await getAllItemsWithPagination({
+            apiFn: ({ per_page, page }) =>
+                sbApi.get(`spaces/${spaceId}/datasource_entries/`, {
+                    datasource_id: data[0].id,
+                    per_page,
+                    page,
+                } as any),
+            params: {},
+            itemsKey: "datasource_entries",
+        });
+
+        Logger.success(
+            `Datasource Entries for '${datasourceName}' datasource successfully retrieved.`,
+        );
+
+        return { datasource_entries: datasourceEntries };
     }
+
+    return { datasource_entries: [] };
 };
 
 export const createDatasourceEntries: CreateDatasourceEntries = (
