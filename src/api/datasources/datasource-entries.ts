@@ -14,6 +14,7 @@ import Logger from "../../utils/logger.js";
 import { isObjectEmpty } from "../../utils/object-utils.js";
 
 import { getDatasource } from "./datasources.js";
+import { formatDatasourceApiError } from "./error-formatting.js";
 
 const _decorateWithDimensions: _DecorateWithDimensions = async (
     args,
@@ -173,7 +174,7 @@ const _createDatasourceEntry: _CreateDatasourceEntry = (args, config) => {
                 console.log(err);
             }
             Logger.error(
-                `Unable to create datasource entry in ${currentDatasource.datasource.name} datasource.`,
+                `Unable to create datasource entry '${finalDatasource_entry.name}' in ${currentDatasource.datasource.name} datasource. Value: '${finalDatasource_entry.value}'. ${formatDatasourceApiError(err)}`,
             );
         });
 };
@@ -237,7 +238,7 @@ const _updateDatasourceEntry: _UpdateDatasourceEntry = (args, config) => {
                 console.log(err);
             }
             Logger.error(
-                `Unable to update datasource entry in ${currentDatasource.datasource.name} datasource.`,
+                `Unable to update datasource entry '${finalDatasource_entry.name}' in ${currentDatasource.datasource.name} datasource. Value: '${finalDatasource_entry.value}'. ${formatDatasourceApiError(err)}`,
             );
         });
 };

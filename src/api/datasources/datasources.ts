@@ -14,6 +14,7 @@ import {
     createDatasourceEntries,
     getDatasourceEntries,
 } from "./datasource-entries.js";
+import { formatDatasourceApiError } from "./error-formatting.js";
 
 // GET
 export const getAllDatasources: GetAllDatasources = (config) => {
@@ -102,7 +103,11 @@ export const createDatasource: CreateDatasource = (args, config) => {
                 datasource_entries: datasource.datasource_entries,
             };
         })
-        .catch((err) => Logger.error(err));
+        .catch((err) =>
+            Logger.error(
+                `Unable to create datasource '${datasource.name}' with slug '${datasource.slug}'. ${formatDatasourceApiError(err)}`,
+            ),
+        );
 };
 
 export const updateDatasource: UpdateDatasource = (args, config) => {
@@ -145,7 +150,11 @@ export const updateDatasource: UpdateDatasource = (args, config) => {
                 datasource_entries: datasource.datasource_entries,
             };
         })
-        .catch((err) => Logger.error(err));
+        .catch((err) =>
+            Logger.error(
+                `Unable to update datasource '${datasource.name}' with id '${datasourceToBeUpdated.id}'. ${formatDatasourceApiError(err)}`,
+            ),
+        );
 };
 
 // File-based sync wrapper lives in `datasources.sync.ts` to keep this module CJS-safe.
