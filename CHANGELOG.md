@@ -1,3 +1,11 @@
+# [5.7.0-beta.4](https://github.com/sb-mig/sb-mig/compare/v5.7.0-beta.3...v5.7.0-beta.4) (2026-04-29)
+
+
+### Bug Fixes
+
+* **datasources:** expose sync failure details ([af5da87](https://github.com/sb-mig/sb-mig/commit/af5da87f02f7d55b7cf54ffef17464b0e6c2eaf5))
+* **datasources:** paginate entry lookup during sync ([360d4f3](https://github.com/sb-mig/sb-mig/commit/360d4f3495009fc8e803b1d7b7dcae9f47ac8700))
+
 # [5.7.0-beta.3](https://github.com/sb-mig/sb-mig/compare/v5.7.0-beta.2...v5.7.0-beta.3) (2026-04-25)
 
 
