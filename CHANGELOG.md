@@ -1,3 +1,17 @@
+# [5.8.0-beta.1](https://github.com/sb-mig/sb-mig/compare/v5.7.0...v5.8.0-beta.1) (2026-04-29)
+
+
+### Bug Fixes
+
+* **datasources:** expose sync failure details ([af5da87](https://github.com/sb-mig/sb-mig/commit/af5da87f02f7d55b7cf54ffef17464b0e6c2eaf5))
+* **datasources:** paginate entry lookup during sync ([360d4f3](https://github.com/sb-mig/sb-mig/commit/360d4f3495009fc8e803b1d7b7dcae9f47ac8700))
+* **stories:** improve migration update error logging ([314af5f](https://github.com/sb-mig/sb-mig/commit/314af5f90c8850c96a444f588ea71d1a03e0a484))
+
+
+### Features
+
+* **sync:** add consistent dry-run support ([5301359](https://github.com/sb-mig/sb-mig/commit/53013596743256f45660351756d2f86b8d5a0958))
+
 # [5.7.0-beta.4](https://github.com/sb-mig/sb-mig/compare/v5.7.0-beta.3...v5.7.0-beta.4) (2026-04-29)
 
 
