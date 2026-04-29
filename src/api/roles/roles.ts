@@ -103,7 +103,7 @@ export const getRole: GetRole = async (
 };
 
 export const syncRolesData = async (
-    { roles }: { roles: any[] },
+    { roles, dryRun }: { roles: any[]; dryRun?: boolean },
     config: any,
 ): Promise<SyncResult> => {
     const result: SyncResult = {
@@ -112,6 +112,12 @@ export const syncRolesData = async (
         skipped: [],
         errors: [],
     };
+
+    if (dryRun) {
+        Logger.warning(
+            "[dry-run] Role sync will only read remote data and report planned changes.",
+        );
+    }
 
     const space_roles_raw = await getAllRoles(config);
     const space_roles = Array.isArray(space_roles_raw) ? space_roles_raw : [];
@@ -135,20 +141,30 @@ export const syncRolesData = async (
         }
     }
 
-    const updateResults = await Promise.allSettled(
-        rolesToUpdate.map((role) => updateRole(role, config) as any),
-    );
-    updateResults.forEach((r, idx) => {
+    const updateResults = dryRun
+        ? rolesToUpdate.map(() => ({ status: "fulfilled" as const }))
+        : await Promise.allSettled(
+              rolesToUpdate.map((role) => updateRole(role, config) as any),
+          );
+    updateResults.forEach((r: any, idx) => {
         const name = String(rolesToUpdate[idx]?.role ?? "unknown");
+        if (dryRun) {
+            Logger.warning(`[dry-run] Would update role '${name}'.`);
+        }
         if (r.status === "fulfilled") result.updated.push(name);
         else result.errors.push({ name, message: String(r.reason) });
     });
 
-    const createResults = await Promise.allSettled(
-        rolesToCreate.map((role) => createRole(role, config) as any),
-    );
-    createResults.forEach((r, idx) => {
+    const createResults = dryRun
+        ? rolesToCreate.map(() => ({ status: "fulfilled" as const }))
+        : await Promise.allSettled(
+              rolesToCreate.map((role) => createRole(role, config) as any),
+          );
+    createResults.forEach((r: any, idx) => {
         const name = String(rolesToCreate[idx]?.role ?? "unknown");
+        if (dryRun) {
+            Logger.warning(`[dry-run] Would create role '${name}'.`);
+        }
         if (r.status === "fulfilled") result.created.push(name);
         else result.errors.push({ name, message: String(r.reason) });
     });

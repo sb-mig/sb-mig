@@ -19,6 +19,38 @@ import Logger from "../../utils/logger.js";
 import { notNullish } from "../../utils/object-utils.js";
 import { getAllItemsWithPagination } from "../utils/request.js";
 
+const resolveStoryLabel = (
+    content: Record<string, any> | undefined,
+    storyId: string,
+): string =>
+    content?.full_slug || content?.slug || content?.name || String(storyId);
+
+const resolveStoryblokErrorResponse = (err: any): string | undefined => {
+    if (typeof err?.response === "string" && err.response.trim().length > 0) {
+        return err.response.trim();
+    }
+
+    if (
+        typeof err?.response?.data === "string" &&
+        err.response.data.trim().length > 0
+    ) {
+        return err.response.data.trim();
+    }
+
+    if (
+        typeof err?.response?.message === "string" &&
+        err.response.message.trim().length > 0
+    ) {
+        return err.response.message.trim();
+    }
+
+    if (typeof err?.message === "string" && err.message.trim().length > 0) {
+        return err.message.trim();
+    }
+
+    return undefined;
+};
+
 export const removeStory: RemoveStory = (args, config) => {
     const { storyId } = args;
     const { spaceId, sbApi } = config;
@@ -173,6 +205,7 @@ export const createStory: CreateStory = (content, config) => {
 // UPDATE
 export const updateStory: UpdateStory = (content, storyId, options, config) => {
     const { spaceId, sbApi } = config;
+    const storyLabel = resolveStoryLabel(content, storyId);
     Logger.warning("Trying to update Story...");
     Logger.log(
         `Updating story with name: ${content.name} in space: ${spaceId}`,
@@ -198,13 +231,25 @@ export const updateStory: UpdateStory = (content, storyId, options, config) => {
             };
         })
         .catch((err: any) => {
-            console.error(err);
+            const status = err?.status || err?.response?.status;
+            const responseMessage = resolveStoryblokErrorResponse(err);
+            const statusLabel = status ? `status ${status}` : "unknown status";
+            const responseLabel = responseMessage
+                ? ` Response: ${responseMessage}`
+                : "";
+
+            Logger.error(
+                `Failed to update story '${storyLabel}' in space '${spaceId}' (${statusLabel}).${responseLabel}`,
+            );
 
             return {
                 ok: false,
                 id: storyId,
                 name: content?.name,
                 slug: content?.full_slug || content?.slug,
+                spaceId,
+                status,
+                response: responseMessage,
                 error: err,
             };
         });

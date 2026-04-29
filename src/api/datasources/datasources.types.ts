@@ -17,15 +17,16 @@ export type UpdateDatasource = (
 ) => Promise<any>;
 
 export type SyncDatasources = (
-    args: { providedDatasources: OneFileElement[] },
+    args: { providedDatasources: OneFileElement[]; dryRun?: boolean },
     config: RequestBaseConfig,
 ) => Promise<any>;
 export type SyncProvidedDatasources = (
-    args: { datasources: string[] },
+    args: { datasources: string[]; dryRun?: boolean },
     config: RequestBaseConfig,
 ) => Promise<void>;
 export type SyncAllDatasources = (
     config: RequestBaseConfig,
+    args?: { dryRun?: boolean },
 ) => Promise<void>;
 
 // Datasource Entries
@@ -38,6 +39,7 @@ export type CreateDatasourceEntries = (
         data: any;
         datasource_entries: any;
         remoteDatasourceEntries: any;
+        dryRun?: boolean;
     },
     config: RequestBaseConfig,
 ) => Promise<any> | void;

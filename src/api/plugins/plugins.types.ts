@@ -13,6 +13,7 @@ interface UpdatePluginDTO {
 
 interface SyncProvidedPluginsDTO {
     plugins: string[];
+    dryRun?: boolean;
 }
 
 export type GetPlugin = (

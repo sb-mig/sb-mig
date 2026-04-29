@@ -12,7 +12,7 @@ import {
     SCOPE,
 } from "../utils/discover.js";
 
-export const syncAllRoles: SyncAllRoles = async (config) => {
+export const syncAllRoles: SyncAllRoles = async (config, options = {}) => {
     // #1: discover all external .roles.sb.js files
     const allLocalSbComponentsSchemaFiles = await discoverRoles({
         scope: SCOPE.local,
@@ -31,13 +31,13 @@ export const syncAllRoles: SyncAllRoles = async (config) => {
 
     // #4: sync - do all stuff already done (groups resolving, and so on)
     await managementApi.roles.syncRoles(
-        { specifiedRoles: [...local, ...external] },
+        { specifiedRoles: [...local, ...external], dryRun: options.dryRun },
         config,
     );
 };
 
 export const syncProvidedRoles: SyncProvidedRoles = async (
-    { roles }: { roles: string[] },
+    { roles, dryRun },
     config,
 ) => {
     // #1: discover all external .sb.js files
@@ -60,7 +60,7 @@ export const syncProvidedRoles: SyncProvidedRoles = async (
 
     // #4: sync - do all stuff already done (groups resolving, and so on)
     await managementApi.roles.syncRoles(
-        { specifiedRoles: [...local, ...external] },
+        { specifiedRoles: [...local, ...external], dryRun },
         config,
     );
 };

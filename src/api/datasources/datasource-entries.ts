@@ -12,8 +12,10 @@ import chalk from "chalk";
 
 import Logger from "../../utils/logger.js";
 import { isObjectEmpty } from "../../utils/object-utils.js";
+import { getAllItemsWithPagination } from "../utils/request.js";
 
 import { getDatasource } from "./datasources.js";
+import { formatDatasourceApiError } from "./error-formatting.js";
 
 const _decorateWithDimensions: _DecorateWithDimensions = async (
     args,
@@ -76,35 +78,55 @@ export const getDatasourceEntries: GetDatasourceEntries = async (
     const data = await getDatasource({ datasourceName }, config); // TODO: maybe this step is not needed, i think we can retrieve entries directly using slug (but using delivery api, not management)
 
     if (data) {
-        return sbApi
-            .get(`spaces/${spaceId}/datasource_entries/`, {
-                datasource_id: data[0].id,
-            } as any)
-            .then(async (response: any) => {
-                Logger.success(
-                    `Datasource Entries for '${datasourceName}' datasource successfully retrieved.`,
-                );
-                const { data } = response;
-                return data;
-            })
-            .catch((err) => Logger.error(err));
+        const datasourceEntries = await getAllItemsWithPagination({
+            apiFn: ({ per_page, page }) =>
+                sbApi.get(`spaces/${spaceId}/datasource_entries/`, {
+                    datasource_id: data[0].id,
+                    per_page,
+                    page,
+                } as any),
+            params: {},
+            itemsKey: "datasource_entries",
+        });
+
+        Logger.success(
+            `Datasource Entries for '${datasourceName}' datasource successfully retrieved.`,
+        );
+
+        return { datasource_entries: datasourceEntries };
     }
+
+    return { datasource_entries: [] };
 };
 
 export const createDatasourceEntries: CreateDatasourceEntries = (
     args,
     config,
 ) => {
-    const { datasource_entries, remoteDatasourceEntries, data } = args;
+    const { datasource_entries, remoteDatasourceEntries, data, dryRun } = args;
+    const remoteEntries = Array.isArray(
+        remoteDatasourceEntries?.datasource_entries,
+    )
+        ? remoteDatasourceEntries.datasource_entries
+        : [];
 
     return Promise.all(
         datasource_entries.map((datasourceEntry: any) => {
-            const datasourceToBeUpdated =
-                remoteDatasourceEntries.datasource_entries.find(
-                    (remoteDatasourceEntry: any) =>
-                        remoteDatasourceEntry.name ===
-                        Object.values(datasourceEntry)[0],
+            const datasourceEntryName =
+                datasourceEntry.name ?? Object.values(datasourceEntry)[0];
+            const datasourceToBeUpdated = remoteEntries.find(
+                (remoteDatasourceEntry: any) =>
+                    remoteDatasourceEntry.name === datasourceEntryName,
+            );
+
+            if (dryRun) {
+                const action = datasourceToBeUpdated ? "update" : "create";
+                Logger.warning(
+                    `[dry-run] Would ${action} datasource entry '${datasourceEntryName}' in '${data.datasource.name}' datasource.`,
                 );
+                return data;
+            }
+
             if (datasourceToBeUpdated) {
                 return updateDatasourceEntry(
                     { data, datasourceEntry, datasourceToBeUpdated },
@@ -115,6 +137,13 @@ export const createDatasourceEntries: CreateDatasourceEntries = (
         }),
     )
         .then((_: any) => {
+            if (dryRun) {
+                Logger.warning(
+                    `[dry-run] Datasource entries for ${data.datasource.id} datasource id were planned without API writes.`,
+                );
+                return data;
+            }
+
             Logger.success(
                 `Datasource entries for ${data.datasource.id} datasource id has been successfully synced.`,
             );
@@ -152,7 +181,7 @@ const _createDatasourceEntry: _CreateDatasourceEntry = (args, config) => {
                 console.log(err);
             }
             Logger.error(
-                `Unable to create datasource entry in ${currentDatasource.datasource.name} datasource.`,
+                `Unable to create datasource entry '${finalDatasource_entry.name}' in ${currentDatasource.datasource.name} datasource. Value: '${finalDatasource_entry.value}'. ${formatDatasourceApiError(err)}`,
             );
         });
 };
@@ -216,7 +245,7 @@ const _updateDatasourceEntry: _UpdateDatasourceEntry = (args, config) => {
                 console.log(err);
             }
             Logger.error(
-                `Unable to update datasource entry in ${currentDatasource.datasource.name} datasource.`,
+                `Unable to update datasource entry '${finalDatasource_entry.name}' in ${currentDatasource.datasource.name} datasource. Value: '${finalDatasource_entry.value}'. ${formatDatasourceApiError(err)}`,
             );
         });
 };

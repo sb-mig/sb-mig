@@ -37,6 +37,7 @@ export const sync = async (props: CLIOptions) => {
     const { input, flags } = props;
 
     const command = input[1];
+    const dryRun = Boolean(flags["dryRun"]);
     const rules = {
         all: ["all"],
         assets: ["assets"],
@@ -54,6 +55,7 @@ export const sync = async (props: CLIOptions) => {
         "presets",
         "packageName",
         "yes",
+        "dryRun",
     ]);
 
     switch (command) {
@@ -67,12 +69,14 @@ export const sync = async (props: CLIOptions) => {
 
                 const presets = flags["presets"] || false;
 
-                await syncAllComponents(presets, apiConfig);
+                await syncAllComponents(presets, apiConfig, { dryRun });
 
-                await setComponentDefaultPreset({
-                    presets: Boolean(flags.presets),
-                    apiConfig,
-                });
+                if (!dryRun) {
+                    await setComponentDefaultPreset({
+                        presets: Boolean(flags.presets),
+                        apiConfig,
+                    });
+                }
             }
 
             if (isIt("empty")) {
@@ -84,13 +88,16 @@ export const sync = async (props: CLIOptions) => {
                     componentsToSync,
                     flags.packageName,
                     apiConfig,
+                    { dryRun },
                 );
 
-                await setComponentDefaultPreset({
-                    presets: Boolean(flags.presets),
-                    componentsToSync,
-                    apiConfig,
-                });
+                if (!dryRun) {
+                    await setComponentDefaultPreset({
+                        presets: Boolean(flags.presets),
+                        componentsToSync,
+                        apiConfig,
+                    });
+                }
             }
 
             if (isIt("allWithSSOT")) {
@@ -99,17 +106,24 @@ export const sync = async (props: CLIOptions) => {
                 );
                 const presets = flags["presets"] || false;
 
-                await askForConfirmation(
-                    "Are you sure you want to use Single Source of truth? It will remove all your components added in GUI and replace them 1 to 1 with code versions.",
-                    async () => {
-                        await removeAllComponents(apiConfig);
-                        await syncAllComponents(presets, apiConfig);
-                    },
-                    () => {
-                        Logger.success("Syncing components aborted.");
-                    },
-                    flags["yes"],
-                );
+                if (dryRun) {
+                    await syncAllComponents(presets, apiConfig, {
+                        dryRun,
+                        ssot: true,
+                    });
+                } else {
+                    await askForConfirmation(
+                        "Are you sure you want to use Single Source of truth? It will remove all your components added in GUI and replace them 1 to 1 with code versions.",
+                        async () => {
+                            await removeAllComponents(apiConfig);
+                            await syncAllComponents(presets, apiConfig);
+                        },
+                        () => {
+                            Logger.success("Syncing components aborted.");
+                        },
+                        flags["yes"],
+                    );
+                }
             }
 
             break;
@@ -117,28 +131,35 @@ export const sync = async (props: CLIOptions) => {
             if (isIt("all")) {
                 Logger.log("Syncing all roles...");
 
-                await syncAllRoles(apiConfig);
+                await syncAllRoles(apiConfig, { dryRun });
             }
 
             if (isIt("empty")) {
                 Logger.log("Syncing provided roles...");
                 const rolesToSync = unpackElements(input);
 
-                await syncProvidedRoles({ roles: rolesToSync }, apiConfig);
+                await syncProvidedRoles(
+                    { roles: rolesToSync, dryRun },
+                    apiConfig,
+                );
             }
             break;
         case SYNC_COMMANDS.datasources:
             if (isIt("all")) {
-                Logger.log("Syncing all datasources with extension...");
-                await syncAllDatasources(apiConfig);
+                Logger.log(
+                    `${dryRun ? "[dry-run] " : ""}Syncing all datasources with extension...`,
+                );
+                await syncAllDatasources(apiConfig, { dryRun });
             }
 
             if (!flags["all"]) {
-                Logger.log("Syncing provided datasources with extension...");
+                Logger.log(
+                    `${dryRun ? "[dry-run] " : ""}Syncing provided datasources with extension...`,
+                );
                 const datasourcesToSync = unpackElements(input);
 
                 await syncProvidedDatasources(
-                    { datasources: datasourcesToSync },
+                    { datasources: datasourcesToSync, dryRun },
                     apiConfig,
                 );
             }
@@ -167,58 +188,82 @@ export const sync = async (props: CLIOptions) => {
             if (syncDirection) {
                 if (isIt("all")) {
                     if (syncDirection !== "fromSpaceToFile") {
-                        await askForConfirmation(
-                            "Are you sure you want to delete all content (stories) in your space and then apply new ones ?",
-                            async () => {
-                                Logger.warning(
-                                    "Deleting all stories in your space and then applying migrated ones...",
-                                );
+                        if (dryRun) {
+                            await syncContent(
+                                {
+                                    type: "stories",
+                                    transmission: { from, to },
+                                    syncDirection,
+                                    dryRun,
+                                },
+                                apiConfig,
+                            );
 
-                                // Backup all stories to file
-                                await syncContent(
-                                    {
-                                        type: "stories",
-                                        transmission: {
-                                            from: to,
-                                            to: `${to}_stories-backup`,
+                            await syncContent(
+                                {
+                                    type: "assets",
+                                    transmission: { from, to },
+                                    syncDirection,
+                                    dryRun,
+                                },
+                                apiConfig,
+                            );
+                        } else {
+                            await askForConfirmation(
+                                "Are you sure you want to delete all content (stories) in your space and then apply new ones ?",
+                                async () => {
+                                    Logger.warning(
+                                        "Deleting all stories in your space and then applying migrated ones...",
+                                    );
+
+                                    // Backup all stories to file
+                                    await syncContent(
+                                        {
+                                            type: "stories",
+                                            transmission: {
+                                                from: to,
+                                                to: `${to}_stories-backup`,
+                                            },
+                                            syncDirection: "fromSpaceToFile",
                                         },
-                                        syncDirection: "fromSpaceToFile",
-                                    },
-                                    apiConfig,
-                                );
+                                        apiConfig,
+                                    );
 
-                                // Remove all stories from 'to' space
-                                await managementApi.stories.removeAllStories({
-                                    ...apiConfig,
-                                    spaceId: to,
-                                });
+                                    // Remove all stories from 'to' space
+                                    await managementApi.stories.removeAllStories(
+                                        {
+                                            ...apiConfig,
+                                            spaceId: to,
+                                        },
+                                    );
 
-                                // Sync stories from 'from' space to 'to' space
-                                await syncContent(
-                                    {
-                                        type: "stories",
-                                        transmission: { from, to },
-                                        syncDirection,
-                                    },
-                                    apiConfig,
-                                );
+                                    // Sync stories from 'from' space to 'to' space
+                                    await syncContent(
+                                        {
+                                            type: "stories",
+                                            transmission: { from, to },
+                                            syncDirection,
+                                        },
+                                        apiConfig,
+                                    );
 
-                                await syncContent(
-                                    {
-                                        type: "assets",
-                                        transmission: { from, to },
-                                        syncDirection,
-                                    },
-                                    apiConfig,
-                                );
-                            },
-                            () => {
-                                Logger.success(
-                                    "Stories not deleted, exiting the program...",
-                                );
-                            },
-                            flags["yes"],
-                        );
+                                    await syncContent(
+                                        {
+                                            type: "assets",
+                                            transmission: { from, to },
+                                            syncDirection,
+                                        },
+                                        apiConfig,
+                                    );
+                                },
+                                () => {
+                                    Logger.success(
+                                        "Stories not deleted, exiting the program...",
+                                    );
+                                },
+                                flags["yes"],
+                            );
+                        }
                     } else {
                         await syncContent(
                             {
@@ -226,6 +271,7 @@ export const sync = async (props: CLIOptions) => {
                                 transmission: { from, to },
                                 syncDirection,
                                 filename: flags.to,
+                                dryRun,
                             },
                             apiConfig,
                         );
@@ -235,6 +281,7 @@ export const sync = async (props: CLIOptions) => {
                                 type: "assets",
                                 transmission: { from, to },
                                 syncDirection,
+                                dryRun,
                             },
                             apiConfig,
                         );
@@ -249,6 +296,7 @@ export const sync = async (props: CLIOptions) => {
                             type: "assets",
                             transmission: { from, to },
                             syncDirection,
+                            dryRun,
                         },
                         apiConfig,
                     );
@@ -258,50 +306,64 @@ export const sync = async (props: CLIOptions) => {
                     );
 
                     if (syncDirection !== "fromSpaceToFile") {
-                        await askForConfirmation(
-                            "Are you sure you want to delete all stories in your space and then apply new ones ?",
-                            async () => {
-                                Logger.warning(
-                                    "Deleting all stories in your space and then applying test ones...",
-                                );
+                        if (dryRun) {
+                            await syncContent(
+                                {
+                                    type: "stories",
+                                    transmission: { from, to },
+                                    syncDirection,
+                                    dryRun,
+                                },
+                                apiConfig,
+                            );
+                        } else {
+                            await askForConfirmation(
+                                "Are you sure you want to delete all stories in your space and then apply new ones ?",
+                                async () => {
+                                    Logger.warning(
+                                        "Deleting all stories in your space and then applying test ones...",
+                                    );
 
-                                // Backup all stories to file
-                                await syncContent(
-                                    {
-                                        type: "stories",
-                                        transmission: {
-                                            from: to,
-                                            to: `${to}_stories-backup`,
+                                    // Backup all stories to file
+                                    await syncContent(
+                                        {
+                                            type: "stories",
+                                            transmission: {
+                                                from: to,
+                                                to: `${to}_stories-backup`,
+                                            },
+                                            syncDirection: "fromSpaceToFile",
                                         },
-                                        syncDirection: "fromSpaceToFile",
-                                    },
-                                    apiConfig,
-                                );
+                                        apiConfig,
+                                    );
 
-                                // Remove all stories from 'to' space
-                                await managementApi.stories.removeAllStories({
-                                    ...apiConfig,
-                                    spaceId: to,
-                                });
+                                    // Remove all stories from 'to' space
+                                    await managementApi.stories.removeAllStories(
+                                        {
+                                            ...apiConfig,
+                                            spaceId: to,
+                                        },
+                                    );
 
-                                //
-                                // Sync stories to 'to' space
-                                await syncContent(
-                                    {
-                                        type: "stories",
-                                        transmission: { from, to },
-                                        syncDirection,
-                                    },
-                                    apiConfig,
-                                );
-                            },
-                            () => {
-                                Logger.success(
-                                    "Stories not deleted, exiting the program...",
-                                );
-                            },
-                            flags["yes"],
-                        );
+                                    //
+                                    // Sync stories to 'to' space
+                                    await syncContent(
+                                        {
+                                            type: "stories",
+                                            transmission: { from, to },
+                                            syncDirection,
+                                        },
+                                        apiConfig,
+                                    );
+                                },
+                                () => {
+                                    Logger.success(
+                                        "Stories not deleted, exiting the program...",
+                                    );
+                                },
+                                flags["yes"],
+                            );
+                        }
                     } else {
                         // Sync stories to 'to' space
                         await syncContent(
@@ -309,6 +371,7 @@ export const sync = async (props: CLIOptions) => {
                                 type: "stories",
                                 transmission: { from, to },
                                 syncDirection,
+                                dryRun,
                             },
                             apiConfig,
                         );
@@ -337,6 +400,7 @@ export const sync = async (props: CLIOptions) => {
                 await managementApi.plugins.syncProvidedPlugins(
                     {
                         plugins: pluginsToSync,
+                        dryRun,
                     },
                     apiConfig,
                 );

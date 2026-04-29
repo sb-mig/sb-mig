@@ -7,6 +7,10 @@ export interface SyncResult {
     errors: SyncError[];
 }
 
+export interface SyncOptions {
+    dryRun?: boolean;
+}
+
 /**
  * Progress event emitted during sync operations
  */
