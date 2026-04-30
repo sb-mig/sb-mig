@@ -5,7 +5,7 @@ import { mkdir, mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
+const isWindows = process.platform === "win32";
 
 const run = (command, args, options = {}) =>
     new Promise((resolve, reject) => {
@@ -31,7 +31,14 @@ const run = (command, args, options = {}) =>
             stderr += chunk.toString();
         });
 
-        child.on("error", reject);
+        child.on("error", (error) => {
+            reject(
+                new Error(
+                    `Failed to spawn command: ${command} ${args.join(" ")}\n${error.message}`,
+                    { cause: error },
+                ),
+            );
+        });
         child.on("close", (code) => {
             if (code === 0) {
                 resolve({ stdout, stderr });
@@ -50,6 +57,12 @@ const run = (command, args, options = {}) =>
                 ),
             );
         });
+    });
+
+const runNpm = (args, options = {}) =>
+    run("npm", args, {
+        ...options,
+        shell: isWindows,
     });
 
 const findTarball = async () => {
@@ -138,13 +151,12 @@ const main = async () => {
             npm_config_update_notifier: "false",
         };
 
-        await run(
-            npmCommand,
+        await runNpm(
             ["install", "--no-audit", "--no-fund", "--ignore-scripts", tarball],
             { cwd: projectDir, env: npmEnv },
         );
 
-        const help = await run(npmCommand, ["exec", "--", "sb-mig", "--help"], {
+        const help = await runNpm(["exec", "--", "sb-mig", "--help"], {
             cwd: projectDir,
             env: npmEnv,
         });
@@ -172,8 +184,7 @@ const main = async () => {
             { cwd: projectDir, env: npmEnv },
         );
 
-        const discover = await run(
-            npmCommand,
+        const discover = await runNpm(
             ["exec", "--", "sb-mig", "discover", "components", "--all"],
             { cwd: projectDir, env: npmEnv },
         );
