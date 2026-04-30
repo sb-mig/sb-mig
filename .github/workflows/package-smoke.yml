@@ -1,0 +1,72 @@
+name: Package Smoke Test
+
+on:
+  pull_request:
+    branches:
+      - master
+      - beta
+  workflow_dispatch:
+
+jobs:
+  pack:
+    name: Pack npm artifact
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+          check-latest: true
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Pack package
+        run: npm pack
+
+      - name: Upload package artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: sb-mig-package
+          path: sb-mig-*.tgz
+          retention-days: 1
+
+  smoke:
+    name: Smoke (${{ matrix.os }}, Node ${{ matrix.node-version }})
+    runs-on: ${{ matrix.os }}
+    needs: pack
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        node-version: [22.x, 24.x]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node-version }}
+          check-latest: true
+          cache: "npm"
+
+      - name: Download package artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: sb-mig-package
+
+      - name: Run package smoke test
+        run: node scripts/package-smoke.mjs

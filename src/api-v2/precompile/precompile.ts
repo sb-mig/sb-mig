@@ -1,8 +1,8 @@
 import { mkdir, rm } from "fs/promises";
 import path from "path";
 
+import rollupSwc from "@rollup/plugin-swc";
 import { rollup, type RollupOptions } from "rollup";
-import ts from "rollup-plugin-ts";
 
 /**
  * Options for precompiling TypeScript schema files
@@ -55,9 +55,14 @@ async function buildFile(
     const inputOptions: RollupOptions = {
         input: inputPath,
         plugins: [
-            ts({
-                transpileOnly: true,
-                transpiler: "swc",
+            rollupSwc({
+                swc: {
+                    jsc: {
+                        parser: {
+                            syntax: "typescript",
+                        },
+                    },
+                },
             }),
         ],
     };

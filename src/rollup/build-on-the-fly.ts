@@ -1,7 +1,7 @@
 import path from "path";
 
+import rollupSwc from "@rollup/plugin-swc";
 import { remove } from "fs-extra";
-import ts from "rollup-plugin-ts";
 
 import storyblokConfig from "../config/config.js";
 import Logger from "../utils/logger.js";
@@ -43,9 +43,14 @@ export const buildOnTheFly = async ({ files }: BuildOnTheFly) => {
                 const inputOptions = {
                     input: filePath,
                     plugins: [
-                        ts({
-                            transpileOnly: true,
-                            transpiler: "swc",
+                        rollupSwc({
+                            swc: {
+                                jsc: {
+                                    parser: {
+                                        syntax: "typescript",
+                                    },
+                                },
+                            },
                         }),
                     ],
                 };

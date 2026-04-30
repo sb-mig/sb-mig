@@ -13,7 +13,7 @@ If you've found an issue or you have feature request - <a href="https://github.c
 
 |      |              |
 | ---- | ------------ |
-| Node | LTS (18.x.x) |
+| Node | 22.x.x or >=24.x.x |
 
 # 5.x.x version released!
 
@@ -32,7 +32,7 @@ If you've found an issue or you have feature request - <a href="https://github.c
 
 ## Breaking changes
 
-- Please note that sb-mig no longer extends support for Node versions older than 18.x.x, as part of its adoption of native ESM support.
+- Please note that sb-mig no longer extends support for Node versions older than 22.x.x, as part of its adoption of native ESM support.
 - The sb-mig backup command has now been aligned with all other commands, causing minor changes in its execution (although functionalities have been preserved).
 
 Do not hesitate to get in touch if you encounter any issues or require further clarification on any points.
