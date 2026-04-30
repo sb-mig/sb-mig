@@ -1,3 +1,18 @@
+# [6.0.0-beta.1](https://github.com/sb-mig/sb-mig/compare/v5.8.0...v6.0.0-beta.1) (2026-04-30)
+
+
+### Bug Fixes
+
+* **ci:** support Windows package smoke spawn ([f6b5570](https://github.com/sb-mig/sb-mig/commit/f6b55702f2ceff43e15018160d20cc149e59323d))
+
+
+* feat!: support Node 22 and 24 runtimes ([152b5d5](https://github.com/sb-mig/sb-mig/commit/152b5d5e659df9e1868f9d326969ccefcdbe7a44))
+
+
+### BREAKING CHANGES
+
+* Node 20 is no longer supported. Supported runtimes are Node 22 and Node 24 or newer.
+
 # [5.8.0](https://github.com/sb-mig/sb-mig/compare/v5.7.0...v5.8.0) (2026-04-29)
 
 
