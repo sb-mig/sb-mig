@@ -34,13 +34,16 @@ export interface PrecompileResult {
 }
 
 /**
- * Extract the component name from a file path
+ * Extract the component name from a file path.
+ * Handles both POSIX (`/`) and Windows (`\`) separators because glob v11
+ * and node's `fs` APIs return native paths on Windows.
+ *
  * e.g., "/path/to/my-component.sb.ts" -> "my-component.sb"
+ *       "C:\\path\\to\\my-component.sb.ts" -> "my-component.sb"
  */
 export const extractComponentName = (filePath: string): string => {
-    const separator = "/";
-    const parts = filePath.split(separator);
-    const lastElement = parts[parts.length - 1] as string;
+    const normalized = filePath.replace(/\\/g, "/");
+    const lastElement = normalized.substring(normalized.lastIndexOf("/") + 1);
     return lastElement.replace(/\.ts$/, "");
 };
 

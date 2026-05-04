@@ -1,5 +1,5 @@
 import { readdir, stat, readFile, realpath } from "fs/promises";
-import { join, resolve } from "path";
+import { join, resolve, sep } from "path";
 import { pathToFileURL } from "url";
 
 export interface DiscoveredResource {
@@ -123,9 +123,9 @@ async function isWithinProject(
         // Resolve both paths to handle symlinks
         const resolvedTarget = await realpath(targetPath);
         const resolvedRoot = await realpath(projectRoot);
-        // Check if target is within project root
+        // Use the platform separator so this works on Windows (`\`) and POSIX (`/`).
         return (
-            resolvedTarget.startsWith(resolvedRoot + "/") ||
+            resolvedTarget.startsWith(resolvedRoot + sep) ||
             resolvedTarget === resolvedRoot
         );
     } catch {

@@ -3,25 +3,56 @@ import { describe, it, expect } from "vitest";
 import { extractComponentName as _extractComponentName } from "../src/utils/path-utils.js";
 
 describe("Build Typescript on-the-fly", () => {
-    if (process.platform === "win32") {
-        it("WINDOWS: _extractComponentName return OK filename (removes .sb.ts and beginning)", () => {
-            const windowsFilePath = "C:/Users/username/Desktop/example.sb.ts"; // this will be already from glob, which is unix slash not windows slash
-            expect(_extractComponentName(windowsFilePath)).toBe("example.sb");
+    // These tests are platform-independent: extractComponentName must handle
+    // both `\` and `/` regardless of the runtime OS, because glob v11 returns
+    // native-separator paths on Windows even when given a POSIX-style pattern.
+    describe("extractComponentName", () => {
+        it("handles Windows backslash paths", () => {
+            expect(
+                _extractComponentName(
+                    "C:\\Users\\username\\Desktop\\example.sb.ts",
+                ),
+            ).toBe("example.sb");
+            expect(
+                _extractComponentName(
+                    "C:\\Users\\me\\project\\src\\components\\hero.sb.ts",
+                ),
+            ).toBe("hero.sb");
         });
-    } else if (process.platform === "darwin" || process.platform === "linux") {
-        it("MAC OS / UBUNTU: _extractComponentName return OK filename (removes .sb.ts and beginning)", () => {
-            const filePath =
-                "/Users/marckraw/Projects/amazing-project/src/components/card.sb.ts";
-            const filePath2 =
-                "/Users/marckraw/Projects/amazing-project/src/components/something-amazing.sb.ts";
-            const filePath3 =
-                "/Users/marckraw/Projects/amazing-project/src/components/good.super.sb.ts";
 
-            expect(_extractComponentName(filePath)).toBe("card.sb");
-            expect(_extractComponentName(filePath2)).toBe(
-                "something-amazing.sb",
-            );
-            expect(_extractComponentName(filePath3)).toBe("good.super.sb");
+        it("handles Windows forward-slash paths (drive-letter)", () => {
+            expect(
+                _extractComponentName("C:/Users/username/Desktop/example.sb.ts"),
+            ).toBe("example.sb");
         });
-    }
+
+        it("handles POSIX forward-slash paths", () => {
+            expect(
+                _extractComponentName(
+                    "/Users/marckraw/Projects/amazing-project/src/components/card.sb.ts",
+                ),
+            ).toBe("card.sb");
+            expect(
+                _extractComponentName(
+                    "/Users/marckraw/Projects/amazing-project/src/components/something-amazing.sb.ts",
+                ),
+            ).toBe("something-amazing.sb");
+        });
+
+        it("preserves dots in the file name and only strips trailing .ts", () => {
+            expect(
+                _extractComponentName(
+                    "/Users/marckraw/Projects/amazing-project/src/components/good.super.sb.ts",
+                ),
+            ).toBe("good.super.sb");
+            // .ts in the middle of the name must not be stripped
+            expect(_extractComponentName("/foo/bar/x.tsx.sb.ts")).toBe(
+                "x.tsx.sb",
+            );
+        });
+
+        it("handles bare file names (no separator)", () => {
+            expect(_extractComponentName("hero.sb.ts")).toBe("hero.sb");
+        });
+    });
 });

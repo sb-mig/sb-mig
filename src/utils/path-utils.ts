@@ -8,19 +8,22 @@ import path from "path";
  * Extracts the component name from a file path.
  * Used for naming compiled output files from TypeScript sources.
  *
- * @param filePath - Full path to the component file (always uses Unix-style separators from glob)
- * @returns Component name without the .ts extension
+ * Handles both POSIX (`/`) and Windows (`\`) separators because glob v11
+ * returns native paths on Windows.
+ *
+ * @param filePath - Full path to the component file
+ * @returns Component name without the trailing .ts extension
  *
  * @example
- * _extractComponentName("/Users/project/src/hero.sb.ts") // => "hero.sb"
- * _extractComponentName("C:/Users/project/src/card.sb.ts") // => "card.sb"
+ * extractComponentName("/Users/project/src/hero.sb.ts") // => "hero.sb"
+ * extractComponentName("C:\\Users\\project\\src\\card.sb.ts") // => "card.sb"
  */
 export const extractComponentName = (filePath: string): string => {
-    const separator = "/"; // glob always returns unix-style paths
-    const sP = filePath.split(separator);
-    const lastElement = sP[sP.length - 1] as string;
+    // Normalize to forward slashes so basename works regardless of platform.
+    const normalized = filePath.replace(/\\/g, "/");
+    const lastElement = normalized.substring(normalized.lastIndexOf("/") + 1);
 
-    return lastElement.replaceAll(".ts", "");
+    return lastElement.replace(/\.ts$/, "");
 };
 
 /**
