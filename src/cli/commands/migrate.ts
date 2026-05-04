@@ -64,6 +64,7 @@ export const migrate = async (props: CLIOptions) => {
         "withSlug",
         "startsWith",
         "dryRun",
+        "publish",
         "fileName",
     ]);
 
@@ -91,13 +92,12 @@ export const migrate = async (props: CLIOptions) => {
             const migrationConfigs = normalizeMigrationFlags(
                 flags["migration"] as string | string[] | undefined,
             );
-            const migrationComponentAliases =
-                parseMigrationComponentAliasFlags(
-                    flags["migrationComponentAlias"] as
-                        | string
-                        | string[]
-                        | undefined,
-                );
+            const migrationComponentAliases = parseMigrationComponentAliasFlags(
+                flags["migrationComponentAlias"] as
+                    | string
+                    | string[]
+                    | undefined,
+            );
             const migrationComponentOverrides =
                 parseMigrationComponentOverrideFlags(
                     flags["migrationComponents"] as
@@ -106,6 +106,7 @@ export const migrate = async (props: CLIOptions) => {
                         | undefined,
                 );
             const dryRun = flags["dryRun"] as boolean | undefined;
+            const publish = Boolean(flags["publish"]);
             const fileName = flags["fileName"] as string | undefined;
             const withSlugFlag = flags["withSlug"] as
                 | string
@@ -159,6 +160,7 @@ export const migrate = async (props: CLIOptions) => {
                             migrationComponentOverrides,
                             filters: { withSlug, startsWith },
                             dryRun,
+                            publish,
                             fromFilePath,
                             fileName,
                         },
@@ -197,6 +199,7 @@ export const migrate = async (props: CLIOptions) => {
                             migrationComponentOverrides,
                             filters: { withSlug, startsWith },
                             dryRun,
+                            publish,
                             fromFilePath,
                             fileName,
                         },
@@ -234,13 +237,12 @@ export const migrate = async (props: CLIOptions) => {
             const migrationConfigs = normalizeMigrationFlags(
                 flags["migration"] as string | string[] | undefined,
             );
-            const migrationComponentAliases =
-                parseMigrationComponentAliasFlags(
-                    flags["migrationComponentAlias"] as
-                        | string
-                        | string[]
-                        | undefined,
-                );
+            const migrationComponentAliases = parseMigrationComponentAliasFlags(
+                flags["migrationComponentAlias"] as
+                    | string
+                    | string[]
+                    | undefined,
+            );
             const migrationComponentOverrides =
                 parseMigrationComponentOverrideFlags(
                     flags["migrationComponents"] as
@@ -261,10 +263,17 @@ export const migrate = async (props: CLIOptions) => {
                 fromFallback ||
                 getFrom(flags, apiConfig);
             const to = getTo(flags, apiConfig);
+            const publish = Boolean(flags["publish"]);
 
             if (migrationConfigs.length === 0) {
                 throw new Error(
                     "Missing migration config. Pass exactly one --migration value for presets.",
+                );
+            }
+
+            if (publish) {
+                throw new Error(
+                    "--publish is only supported for 'migrate content'. Presets cannot be published.",
                 );
             }
 
