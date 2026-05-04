@@ -1,3 +1,10 @@
+# [6.0.0-beta.3](https://github.com/sb-mig/sb-mig/compare/v6.0.0-beta.2...v6.0.0-beta.3) (2026-05-04)
+
+
+### Features
+
+* **migrate:** add publish mode for story migrations ([3da0c07](https://github.com/sb-mig/sb-mig/commit/3da0c078725dfe23a4df6b7404bb30d4b9f0c4fd))
+
 # [6.0.0-beta.2](https://github.com/sb-mig/sb-mig/compare/v6.0.0-beta.1...v6.0.0-beta.2) (2026-05-04)
 
 
