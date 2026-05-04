@@ -1,3 +1,10 @@
+# [6.0.0-beta.2](https://github.com/sb-mig/sb-mig/compare/v6.0.0-beta.1...v6.0.0-beta.2) (2026-05-04)
+
+
+### Bug Fixes
+
+* **windows:** resolve path separator bugs breaking sync on Windows ([0e9951b](https://github.com/sb-mig/sb-mig/commit/0e9951bb2dfc2d6b060bfb838856f1600d235997))
+
 # [6.0.0-beta.1](https://github.com/sb-mig/sb-mig/compare/v5.8.0...v6.0.0-beta.1) (2026-04-30)
 
 
