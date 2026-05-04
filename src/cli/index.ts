@@ -97,6 +97,10 @@ app.migrate = () => ({
                 type: "boolean",
                 default: false,
             },
+            publish: {
+                type: "boolean",
+                default: false,
+            },
             fileName: {
                 type: "string",
             },

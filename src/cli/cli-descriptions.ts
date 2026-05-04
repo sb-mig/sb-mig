@@ -101,6 +101,7 @@ export const migrateDescription = `
         --startsWith      - Filter stories by starts_with prefix
         --yes             - Skip ask for confirmation (dangerous, but useful in CI/CD)
         --dry-run         - Preview what would be migrated without making any API changes
+        --publish         - Publish changed stories immediately after migration. Default: save draft. [content only]
         --fileName        - Stable base name for migration output files (disables timestamp suffix for migration artifacts)
 
     EXAMPLES
@@ -110,6 +111,7 @@ export const migrateDescription = `
         $ sb-mig migrate content --all --from 12345 --to 12345 --migration colorPickerModeValues --migrationComponentAlias colorPickerModeValues:sb-section=sb-tour-page-section --migrationComponents colorPickerModeValues:sb-section,sb-tour-page-section
         $ sb-mig migrate content --all --from 12345 --to 12345 --migration file-with-migration --withSlug blog/home --withSlug docs/getting-started
         $ sb-mig migrate content --all --from 12345 --to 12345 --migration file-with-migration --startsWith blog/
+        $ sb-mig migrate content --all --from 12345 --to 12345 --migration file-with-migration --publish --yes
         $ sb-mig migrate content --all --from 12345 --to 12345 --migration v3toV4AllMigrations --dry-run --fileName brand-hub-v3-v4-run
         $ sb-mig migrate content --all --migrate-from file --from file-with-stories --to 12345 --migration file-with-migration
         $ sb-mig migrate content --all --migrate-from file --fromFilePath sbmig/migrations/dry-run--123---story-to-migrate__2026-2-9_20-51.json --to 12345 --migration migration-a --migration migration-b

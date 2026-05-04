@@ -116,4 +116,26 @@ describe("isItFactory for parsing flags", () => {
             });
         });
     });
+
+    it("allows publish as a whitelisted migrate option", () => {
+        const rules = {
+            all: ["all", "migrateFrom"],
+            empty: [],
+        };
+        const isIt = isItFactory<keyof typeof rules>(
+            {
+                all: true,
+                migrateFrom: "space",
+                publish: true,
+                migration: "component-migration",
+                from: "1234",
+                to: "987",
+            },
+            rules,
+            ["from", "to", "migration", "publish"],
+        );
+
+        expect(isIt("all")).toBe(true);
+        expect(isIt("empty")).toBe(false);
+    });
 });

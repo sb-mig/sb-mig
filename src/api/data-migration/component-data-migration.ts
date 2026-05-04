@@ -88,6 +88,7 @@ interface MigrateItems {
         startsWith?: string;
     };
     dryRun?: boolean;
+    publish?: boolean;
     fromFilePath?: string;
     fileName?: string;
     preparedMigrationConfigs?: PreparedMigrationConfig[];
@@ -581,6 +582,7 @@ const savePipelineSummary = async (
         from,
         itemType,
         dryRun,
+        publish,
         migrateFrom,
         fromFilePath,
         pipelineResult,
@@ -590,6 +592,7 @@ const savePipelineSummary = async (
         from: string;
         itemType: "story" | "preset";
         dryRun?: boolean;
+        publish?: boolean;
         migrateFrom: MigrateFrom;
         fromFilePath?: string;
         pipelineResult: MigrationPipelineResult;
@@ -611,6 +614,7 @@ const savePipelineSummary = async (
                     from,
                     fromFilePath: fromFilePath || null,
                 },
+                writeMode: itemType === "story" && publish ? "publish" : "save",
                 totalItems: pipelineResult.totalItems,
                 totalChangedItems: pipelineResult.changedItems.length,
                 steps: pipelineResult.stepReports,
@@ -761,6 +765,7 @@ export const migrateAllComponentsDataInStories = async (
         to,
         filters,
         dryRun,
+        publish,
         fromFilePath,
         fileName,
         migrationComponentAliases,
@@ -803,6 +808,7 @@ export const migrateAllComponentsDataInStories = async (
             to,
             filters,
             dryRun,
+            publish,
             fromFilePath,
             fileName,
             preparedMigrationConfigs,
@@ -820,6 +826,7 @@ export const doTheMigration = async (
         migrationConfigs,
         to,
         dryRun,
+        publish,
         migrateFrom,
         fromFilePath,
         fileName,
@@ -831,6 +838,7 @@ export const doTheMigration = async (
         migrationConfigs?: PreparedMigrationConfig[];
         to: string;
         dryRun?: boolean;
+        publish?: boolean;
         migrateFrom: MigrateFrom;
         fromFilePath?: string;
         fileName?: string;
@@ -931,6 +939,7 @@ export const doTheMigration = async (
             from,
             itemType,
             dryRun,
+            publish,
             migrateFrom,
             fromFilePath,
             pipelineResult,
@@ -967,7 +976,7 @@ export const doTheMigration = async (
             {
                 stories: pipelineResult.changedItems,
                 spaceId: to,
-                options: { publish: false },
+                options: { publish: Boolean(publish) },
             },
             config,
         );
@@ -1044,6 +1053,7 @@ export const migrateProvidedComponentsDataInStories = async (
         componentsToMigrate,
         filters,
         dryRun,
+        publish,
         fromFilePath,
         fileName,
         preparedMigrationConfigs,
@@ -1098,6 +1108,7 @@ export const migrateProvidedComponentsDataInStories = async (
             from,
             to,
             dryRun,
+            publish,
             migrateFrom,
             fromFilePath,
             fileName,
