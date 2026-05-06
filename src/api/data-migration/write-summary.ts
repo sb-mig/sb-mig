@@ -3,6 +3,9 @@ export interface MutationWriteResult {
     id?: number | string;
     name?: string;
     slug?: string;
+    spaceId?: string;
+    status?: number | string;
+    response?: string | null;
     error?: unknown;
 }
 

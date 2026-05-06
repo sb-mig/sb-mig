@@ -32,6 +32,7 @@ import {
     type MigrationComponentOverridesByMigration,
     resolveMigrationComponentsToMigrate,
 } from "./migration-component-scope.js";
+import { saveMigrationRunLog } from "./migration-run-log.js";
 import {
     discoverMigrationValidatorForMigrationFile,
     MigrationValidationFailedError,
@@ -992,6 +993,32 @@ export const doTheMigration = async (
     }
 
     const writeSummary = summarizeMutationWriteResults(writeResults);
+
+    try {
+        await saveMigrationRunLog(
+            {
+                artifactBaseName,
+                useDatestamp,
+                from,
+                to,
+                itemType,
+                dryRun,
+                publish,
+                migrateFrom,
+                fromFilePath,
+                pipelineResult,
+                writeResults,
+                writeSummary,
+            },
+            config,
+        );
+    } catch (error) {
+        Logger.warning(
+            `[MIGRATION] Could not write migration run log: ${
+                error instanceof Error ? error.message : String(error)
+            }`,
+        );
+    }
 
     if (writeSummary.failed === 0) {
         Logger.success(
