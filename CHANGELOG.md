@@ -1,3 +1,10 @@
+# [6.0.0-beta.4](https://github.com/sb-mig/sb-mig/compare/v6.0.0-beta.3...v6.0.0-beta.4) (2026-05-06)
+
+
+### Features
+
+* **migrate:** add JSONL run logs ([6405923](https://github.com/sb-mig/sb-mig/commit/6405923e275c03f766560c1e84cb54d50c56032d))
+
 # [6.0.0-beta.3](https://github.com/sb-mig/sb-mig/compare/v6.0.0-beta.2...v6.0.0-beta.3) (2026-05-04)
 
 
