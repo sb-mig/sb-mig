@@ -1,3 +1,15 @@
+# [6.0.0-beta.5](https://github.com/sb-mig/sb-mig/compare/v6.0.0-beta.4...v6.0.0-beta.5) (2026-05-07)
+
+
+### Bug Fixes
+
+* **migrate:** preserve default publish behavior ([be42b1e](https://github.com/sb-mig/sb-mig/commit/be42b1e6b09931ca113d67635e876656adb90fed))
+
+
+### Features
+
+* **migrate:** publish migrated story languages ([193837a](https://github.com/sb-mig/sb-mig/commit/193837ae522755cf671dc2f7c42f66d21690400d))
+
 # [6.0.0-beta.4](https://github.com/sb-mig/sb-mig/compare/v6.0.0-beta.3...v6.0.0-beta.4) (2026-05-06)
 
 
