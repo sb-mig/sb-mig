@@ -112,7 +112,7 @@ export const migrate = async (props: CLIOptions) => {
             const publishLanguagesFlag = flags["publishLanguages"] as
                 | string
                 | undefined;
-            const publishLanguages = publish
+            const publishLanguages = publishLanguagesFlag
                 ? parsePublishLanguagesOption(publishLanguagesFlag)
                 : undefined;
             const fileName = flags["fileName"] as string | undefined;

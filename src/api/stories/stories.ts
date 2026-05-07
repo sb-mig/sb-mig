@@ -120,6 +120,12 @@ export const resolvePublishLanguageCodes = async (
     const spaceResponse = await config.sbApi.get(`spaces/${config.spaceId}`);
     const spaceLanguageCodes = readSpaceLanguageCodes(spaceResponse);
 
+    if (spaceLanguageCodes.length === 0) {
+        Logger.warning(
+            `No configured Storyblok languages were found for space '${config.spaceId}'. Publishing only ${DEFAULT_PUBLISH_LANGUAGE}.`,
+        );
+    }
+
     return normalizePublishLanguageCodes([
         DEFAULT_PUBLISH_LANGUAGE,
         ...spaceLanguageCodes,
@@ -430,7 +436,9 @@ export const publishStoryLanguages = async (
 
 export const updateStories: UpdateStories = async (args, config) => {
     const { stories, options, spaceId } = args;
-    const publishLanguages = options.publish
+    const shouldPublishLanguages =
+        options.publish && options.publishLanguages !== undefined;
+    const publishLanguages = shouldPublishLanguages
         ? await resolvePublishLanguageCodes(options.publishLanguages, {
               ...config,
               spaceId,
@@ -445,12 +453,16 @@ export const updateStories: UpdateStories = async (args, config) => {
                 story,
                 story.id,
                 {
-                    publish: options.publish && !publishLanguages,
+                    publish: options.publish && !shouldPublishLanguages,
                 },
                 { ...config, spaceId },
             );
 
-            if (!options.publish || !publishLanguages || !updateResult?.ok) {
+            if (
+                !shouldPublishLanguages ||
+                !publishLanguages ||
+                !updateResult?.ok
+            ) {
                 return updateResult;
             }
 

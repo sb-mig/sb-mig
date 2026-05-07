@@ -989,7 +989,7 @@ export const doTheMigration = async (
     let resolvedPublishLanguages: string[] | undefined;
 
     if (itemType === "story") {
-        if (publish) {
+        if (publish && publishLanguages !== undefined) {
             resolvedPublishLanguages =
                 await managementApi.stories.resolvePublishLanguageCodes(
                     publishLanguages,

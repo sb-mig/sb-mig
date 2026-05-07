@@ -65,7 +65,7 @@ Add a language selector flag for content migrations:
 Recommended semantics:
 
 - No `--publish`: update stories as draft only. No publish endpoint calls.
-- `--publish` without `--publishLanguages`: publish default language only, preserving current mental model and minimizing surprise.
+- `--publish` without `--publishLanguages`: keep the legacy single-update behavior and publish through `PUT /stories/:storyId` with `publish: 1`.
 - `--publish --publishLanguages default`: publish `[default]`.
 - `--publish --publishLanguages all`: fetch configured languages from target space and publish `[default]` plus all configured language codes.
 - `--publish --publishLanguages default,fr,de`: publish `[default],fr,de`.
@@ -95,9 +95,11 @@ if (options.publish) {
 return updateResult;
 ```
 
-Do not update and publish the same story in parallel. Publishing before the `PUT` completes risks publishing stale content.
+Do not update and publish the same story in parallel when explicit publish languages are requested. Publishing before the `PUT` completes risks publishing stale content.
 
 It is acceptable to process multiple stories concurrently as long as each story task preserves update-then-publish ordering internally. If rate-limit pressure is high, add a concurrency limit or delay around publish calls.
+
+Explicit publish-language modes intentionally add a second Management API call per changed story: one `PUT` to save the migrated draft, then one `GET /publish` to publish the requested language variants. Large migrations should account for the extra Storyblok API traffic and the configured client rate limit.
 
 ## Proposed Implementation Plan
 
@@ -153,7 +155,8 @@ spaces/:spaceId/stories/:storyId/publish?lang=${encodeURIComponent(lang)}
 
 6. Change write flow.
    - When `--publish` is false, keep current draft update behavior.
-   - When `--publish` is true:
+   - When `--publish` is true and `--publishLanguages` is not provided, preserve the legacy single `PUT` with `publish: 1`.
+   - When `--publish` is true and `--publishLanguages` is provided:
      - Update story with `publish: false`.
      - If update succeeds, publish requested languages.
      - If update fails, do not publish that story.
@@ -188,8 +191,8 @@ sb-mig migrate content --all --from 123 --to 123 --migration v3toV4 --publish --
 ## Open Decisions
 
 - Default for `--publish` without `--publishLanguages`:
-  - Recommended: default language only for backwards compatibility.
-  - Alternative: publish all languages automatically. More convenient for Backpack migration runs, but it changes existing command meaning.
+  - Decision: preserve legacy `PUT` publish behavior for backwards compatibility.
+  - Use `--publish --publishLanguages default` when the explicit update-then-publish endpoint flow is desired for the default language.
 
 - Failure model:
   - Recommended: if update succeeds but publish fails, count the story as failed overall and include stage `publish` in logs.

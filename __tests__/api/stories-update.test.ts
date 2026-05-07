@@ -146,6 +146,9 @@ describe("updateStories publish languages", () => {
             "fr",
             "de",
         ]);
+        expect(() => parsePublishLanguagesOption(",")).toThrow(
+            "Publish languages cannot be empty.",
+        );
     });
 
     it("resolves all publish languages from the target Storyblok space", async () => {
@@ -165,6 +168,78 @@ describe("updateStories publish languages", () => {
         ).resolves.toEqual(["[default]", "fr", "de"]);
 
         expect(get).toHaveBeenCalledWith("spaces/291967263583956");
+    });
+
+    it("warns when all publish languages resolves to default only", async () => {
+        const get = vi.fn().mockResolvedValue({
+            data: {
+                space: {},
+            },
+        });
+
+        await expect(
+            resolvePublishLanguageCodes("all", {
+                spaceId: "291967263583956",
+                sbApi: { get },
+            }),
+        ).resolves.toEqual(["[default]"]);
+
+        expect(loggerMock.warning).toHaveBeenCalledWith(
+            "No configured Storyblok languages were found for space '291967263583956'. Publishing only [default].",
+        );
+    });
+
+    it("preserves legacy updateStories publish behavior without publish languages", async () => {
+        const put = vi.fn().mockResolvedValue({
+            data: {
+                story: {
+                    id: "story-1",
+                    name: "Japan",
+                    full_slug: "tours/destinations/japan",
+                },
+            },
+        });
+        const get = vi.fn();
+        const config = {
+            spaceId: "291967263583956",
+            sbApi: {
+                put,
+                get,
+            },
+        } as any;
+        const story = {
+            story: {
+                id: "story-1",
+                name: "Japan",
+                full_slug: "tours/destinations/japan",
+            },
+        };
+
+        const results = await updateStories(
+            {
+                stories: [story],
+                spaceId: "291967263583956",
+                options: { publish: true },
+            },
+            config,
+        );
+
+        expect(put).toHaveBeenCalledWith(
+            "spaces/291967263583956/stories/story-1",
+            {
+                story: story.story,
+                publish: 1,
+                force_update: 0,
+            },
+        );
+        expect(get).not.toHaveBeenCalled();
+        expect(results[0]).toMatchObject({
+            status: "fulfilled",
+            value: {
+                ok: true,
+                stage: "update",
+            },
+        });
     });
 
     it("updates a story as draft before publishing default language", async () => {
@@ -205,7 +280,7 @@ describe("updateStories publish languages", () => {
             {
                 stories: [story],
                 spaceId: "291967263583956",
-                options: { publish: true },
+                options: { publish: true, publishLanguages: "default" },
             },
             config,
         );
@@ -324,7 +399,7 @@ describe("updateStories publish languages", () => {
                     },
                 ],
                 spaceId: "291967263583956",
-                options: { publish: true },
+                options: { publish: true, publishLanguages: "default" },
             },
             config,
         );
