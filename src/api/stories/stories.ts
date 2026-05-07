@@ -11,6 +11,7 @@ import type {
     DeepUpsertStory,
     ExtendedISbStoriesParams,
     GetStoryBySlug,
+    PublishLanguagesOption,
 } from "./stories.types.js";
 
 import chalk from "chalk";
@@ -24,6 +25,106 @@ const resolveStoryLabel = (
     storyId: string,
 ): string =>
     content?.full_slug || content?.slug || content?.name || String(storyId);
+
+const DEFAULT_PUBLISH_LANGUAGE = "[default]";
+
+const isDefaultLanguageToken = (language: string): boolean =>
+    language.toLowerCase() === "default" ||
+    language === DEFAULT_PUBLISH_LANGUAGE;
+
+const normalizePublishLanguageCodes = (languages: string[]): string[] => {
+    const normalized = languages.map((language) => {
+        const trimmed = language.trim();
+        return isDefaultLanguageToken(trimmed)
+            ? DEFAULT_PUBLISH_LANGUAGE
+            : trimmed;
+    });
+    const cleanLanguages = normalized.filter((language) => language.length > 0);
+
+    if (cleanLanguages.length === 0) {
+        throw new Error("Publish languages cannot be empty.");
+    }
+
+    return Array.from(new Set(cleanLanguages));
+};
+
+export const parsePublishLanguagesOption = (
+    publishLanguages?: string,
+): PublishLanguagesOption => {
+    if (!publishLanguages) {
+        return "default";
+    }
+
+    const trimmed = publishLanguages.trim();
+
+    if (trimmed.length === 0) {
+        return "default";
+    }
+
+    if (trimmed.toLowerCase() === "all") {
+        return "all";
+    }
+
+    const languages = normalizePublishLanguageCodes(trimmed.split(","));
+
+    if (languages.length === 1 && languages[0] === DEFAULT_PUBLISH_LANGUAGE) {
+        return "default";
+    }
+
+    return languages;
+};
+
+const readSpaceLanguageCodes = (spaceResponse: any): string[] => {
+    const space = spaceResponse?.data?.space || spaceResponse?.space || {};
+    const languageSources = [
+        space.languages,
+        space.language_codes,
+        space.options?.languages,
+    ];
+
+    for (const source of languageSources) {
+        if (!Array.isArray(source)) {
+            continue;
+        }
+
+        return source
+            .map((language) => {
+                if (typeof language === "string") {
+                    return language;
+                }
+
+                if (typeof language?.code === "string") {
+                    return language.code;
+                }
+
+                return "";
+            })
+            .filter((language) => language.trim().length > 0);
+    }
+
+    return [];
+};
+
+export const resolvePublishLanguageCodes = async (
+    publishLanguages: PublishLanguagesOption | undefined,
+    config: { spaceId: string; sbApi: any },
+): Promise<string[]> => {
+    if (!publishLanguages || publishLanguages === "default") {
+        return [DEFAULT_PUBLISH_LANGUAGE];
+    }
+
+    if (Array.isArray(publishLanguages)) {
+        return normalizePublishLanguageCodes(publishLanguages);
+    }
+
+    const spaceResponse = await config.sbApi.get(`spaces/${config.spaceId}`);
+    const spaceLanguageCodes = readSpaceLanguageCodes(spaceResponse);
+
+    return normalizePublishLanguageCodes([
+        DEFAULT_PUBLISH_LANGUAGE,
+        ...spaceLanguageCodes,
+    ]);
+};
 
 const resolveStoryblokErrorResponse = (err: any): string | undefined => {
     if (typeof err?.response === "string" && err.response.trim().length > 0) {
@@ -224,6 +325,7 @@ export const updateStory: UpdateStory = (content, storyId, options, config) => {
             console.log(`${chalk.green(res.data.story.full_slug)} updated.`);
             return {
                 ok: true,
+                stage: "update",
                 id: res.data.story.id,
                 name: res.data.story.name,
                 slug: res.data.story.full_slug,
@@ -244,6 +346,7 @@ export const updateStory: UpdateStory = (content, storyId, options, config) => {
 
             return {
                 ok: false,
+                stage: "update",
                 id: storyId,
                 name: content?.name,
                 slug: content?.full_slug || content?.slug,
@@ -255,16 +358,108 @@ export const updateStory: UpdateStory = (content, storyId, options, config) => {
         });
 };
 
-export const updateStories: UpdateStories = (args, config) => {
+export const publishStoryLanguages = async (
+    {
+        storyId,
+        story,
+        languages,
+    }: {
+        storyId: string | number;
+        story?: Record<string, any>;
+        languages: string[];
+    },
+    config: { spaceId: string; sbApi: any },
+) => {
+    const { spaceId, sbApi } = config;
+    const lang = languages.join(",");
+    const storyLabel = resolveStoryLabel(story, String(storyId));
+
+    Logger.log(
+        `Publishing story '${storyLabel}' in space '${spaceId}' for languages: ${lang}`,
+    );
+
+    return sbApi
+        .get(`spaces/${spaceId}/stories/${storyId}/publish`, { lang })
+        .then((res: any) => {
+            const publishedStory = res?.data?.story || story || {};
+            Logger.success(
+                `Published story '${storyLabel}' for languages: ${lang}`,
+            );
+
+            return {
+                ok: true,
+                stage: "publish",
+                id: publishedStory.id || storyId,
+                name: publishedStory.name || story?.name,
+                slug:
+                    publishedStory.full_slug ||
+                    publishedStory.slug ||
+                    story?.full_slug ||
+                    story?.slug,
+                spaceId,
+                publishLanguages: languages,
+                data: res?.data,
+            };
+        })
+        .catch((err: any) => {
+            const status = err?.status || err?.response?.status;
+            const responseMessage = resolveStoryblokErrorResponse(err);
+            const statusLabel = status ? `status ${status}` : "unknown status";
+            const responseLabel = responseMessage
+                ? ` Response: ${responseMessage}`
+                : "";
+
+            Logger.error(
+                `Failed to publish story '${storyLabel}' in space '${spaceId}' (${statusLabel}).${responseLabel}`,
+            );
+
+            return {
+                ok: false,
+                stage: "publish",
+                id: storyId,
+                name: story?.name,
+                slug: story?.full_slug || story?.slug,
+                spaceId,
+                status,
+                response: responseMessage,
+                publishLanguages: languages,
+                error: err,
+            };
+        });
+};
+
+export const updateStories: UpdateStories = async (args, config) => {
     const { stories, options, spaceId } = args;
+    const publishLanguages = options.publish
+        ? await resolvePublishLanguageCodes(options.publishLanguages, {
+              ...config,
+              spaceId,
+          })
+        : undefined;
 
     return Promise.allSettled(
         // Run through stories, and update the space with migrated version of stories
         stories.map(async (stories: any) => {
-            return updateStory(
-                stories.story,
-                stories.story.id,
-                { publish: options.publish },
+            const story = stories.story;
+            const updateResult = await updateStory(
+                story,
+                story.id,
+                {
+                    publish: options.publish && !publishLanguages,
+                },
+                { ...config, spaceId },
+            );
+
+            if (!options.publish || !publishLanguages || !updateResult?.ok) {
+                return updateResult;
+            }
+
+            return publishStoryLanguages(
+                {
+                    storyId: story.id,
+                    story,
+                    languages: publishLanguages,
+                },
                 { ...config, spaceId },
             );
         }),

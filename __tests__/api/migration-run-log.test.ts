@@ -12,6 +12,8 @@ describe("migration run log", () => {
             to: "target-space",
             itemType: "story",
             publish: true,
+            publishLanguages: "all",
+            resolvedPublishLanguages: ["[default]", "fr", "de"],
             dryRun: false,
             migrateFrom: "space",
             pipelineResult: {
@@ -60,6 +62,7 @@ describe("migration run log", () => {
                     status: "fulfilled",
                     value: {
                         ok: false,
+                        stage: "publish",
                         id: "story-2",
                         name: "Broken",
                         slug: "broken",
@@ -76,6 +79,7 @@ describe("migration run log", () => {
                 failedItems: [
                     {
                         ok: false,
+                        stage: "publish",
                         id: "story-2",
                         name: "Broken",
                         slug: "broken",
@@ -91,6 +95,10 @@ describe("migration run log", () => {
         expect(records[0]).toMatchObject({
             event: "update_success",
             writeMode: "publish",
+            publishLanguages: {
+                requested: "all",
+                resolved: ["[default]", "fr", "de"],
+            },
             item: {
                 id: "story-1",
                 slug: "home",
@@ -98,7 +106,8 @@ describe("migration run log", () => {
             },
         });
         expect(records[1]).toMatchObject({
-            event: "update_failed",
+            event: "publish_failed",
+            stage: "publish",
             status: 422,
             response: "The field sb-carousel.content can't be blank",
             item: {
@@ -118,6 +127,7 @@ describe("migration run log", () => {
                         id: "story-2",
                         slug: "broken",
                         status: 422,
+                        stage: "publish",
                     },
                 ],
             },
@@ -129,7 +139,7 @@ describe("migration run log", () => {
             .map((line) => JSON.parse(line));
 
         expect(parsedLines).toHaveLength(3);
-        expect(parsedLines[1].event).toBe("update_failed");
+        expect(parsedLines[1].event).toBe("publish_failed");
         expect(parsedLines[2].writeSummary.failed).toBe(1);
     });
 });
