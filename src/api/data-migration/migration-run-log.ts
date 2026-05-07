@@ -6,6 +6,7 @@ import type {
     MutationWriteResult,
     MutationWriteSummary,
 } from "./write-summary.js";
+import type { PublishLanguagesOption } from "../stories/stories.types.js";
 import type { RequestBaseConfig } from "../utils/request.js";
 
 import { generateDatestamp } from "../../utils/date-utils.js";
@@ -15,6 +16,8 @@ import Logger from "../../utils/logger.js";
 type MigrationRunLogEvent =
     | "update_success"
     | "update_failed"
+    | "publish_success"
+    | "publish_failed"
     | "migration_write_summary";
 
 export interface MigrationRunLogRecord {
@@ -31,6 +34,10 @@ export interface MigrationRunLogRecord {
         to: string;
     };
     writeMode: "publish" | "save";
+    publishLanguages?: {
+        requested?: PublishLanguagesOption;
+        resolved?: string[];
+    };
     dryRun: boolean;
     migrationConfigs: string[];
     totalItems: number;
@@ -46,6 +53,7 @@ export interface MigrationRunLogRecord {
             spaceId?: string;
             status?: number | string;
             response?: string | null;
+            stage?: "update" | "publish";
         }>;
     };
     item?: {
@@ -57,6 +65,7 @@ export interface MigrationRunLogRecord {
     };
     status?: number | string | null;
     response?: string | null;
+    stage?: "update" | "publish";
     error?: unknown;
 }
 
@@ -68,6 +77,8 @@ interface SaveMigrationRunLogArgs {
     itemType: "story" | "preset";
     dryRun?: boolean;
     publish?: boolean;
+    publishLanguages?: PublishLanguagesOption;
+    resolvedPublishLanguages?: string[];
     migrateFrom: MigrateFrom;
     fromFilePath?: string;
     pipelineResult: MigrationPipelineResult;
@@ -120,6 +131,8 @@ export const buildMigrationRunLogRecords = ({
     itemType,
     dryRun,
     publish,
+    publishLanguages,
+    resolvedPublishLanguages,
     migrateFrom,
     fromFilePath,
     pipelineResult,
@@ -141,6 +154,14 @@ export const buildMigrationRunLogRecords = ({
             to,
         },
         writeMode: itemType === "story" && publish ? "publish" : "save",
+        ...(publish
+            ? {
+                  publishLanguages: {
+                      requested: publishLanguages,
+                      resolved: resolvedPublishLanguages,
+                  },
+              }
+            : {}),
         dryRun: Boolean(dryRun),
         migrationConfigs: pipelineResult.stepReports.map(
             (step) => step.migrationConfig,
@@ -155,9 +176,14 @@ export const buildMigrationRunLogRecords = ({
             const changedItem = resolveChangedItemPayload(
                 pipelineResult.changedItems[index],
             );
+            const stage = value.stage || "update";
             const event: MigrationRunLogEvent = value.ok
-                ? "update_success"
-                : "update_failed";
+                ? stage === "publish"
+                    ? "publish_success"
+                    : "update_success"
+                : stage === "publish"
+                  ? "publish_failed"
+                  : "update_failed";
 
             return {
                 ...baseRecord,
@@ -174,6 +200,7 @@ export const buildMigrationRunLogRecords = ({
                 },
                 status: value.status || null,
                 response: value.response || null,
+                stage,
                 ...(value.ok ? {} : { error: serializeError(value.error) }),
             };
         },
@@ -193,6 +220,7 @@ export const buildMigrationRunLogRecords = ({
                 spaceId: item.spaceId,
                 status: item.status,
                 response: item.response || null,
+                stage: item.stage,
             })),
         },
     };
