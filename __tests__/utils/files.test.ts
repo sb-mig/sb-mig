@@ -4,7 +4,12 @@ import path from "path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { createDir, getFileContent, readFile } from "../../src/utils/files.js";
+import {
+    createDir,
+    getFileContent,
+    readFile,
+    toImportSpecifier,
+} from "../../src/utils/files.js";
 
 describe("files utilities", () => {
     const tempDirs: string[] = [];
@@ -23,7 +28,7 @@ describe("files utilities", () => {
 
     it("loads an absolute module path via a file URL compatible import", async () => {
         const tempDir = makeTempDir();
-        const modulePath = path.join(tempDir, "config with spaces.mjs");
+        const modulePath = path.join(tempDir, "config.mjs");
         fs.writeFileSync(
             modulePath,
             "export default { componentsDirectories: ['src'] };\n",
@@ -32,6 +37,17 @@ describe("files utilities", () => {
         await expect(getFileContent({ file: modulePath })).resolves.toEqual({
             componentsDirectories: ["src"],
         });
+    });
+
+    it("converts Windows absolute paths to importable file URLs", () => {
+        const specifier = toImportSpecifier(
+            "C:\\Users\\Runner Admin\\project\\config with spaces.mjs",
+            "win32",
+        );
+
+        expect(specifier).toBe(
+            "file:///C:/Users/Runner%20Admin/project/config%20with%20spaces.mjs",
+        );
     });
 
     it("creates absolute directories without prefixing process.cwd()", async () => {

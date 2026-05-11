@@ -13,20 +13,27 @@ import Logger from "./logger.js";
 
 const { ncp } = pkg;
 
-const resolveFromCwd = (filePath: string): string =>
-    nodePath.isAbsolute(filePath)
+const resolveFromCwd = (
+    filePath: string,
+    pathApi: typeof nodePath = nodePath,
+): string =>
+    pathApi.isAbsolute(filePath)
         ? filePath
-        : nodePath.resolve(process.cwd(), filePath);
+        : pathApi.resolve(process.cwd(), filePath);
 
-const toImportSpecifier = (filePath: string): string => {
+export const toImportSpecifier = (
+    filePath: string,
+    platform: NodeJS.Platform = process.platform,
+): string => {
     if (/^(file|data|node):/.test(filePath)) {
         return filePath;
     }
 
-    const resolvedPath = resolveFromCwd(filePath);
+    const pathApi = platform === "win32" ? nodePath.win32 : nodePath;
+    const resolvedPath = resolveFromCwd(filePath, pathApi);
 
-    return process.platform === "win32"
-        ? pathToFileURL(resolvedPath).href
+    return platform === "win32"
+        ? pathToFileURL(resolvedPath, { windows: true }).href
         : resolvedPath;
 };
 
