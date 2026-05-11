@@ -142,4 +142,72 @@ describe("migration run log", () => {
         expect(parsedLines[1].event).toBe("publish_failed");
         expect(parsedLines[2].writeSummary.failed).toBe(1);
     });
+
+    it("records publish skips caused by source publish-state preservation", () => {
+        const records = buildMigrationRunLogRecords({
+            from: "source-space",
+            to: "target-space",
+            itemType: "story",
+            publish: true,
+            publishLanguages: "default",
+            resolvedPublishLanguages: ["[default]"],
+            dryRun: false,
+            migrateFrom: "space",
+            pipelineResult: {
+                totalItems: 1,
+                finalItems: [],
+                stepReports: [],
+                changedItems: [
+                    {
+                        story: {
+                            id: "story-1",
+                            name: "Home",
+                            full_slug: "home",
+                        },
+                    },
+                ],
+            },
+            writeResults: [
+                {
+                    status: "fulfilled",
+                    value: {
+                        ok: true,
+                        stage: "update",
+                        id: "story-1",
+                        name: "Home",
+                        slug: "home",
+                        sourcePublishState:
+                            "published_with_unpublished_changes",
+                        publishSkippedReason:
+                            "source_story_has_unpublished_changes",
+                    },
+                },
+            ],
+            writeSummary: {
+                total: 1,
+                successful: 1,
+                failed: 0,
+                failedItems: [],
+            },
+        });
+
+        expect(records[0]).toMatchObject({
+            event: "publish_skipped",
+            stage: "update",
+            sourcePublishState: "published_with_unpublished_changes",
+            publishSkippedReason: "source_story_has_unpublished_changes",
+            item: {
+                id: "story-1",
+                slug: "home",
+                spaceId: "target-space",
+            },
+        });
+        expect(records[1]).toMatchObject({
+            event: "migration_write_summary",
+            writeSummary: {
+                successful: 1,
+                failed: 0,
+            },
+        });
+    });
 });

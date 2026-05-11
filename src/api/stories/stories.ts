@@ -28,6 +28,40 @@ const resolveStoryLabel = (
 
 const DEFAULT_PUBLISH_LANGUAGE = "[default]";
 
+type StoryPublishState =
+    | {
+          status: "draft";
+          shouldPublish: false;
+          skipReason: "source_story_draft";
+          message: string;
+      }
+    | {
+          status: "published_with_unpublished_changes";
+          shouldPublish: false;
+          skipReason: "source_story_has_unpublished_changes";
+          message: string;
+      }
+    | {
+          status: "published_unknown";
+          shouldPublish: false;
+          skipReason: "source_story_publish_state_unknown";
+          message: string;
+      }
+    | {
+          status: "published_clean";
+          shouldPublish: true;
+      };
+
+type SkippedStoryPublishState = Extract<
+    StoryPublishState,
+    { shouldPublish: false }
+>;
+
+const isSkippedStoryPublishState = (
+    publishState: StoryPublishState | undefined,
+): publishState is SkippedStoryPublishState =>
+    publishState?.shouldPublish === false;
+
 const isDefaultLanguageToken = (language: string): boolean =>
     language.toLowerCase() === "default" ||
     language === DEFAULT_PUBLISH_LANGUAGE;
@@ -46,6 +80,70 @@ const normalizePublishLanguageCodes = (languages: string[]): string[] => {
     }
 
     return Array.from(new Set(cleanLanguages));
+};
+
+export const resolveStoryPublishState = (story: any): StoryPublishState => {
+    if (story?.published !== true) {
+        return {
+            status: "draft",
+            shouldPublish: false,
+            skipReason: "source_story_draft",
+            message: "source story was draft-only",
+        };
+    }
+
+    if (story.unpublished_changes === true) {
+        return {
+            status: "published_with_unpublished_changes",
+            shouldPublish: false,
+            skipReason: "source_story_has_unpublished_changes",
+            message: "source story had unpublished draft changes",
+        };
+    }
+
+    if (story.unpublished_changes !== false) {
+        return {
+            status: "published_unknown",
+            shouldPublish: false,
+            skipReason: "source_story_publish_state_unknown",
+            message:
+                "source story publish state was missing unpublished_changes",
+        };
+    }
+
+    return {
+        status: "published_clean",
+        shouldPublish: true,
+    };
+};
+
+const withSkippedPublish = ({
+    updateResult,
+    story,
+    storyId,
+    spaceId,
+    publishLanguages,
+    publishState,
+}: {
+    updateResult: any;
+    story: Record<string, any>;
+    storyId: string | number;
+    spaceId: string;
+    publishLanguages?: string[];
+    publishState: SkippedStoryPublishState;
+}) => {
+    const storyLabel = resolveStoryLabel(story, String(storyId));
+
+    Logger.warning(
+        `Skipping publish for story '${storyLabel}' in space '${spaceId}' because ${publishState.message}.`,
+    );
+
+    return {
+        ...updateResult,
+        sourcePublishState: publishState.status,
+        publishSkippedReason: publishState.skipReason,
+        ...(publishLanguages ? { publishLanguages } : {}),
+    };
 };
 
 export const parsePublishLanguagesOption = (
@@ -438,6 +536,7 @@ export const updateStories: UpdateStories = async (args, config) => {
     const { stories, options, spaceId } = args;
     const shouldPublishLanguages =
         options.publish && options.publishLanguages !== undefined;
+    const shouldPreservePublishState = Boolean(options.preservePublishState);
     const publishLanguages = shouldPublishLanguages
         ? await resolvePublishLanguageCodes(options.publishLanguages, {
               ...config,
@@ -449,14 +548,36 @@ export const updateStories: UpdateStories = async (args, config) => {
         // Run through stories, and update the space with migrated version of stories
         stories.map(async (stories: any) => {
             const story = stories.story;
+            const publishState = shouldPreservePublishState
+                ? resolveStoryPublishState(story)
+                : undefined;
+            const shouldPublishStory =
+                options.publish &&
+                (!publishState || publishState.shouldPublish);
             const updateResult = await updateStory(
                 story,
                 story.id,
                 {
-                    publish: options.publish && !shouldPublishLanguages,
+                    publish: shouldPublishStory && !shouldPublishLanguages,
+                    force_update: options.force_update,
                 },
                 { ...config, spaceId },
             );
+
+            if (
+                options.publish &&
+                updateResult?.ok &&
+                isSkippedStoryPublishState(publishState)
+            ) {
+                return withSkippedPublish({
+                    updateResult,
+                    story,
+                    storyId: story.id,
+                    spaceId,
+                    publishLanguages,
+                    publishState,
+                });
+            }
 
             if (
                 !shouldPublishLanguages ||

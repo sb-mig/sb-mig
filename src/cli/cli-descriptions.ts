@@ -101,8 +101,8 @@ export const migrateDescription = `
         --startsWith      - Filter stories by starts_with prefix
         --yes             - Skip ask for confirmation (dangerous, but useful in CI/CD)
         --dry-run         - Preview what would be migrated without making any API changes
-        --publish         - Publish changed stories immediately after migration. Default: save draft. [content only]
-        --publishLanguages - Languages to publish when --publish is set. Values: default, all, or comma-separated Storyblok language codes. [content only]
+        --publish         - Publish changed stories after migration only if they were clean-published before migration. Default: save draft. [content only]
+        --publishLanguages - Languages to publish when --publish is set. Values: default, all, or comma-separated Storyblok language codes. Skips stories that were draft-only or had unpublished changes before migration. [content only]
         --fileName        - Stable base name for migration output files (disables timestamp suffix for migration artifacts)
 
     EXAMPLES
