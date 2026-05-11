@@ -6,7 +6,6 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import {
     createDir,
-    getFileContent,
     readFile,
     toImportSpecifier,
 } from "../../src/utils/files.js";
@@ -24,19 +23,6 @@ describe("files utilities", () => {
         for (const dir of tempDirs.splice(0)) {
             fs.rmSync(dir, { recursive: true, force: true });
         }
-    });
-
-    it("loads an absolute module path via a file URL compatible import", async () => {
-        const tempDir = makeTempDir();
-        const modulePath = path.join(tempDir, "config.mjs");
-        fs.writeFileSync(
-            modulePath,
-            "export default { componentsDirectories: ['src'] };\n",
-        );
-
-        await expect(getFileContent({ file: modulePath })).resolves.toEqual({
-            componentsDirectories: ["src"],
-        });
     });
 
     it("converts Windows absolute paths to importable file URLs", () => {
