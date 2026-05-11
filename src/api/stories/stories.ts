@@ -16,6 +16,7 @@ import type {
 
 import chalk from "chalk";
 
+import { mapWithConcurrency } from "../../utils/async-utils.js";
 import Logger from "../../utils/logger.js";
 import { notNullish } from "../../utils/object-utils.js";
 import { getAllItemsWithPagination } from "../utils/request.js";
@@ -27,6 +28,7 @@ const resolveStoryLabel = (
     content?.full_slug || content?.slug || content?.name || String(storyId);
 
 const DEFAULT_PUBLISH_LANGUAGE = "[default]";
+const STORY_CONTENT_FETCH_CONCURRENCY = 10;
 
 const isDefaultLanguageToken = (language: string): boolean =>
     language.toLowerCase() === "default" ||
@@ -231,8 +233,10 @@ export const getAllStories: GetAllStories = async (args, config) => {
 
     let heartBeat = 0;
 
-    const allStories = await Promise.all(
-        allStoriesWithoutContent.map(async (story: any) => {
+    const allStories = await mapWithConcurrency(
+        allStoriesWithoutContent,
+        STORY_CONTENT_FETCH_CONCURRENCY,
+        async (story: any) => {
             const result = await getStoryById(story.id, config);
 
             heartBeat++;
@@ -246,7 +250,7 @@ export const getAllStories: GetAllStories = async (args, config) => {
             }
 
             return result;
-        }),
+        },
     );
 
     return allStories;

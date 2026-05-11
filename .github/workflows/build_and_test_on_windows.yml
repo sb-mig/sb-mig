@@ -5,6 +5,7 @@ on:
     branches:
       - master
       - beta
+  workflow_dispatch:
 
 jobs:
   build:
@@ -30,6 +31,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Type Check
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
       - name: Build
         env:
           NODE_AUTH_TOKEN: ${{secrets.GITHUB_TOKEN}}
@@ -37,6 +44,14 @@ jobs:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           npm run build
+
+      - name: Windows portability regression tests
+        env:
+          NODE_AUTH_TOKEN: ${{secrets.GITHUB_TOKEN}}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          npm run test:unit -- __tests__/utils/files.test.ts __tests__/config/config-loader.test.ts __tests__/utils/path-utils.test.ts __tests__/utils/glob-utils.test.ts __tests__/build-on-the-fly.test.ts __tests__/utils/async-utils.test.ts __tests__/api/migration-run-log.test.ts __tests__/api/write-summary.test.ts
 
       - name: Test
         env:

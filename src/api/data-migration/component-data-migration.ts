@@ -509,7 +509,6 @@ export const runMigrationPipelineInMemory = ({
     itemsToMigrate: any[];
     preparedMigrationConfigs: PreparedMigrationConfig[];
 }): MigrationPipelineResult => {
-    const originalItems = deepClone(itemsToMigrate);
     let workingItems = deepClone(itemsToMigrate);
 
     const stepReports: MigrationStepReport[] = [];
@@ -561,7 +560,7 @@ export const runMigrationPipelineInMemory = ({
     }
 
     const changedItems = workingItems.filter((item, index) => {
-        const originalItem = originalItems[index];
+        const originalItem = itemsToMigrate[index];
 
         if (!originalItem) {
             return true;
