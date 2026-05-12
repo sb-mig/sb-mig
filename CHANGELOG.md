@@ -1,3 +1,10 @@
+# [6.0.0-beta.6](https://github.com/sb-mig/sb-mig/compare/v6.0.0-beta.5...v6.0.0-beta.6) (2026-05-12)
+
+
+### Bug Fixes
+
+* **rollup:** resolve schema imports during precompile ([98f89b0](https://github.com/sb-mig/sb-mig/commit/98f89b034523903aa00219206f4cdccd7c80da3c))
+
 # [6.0.0-beta.5](https://github.com/sb-mig/sb-mig/compare/v6.0.0-beta.4...v6.0.0-beta.5) (2026-05-07)
 
 
