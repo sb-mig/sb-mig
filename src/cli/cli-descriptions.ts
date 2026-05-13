@@ -7,12 +7,36 @@ export const mainDescription = `
         discover  Discover components, migration configs and write to file or stdout.
         backup    Command for backing up anything related to Storyblok
         migrate   Migrate content from space to space, or from file to space.
+        language-publish-state
+                  Build a read-only Storyblok story language publish-state map.
         debug     Output extra debugging information
         help      This screen
     
     Examples
       $ sb-mig sync components --all
       $ sb-mig debug  
+`;
+
+export const languagePublishStateDescription = `
+    Usage
+        $ sb-mig language-publish-state --from [spaceId]
+
+    Description
+        Read stories from a source Storyblok space and write a JSON map of default and translated language publication states.
+        This command is read-only against Storyblok. It uses Management API for story listing and default-language state, and Delivery API for translated language published/draft comparisons.
+
+    FLAGS
+        --from            - Source space ID to inspect
+        --accessToken     - Optional source space Delivery API access token override. Falls back to configured accessToken.
+        --languages       - Languages to inspect: all, default,fr,de. Default: all
+        --withSlug        - Exact story full_slug to inspect. Can be repeated.
+        --startsWith      - Filter stories by starts_with prefix
+        --fileName        - Stable output base name under sbmig/language-publish-state
+        --outputPath      - Explicit output path for the generated JSON file
+
+    EXAMPLES
+        $ sb-mig language-publish-state --from 12345 --startsWith about-ef --languages all --fileName about-ef-prod
+        $ sb-mig language-publish-state --from 12345 --accessToken xxx --withSlug about-ef/testimonials --languages default,fr
 `;
 
 export const syncDescription = `

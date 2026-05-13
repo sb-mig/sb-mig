@@ -61,6 +61,7 @@ export const defaultConfig = (
         openaiToken: env["OPENAI_API_KEY"] ?? "",
         spaceId: env["STORYBLOK_SPACE_ID"] ?? "",
         accessToken:
+            env["STORYBLOK_ACCESS_TOKEN"] ||
             env["GATSBY_STORYBLOK_ACCESS_TOKEN"] ||
             env["NEXT_PUBLIC_STORYBLOK_ACCESS_TOKEN"] ||
             "",
