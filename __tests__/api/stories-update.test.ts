@@ -54,8 +54,8 @@ describe("updateStory", () => {
             "spaces/291967263583956/stories/story-1",
             {
                 story: content,
-                publish: 0,
-                force_update: 0,
+                publish: false,
+                force_update: false,
             },
         );
     });
@@ -88,8 +88,8 @@ describe("updateStory", () => {
             "spaces/291967263583956/stories/story-1",
             {
                 story: content,
-                publish: 1,
-                force_update: 0,
+                publish: true,
+                force_update: false,
             },
         );
     });
@@ -258,8 +258,8 @@ describe("updateStories publish languages", () => {
             "spaces/291967263583956/stories/story-1",
             {
                 story: story.story,
-                publish: 1,
-                force_update: 0,
+                publish: true,
+                force_update: false,
             },
         );
         expect(get).not.toHaveBeenCalled();
@@ -319,8 +319,8 @@ describe("updateStories publish languages", () => {
             "spaces/291967263583956/stories/story-1",
             {
                 story: story.story,
-                publish: 0,
-                force_update: 0,
+                publish: false,
+                force_update: false,
             },
         );
         expect(get).toHaveBeenCalledWith(
@@ -490,8 +490,8 @@ describe("updateStories publish languages", () => {
             "spaces/291967263583956/stories/story-1",
             {
                 story: story.story,
-                publish: 0,
-                force_update: 0,
+                publish: false,
+                force_update: false,
             },
         );
         expect(get).not.toHaveBeenCalled();
@@ -617,8 +617,8 @@ describe("updateStories publish languages", () => {
             "spaces/291967263583956/stories/story-1",
             {
                 story: story.story,
-                publish: 0,
-                force_update: 0,
+                publish: false,
+                force_update: false,
             },
         );
         expect(get).toHaveBeenCalledWith(
@@ -680,8 +680,8 @@ describe("updateStories publish languages", () => {
             "spaces/291967263583956/stories/story-1",
             {
                 story: story.story,
-                publish: 0,
-                force_update: 0,
+                publish: false,
+                force_update: false,
             },
         );
     });
