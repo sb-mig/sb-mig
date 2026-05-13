@@ -1,3 +1,10 @@
+# [6.0.0-beta.7](https://github.com/sb-mig/sb-mig/compare/v6.0.0-beta.6...v6.0.0-beta.7) (2026-05-13)
+
+
+### Bug Fixes
+
+* **windows:** harden path handling and ci ([3dbc6fb](https://github.com/sb-mig/sb-mig/commit/3dbc6fb509163df72074082412e47d94bdeae855))
+
 # [6.0.0-beta.6](https://github.com/sb-mig/sb-mig/compare/v6.0.0-beta.5...v6.0.0-beta.6) (2026-05-12)
 
 
