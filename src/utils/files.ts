@@ -3,7 +3,8 @@ import type { RequestBaseConfig } from "../api/utils/request.js";
 import * as fs from "fs";
 import { writeFile } from "fs";
 import { createRequire } from "module";
-import path from "path";
+import nodePath from "path";
+import { pathToFileURL } from "url";
 
 import pkg from "ncp";
 
@@ -11,6 +12,30 @@ import { generateDatestamp } from "./date-utils.js";
 import Logger from "./logger.js";
 
 const { ncp } = pkg;
+
+const resolveFromCwd = (
+    filePath: string,
+    pathApi: typeof nodePath = nodePath,
+): string =>
+    pathApi.isAbsolute(filePath)
+        ? filePath
+        : pathApi.resolve(process.cwd(), filePath);
+
+export const toImportSpecifier = (
+    filePath: string,
+    platform: NodeJS.Platform = process.platform,
+): string => {
+    if (/^(file|data|node):/.test(filePath)) {
+        return filePath;
+    }
+
+    const pathApi = platform === "win32" ? nodePath.win32 : nodePath;
+    const resolvedPath = resolveFromCwd(filePath, pathApi);
+
+    return platform === "win32"
+        ? pathToFileURL(resolvedPath, { windows: true }).href
+        : resolvedPath;
+};
 
 // ============================================================================
 // File Content Loading
@@ -24,7 +49,7 @@ const { ncp } = pkg;
  * @returns The default export of the imported module
  */
 export const getFileContent = (data: { file: string }): any => {
-    return import(data.file)
+    return import(/* @vite-ignore */ toImportSpecifier(data.file))
         .then((res) => {
             return res.default;
         })
@@ -68,7 +93,7 @@ export const getFilesContentWithRequire = (data: { files: string[] }) => {
  * @returns Parsed package.json object
  */
 export const getPackageJson = () => {
-    const packageJsonPath = path.join(process.cwd(), "package.json");
+    const packageJsonPath = nodePath.join(process.cwd(), "package.json");
     const packageJsonContent = fs.readFileSync(packageJsonPath, "utf-8");
     const packageJson = JSON.parse(packageJsonContent);
     return packageJson;
@@ -77,7 +102,7 @@ export const getPackageJson = () => {
 export const isDirectoryExists = (path: string) => fs.existsSync(path);
 
 export const createDir = async (dirPath: string) => {
-    await fs.promises.mkdir(`${process.cwd()}/${dirPath}`, {
+    await fs.promises.mkdir(resolveFromCwd(dirPath), {
         recursive: true,
     });
 };
@@ -129,11 +154,11 @@ export const copyFolder = async (src: string, dest: string) => {
 };
 
 export const copyFile = async (src: string, dest: string) => {
-    const directory = dest.split("/").slice(0, dest.split("/").length - 1);
-    const fileName = src.split("/")[src.split("/").length - 1];
+    const directory = nodePath.dirname(dest);
+    const fileName = nodePath.basename(src);
 
-    if (!isDirectoryExists(directory.join("/"))) {
-        await createDir(directory.join("/"));
+    if (!isDirectoryExists(directory)) {
+        await createDir(directory);
     }
 
     fs.copyFile(src, dest, (err) => {
@@ -222,10 +247,7 @@ export const createAndSaveToFile: CreateAndSaveToFile = async (
     }
 
     if (path) {
-        const folderPath = path
-            .split("/")
-            .slice(0, path.split("/").length - 1)
-            .join("/");
+        const folderPath = nodePath.dirname(path);
         await createDir(folderPath);
         await createJsonFile(JSON.stringify(res, undefined, 2), path);
 
@@ -261,7 +283,7 @@ export const createAndSaveComponentListToFile: CreateAndSaveComponentListToFile 
     };
 
 export const readFile = async (pathToFile: string) => {
-    const absolutePath = path.join(process.cwd(), pathToFile);
+    const absolutePath = resolveFromCwd(pathToFile);
 
     try {
         const result = await fs.promises.readFile(absolutePath);
@@ -285,14 +307,14 @@ export const dumpToFile = async (path: string, content: string) => {
 
 export const getConsumerPackageJson = async () => {
     const consumerPkg = await getFileContentWithRequire({
-        file: path.join(process.cwd(), "package.json"),
+        file: nodePath.join(process.cwd(), "package.json"),
     });
     return consumerPkg;
 };
 
 export const getSbMigPackageJson = async () => {
     const sbMigPkg = await getFileContentWithRequire({
-        file: path.join("..", "..", "package.json"),
+        file: nodePath.join("..", "..", "package.json"),
     });
     return sbMigPkg;
 };

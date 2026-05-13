@@ -42,7 +42,7 @@
   ],
   "scripts": {
     "lint-staged": "node ./src/scripts/fix-esm.js && lint-staged",
-    "build": "rm -rf dist dist-cjs && tsc -p tsconfig.json && tsc -p tsconfig.api-v2.cjs.json && node ./src/scripts/write-cjs-package.js && chmod +x ./dist/cli/index.js",
+    "build": "node ./src/scripts/clean-build.js && tsc -p tsconfig.json && tsc -p tsconfig.api-v2.cjs.json && node ./src/scripts/write-cjs-package.js && node ./src/scripts/make-cli-executable.js",
     "build:dev": "chokidar 'src/**/*.{js,ts,cjs,mjs}' -c 'npm run build'",
     "lint": "eslint . --max-warnings=0",
     "lint:fix": "eslint --fix",
