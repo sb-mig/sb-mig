@@ -1,3 +1,10 @@
+# [6.0.0-beta.9](https://github.com/sb-mig/sb-mig/compare/v6.0.0-beta.8...v6.0.0-beta.9) (2026-05-13)
+
+
+### Bug Fixes
+
+* publish numeric values ([ca2fa64](https://github.com/sb-mig/sb-mig/commit/ca2fa64e8b2cc53d9c45e252ced9d3dfa080dfc9))
+
 # [6.0.0-beta.8](https://github.com/sb-mig/sb-mig/compare/v6.0.0-beta.7...v6.0.0-beta.8) (2026-05-13)
 
 
