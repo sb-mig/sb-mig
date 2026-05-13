@@ -1,3 +1,10 @@
+# [6.0.0-beta.8](https://github.com/sb-mig/sb-mig/compare/v6.0.0-beta.7...v6.0.0-beta.8) (2026-05-13)
+
+
+### Bug Fixes
+
+* **migrate:** preserve story publish state ([5bca5f5](https://github.com/sb-mig/sb-mig/commit/5bca5f57ec81122d81cbbec0209b562f117525a7))
+
 # [6.0.0-beta.7](https://github.com/sb-mig/sb-mig/compare/v6.0.0-beta.6...v6.0.0-beta.7) (2026-05-13)
 
 
