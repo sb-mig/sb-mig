@@ -1,16 +1,19 @@
 import type { RequestBaseConfig } from "../utils/request.js";
 
 import { createHash } from "crypto";
+import fs from "fs";
+import path from "path";
 
 import { mapWithConcurrency } from "../../utils/async-utils.js";
 import { createAndSaveToFile } from "../../utils/files.js";
 import Logger from "../../utils/logger.js";
-import { managementApi } from "../managementApi.js";
+
+import { getAllStories, getStoryBySlug } from "./stories.js";
 
 const DEFAULT_LANGUAGE = "[default]";
 const DELIVERY_CHECK_CONCURRENCY = 5;
 
-type LanguagePublishState =
+export type LanguagePublishState =
     | "published_clean"
     | "published_with_unpublished_changes"
     | "draft_never_published"
@@ -28,6 +31,35 @@ export interface BuildLanguagePublishStateMapArgs {
     withSlug?: string[];
     fileName?: string;
     outputPath?: string;
+}
+
+export interface LanguagePublishStateMapEntry {
+    id?: number | string;
+    uuid?: string;
+    name?: string;
+    fullSlug?: string;
+    languages?: Record<
+        string,
+        {
+            state?: LanguagePublishState;
+            [key: string]: unknown;
+        }
+    >;
+    cleanPublishedLanguages?: string[];
+    [key: string]: unknown;
+}
+
+export interface LanguagePublishStateMap {
+    generatedAt?: string;
+    source?: {
+        spaceId?: string;
+        startsWith?: string | null;
+        withSlug?: string[] | null;
+    };
+    languages?: string[];
+    storyCount?: number;
+    statesByLanguage?: Record<string, Record<string, number>>;
+    stories?: Record<string, LanguagePublishStateMapEntry>;
 }
 
 interface DeliveryCheck {
@@ -212,22 +244,39 @@ const loadStoriesForLanguageState = async (
 ) => {
     if (withSlug && withSlug.length > 0) {
         const stories = await Promise.all(
-            withSlug.map((slug) =>
-                managementApi.stories.getStoryBySlug(slug, config),
-            ),
+            withSlug.map((slug) => getStoryBySlug(slug, config)),
         );
 
         return stories.filter(Boolean);
     }
 
     if (startsWith) {
-        return managementApi.stories.getAllStories(
+        return getAllStories(
             { options: { starts_with: startsWith } as any },
             config,
         );
     }
 
-    return managementApi.stories.getAllStories({}, config);
+    return getAllStories({}, config);
+};
+
+export const loadLanguagePublishStateMap = (
+    languagePublishStatePath: string,
+): LanguagePublishStateMap => {
+    const resolvedPath = path.isAbsolute(languagePublishStatePath)
+        ? languagePublishStatePath
+        : path.resolve(process.cwd(), languagePublishStatePath);
+
+    const fileContent = fs.readFileSync(resolvedPath, "utf8");
+    const parsed = JSON.parse(fileContent) as LanguagePublishStateMap;
+
+    if (!parsed || typeof parsed !== "object" || !parsed.stories) {
+        throw new Error(
+            `Language publish-state file '${languagePublishStatePath}' is missing a stories map.`,
+        );
+    }
+
+    return parsed;
 };
 
 export const buildLanguagePublishStateMap = async (

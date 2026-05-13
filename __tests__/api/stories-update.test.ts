@@ -685,4 +685,207 @@ describe("updateStories publish languages", () => {
             },
         );
     });
+
+    it("uses language publish-state map for non-default language publishing", async () => {
+        const put = vi.fn().mockResolvedValue({
+            data: {
+                story: {
+                    id: "story-1",
+                    name: "Japan",
+                    full_slug: "tours/destinations/japan",
+                },
+            },
+        });
+        const get = vi.fn().mockResolvedValue({
+            data: {
+                story: {
+                    id: "story-1",
+                    name: "Japan",
+                    full_slug: "tours/destinations/japan",
+                },
+            },
+        });
+        const config = {
+            spaceId: "291967263583956",
+            sbApi: {
+                put,
+                get,
+            },
+        } as any;
+        const story = {
+            story: {
+                id: "story-1",
+                name: "Japan",
+                full_slug: "tours/destinations/japan",
+                published: true,
+                unpublished_changes: false,
+            },
+        };
+
+        const results = await updateStories(
+            {
+                stories: [story],
+                spaceId: "291967263583956",
+                options: {
+                    publish: true,
+                    publishLanguages: ["[default]", "fr", "de"],
+                    preservePublishState: true,
+                    languagePublishStateMap: {
+                        stories: {
+                            "tours/destinations/japan": {
+                                languages: {
+                                    fr: { state: "published_clean" },
+                                    de: { state: "draft_or_unpublished" },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+            config,
+        );
+
+        expect(get).toHaveBeenCalledWith(
+            "spaces/291967263583956/stories/story-1/publish",
+            { lang: "[default],fr" },
+        );
+        expect(results[0]).toMatchObject({
+            status: "fulfilled",
+            value: {
+                ok: true,
+                stage: "publish",
+                publishLanguages: ["[default]", "fr"],
+            },
+        });
+    });
+
+    it("can publish a clean translated language without publishing default draft changes", async () => {
+        const put = vi.fn().mockResolvedValue({
+            data: {
+                story: {
+                    id: "story-1",
+                    name: "Japan",
+                    full_slug: "tours/destinations/japan",
+                },
+            },
+        });
+        const get = vi.fn().mockResolvedValue({
+            data: {
+                story: {
+                    id: "story-1",
+                    name: "Japan",
+                    full_slug: "tours/destinations/japan",
+                },
+            },
+        });
+        const config = {
+            spaceId: "291967263583956",
+            sbApi: {
+                put,
+                get,
+            },
+        } as any;
+        const story = {
+            story: {
+                id: "story-1",
+                name: "Japan",
+                full_slug: "tours/destinations/japan",
+                published: true,
+                unpublished_changes: true,
+            },
+        };
+
+        await updateStories(
+            {
+                stories: [story],
+                spaceId: "291967263583956",
+                options: {
+                    publish: true,
+                    publishLanguages: ["[default]", "fr"],
+                    preservePublishState: true,
+                    languagePublishStateMap: {
+                        stories: {
+                            "tours/destinations/japan": {
+                                languages: {
+                                    fr: { state: "published_clean" },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+            config,
+        );
+
+        expect(put).toHaveBeenCalledWith(
+            "spaces/291967263583956/stories/story-1",
+            {
+                story: story.story,
+                publish: false,
+                force_update: false,
+            },
+        );
+        expect(get).toHaveBeenCalledWith(
+            "spaces/291967263583956/stories/story-1/publish",
+            { lang: "fr" },
+        );
+    });
+
+    it("falls back to normal publish-state behavior when a language map entry is missing", async () => {
+        const put = vi.fn().mockResolvedValue({
+            data: {
+                story: {
+                    id: "story-1",
+                    name: "Japan",
+                    full_slug: "tours/destinations/japan",
+                },
+            },
+        });
+        const get = vi.fn().mockResolvedValue({
+            data: {
+                story: {
+                    id: "story-1",
+                    name: "Japan",
+                    full_slug: "tours/destinations/japan",
+                },
+            },
+        });
+        const config = {
+            spaceId: "291967263583956",
+            sbApi: {
+                put,
+                get,
+            },
+        } as any;
+        const story = {
+            story: {
+                id: "story-1",
+                name: "Japan",
+                full_slug: "tours/destinations/japan",
+                published: true,
+                unpublished_changes: false,
+            },
+        };
+
+        await updateStories(
+            {
+                stories: [story],
+                spaceId: "291967263583956",
+                options: {
+                    publish: true,
+                    publishLanguages: ["[default]", "fr"],
+                    preservePublishState: true,
+                    languagePublishStateMap: {
+                        stories: {},
+                    },
+                },
+            },
+            config,
+        );
+
+        expect(get).toHaveBeenCalledWith(
+            "spaces/291967263583956/stories/story-1/publish",
+            { lang: "[default],fr" },
+        );
+    });
 });

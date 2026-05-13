@@ -21,6 +21,7 @@ import Logger from "../../utils/logger.js";
 import { modifyOrCreateAppliedMigrationsFile } from "../../utils/migrations.js";
 import { isObjectEmpty } from "../../utils/object-utils.js";
 import { managementApi } from "../managementApi.js";
+import { loadLanguagePublishStateMap } from "../stories/language-publish-state.js";
 
 import {
     buildPreMigrationBackupBaseName,
@@ -94,6 +95,7 @@ interface MigrateItems {
     publishLanguages?: PublishLanguagesOption;
     fromFilePath?: string;
     fileName?: string;
+    languagePublishStatePath?: string;
     preparedMigrationConfigs?: PreparedMigrationConfig[];
 }
 
@@ -588,6 +590,7 @@ const savePipelineSummary = async (
         publishLanguages,
         migrateFrom,
         fromFilePath,
+        languagePublishStatePath,
         pipelineResult,
     }: {
         artifactBaseName: string;
@@ -599,6 +602,7 @@ const savePipelineSummary = async (
         publishLanguages?: PublishLanguagesOption;
         migrateFrom: MigrateFrom;
         fromFilePath?: string;
+        languagePublishStatePath?: string;
         pipelineResult: MigrationPipelineResult;
     },
     config: RequestBaseConfig,
@@ -617,6 +621,7 @@ const savePipelineSummary = async (
                     migrateFrom,
                     from,
                     fromFilePath: fromFilePath || null,
+                    languagePublishStatePath: languagePublishStatePath || null,
                 },
                 writeMode: itemType === "story" && publish ? "publish" : "save",
                 publishLanguages:
@@ -779,6 +784,7 @@ export const migrateAllComponentsDataInStories = async (
         publishLanguages,
         fromFilePath,
         fileName,
+        languagePublishStatePath,
         migrationComponentAliases,
         migrationComponentOverrides,
     }: Omit<MigrateItems, "componentsToMigrate" | "preparedMigrationConfigs">,
@@ -823,6 +829,7 @@ export const migrateAllComponentsDataInStories = async (
             publishLanguages,
             fromFilePath,
             fileName,
+            languagePublishStatePath,
             preparedMigrationConfigs,
         },
         config,
@@ -843,6 +850,7 @@ export const doTheMigration = async (
         migrateFrom,
         fromFilePath,
         fileName,
+        languagePublishStatePath,
     }: {
         itemType?: "story" | "preset";
         from: string;
@@ -856,6 +864,7 @@ export const doTheMigration = async (
         migrateFrom: MigrateFrom;
         fromFilePath?: string;
         fileName?: string;
+        languagePublishStatePath?: string;
     },
     config: RequestBaseConfig,
 ) => {
@@ -957,6 +966,7 @@ export const doTheMigration = async (
             publishLanguages,
             migrateFrom,
             fromFilePath,
+            languagePublishStatePath,
             pipelineResult,
         },
         config,
@@ -986,6 +996,9 @@ export const doTheMigration = async (
 
     let writeResults: PromiseSettledResult<any>[] = [];
     let resolvedPublishLanguages: string[] | undefined;
+    const languagePublishStateMap = languagePublishStatePath
+        ? loadLanguagePublishStateMap(languagePublishStatePath)
+        : undefined;
 
     if (itemType === "story") {
         if (publish && publishLanguages !== undefined) {
@@ -1007,6 +1020,7 @@ export const doTheMigration = async (
                     publish: Boolean(publish),
                     publishLanguages: resolvedPublishLanguages,
                     preservePublishState: Boolean(publish),
+                    languagePublishStateMap,
                 },
             },
             config,
@@ -1038,6 +1052,7 @@ export const doTheMigration = async (
                 resolvedPublishLanguages,
                 migrateFrom,
                 fromFilePath,
+                languagePublishStatePath,
                 pipelineResult,
                 writeResults,
                 writeSummary,
@@ -1116,6 +1131,7 @@ export const migrateProvidedComponentsDataInStories = async (
         publishLanguages,
         fromFilePath,
         fileName,
+        languagePublishStatePath,
         preparedMigrationConfigs,
         migrationComponentAliases,
         migrationComponentOverrides,
@@ -1173,6 +1189,7 @@ export const migrateProvidedComponentsDataInStories = async (
             migrateFrom,
             fromFilePath,
             fileName,
+            languagePublishStatePath,
         },
         config,
     );

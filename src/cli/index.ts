@@ -106,6 +106,9 @@ app.migrate = () => ({
             publishLanguages: {
                 type: "string",
             },
+            languagePublishStatePath: {
+                type: "string",
+            },
             fileName: {
                 type: "string",
             },
