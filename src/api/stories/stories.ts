@@ -405,7 +405,7 @@ export const createStory: CreateStory = (content, config) => {
     return sbApi
         .post(`spaces/${spaceId}/stories/`, {
             story: content,
-            publish: 1,
+            publish: true,
         })
         .then((res: any) => res.data)
         .catch((err: any) => console.error(err));
@@ -426,8 +426,8 @@ export const updateStory: UpdateStory = (content, storyId, options, config) => {
     return sbApi
         .put(`spaces/${spaceId}/stories/${storyId}`, {
             story: content,
-            publish: options.publish ? 1 : 0,
-            force_update: options.force_update ? 1 : 0,
+            publish: options.publish === true,
+            force_update: options.force_update === true,
         })
         .then((res: any) => {
             console.log(`${chalk.green(res.data.story.full_slug)} updated.`);
