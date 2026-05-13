@@ -1006,6 +1006,7 @@ export const doTheMigration = async (
                 options: {
                     publish: Boolean(publish),
                     publishLanguages: resolvedPublishLanguages,
+                    preservePublishState: Boolean(publish),
                 },
             },
             config,

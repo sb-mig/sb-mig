@@ -18,6 +18,7 @@ type MigrationRunLogEvent =
     | "update_failed"
     | "publish_success"
     | "publish_failed"
+    | "publish_skipped"
     | "migration_write_summary";
 
 export interface MigrationRunLogRecord {
@@ -54,6 +55,8 @@ export interface MigrationRunLogRecord {
             status?: number | string;
             response?: string | null;
             stage?: "update" | "publish";
+            sourcePublishState?: string;
+            publishSkippedReason?: string;
         }>;
     };
     item?: {
@@ -66,6 +69,8 @@ export interface MigrationRunLogRecord {
     status?: number | string | null;
     response?: string | null;
     stage?: "update" | "publish";
+    sourcePublishState?: string;
+    publishSkippedReason?: string;
     error?: unknown;
 }
 
@@ -177,13 +182,15 @@ export const buildMigrationRunLogRecords = ({
                 pipelineResult.changedItems[index],
             );
             const stage = value.stage || "update";
-            const event: MigrationRunLogEvent = value.ok
-                ? stage === "publish"
-                    ? "publish_success"
-                    : "update_success"
-                : stage === "publish"
-                  ? "publish_failed"
-                  : "update_failed";
+            const event: MigrationRunLogEvent = value.publishSkippedReason
+                ? "publish_skipped"
+                : value.ok
+                  ? stage === "publish"
+                      ? "publish_success"
+                      : "update_success"
+                  : stage === "publish"
+                    ? "publish_failed"
+                    : "update_failed";
 
             return {
                 ...baseRecord,
@@ -201,6 +208,8 @@ export const buildMigrationRunLogRecords = ({
                 status: value.status || null,
                 response: value.response || null,
                 stage,
+                sourcePublishState: value.sourcePublishState,
+                publishSkippedReason: value.publishSkippedReason,
                 ...(value.ok ? {} : { error: serializeError(value.error) }),
             };
         },
@@ -221,6 +230,8 @@ export const buildMigrationRunLogRecords = ({
                 status: item.status,
                 response: item.response || null,
                 stage: item.stage,
+                sourcePublishState: item.sourcePublishState,
+                publishSkippedReason: item.publishSkippedReason,
             })),
         },
     };

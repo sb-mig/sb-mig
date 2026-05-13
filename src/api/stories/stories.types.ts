@@ -9,6 +9,7 @@ interface ModifyStoryOptions {
     publish?: boolean;
     force_update?: boolean;
     publishLanguages?: PublishLanguagesOption;
+    preservePublishState?: boolean;
 }
 
 export type PublishLanguagesOption = "default" | "all" | string[];

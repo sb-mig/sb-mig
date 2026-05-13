@@ -65,13 +65,29 @@ Add a language selector flag for content migrations:
 Recommended semantics:
 
 - No `--publish`: update stories as draft only. No publish endpoint calls.
-- `--publish` without `--publishLanguages`: keep the legacy single-update behavior and publish through `PUT /stories/:storyId` with `publish: 1`.
-- `--publish --publishLanguages default`: publish `[default]`.
-- `--publish --publishLanguages all`: fetch configured languages from target space and publish `[default]` plus all configured language codes.
-- `--publish --publishLanguages default,fr,de`: publish `[default],fr,de`.
+- `--publish` without `--publishLanguages`: use the legacy single-update publish mechanism, but only for stories that were clean-published before migration.
+- `--publish --publishLanguages default`: publish `[default]`, but only for stories that were clean-published before migration.
+- `--publish --publishLanguages all`: fetch configured languages from target space and publish `[default]` plus all configured language codes, but only for stories that were clean-published before migration.
+- `--publish --publishLanguages default,fr,de`: publish `[default],fr,de`, but only for stories that were clean-published before migration.
 - `default` should normalize to Storyblok's `[default]` token.
 - `[default]` should also be accepted directly for advanced users.
 - Configured space languages must come from Storyblok, not from app locale config.
+
+## Preserve Source Publish State
+
+The migration must not publish editor draft work by accident. Before updating each story, use the Storyblok source story metadata to decide whether publishing is allowed.
+
+Safe story-level map:
+
+| Source story state | Migration behavior |
+| --- | --- |
+| `published: false` | Save migrated story as draft. Skip publish. |
+| `published: true` and `unpublished_changes: true` | Save migrated story as draft. Skip publish. |
+| `published: true` and `unpublished_changes: false` | Save migrated story first. Then publish requested languages. |
+
+If `published` is true but `unpublished_changes` is missing, skip publish. This is conservative and avoids publishing unknown draft state from older saved files.
+
+When publish is skipped, the migration should log the skip reason and include it in the JSONL run log.
 
 ## Required Ordering
 
@@ -89,6 +105,10 @@ if (!updateResult.ok) {
 }
 
 if (options.publish) {
+    if (!sourceStoryWasCleanPublished(story)) {
+        return updateResult;
+    }
+
     return publishStoryLanguages(story.id, publishLanguages, config);
 }
 
@@ -155,10 +175,11 @@ spaces/:spaceId/stories/:storyId/publish?lang=${encodeURIComponent(lang)}
 
 6. Change write flow.
    - When `--publish` is false, keep current draft update behavior.
-   - When `--publish` is true and `--publishLanguages` is not provided, preserve the legacy single `PUT` with `publish: 1`.
+   - When `--publish` is true and `--publishLanguages` is not provided, use the legacy single `PUT` with `publish: 1` only for stories that were clean-published before migration.
    - When `--publish` is true and `--publishLanguages` is provided:
      - Update story with `publish: false`.
-     - If update succeeds, publish requested languages.
+     - If update succeeds and the source story was clean-published, publish requested languages.
+     - If update succeeds but the source story was draft-only or had unpublished changes, skip publish and log why.
      - If update fails, do not publish that story.
    - This can live inside `updateStories` so call sites keep one write operation per changed story.
 
@@ -191,7 +212,7 @@ sb-mig migrate content --all --from 123 --to 123 --migration v3toV4 --publish --
 ## Open Decisions
 
 - Default for `--publish` without `--publishLanguages`:
-  - Decision: preserve legacy `PUT` publish behavior for backwards compatibility.
+  - Decision: use legacy `PUT` publish behavior, but gate it with source publish-state preservation inside `migrate content`.
   - Use `--publish --publishLanguages default` when the explicit update-then-publish endpoint flow is desired for the default language.
 
 - Failure model:
@@ -205,8 +226,10 @@ sb-mig migrate content --all --from 123 --to 123 --migration v3toV4 --publish --
 ## Acceptance Criteria
 
 - Draft-only migrations continue to work unchanged.
-- Existing `--publish` behavior remains compatible unless `--publishLanguages` is provided.
-- `--publish --publishLanguages all` updates each changed story first, then publishes `[default]` plus configured target-space languages.
+- `migrate content --publish` does not publish stories that were draft-only before migration.
+- `migrate content --publish` does not publish stories that had unpublished changes before migration.
+- `--publish --publishLanguages all` updates each changed clean-published story first, then publishes `[default]` plus configured target-space languages.
 - A failed update never triggers publish for that story.
+- A skipped publish is visible in CLI output and migration run logs.
 - A failed publish is visible in CLI output and migration run logs.
 - Tests cover ordering, language normalization, automatic language fetch, and failure handling.

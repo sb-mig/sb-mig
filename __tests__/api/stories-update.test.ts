@@ -16,6 +16,7 @@ vi.mock("../../src/utils/logger.js", () => ({
 import {
     parsePublishLanguagesOption,
     resolvePublishLanguageCodes,
+    resolveStoryPublishState,
     updateStories,
     updateStory,
 } from "../../src/api/stories/stories.js";
@@ -149,6 +150,35 @@ describe("updateStories publish languages", () => {
         expect(() => parsePublishLanguagesOption(",")).toThrow(
             "Publish languages cannot be empty.",
         );
+    });
+
+    it("resolves source story publish states conservatively", () => {
+        expect(resolveStoryPublishState({ published: false })).toMatchObject({
+            status: "draft",
+            shouldPublish: false,
+        });
+        expect(
+            resolveStoryPublishState({
+                published: true,
+                unpublished_changes: true,
+            }),
+        ).toMatchObject({
+            status: "published_with_unpublished_changes",
+            shouldPublish: false,
+        });
+        expect(resolveStoryPublishState({ published: true })).toMatchObject({
+            status: "published_unknown",
+            shouldPublish: false,
+        });
+        expect(
+            resolveStoryPublishState({
+                published: true,
+                unpublished_changes: false,
+            }),
+        ).toMatchObject({
+            status: "published_clean",
+            shouldPublish: true,
+        });
     });
 
     it("resolves all publish languages from the target Storyblok space", async () => {
@@ -413,5 +443,246 @@ describe("updateStories publish languages", () => {
                 response: "invalid story",
             },
         });
+    });
+
+    it("skips language publishing for draft-only source stories when preserving publish state", async () => {
+        const put = vi.fn().mockResolvedValue({
+            data: {
+                story: {
+                    id: "story-1",
+                    name: "Japan",
+                    full_slug: "tours/destinations/japan",
+                },
+            },
+        });
+        const get = vi.fn();
+        const config = {
+            spaceId: "291967263583956",
+            sbApi: {
+                put,
+                get,
+            },
+        } as any;
+        const story = {
+            story: {
+                id: "story-1",
+                name: "Japan",
+                full_slug: "tours/destinations/japan",
+                published: false,
+                unpublished_changes: false,
+            },
+        };
+
+        const results = await updateStories(
+            {
+                stories: [story],
+                spaceId: "291967263583956",
+                options: {
+                    publish: true,
+                    publishLanguages: "default",
+                    preservePublishState: true,
+                },
+            },
+            config,
+        );
+
+        expect(put).toHaveBeenCalledWith(
+            "spaces/291967263583956/stories/story-1",
+            {
+                story: story.story,
+                publish: 0,
+                force_update: 0,
+            },
+        );
+        expect(get).not.toHaveBeenCalled();
+        expect(loggerMock.warning).toHaveBeenCalledWith(
+            "Skipping publish for story 'tours/destinations/japan' in space '291967263583956' because source story was draft-only.",
+        );
+        expect(results[0]).toMatchObject({
+            status: "fulfilled",
+            value: {
+                ok: true,
+                stage: "update",
+                sourcePublishState: "draft",
+                publishSkippedReason: "source_story_draft",
+                publishLanguages: ["[default]"],
+            },
+        });
+    });
+
+    it("skips language publishing for published stories with unpublished draft changes", async () => {
+        const put = vi.fn().mockResolvedValue({
+            data: {
+                story: {
+                    id: "story-1",
+                    name: "Japan",
+                    full_slug: "tours/destinations/japan",
+                },
+            },
+        });
+        const get = vi.fn();
+        const config = {
+            spaceId: "291967263583956",
+            sbApi: {
+                put,
+                get,
+            },
+        } as any;
+        const story = {
+            story: {
+                id: "story-1",
+                name: "Japan",
+                full_slug: "tours/destinations/japan",
+                published: true,
+                unpublished_changes: true,
+            },
+        };
+
+        const results = await updateStories(
+            {
+                stories: [story],
+                spaceId: "291967263583956",
+                options: {
+                    publish: true,
+                    publishLanguages: "default",
+                    preservePublishState: true,
+                },
+            },
+            config,
+        );
+
+        expect(get).not.toHaveBeenCalled();
+        expect(results[0]).toMatchObject({
+            status: "fulfilled",
+            value: {
+                ok: true,
+                stage: "update",
+                sourcePublishState: "published_with_unpublished_changes",
+                publishSkippedReason:
+                    "source_story_has_unpublished_changes",
+            },
+        });
+    });
+
+    it("updates then publishes languages for clean-published source stories", async () => {
+        const put = vi.fn().mockResolvedValue({
+            data: {
+                story: {
+                    id: "story-1",
+                    name: "Japan",
+                    full_slug: "tours/destinations/japan",
+                },
+            },
+        });
+        const get = vi.fn().mockResolvedValue({
+            data: {
+                story: {
+                    id: "story-1",
+                    name: "Japan",
+                    full_slug: "tours/destinations/japan",
+                },
+            },
+        });
+        const config = {
+            spaceId: "291967263583956",
+            sbApi: {
+                put,
+                get,
+            },
+        } as any;
+        const story = {
+            story: {
+                id: "story-1",
+                name: "Japan",
+                full_slug: "tours/destinations/japan",
+                published: true,
+                unpublished_changes: false,
+            },
+        };
+
+        const results = await updateStories(
+            {
+                stories: [story],
+                spaceId: "291967263583956",
+                options: {
+                    publish: true,
+                    publishLanguages: "default",
+                    preservePublishState: true,
+                },
+            },
+            config,
+        );
+
+        expect(put).toHaveBeenCalledWith(
+            "spaces/291967263583956/stories/story-1",
+            {
+                story: story.story,
+                publish: 0,
+                force_update: 0,
+            },
+        );
+        expect(get).toHaveBeenCalledWith(
+            "spaces/291967263583956/stories/story-1/publish",
+            { lang: "[default]" },
+        );
+        expect(put.mock.invocationCallOrder[0]).toBeLessThan(
+            get.mock.invocationCallOrder[0],
+        );
+        expect(results[0]).toMatchObject({
+            status: "fulfilled",
+            value: {
+                ok: true,
+                stage: "publish",
+                publishLanguages: ["[default]"],
+            },
+        });
+    });
+
+    it("preserves source publish state for legacy publish updates when requested", async () => {
+        const put = vi.fn().mockResolvedValue({
+            data: {
+                story: {
+                    id: "story-1",
+                    name: "Japan",
+                    full_slug: "tours/destinations/japan",
+                },
+            },
+        });
+        const config = {
+            spaceId: "291967263583956",
+            sbApi: {
+                put,
+            },
+        } as any;
+        const story = {
+            story: {
+                id: "story-1",
+                name: "Japan",
+                full_slug: "tours/destinations/japan",
+                published: false,
+                unpublished_changes: false,
+            },
+        };
+
+        await updateStories(
+            {
+                stories: [story],
+                spaceId: "291967263583956",
+                options: {
+                    publish: true,
+                    preservePublishState: true,
+                },
+            },
+            config,
+        );
+
+        expect(put).toHaveBeenCalledWith(
+            "spaces/291967263583956/stories/story-1",
+            {
+                story: story.story,
+                publish: 0,
+                force_update: 0,
+            },
+        );
     });
 });
