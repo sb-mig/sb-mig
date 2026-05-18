@@ -3,7 +3,6 @@ import type { SyncDirection } from "../sync.types.js";
 
 import { managementApi } from "../../api/managementApi.js";
 import {
-    removeAllComponents,
     syncAllComponents,
     syncContent,
     syncProvidedComponents,
@@ -115,8 +114,9 @@ export const sync = async (props: CLIOptions) => {
                     await askForConfirmation(
                         "Are you sure you want to use Single Source of truth? It will remove all your components added in GUI and replace them 1 to 1 with code versions.",
                         async () => {
-                            await removeAllComponents(apiConfig);
-                            await syncAllComponents(presets, apiConfig);
+                            await syncAllComponents(presets, apiConfig, {
+                                ssot: true,
+                            });
                         },
                         () => {
                             Logger.success("Syncing components aborted.");

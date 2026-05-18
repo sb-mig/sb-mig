@@ -46,6 +46,16 @@ import {
     updateComponent,
 } from "./components.js";
 
+type RemovalTarget = {
+    type: "component" | "component group";
+    name: string;
+    remove: () => Promise<any>;
+};
+
+function getErrorMessage(error: unknown): string {
+    return error instanceof Error ? error.message : String(error);
+}
+
 async function ensureComponentGroupsExist(
     groupNames: string[],
     config: RequestBaseConfig,
@@ -129,14 +139,41 @@ export async function syncComponentsData(
                 );
             }
         } else {
-            await Promise.allSettled([
-                ...(existingComponents ?? []).map((c: any) =>
-                    removeComponent(c, config),
-                ),
-                ...(existingGroups ?? []).map((g: any) =>
-                    removeComponentGroup(g, config),
-                ),
-            ]);
+            const removalTargets: RemovalTarget[] = [
+                ...(existingComponents ?? []).map((component: any) => ({
+                    type: "component" as const,
+                    name: String(component?.name ?? component?.id ?? "unknown"),
+                    remove: () => removeComponent(component, config),
+                })),
+                ...(existingGroups ?? []).map((group: any) => ({
+                    type: "component group" as const,
+                    name: String(group?.name ?? group?.id ?? "unknown"),
+                    remove: () => removeComponentGroup(group, config),
+                })),
+            ];
+
+            const removalResults = await Promise.allSettled(
+                removalTargets.map((target) => target.remove()),
+            );
+
+            removalResults.forEach((removalResult, index) => {
+                if (removalResult.status === "fulfilled") return;
+
+                const target = removalTargets[index];
+                if (!target) return;
+
+                const name = `${target.type} '${target.name}'`;
+                const message = getErrorMessage(removalResult.reason);
+
+                result.skipped.push(name);
+                result.errors.push({
+                    name,
+                    message: `SSOT removal failed: ${message}`,
+                });
+                Logger.warning(
+                    `Could not remove ${name} during SSOT sync: ${message}`,
+                );
+            });
         }
     }
 
@@ -241,7 +278,7 @@ export async function syncComponentsData(
         } catch (error) {
             result.errors.push({
                 name,
-                message: error instanceof Error ? error.message : String(error),
+                message: getErrorMessage(error),
             });
             progress({
                 type: "progress",
@@ -249,7 +286,7 @@ export async function syncComponentsData(
                 total: totalComponents,
                 name,
                 action: "error",
-                message: error instanceof Error ? error.message : String(error),
+                message: getErrorMessage(error),
             });
         }
     }
@@ -293,7 +330,7 @@ export async function syncComponentsData(
         } catch (error) {
             result.errors.push({
                 name,
-                message: error instanceof Error ? error.message : String(error),
+                message: getErrorMessage(error),
             });
             progress({
                 type: "progress",
@@ -301,7 +338,7 @@ export async function syncComponentsData(
                 total: totalComponents,
                 name,
                 action: "error",
-                message: error instanceof Error ? error.message : String(error),
+                message: getErrorMessage(error),
             });
         }
     }
