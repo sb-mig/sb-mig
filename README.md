@@ -13,7 +13,7 @@ If you've found an issue or you have feature request - <a href="https://github.c
 
 |      |              |
 | ---- | ------------ |
-| Node | LTS (18.x.x) |
+| Node | 22.x.x or >=24.x.x |
 
 # 5.x.x version released!
 
@@ -32,7 +32,7 @@ If you've found an issue or you have feature request - <a href="https://github.c
 
 ## Breaking changes
 
-- Please note that sb-mig no longer extends support for Node versions older than 18.x.x, as part of its adoption of native ESM support.
+- Please note that sb-mig no longer extends support for Node versions older than 22.x.x, as part of its adoption of native ESM support.
 - The sb-mig backup command has now been aligned with all other commands, causing minor changes in its execution (although functionalities have been preserved).
 
 Do not hesitate to get in touch if you encounter any issues or require further clarification on any points.
@@ -111,6 +111,40 @@ You don't need to pass everything to the config file, just add what you need and
 module.exports = {
   componentsDirectories: ["src", "storyblok", "@storyblok-components"],
 };
+```
+
+## Programmatic asset API
+
+The public management API exposes asset helpers for uploading a local file and updating existing asset metadata:
+
+```ts
+import { managementApi } from "sb-mig/dist/api/managementApi.js";
+
+await managementApi.assets.createAsset(
+  {
+    spaceId: "12345",
+    pathToFile: "./public/image.jpg",
+    payload: {
+      asset_folder_id: 67890,
+      validate_upload: 1,
+    },
+  },
+  config,
+);
+
+await managementApi.assets.updateAsset(
+  {
+    spaceId: "12345",
+    assetId: 98765,
+    payload: {
+      meta_data: {
+        alt: "Image alt text",
+        title: "Image title",
+      },
+    },
+  },
+  config,
+);
 ```
 
 # Schema documentation:

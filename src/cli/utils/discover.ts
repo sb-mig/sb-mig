@@ -52,6 +52,28 @@ interface DiscoverManyByPackageNameRequest {
 
 type DiscoverResult = string[];
 
+const discoverExactFiles = ({
+    mainDirectory,
+    componentDirectories,
+    fileNames,
+    ext,
+}: {
+    mainDirectory: string;
+    componentDirectories: string[];
+    fileNames: string[];
+    ext: string;
+}): string[] =>
+    exactFilesPatterns({
+        mainDirectory,
+        componentDirectories,
+        fileNames,
+        ext,
+    }).flatMap((exactPattern) =>
+        globSync(exactPattern.replace(/\\/g, "/"), {
+            follow: true,
+        }),
+    );
+
 // Re-export types for backwards compatibility
 export type { CompareResult, OneFileElement };
 
@@ -398,23 +420,12 @@ export const discoverMany = async (
                 );
 
             if (storyblokConfig.schemaType === SCHEMA.TS) {
-                pattern = path.join(
-                    `${directory}`,
-                    `${normalizeDiscover({
-                        segments: onlyLocalComponentsDirectories,
-                    })}`,
-                    "**",
-                    `${normalizeDiscover({ segments: request.fileNames })}.sb.${
-                        storyblokConfig.schemaType
-                    }`,
-                );
-
-                const listOfFilesToCompile = globSync(
-                    pattern.replace(/\\/g, "/"),
-                    {
-                        follow: true,
-                    },
-                );
+                const listOfFilesToCompile = discoverExactFiles({
+                    mainDirectory: directory,
+                    componentDirectories: onlyLocalComponentsDirectories,
+                    fileNames: request.fileNames,
+                    ext: `sb.${storyblokConfig.schemaType}`,
+                });
 
                 await buildOnTheFly({ files: listOfFilesToCompile });
 
@@ -437,19 +448,11 @@ export const discoverMany = async (
                 );
             }
 
-            pattern = path.join(
-                `${directory}`,
-                `${normalizeDiscover({
-                    segments: onlyLocalComponentsDirectories,
-                })}`,
-                "**",
-                `${normalizeDiscover({ segments: request.fileNames })}.${
-                    storyblokConfig.schemaFileExt
-                }`,
-            );
-
-            listOfFiles = globSync(pattern.replace(/\\/g, "/"), {
-                follow: true,
+            listOfFiles = discoverExactFiles({
+                mainDirectory: directory,
+                componentDirectories: onlyLocalComponentsDirectories,
+                fileNames: request.fileNames,
+                ext: storyblokConfig.schemaFileExt,
             });
             listOfFiles = [...listOfFiles, ...listOFSchemaTSFilesCompiled];
             break;
@@ -460,19 +463,12 @@ export const discoverMany = async (
                 storyblokConfig.componentsDirectories.filter((p: string) =>
                     p.includes("node_modules"),
                 );
-            pattern = path.join(
-                `${directory}`,
-                `${normalizeDiscover({
-                    segments: onlyNodeModulesPackagesComponentsDirectories,
-                })}`,
-                "**",
-                `${normalizeDiscover({ segments: request.fileNames })}.${
-                    storyblokConfig.schemaFileExt
-                }`,
-            );
-
-            listOfFiles = globSync(pattern.replace(/\\/g, "/"), {
-                follow: true,
+            listOfFiles = discoverExactFiles({
+                mainDirectory: directory,
+                componentDirectories:
+                    onlyNodeModulesPackagesComponentsDirectories,
+                fileNames: request.fileNames,
+                ext: storyblokConfig.schemaFileExt,
             });
             break;
         case SCOPE.lock:
@@ -480,19 +476,11 @@ export const discoverMany = async (
 
         case SCOPE.all:
             // ### MANY - ALL - fileName ###
-            pattern = path.join(
-                `${directory}`,
-                `${normalizeDiscover({
-                    segments: storyblokConfig.componentsDirectories,
-                })}`,
-                "**",
-                `${normalizeDiscover({ segments: request.fileNames })}.${
-                    storyblokConfig.schemaFileExt
-                }`,
-            );
-
-            listOfFiles = globSync(pattern.replace(/\\/g, "/"), {
-                follow: true,
+            listOfFiles = discoverExactFiles({
+                mainDirectory: directory,
+                componentDirectories: storyblokConfig.componentsDirectories,
+                fileNames: request.fileNames,
+                ext: storyblokConfig.schemaFileExt,
             });
             break;
 

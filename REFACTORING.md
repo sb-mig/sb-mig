@@ -271,12 +271,12 @@ _Thresholds will be increased as more tests are added in subsequent phases._
 ### Open Questions
 
 1. Should we move to a monorepo structure? (sb-mig, @sb-mig/types, sb-mig-gui)
-2. What's the minimum Node.js version going forward?
-3. Should config support both JS and TS config files?
+2. Should config support both JS and TS config files?
 
 ### Decisions Made
 
 -   [x] **Test Framework**: Migrated from Mocha+Chai to Vitest (native ESM, built-in mocking, TypeScript support)
+-   [x] **Node.js Runtime**: Supported versions are Node.js 22.x LTS and 24.x LTS or newer
 -   [x] **Coverage Thresholds**: Set initial thresholds at 15% (lines/functions/statements), 10% branches
 -   [x] **Test Pool**: Using single-thread mode to avoid ESM worker issues
 -   [x] **Test TypeScript**: Separate `__tests__/tsconfig.json` with relaxed settings

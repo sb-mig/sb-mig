@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 
-import { delay } from "../../src/utils/async-utils.js";
+import { delay, mapWithConcurrency } from "../../src/utils/async-utils.js";
 
 describe("delay - async delay utility", () => {
     it("should delay execution for specified time", async () => {
@@ -45,5 +45,31 @@ describe("delay - async delay utility", () => {
         await delayPromise;
 
         vi.useRealTimers();
+    });
+});
+
+describe("mapWithConcurrency", () => {
+    it("preserves result order while limiting concurrent work", async () => {
+        let active = 0;
+        let maxActive = 0;
+
+        const result = await mapWithConcurrency([1, 2, 3, 4, 5], 2, async (
+            item,
+        ) => {
+            active++;
+            maxActive = Math.max(maxActive, active);
+            await new Promise((resolve) => setTimeout(resolve, 1));
+            active--;
+            return item * 2;
+        });
+
+        expect(result).toEqual([2, 4, 6, 8, 10]);
+        expect(maxActive).toBeLessThanOrEqual(2);
+    });
+
+    it("handles empty input", async () => {
+        await expect(
+            mapWithConcurrency([], 2, async (item) => item),
+        ).resolves.toEqual([]);
     });
 });

@@ -14,6 +14,7 @@ import {
 } from "../../api/data-migration/migration-component-scope.js";
 import { managementApi } from "../../api/managementApi.js";
 import { backupStories } from "../../api/stories/backup.js";
+import { parsePublishLanguagesOption } from "../../api/stories/stories.js";
 import { createAndSaveToFile } from "../../utils/files.js";
 import Logger from "../../utils/logger.js";
 import { apiConfig } from "../api-config.js";
@@ -64,6 +65,8 @@ export const migrate = async (props: CLIOptions) => {
         "withSlug",
         "startsWith",
         "dryRun",
+        "publish",
+        "publishLanguages",
         "fileName",
     ]);
 
@@ -91,13 +94,12 @@ export const migrate = async (props: CLIOptions) => {
             const migrationConfigs = normalizeMigrationFlags(
                 flags["migration"] as string | string[] | undefined,
             );
-            const migrationComponentAliases =
-                parseMigrationComponentAliasFlags(
-                    flags["migrationComponentAlias"] as
-                        | string
-                        | string[]
-                        | undefined,
-                );
+            const migrationComponentAliases = parseMigrationComponentAliasFlags(
+                flags["migrationComponentAlias"] as
+                    | string
+                    | string[]
+                    | undefined,
+            );
             const migrationComponentOverrides =
                 parseMigrationComponentOverrideFlags(
                     flags["migrationComponents"] as
@@ -106,6 +108,13 @@ export const migrate = async (props: CLIOptions) => {
                         | undefined,
                 );
             const dryRun = flags["dryRun"] as boolean | undefined;
+            const publish = Boolean(flags["publish"]);
+            const publishLanguagesFlag = flags["publishLanguages"] as
+                | string
+                | undefined;
+            const publishLanguages = publishLanguagesFlag
+                ? parsePublishLanguagesOption(publishLanguagesFlag)
+                : undefined;
             const fileName = flags["fileName"] as string | undefined;
             const withSlugFlag = flags["withSlug"] as
                 | string
@@ -122,6 +131,12 @@ export const migrate = async (props: CLIOptions) => {
             if (migrationConfigs.length === 0) {
                 throw new Error(
                     "Missing migration config. Pass at least one --migration value.",
+                );
+            }
+
+            if (!publish && publishLanguagesFlag) {
+                throw new Error(
+                    "--publishLanguages requires --publish for 'migrate content'.",
                 );
             }
 
@@ -159,6 +174,8 @@ export const migrate = async (props: CLIOptions) => {
                             migrationComponentOverrides,
                             filters: { withSlug, startsWith },
                             dryRun,
+                            publish,
+                            publishLanguages,
                             fromFilePath,
                             fileName,
                         },
@@ -197,6 +214,8 @@ export const migrate = async (props: CLIOptions) => {
                             migrationComponentOverrides,
                             filters: { withSlug, startsWith },
                             dryRun,
+                            publish,
+                            publishLanguages,
                             fromFilePath,
                             fileName,
                         },
@@ -234,13 +253,12 @@ export const migrate = async (props: CLIOptions) => {
             const migrationConfigs = normalizeMigrationFlags(
                 flags["migration"] as string | string[] | undefined,
             );
-            const migrationComponentAliases =
-                parseMigrationComponentAliasFlags(
-                    flags["migrationComponentAlias"] as
-                        | string
-                        | string[]
-                        | undefined,
-                );
+            const migrationComponentAliases = parseMigrationComponentAliasFlags(
+                flags["migrationComponentAlias"] as
+                    | string
+                    | string[]
+                    | undefined,
+            );
             const migrationComponentOverrides =
                 parseMigrationComponentOverrideFlags(
                     flags["migrationComponents"] as
@@ -261,10 +279,26 @@ export const migrate = async (props: CLIOptions) => {
                 fromFallback ||
                 getFrom(flags, apiConfig);
             const to = getTo(flags, apiConfig);
+            const publish = Boolean(flags["publish"]);
+            const publishLanguagesFlag = flags["publishLanguages"] as
+                | string
+                | undefined;
 
             if (migrationConfigs.length === 0) {
                 throw new Error(
                     "Missing migration config. Pass exactly one --migration value for presets.",
+                );
+            }
+
+            if (publish) {
+                throw new Error(
+                    "--publish is only supported for 'migrate content'. Presets cannot be published.",
+                );
+            }
+
+            if (publishLanguagesFlag) {
+                throw new Error(
+                    "--publishLanguages is only supported for 'migrate content'. Presets cannot be published.",
                 );
             }
 

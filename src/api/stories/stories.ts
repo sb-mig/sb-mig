@@ -11,10 +11,12 @@ import type {
     DeepUpsertStory,
     ExtendedISbStoriesParams,
     GetStoryBySlug,
+    PublishLanguagesOption,
 } from "./stories.types.js";
 
 import chalk from "chalk";
 
+import { mapWithConcurrency } from "../../utils/async-utils.js";
 import Logger from "../../utils/logger.js";
 import { notNullish } from "../../utils/object-utils.js";
 import { getAllItemsWithPagination } from "../utils/request.js";
@@ -24,6 +26,211 @@ const resolveStoryLabel = (
     storyId: string,
 ): string =>
     content?.full_slug || content?.slug || content?.name || String(storyId);
+
+const DEFAULT_PUBLISH_LANGUAGE = "[default]";
+const STORY_CONTENT_FETCH_CONCURRENCY = 10;
+
+type StoryPublishState =
+    | {
+          status: "draft";
+          shouldPublish: false;
+          skipReason: "source_story_draft";
+          message: string;
+      }
+    | {
+          status: "published_with_unpublished_changes";
+          shouldPublish: false;
+          skipReason: "source_story_has_unpublished_changes";
+          message: string;
+      }
+    | {
+          status: "published_unknown";
+          shouldPublish: false;
+          skipReason: "source_story_publish_state_unknown";
+          message: string;
+      }
+    | {
+          status: "published_clean";
+          shouldPublish: true;
+      };
+
+type SkippedStoryPublishState = Extract<
+    StoryPublishState,
+    { shouldPublish: false }
+>;
+
+const isSkippedStoryPublishState = (
+    publishState: StoryPublishState | undefined,
+): publishState is SkippedStoryPublishState =>
+    publishState?.shouldPublish === false;
+
+const isDefaultLanguageToken = (language: string): boolean =>
+    language.toLowerCase() === "default" ||
+    language === DEFAULT_PUBLISH_LANGUAGE;
+
+const normalizePublishLanguageCodes = (languages: string[]): string[] => {
+    const normalized = languages.map((language) => {
+        const trimmed = language.trim();
+        return isDefaultLanguageToken(trimmed)
+            ? DEFAULT_PUBLISH_LANGUAGE
+            : trimmed;
+    });
+    const cleanLanguages = normalized.filter((language) => language.length > 0);
+
+    if (cleanLanguages.length === 0) {
+        throw new Error("Publish languages cannot be empty.");
+    }
+
+    return Array.from(new Set(cleanLanguages));
+};
+
+export const resolveStoryPublishState = (story: any): StoryPublishState => {
+    if (story?.published !== true) {
+        return {
+            status: "draft",
+            shouldPublish: false,
+            skipReason: "source_story_draft",
+            message: "source story was draft-only",
+        };
+    }
+
+    if (story.unpublished_changes === true) {
+        return {
+            status: "published_with_unpublished_changes",
+            shouldPublish: false,
+            skipReason: "source_story_has_unpublished_changes",
+            message: "source story had unpublished draft changes",
+        };
+    }
+
+    if (story.unpublished_changes !== false) {
+        return {
+            status: "published_unknown",
+            shouldPublish: false,
+            skipReason: "source_story_publish_state_unknown",
+            message:
+                "source story publish state was missing unpublished_changes",
+        };
+    }
+
+    return {
+        status: "published_clean",
+        shouldPublish: true,
+    };
+};
+
+const withSkippedPublish = ({
+    updateResult,
+    story,
+    storyId,
+    spaceId,
+    publishLanguages,
+    publishState,
+}: {
+    updateResult: any;
+    story: Record<string, any>;
+    storyId: string | number;
+    spaceId: string;
+    publishLanguages?: string[];
+    publishState: SkippedStoryPublishState;
+}) => {
+    const storyLabel = resolveStoryLabel(story, String(storyId));
+
+    Logger.warning(
+        `Skipping publish for story '${storyLabel}' in space '${spaceId}' because ${publishState.message}.`,
+    );
+
+    return {
+        ...updateResult,
+        sourcePublishState: publishState.status,
+        publishSkippedReason: publishState.skipReason,
+        ...(publishLanguages ? { publishLanguages } : {}),
+    };
+};
+
+export const parsePublishLanguagesOption = (
+    publishLanguages?: string,
+): PublishLanguagesOption => {
+    if (!publishLanguages) {
+        return "default";
+    }
+
+    const trimmed = publishLanguages.trim();
+
+    if (trimmed.length === 0) {
+        return "default";
+    }
+
+    if (trimmed.toLowerCase() === "all") {
+        return "all";
+    }
+
+    const languages = normalizePublishLanguageCodes(trimmed.split(","));
+
+    if (languages.length === 1 && languages[0] === DEFAULT_PUBLISH_LANGUAGE) {
+        return "default";
+    }
+
+    return languages;
+};
+
+const readSpaceLanguageCodes = (spaceResponse: any): string[] => {
+    const space = spaceResponse?.data?.space || spaceResponse?.space || {};
+    const languageSources = [
+        space.languages,
+        space.language_codes,
+        space.options?.languages,
+    ];
+
+    for (const source of languageSources) {
+        if (!Array.isArray(source)) {
+            continue;
+        }
+
+        return source
+            .map((language) => {
+                if (typeof language === "string") {
+                    return language;
+                }
+
+                if (typeof language?.code === "string") {
+                    return language.code;
+                }
+
+                return "";
+            })
+            .filter((language) => language.trim().length > 0);
+    }
+
+    return [];
+};
+
+export const resolvePublishLanguageCodes = async (
+    publishLanguages: PublishLanguagesOption | undefined,
+    config: { spaceId: string; sbApi: any },
+): Promise<string[]> => {
+    if (!publishLanguages || publishLanguages === "default") {
+        return [DEFAULT_PUBLISH_LANGUAGE];
+    }
+
+    if (Array.isArray(publishLanguages)) {
+        return normalizePublishLanguageCodes(publishLanguages);
+    }
+
+    const spaceResponse = await config.sbApi.get(`spaces/${config.spaceId}`);
+    const spaceLanguageCodes = readSpaceLanguageCodes(spaceResponse);
+
+    if (spaceLanguageCodes.length === 0) {
+        Logger.warning(
+            `No configured Storyblok languages were found for space '${config.spaceId}'. Publishing only ${DEFAULT_PUBLISH_LANGUAGE}.`,
+        );
+    }
+
+    return normalizePublishLanguageCodes([
+        DEFAULT_PUBLISH_LANGUAGE,
+        ...spaceLanguageCodes,
+    ]);
+};
 
 const resolveStoryblokErrorResponse = (err: any): string | undefined => {
     if (typeof err?.response === "string" && err.response.trim().length > 0) {
@@ -124,8 +331,10 @@ export const getAllStories: GetAllStories = async (args, config) => {
 
     let heartBeat = 0;
 
-    const allStories = await Promise.all(
-        allStoriesWithoutContent.map(async (story: any) => {
+    const allStories = await mapWithConcurrency(
+        allStoriesWithoutContent,
+        STORY_CONTENT_FETCH_CONCURRENCY,
+        async (story: any) => {
             const result = await getStoryById(story.id, config);
 
             heartBeat++;
@@ -139,7 +348,7 @@ export const getAllStories: GetAllStories = async (args, config) => {
             }
 
             return result;
-        }),
+        },
     );
 
     return allStories;
@@ -196,7 +405,7 @@ export const createStory: CreateStory = (content, config) => {
     return sbApi
         .post(`spaces/${spaceId}/stories/`, {
             story: content,
-            publish: 1,
+            publish: true,
         })
         .then((res: any) => res.data)
         .catch((err: any) => console.error(err));
@@ -217,13 +426,14 @@ export const updateStory: UpdateStory = (content, storyId, options, config) => {
     return sbApi
         .put(`spaces/${spaceId}/stories/${storyId}`, {
             story: content,
-            publish: options.publish ? 1 : 0,
-            force_update: options.force_update ? 1 : 0,
+            publish: options.publish === true,
+            force_update: options.force_update === true,
         })
         .then((res: any) => {
             console.log(`${chalk.green(res.data.story.full_slug)} updated.`);
             return {
                 ok: true,
+                stage: "update",
                 id: res.data.story.id,
                 name: res.data.story.name,
                 slug: res.data.story.full_slug,
@@ -244,6 +454,7 @@ export const updateStory: UpdateStory = (content, storyId, options, config) => {
 
             return {
                 ok: false,
+                stage: "update",
                 id: storyId,
                 name: content?.name,
                 slug: content?.full_slug || content?.slug,
@@ -255,16 +466,137 @@ export const updateStory: UpdateStory = (content, storyId, options, config) => {
         });
 };
 
-export const updateStories: UpdateStories = (args, config) => {
+export const publishStoryLanguages = async (
+    {
+        storyId,
+        story,
+        languages,
+    }: {
+        storyId: string | number;
+        story?: Record<string, any>;
+        languages: string[];
+    },
+    config: { spaceId: string; sbApi: any },
+) => {
+    const { spaceId, sbApi } = config;
+    const lang = languages.join(",");
+    const storyLabel = resolveStoryLabel(story, String(storyId));
+
+    Logger.log(
+        `Publishing story '${storyLabel}' in space '${spaceId}' for languages: ${lang}`,
+    );
+
+    return sbApi
+        .get(`spaces/${spaceId}/stories/${storyId}/publish`, { lang })
+        .then((res: any) => {
+            const publishedStory = res?.data?.story || story || {};
+            Logger.success(
+                `Published story '${storyLabel}' for languages: ${lang}`,
+            );
+
+            return {
+                ok: true,
+                stage: "publish",
+                id: publishedStory.id || storyId,
+                name: publishedStory.name || story?.name,
+                slug:
+                    publishedStory.full_slug ||
+                    publishedStory.slug ||
+                    story?.full_slug ||
+                    story?.slug,
+                spaceId,
+                publishLanguages: languages,
+                data: res?.data,
+            };
+        })
+        .catch((err: any) => {
+            const status = err?.status || err?.response?.status;
+            const responseMessage = resolveStoryblokErrorResponse(err);
+            const statusLabel = status ? `status ${status}` : "unknown status";
+            const responseLabel = responseMessage
+                ? ` Response: ${responseMessage}`
+                : "";
+
+            Logger.error(
+                `Failed to publish story '${storyLabel}' in space '${spaceId}' (${statusLabel}).${responseLabel}`,
+            );
+
+            return {
+                ok: false,
+                stage: "publish",
+                id: storyId,
+                name: story?.name,
+                slug: story?.full_slug || story?.slug,
+                spaceId,
+                status,
+                response: responseMessage,
+                publishLanguages: languages,
+                error: err,
+            };
+        });
+};
+
+export const updateStories: UpdateStories = async (args, config) => {
     const { stories, options, spaceId } = args;
+    const shouldPublishLanguages =
+        options.publish && options.publishLanguages !== undefined;
+    const shouldPreservePublishState = Boolean(options.preservePublishState);
+    const publishLanguages = shouldPublishLanguages
+        ? await resolvePublishLanguageCodes(options.publishLanguages, {
+              ...config,
+              spaceId,
+          })
+        : undefined;
 
     return Promise.allSettled(
         // Run through stories, and update the space with migrated version of stories
         stories.map(async (stories: any) => {
-            return updateStory(
-                stories.story,
-                stories.story.id,
-                { publish: options.publish },
+            const story = stories.story;
+            const publishState = shouldPreservePublishState
+                ? resolveStoryPublishState(story)
+                : undefined;
+            const shouldPublishStory =
+                options.publish &&
+                (!publishState || publishState.shouldPublish);
+            const updateResult = await updateStory(
+                story,
+                story.id,
+                {
+                    publish: shouldPublishStory && !shouldPublishLanguages,
+                    force_update: options.force_update,
+                },
+                { ...config, spaceId },
+            );
+
+            if (
+                options.publish &&
+                updateResult?.ok &&
+                isSkippedStoryPublishState(publishState)
+            ) {
+                return withSkippedPublish({
+                    updateResult,
+                    story,
+                    storyId: story.id,
+                    spaceId,
+                    publishLanguages,
+                    publishState,
+                });
+            }
+
+            if (
+                !shouldPublishLanguages ||
+                !publishLanguages ||
+                !updateResult?.ok
+            ) {
+                return updateResult;
+            }
+
+            return publishStoryLanguages(
+                {
+                    storyId: story.id,
+                    story,
+                    languages: publishLanguages,
+                },
                 { ...config, spaceId },
             );
         }),

@@ -1,3 +1,4 @@
+import type { PublishLanguagesOption } from "../stories/stories.types.js";
 import type { RequestBaseConfig } from "../utils/request.js";
 
 import path from "path";
@@ -32,6 +33,7 @@ import {
     type MigrationComponentOverridesByMigration,
     resolveMigrationComponentsToMigrate,
 } from "./migration-component-scope.js";
+import { saveMigrationRunLog } from "./migration-run-log.js";
 import {
     discoverMigrationValidatorForMigrationFile,
     MigrationValidationFailedError,
@@ -88,6 +90,8 @@ interface MigrateItems {
         startsWith?: string;
     };
     dryRun?: boolean;
+    publish?: boolean;
+    publishLanguages?: PublishLanguagesOption;
     fromFilePath?: string;
     fileName?: string;
     preparedMigrationConfigs?: PreparedMigrationConfig[];
@@ -505,7 +509,6 @@ export const runMigrationPipelineInMemory = ({
     itemsToMigrate: any[];
     preparedMigrationConfigs: PreparedMigrationConfig[];
 }): MigrationPipelineResult => {
-    const originalItems = deepClone(itemsToMigrate);
     let workingItems = deepClone(itemsToMigrate);
 
     const stepReports: MigrationStepReport[] = [];
@@ -557,7 +560,7 @@ export const runMigrationPipelineInMemory = ({
     }
 
     const changedItems = workingItems.filter((item, index) => {
-        const originalItem = originalItems[index];
+        const originalItem = itemsToMigrate[index];
 
         if (!originalItem) {
             return true;
@@ -581,6 +584,8 @@ const savePipelineSummary = async (
         from,
         itemType,
         dryRun,
+        publish,
+        publishLanguages,
         migrateFrom,
         fromFilePath,
         pipelineResult,
@@ -590,6 +595,8 @@ const savePipelineSummary = async (
         from: string;
         itemType: "story" | "preset";
         dryRun?: boolean;
+        publish?: boolean;
+        publishLanguages?: PublishLanguagesOption;
         migrateFrom: MigrateFrom;
         fromFilePath?: string;
         pipelineResult: MigrationPipelineResult;
@@ -611,6 +618,13 @@ const savePipelineSummary = async (
                     from,
                     fromFilePath: fromFilePath || null,
                 },
+                writeMode: itemType === "story" && publish ? "publish" : "save",
+                publishLanguages:
+                    itemType === "story" && publish
+                        ? {
+                              requested: publishLanguages,
+                          }
+                        : null,
                 totalItems: pipelineResult.totalItems,
                 totalChangedItems: pipelineResult.changedItems.length,
                 steps: pipelineResult.stepReports,
@@ -761,6 +775,8 @@ export const migrateAllComponentsDataInStories = async (
         to,
         filters,
         dryRun,
+        publish,
+        publishLanguages,
         fromFilePath,
         fileName,
         migrationComponentAliases,
@@ -803,6 +819,8 @@ export const migrateAllComponentsDataInStories = async (
             to,
             filters,
             dryRun,
+            publish,
+            publishLanguages,
             fromFilePath,
             fileName,
             preparedMigrationConfigs,
@@ -820,6 +838,8 @@ export const doTheMigration = async (
         migrationConfigs,
         to,
         dryRun,
+        publish,
+        publishLanguages,
         migrateFrom,
         fromFilePath,
         fileName,
@@ -831,6 +851,8 @@ export const doTheMigration = async (
         migrationConfigs?: PreparedMigrationConfig[];
         to: string;
         dryRun?: boolean;
+        publish?: boolean;
+        publishLanguages?: PublishLanguagesOption;
         migrateFrom: MigrateFrom;
         fromFilePath?: string;
         fileName?: string;
@@ -931,6 +953,8 @@ export const doTheMigration = async (
             from,
             itemType,
             dryRun,
+            publish,
+            publishLanguages,
             migrateFrom,
             fromFilePath,
             pipelineResult,
@@ -961,13 +985,29 @@ export const doTheMigration = async (
     }
 
     let writeResults: PromiseSettledResult<any>[] = [];
+    let resolvedPublishLanguages: string[] | undefined;
 
     if (itemType === "story") {
+        if (publish && publishLanguages !== undefined) {
+            resolvedPublishLanguages =
+                await managementApi.stories.resolvePublishLanguageCodes(
+                    publishLanguages,
+                    {
+                        ...config,
+                        spaceId: to,
+                    },
+                );
+        }
+
         writeResults = await managementApi.stories.updateStories(
             {
                 stories: pipelineResult.changedItems,
                 spaceId: to,
-                options: { publish: false },
+                options: {
+                    publish: Boolean(publish),
+                    publishLanguages: resolvedPublishLanguages,
+                    preservePublishState: Boolean(publish),
+                },
             },
             config,
         );
@@ -983,6 +1023,34 @@ export const doTheMigration = async (
     }
 
     const writeSummary = summarizeMutationWriteResults(writeResults);
+
+    try {
+        await saveMigrationRunLog(
+            {
+                artifactBaseName,
+                useDatestamp,
+                from,
+                to,
+                itemType,
+                dryRun,
+                publish,
+                publishLanguages,
+                resolvedPublishLanguages,
+                migrateFrom,
+                fromFilePath,
+                pipelineResult,
+                writeResults,
+                writeSummary,
+            },
+            config,
+        );
+    } catch (error) {
+        Logger.warning(
+            `[MIGRATION] Could not write migration run log: ${
+                error instanceof Error ? error.message : String(error)
+            }`,
+        );
+    }
 
     if (writeSummary.failed === 0) {
         Logger.success(
@@ -1044,6 +1112,8 @@ export const migrateProvidedComponentsDataInStories = async (
         componentsToMigrate,
         filters,
         dryRun,
+        publish,
+        publishLanguages,
         fromFilePath,
         fileName,
         preparedMigrationConfigs,
@@ -1098,6 +1168,8 @@ export const migrateProvidedComponentsDataInStories = async (
             from,
             to,
             dryRun,
+            publish,
+            publishLanguages,
             migrateFrom,
             fromFilePath,
             fileName,

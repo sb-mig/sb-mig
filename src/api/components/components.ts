@@ -151,7 +151,10 @@ export const removeComponent: RemoveComponent = (component, config) => {
     return sbApi
         .delete(`spaces/${spaceId}/components/${id}`, {})
         .then((res: any) => res.data)
-        .catch((err: any) => console.error(err));
+        .catch((err: any) => {
+            console.error(err);
+            throw err;
+        });
 };
 
 /*
@@ -221,7 +224,10 @@ export const removeComponentGroup: RemoveComponentGroup = (
     return sbApi
         .delete(`spaces/${spaceId}/component_groups/${id}`, {})
         .then((res: any) => res.data)
-        .catch((err: any) => console.error(err));
+        .catch((err: any) => {
+            console.error(err);
+            throw err;
+        });
 };
 
 export const createComponentsGroup: CreateComponentsGroup = (

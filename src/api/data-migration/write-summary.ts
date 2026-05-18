@@ -1,8 +1,15 @@
 export interface MutationWriteResult {
     ok: boolean;
+    stage?: "update" | "publish";
     id?: number | string;
     name?: string;
     slug?: string;
+    spaceId?: string;
+    status?: number | string;
+    response?: string | null;
+    publishLanguages?: string[];
+    sourcePublishState?: string;
+    publishSkippedReason?: string;
     error?: unknown;
 }
 

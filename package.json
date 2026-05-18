@@ -1,6 +1,6 @@
 {
   "name": "sb-mig",
-  "version": "5.8.0",
+  "version": "6.0.0-beta.10",
   "description": "CLI to rule the world. (and handle stuff related to Storyblok CMS)",
   "author": "Marcin Krawczyk <marckraw@icloud.com>",
   "license": "MIT",
@@ -33,7 +33,7 @@
     "./dist/*": "./dist/*"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": "^22.0.0 || >=24.0.0"
   },
   "files": [
     "/dist",
@@ -42,7 +42,7 @@
   ],
   "scripts": {
     "lint-staged": "node ./src/scripts/fix-esm.js && lint-staged",
-    "build": "rm -rf dist dist-cjs && tsc -p tsconfig.json && tsc -p tsconfig.api-v2.cjs.json && node ./src/scripts/write-cjs-package.js && chmod +x ./dist/cli/index.js",
+    "build": "node ./src/scripts/clean-build.js && tsc -p tsconfig.json && tsc -p tsconfig.api-v2.cjs.json && node ./src/scripts/write-cjs-package.js && node ./src/scripts/make-cli-executable.js",
     "build:dev": "chokidar 'src/**/*.{js,ts,cjs,mjs}' -c 'npm run build'",
     "lint": "eslint . --max-warnings=0",
     "lint:fix": "eslint --fix",
@@ -73,6 +73,8 @@
     "test:all": "npm run test:unit && npm run test:api-live && npm run test:e2e"
   },
   "dependencies": {
+    "@rollup/plugin-node-resolve": "^15.2.3",
+    "@rollup/plugin-swc": "^0.4.0",
     "@swc/core": "1.3.41",
     "@swc/helpers": "^0.5.18",
     "chalk": "^4.1.2",
@@ -84,17 +86,15 @@
     "ncp": "^2.0.0",
     "node-fetch": "^3.3.2",
     "rollup": "^3.28.0",
-    "rollup-plugin-ts": "^3.4.4",
     "semver": "^7.6.2",
     "storyblok-js-client": "^7.2.1",
     "storyblok-schema-types": "^1.2.4",
-    "typescript": "^5.1.6",
+    "typescript": "^5.9.3",
     "uuid": "^9.0.0"
   },
   "devDependencies": {
     "@commitlint/cli": "^17.7.1",
     "@commitlint/config-conventional": "^17.7.0",
-    "@rollup/plugin-node-resolve": "^15.2.3",
     "@ryansonshine/commitizen": "^4.2.8",
     "@ryansonshine/cz-conventional-changelog": "^3.3.4",
     "@semantic-release/changelog": "^6.0.3",
@@ -103,7 +103,7 @@
     "@storyblok/react": "^3.0.10",
     "@types/fs-extra": "^11.0.4",
     "@types/ncp": "^2.0.8",
-    "@types/node": "^22.15.0",
+    "@types/node": "^24.12.2",
     "@types/uuid": "^10.0.0",
     "@typescript-eslint/eslint-plugin": "^6.4.1",
     "@typescript-eslint/parser": "^6.4.1",

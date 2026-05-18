@@ -293,7 +293,7 @@ $ sb-mig help
 CLI to rule the world. (and handle stuff related to Storyblok CMS)
 
 VERSION
-  sb-mig/2.0.0-beta.5 darwin-x64 node-v12.16.2
+  sb-mig/2.0.0-beta.5 darwin-x64 node-v24.15.0
 
 USAGE
   $ sb-mig [COMMAND]

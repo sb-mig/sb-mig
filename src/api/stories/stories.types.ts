@@ -8,7 +8,11 @@ export interface ExtendedISbStoriesParams extends ISbStoriesParams {
 interface ModifyStoryOptions {
     publish?: boolean;
     force_update?: boolean;
+    publishLanguages?: PublishLanguagesOption;
+    preservePublishState?: boolean;
 }
+
+export type PublishLanguagesOption = "default" | "all" | string[];
 
 export type RemoveStory = (
     args: { storyId: string },

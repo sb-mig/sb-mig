@@ -5,6 +5,7 @@ on:
     branches:
       - master
       - beta
+  workflow_dispatch:
 
 jobs:
   build:
@@ -12,22 +13,29 @@ jobs:
 
     strategy:
       matrix:
-        node-version: [20.x]
+        node-version: [22.x, 24.x]
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: ${{ matrix.node-version }}
+          check-latest: true
           registry-url: "https://registry.npmjs.org"
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Type Check
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
 
       - name: Build
         env:
@@ -36,6 +44,14 @@ jobs:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           npm run build
+
+      - name: Windows portability regression tests
+        env:
+          NODE_AUTH_TOKEN: ${{secrets.GITHUB_TOKEN}}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          npm run test:unit -- __tests__/utils/files.test.ts __tests__/config/config-loader.test.ts __tests__/utils/path-utils.test.ts __tests__/utils/glob-utils.test.ts __tests__/build-on-the-fly.test.ts __tests__/utils/async-utils.test.ts __tests__/api/migration-run-log.test.ts __tests__/api/write-summary.test.ts
 
       - name: Test
         env:

@@ -1,3 +1,92 @@
+# [6.0.0-beta.10](https://github.com/sb-mig/sb-mig/compare/v6.0.0-beta.9...v6.0.0-beta.10) (2026-05-18)
+
+
+### Bug Fixes
+
+* **components:** tolerate ssot default content type removal ([ae16239](https://github.com/sb-mig/sb-mig/commit/ae16239f882e8c5012803c2139c292d1fb35e1d0))
+* respect component directories for selected syncs ([165417f](https://github.com/sb-mig/sb-mig/commit/165417f3336d0762bd2ee41c5ade4c34ab4b220f))
+
+
+### Features
+
+* **assets:** expose create and update helpers ([9dfeff1](https://github.com/sb-mig/sb-mig/commit/9dfeff1c347b49dbcecaab21777a0bb8bc3e1cfc))
+
+# [6.0.0-beta.9](https://github.com/sb-mig/sb-mig/compare/v6.0.0-beta.8...v6.0.0-beta.9) (2026-05-13)
+
+
+### Bug Fixes
+
+* publish numeric values ([ca2fa64](https://github.com/sb-mig/sb-mig/commit/ca2fa64e8b2cc53d9c45e252ced9d3dfa080dfc9))
+
+# [6.0.0-beta.8](https://github.com/sb-mig/sb-mig/compare/v6.0.0-beta.7...v6.0.0-beta.8) (2026-05-13)
+
+
+### Bug Fixes
+
+* **migrate:** preserve story publish state ([5bca5f5](https://github.com/sb-mig/sb-mig/commit/5bca5f57ec81122d81cbbec0209b562f117525a7))
+
+# [6.0.0-beta.7](https://github.com/sb-mig/sb-mig/compare/v6.0.0-beta.6...v6.0.0-beta.7) (2026-05-13)
+
+
+### Bug Fixes
+
+* **windows:** harden path handling and ci ([3dbc6fb](https://github.com/sb-mig/sb-mig/commit/3dbc6fb509163df72074082412e47d94bdeae855))
+
+# [6.0.0-beta.6](https://github.com/sb-mig/sb-mig/compare/v6.0.0-beta.5...v6.0.0-beta.6) (2026-05-12)
+
+
+### Bug Fixes
+
+* **rollup:** resolve schema imports during precompile ([98f89b0](https://github.com/sb-mig/sb-mig/commit/98f89b034523903aa00219206f4cdccd7c80da3c))
+
+# [6.0.0-beta.5](https://github.com/sb-mig/sb-mig/compare/v6.0.0-beta.4...v6.0.0-beta.5) (2026-05-07)
+
+
+### Bug Fixes
+
+* **migrate:** preserve default publish behavior ([be42b1e](https://github.com/sb-mig/sb-mig/commit/be42b1e6b09931ca113d67635e876656adb90fed))
+
+
+### Features
+
+* **migrate:** publish migrated story languages ([193837a](https://github.com/sb-mig/sb-mig/commit/193837ae522755cf671dc2f7c42f66d21690400d))
+
+# [6.0.0-beta.4](https://github.com/sb-mig/sb-mig/compare/v6.0.0-beta.3...v6.0.0-beta.4) (2026-05-06)
+
+
+### Features
+
+* **migrate:** add JSONL run logs ([6405923](https://github.com/sb-mig/sb-mig/commit/6405923e275c03f766560c1e84cb54d50c56032d))
+
+# [6.0.0-beta.3](https://github.com/sb-mig/sb-mig/compare/v6.0.0-beta.2...v6.0.0-beta.3) (2026-05-04)
+
+
+### Features
+
+* **migrate:** add publish mode for story migrations ([3da0c07](https://github.com/sb-mig/sb-mig/commit/3da0c078725dfe23a4df6b7404bb30d4b9f0c4fd))
+
+# [6.0.0-beta.2](https://github.com/sb-mig/sb-mig/compare/v6.0.0-beta.1...v6.0.0-beta.2) (2026-05-04)
+
+
+### Bug Fixes
+
+* **windows:** resolve path separator bugs breaking sync on Windows ([0e9951b](https://github.com/sb-mig/sb-mig/commit/0e9951bb2dfc2d6b060bfb838856f1600d235997))
+
+# [6.0.0-beta.1](https://github.com/sb-mig/sb-mig/compare/v5.8.0...v6.0.0-beta.1) (2026-04-30)
+
+
+### Bug Fixes
+
+* **ci:** support Windows package smoke spawn ([f6b5570](https://github.com/sb-mig/sb-mig/commit/f6b55702f2ceff43e15018160d20cc149e59323d))
+
+
+* feat!: support Node 22 and 24 runtimes ([152b5d5](https://github.com/sb-mig/sb-mig/commit/152b5d5e659df9e1868f9d326969ccefcdbe7a44))
+
+
+### BREAKING CHANGES
+
+* Node 20 is no longer supported. Supported runtimes are Node 22 and Node 24 or newer.
+
 # [5.8.0](https://github.com/sb-mig/sb-mig/compare/v5.7.0...v5.8.0) (2026-04-29)
 
 

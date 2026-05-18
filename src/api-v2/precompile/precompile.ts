@@ -1,8 +1,8 @@
 import { mkdir, rm } from "fs/promises";
 import path from "path";
 
+import rollupSwc from "@rollup/plugin-swc";
 import { rollup, type RollupOptions } from "rollup";
-import ts from "rollup-plugin-ts";
 
 /**
  * Options for precompiling TypeScript schema files
@@ -34,13 +34,16 @@ export interface PrecompileResult {
 }
 
 /**
- * Extract the component name from a file path
+ * Extract the component name from a file path.
+ * Handles both POSIX (`/`) and Windows (`\`) separators because glob v11
+ * and node's `fs` APIs return native paths on Windows.
+ *
  * e.g., "/path/to/my-component.sb.ts" -> "my-component.sb"
+ *       "C:\\path\\to\\my-component.sb.ts" -> "my-component.sb"
  */
 export const extractComponentName = (filePath: string): string => {
-    const separator = "/";
-    const parts = filePath.split(separator);
-    const lastElement = parts[parts.length - 1] as string;
+    const normalized = filePath.replace(/\\/g, "/");
+    const lastElement = normalized.substring(normalized.lastIndexOf("/") + 1);
     return lastElement.replace(/\.ts$/, "");
 };
 
@@ -55,9 +58,14 @@ async function buildFile(
     const inputOptions: RollupOptions = {
         input: inputPath,
         plugins: [
-            ts({
-                transpileOnly: true,
-                transpiler: "swc",
+            rollupSwc({
+                swc: {
+                    jsc: {
+                        parser: {
+                            syntax: "typescript",
+                        },
+                    },
+                },
             }),
         ],
     };
