@@ -1,9 +1,12 @@
 import type {
+    CreateAsset,
     GetAllAssets,
     GetAssetById,
     GetAssetByName,
     MigrateAsset,
     RequestSignedUploadUrl,
+    SignedUploadPayload,
+    UpdateAsset,
     UploadFile,
     DownloadAsset,
 } from "./assets.types.js";
@@ -17,6 +20,30 @@ import FormData from "form-data";
 import { createDir, isDirectoryExists } from "../../utils/files.js";
 import Logger from "../../utils/logger.js";
 import { getFileName, getSizeFromURL } from "../../utils/string-utils.js";
+
+const isStoryblokSize = (size: string | undefined): size is string =>
+    Boolean(size && /^\d+x\d+$/i.test(size));
+
+const prepareSignedUploadPayload = (
+    payload: SignedUploadPayload,
+): SignedUploadPayload => {
+    const { filename, asset_folder_id, id, size, validate_upload } = payload;
+    const inferredSize = isStoryblokSize(size)
+        ? size
+        : isStoryblokSize(getSizeFromURL(filename))
+          ? getSizeFromURL(filename)
+          : undefined;
+
+    return {
+        filename: getFileName(filename),
+        ...(asset_folder_id === undefined || asset_folder_id === null
+            ? {}
+            : { asset_folder_id }),
+        ...(id === undefined ? {} : { id }),
+        ...(inferredSize ? { size: inferredSize } : {}),
+        ...(validate_upload === undefined ? {} : { validate_upload }),
+    };
+};
 
 // GET
 export const getAllAssets: GetAllAssets = async (args, config) => {
@@ -60,26 +87,13 @@ const requestSignedUploadUrl: RequestSignedUploadUrl = (
     config,
 ) => {
     const { sbApi, debug } = config;
-    const {
-        filename: _1,
-        asset_folder_id,
-        ext_id,
-        space_id,
-        deleted_at: _2,
-        ...restPayload
-    } = payload;
-    const filename = getFileName(payload.filename);
-    const size = getSizeFromURL(payload.filename);
+    const signedUploadPayload = prepareSignedUploadPayload(payload);
     return sbApi
-        .post(`spaces/${spaceId}/assets/`, {
-            filename,
-            size,
-            ...restPayload,
-        })
+        .post(`spaces/${spaceId}/assets/`, signedUploadPayload)
         .then((signedResponseObject) => {
             if (debug) {
                 Logger.log(
-                    `Signed upload URL has been requested for ${filename}.`,
+                    `Signed upload URL has been requested for ${signedUploadPayload.filename}.`,
                 );
             }
             return (signedResponseObject as any as { data: any }).data; // this is very bad... but storyblok-js-client types are pretty broken
@@ -102,13 +116,28 @@ const uploadFile: UploadFile = ({ signedResponseObject, pathToFile }) => {
     form.append("file", fs.createReadStream(file));
 
     // submit your form
-    form.submit(signedResponseObject.post_url, async (err, res) => {
-        const statusCode = res.statusCode;
-        if (statusCode === 204) {
-            Logger.upload(`Asset uploaded ${getFileName(file)}`);
-        } else {
-            if (err) throw err;
-        }
+    return new Promise<void>((resolve, reject) => {
+        form.submit(signedResponseObject.post_url, (err, res) => {
+            if (err) {
+                reject(err);
+                return;
+            }
+
+            const statusCode = res?.statusCode;
+            if (statusCode === 204) {
+                Logger.upload(`Asset uploaded ${getFileName(file)}`);
+                resolve();
+                return;
+            }
+
+            reject(
+                new Error(
+                    `Asset upload failed with status code ${
+                        statusCode ?? "unknown"
+                    }`,
+                ),
+            );
+        });
     });
 };
 
@@ -179,6 +208,47 @@ export const migrateAsset: MigrateAsset = async (
     }
 
     return true;
+};
+
+export const createAsset: CreateAsset = async (
+    { spaceId, pathToFile, payload = {} },
+    config,
+) => {
+    const signedResponseObject = await requestSignedUploadUrl(
+        {
+            spaceId,
+            payload: {
+                ...payload,
+                filename: payload.filename ?? pathToFile,
+            },
+        },
+        config,
+    );
+
+    await uploadFile({ signedResponseObject, pathToFile });
+
+    return signedResponseObject;
+};
+
+export const updateAsset: UpdateAsset = async (
+    { spaceId, assetId, payload },
+    config,
+) => {
+    const { sbApi } = config;
+    Logger.log(`Trying to update asset with id ${assetId}.`);
+
+    return sbApi
+        .put(`spaces/${spaceId}/assets/${assetId}`, payload)
+        .then((res: any) => {
+            Logger.success(`Asset '${assetId}' has been updated.`);
+            return res.data;
+        })
+        .catch((err: any) => {
+            Logger.error(
+                `${err.message} in updateAsset function for asset ${assetId}`,
+            );
+            throw err;
+        });
 };
 
 // GET

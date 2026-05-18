@@ -41,6 +41,33 @@ export interface SBAllAssetRequestResult {
 export type SignedResponseObject = any;
 export type AssetPayload = Omit<SBAsset, "updated_at" | "created_at" | "id">;
 
+export interface SignedUploadPayload {
+    filename: string;
+    id?: number;
+    asset_folder_id?: number | null;
+    size?: string;
+    validate_upload?: number;
+}
+
+export type CreateAssetPayload = Omit<SignedUploadPayload, "filename" | "id"> &
+    Partial<Pick<SignedUploadPayload, "filename">>;
+
+export type UpdateAssetPayload = {
+    asset_folder_id?: number | null;
+    internal_tag_ids?: number[];
+    is_private?: boolean;
+    locked?: boolean;
+    meta_data?: {
+        alt?: string;
+        copyright?: string;
+        source?: string;
+        title?: string;
+        [key: string]: unknown;
+    };
+    publish_at?: string | null;
+    [key: string]: unknown;
+};
+
 export type GetAllAssets = (
     {
         spaceId,
@@ -82,13 +109,37 @@ export type MigrateAsset = (
     },
     config: RequestBaseConfig,
 ) => Promise<boolean>;
+export type CreateAsset = (
+    {
+        spaceId,
+        pathToFile,
+        payload,
+    }: {
+        spaceId: string;
+        pathToFile: string;
+        payload?: CreateAssetPayload;
+    },
+    config: RequestBaseConfig,
+) => Promise<SignedResponseObject>;
+export type UpdateAsset = (
+    {
+        spaceId,
+        assetId,
+        payload,
+    }: {
+        spaceId: string;
+        assetId: number;
+        payload: UpdateAssetPayload;
+    },
+    config: RequestBaseConfig,
+) => Promise<any>;
 export type UploadFile = ({
     signedResponseObject,
     pathToFile,
 }: {
     signedResponseObject: SignedResponseObject;
     pathToFile: string;
-}) => void;
+}) => Promise<void>;
 export type FinalizeUpload = ({
     signedResponseObject,
 }: {
@@ -101,7 +152,7 @@ export type RequestSignedUploadUrl = (
         payload,
     }: {
         spaceId: string;
-        payload: AssetPayload;
+        payload: AssetPayload | SignedUploadPayload;
     },
     config: RequestBaseConfig,
 ) => Promise<any>;
