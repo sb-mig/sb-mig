@@ -113,6 +113,40 @@ module.exports = {
 };
 ```
 
+## Programmatic asset API
+
+The public management API exposes asset helpers for uploading a local file and updating existing asset metadata:
+
+```ts
+import { managementApi } from "sb-mig/dist/api/managementApi.js";
+
+await managementApi.assets.createAsset(
+  {
+    spaceId: "12345",
+    pathToFile: "./public/image.jpg",
+    payload: {
+      asset_folder_id: 67890,
+      validate_upload: 1,
+    },
+  },
+  config,
+);
+
+await managementApi.assets.updateAsset(
+  {
+    spaceId: "12345",
+    assetId: 98765,
+    payload: {
+      meta_data: {
+        alt: "Image alt text",
+        title: "Image title",
+      },
+    },
+  },
+  config,
+);
+```
+
 # Schema documentation:
 
 ## Basics
