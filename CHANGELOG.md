@@ -1,3 +1,16 @@
+# [6.0.0-beta.10](https://github.com/sb-mig/sb-mig/compare/v6.0.0-beta.9...v6.0.0-beta.10) (2026-05-18)
+
+
+### Bug Fixes
+
+* **components:** tolerate ssot default content type removal ([ae16239](https://github.com/sb-mig/sb-mig/commit/ae16239f882e8c5012803c2139c292d1fb35e1d0))
+* respect component directories for selected syncs ([165417f](https://github.com/sb-mig/sb-mig/commit/165417f3336d0762bd2ee41c5ade4c34ab4b220f))
+
+
+### Features
+
+* **assets:** expose create and update helpers ([9dfeff1](https://github.com/sb-mig/sb-mig/commit/9dfeff1c347b49dbcecaab21777a0bb8bc3e1cfc))
+
 # [6.0.0-beta.9](https://github.com/sb-mig/sb-mig/compare/v6.0.0-beta.8...v6.0.0-beta.9) (2026-05-13)
 
 
