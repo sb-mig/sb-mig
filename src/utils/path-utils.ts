@@ -26,6 +26,11 @@ export const extractComponentName = (filePath: string): string => {
     return lastElement.replace(/\.ts$/, "");
 };
 
+const getFileName = (filePath: string): string => {
+    const normalized = filePath.replace(/\\/g, "/");
+    return normalized.substring(normalized.lastIndexOf("/") + 1);
+};
+
 /**
  * Represents a file element with its name and path
  */
@@ -175,7 +180,7 @@ export const compare = (request: CompareRequest): CompareResult => {
     const { local, external } = request;
 
     const splittedLocal = local.map((p) => ({
-        name: path.basename(p),
+        name: getFileName(p),
         p,
     }));
 
@@ -183,7 +188,7 @@ export const compare = (request: CompareRequest): CompareResult => {
 
     const splittedExternal = external
         .map((p) => ({
-            name: path.basename(p),
+            name: getFileName(p),
             p,
         }))
         .filter((file) => {
