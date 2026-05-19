@@ -1,6 +1,7 @@
 import type { RequestBaseConfig } from "./utils/request.js";
 
 import Logger from "../utils/logger.js";
+import { buildUrl } from "../utils/url-utils.js";
 
 type GetAllStories = (
     args: {
@@ -14,15 +15,25 @@ const getAllStories: GetAllStories = async (args, config) => {
     const { spaceId, storiesFilename } = args;
 
     Logger.warning("Trying to get all stories from Content Hub...");
-    const queryParams = `spaceId=${spaceId}&storiesFilename=${storiesFilename}`;
-    const url = `${config.contentHubOriginUrl}/getStories?${queryParams}`;
+    if (!config.contentHubOriginUrl) {
+        throw new Error("contentHubOriginUrl is required to fetch stories.");
+    }
+
+    const url = buildUrl({
+        baseUrl: config.contentHubOriginUrl,
+        pathname: "getStories",
+        searchParams: {
+            spaceId,
+            ...(storiesFilename ? { storiesFilename } : {}),
+        },
+    });
     const authorizationToken = config.contentHubAuthorizationToken;
     if (config.debug) {
-        console.log("This is url: ", url);
+        console.log("This is url: ", url.toString());
     }
 
     try {
-        const response = await fetch(url, {
+        const response = await fetch(url.toString(), {
             method: "GET",
             headers: {
                 Authorization: authorizationToken as string,
