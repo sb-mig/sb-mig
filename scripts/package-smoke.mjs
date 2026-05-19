@@ -1,7 +1,14 @@
 #!/usr/bin/env node
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
-import { mkdir, mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
+import {
+    mkdir,
+    mkdtemp,
+    readdir,
+    readFile,
+    rm,
+    writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -192,6 +199,42 @@ const main = async () => {
         if (!discover.stdout.includes("hero")) {
             throw new Error(
                 `Expected discover output to include the hero component:\n${discover.stdout}`,
+            );
+        }
+
+        await runNpm(
+            [
+                "exec",
+                "--",
+                "sb-mig",
+                "discover",
+                "components",
+                "--all",
+                "--write",
+                "--file",
+                "all-components",
+            ],
+            { cwd: projectDir, env: npmEnv },
+        );
+
+        const componentListPath = path.join(
+            projectDir,
+            "sbmig",
+            "all-components.ts",
+        );
+        const componentList = await readFile(componentListPath, "utf8");
+        const normalizedComponentList = componentList.replace(/\\/g, "/");
+        const normalizedProjectDir = projectDir.replace(/\\/g, "/");
+
+        if (!componentList.includes('"hero"')) {
+            throw new Error(
+                `Expected generated component list to include only the hero component name:\n${componentList}`,
+            );
+        }
+
+        if (normalizedComponentList.includes(normalizedProjectDir)) {
+            throw new Error(
+                `Generated component list should not include full project paths:\n${componentList}`,
             );
         }
 
