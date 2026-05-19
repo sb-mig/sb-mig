@@ -1,3 +1,11 @@
+## [6.0.1-beta.1](https://github.com/sb-mig/sb-mig/compare/v6.0.0...v6.0.1-beta.1) (2026-05-19)
+
+
+### Bug Fixes
+
+* **api:** encode query parameters with URLSearchParams ([509648f](https://github.com/sb-mig/sb-mig/commit/509648fd7d39039e2a20df5c05eeff55da66a83f))
+* **discover:** normalize Windows component paths ([4283a37](https://github.com/sb-mig/sb-mig/commit/4283a37fe12bdec67bea2c9554728e2f68f4513c))
+
 # [6.0.0](https://github.com/sb-mig/sb-mig/compare/v5.8.0...v6.0.0) (2026-05-18)
 
 
