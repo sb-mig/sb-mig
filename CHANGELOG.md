@@ -1,3 +1,15 @@
+# [6.1.0-beta.1](https://github.com/sb-mig/sb-mig/compare/v6.0.1-beta.1...v6.1.0-beta.1) (2026-05-20)
+
+
+### Bug Fixes
+
+* improve language publish state ([13af2a9](https://github.com/sb-mig/sb-mig/commit/13af2a91404165d576cf778be02420762a91d85b))
+
+
+### Features
+
+* add langauge publish state command ([834be88](https://github.com/sb-mig/sb-mig/commit/834be88bced3b7b9464c304ed603a2c22df7d776))
+
 ## [6.0.1-beta.1](https://github.com/sb-mig/sb-mig/compare/v6.0.0...v6.0.1-beta.1) (2026-05-19)
 
 
