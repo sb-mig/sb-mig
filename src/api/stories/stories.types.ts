@@ -10,9 +10,27 @@ interface ModifyStoryOptions {
     force_update?: boolean;
     publishLanguages?: PublishLanguagesOption;
     preservePublishState?: boolean;
+    languagePublishStateMap?: LanguagePublishStateMap;
 }
 
 export type PublishLanguagesOption = "default" | "all" | string[];
+
+export interface LanguagePublishStateMap {
+    stories?: Record<
+        string,
+        {
+            languages?: Record<
+                string,
+                {
+                    state?: string;
+                    [key: string]: unknown;
+                }
+            >;
+            cleanPublishedLanguages?: string[];
+            [key: string]: unknown;
+        }
+    >;
+}
 
 export type RemoveStory = (
     args: { storyId: string },

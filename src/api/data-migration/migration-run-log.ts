@@ -30,6 +30,7 @@ export interface MigrationRunLogRecord {
         migrateFrom: MigrateFrom;
         from: string;
         fromFilePath: string | null;
+        languagePublishStatePath?: string | null;
     };
     target: {
         to: string;
@@ -86,6 +87,7 @@ interface SaveMigrationRunLogArgs {
     resolvedPublishLanguages?: string[];
     migrateFrom: MigrateFrom;
     fromFilePath?: string;
+    languagePublishStatePath?: string;
     pipelineResult: MigrationPipelineResult;
     writeResults: PromiseSettledResult<MutationWriteResult>[];
     writeSummary: MutationWriteSummary;
@@ -140,6 +142,7 @@ export const buildMigrationRunLogRecords = ({
     resolvedPublishLanguages,
     migrateFrom,
     fromFilePath,
+    languagePublishStatePath,
     pipelineResult,
     writeResults,
     writeSummary,
@@ -154,6 +157,7 @@ export const buildMigrationRunLogRecords = ({
             migrateFrom,
             from,
             fromFilePath: fromFilePath || null,
+            languagePublishStatePath: languagePublishStatePath || null,
         },
         target: {
             to,

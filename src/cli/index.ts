@@ -10,6 +10,7 @@ import {
     initDescription,
     discoverDescription,
     migrateDescription,
+    languagePublishStateDescription,
     revertDescription,
     migrationsDescription,
     copyDescription,
@@ -19,6 +20,7 @@ import { copyCommand } from "./commands/copy.js";
 import { debug } from "./commands/debug.js";
 import { discover } from "./commands/discover.js";
 import { init } from "./commands/init.js";
+import { languagePublishState } from "./commands/language-publish-state.js";
 import { migrate } from "./commands/migrate.js";
 import { migrations } from "./commands/migrations.js";
 import { remove } from "./commands/remove.js";
@@ -104,6 +106,9 @@ app.migrate = () => ({
             publishLanguages: {
                 type: "string",
             },
+            languagePublishStatePath: {
+                type: "string",
+            },
             fileName: {
                 type: "string",
             },
@@ -112,6 +117,39 @@ app.migrate = () => ({
     action: (cli: any) => {
         migrate(cli);
     },
+});
+
+app["language-publish-state"] = () => ({
+    cli: meow(languagePublishStateDescription, {
+        importMeta: import.meta,
+        booleanDefault: undefined,
+        flags: {
+            from: {
+                type: "string",
+            },
+            accessToken: {
+                type: "string",
+            },
+            languages: {
+                type: "string",
+                default: "all",
+            },
+            withSlug: {
+                type: "string",
+                isMultiple: true,
+            },
+            startsWith: {
+                type: "string",
+            },
+            fileName: {
+                type: "string",
+            },
+            outputPath: {
+                type: "string",
+            },
+        },
+    }),
+    action: (cli: any) => languagePublishState(cli),
 });
 
 app.revert = () => ({

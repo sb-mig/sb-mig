@@ -67,6 +67,7 @@ export const migrate = async (props: CLIOptions) => {
         "dryRun",
         "publish",
         "publishLanguages",
+        "languagePublishStatePath",
         "fileName",
     ]);
 
@@ -112,6 +113,9 @@ export const migrate = async (props: CLIOptions) => {
             const publishLanguagesFlag = flags["publishLanguages"] as
                 | string
                 | undefined;
+            const languagePublishStatePath = flags[
+                "languagePublishStatePath"
+            ] as string | undefined;
             const publishLanguages = publishLanguagesFlag
                 ? parsePublishLanguagesOption(publishLanguagesFlag)
                 : undefined;
@@ -137,6 +141,15 @@ export const migrate = async (props: CLIOptions) => {
             if (!publish && publishLanguagesFlag) {
                 throw new Error(
                     "--publishLanguages requires --publish for 'migrate content'.",
+                );
+            }
+
+            if (
+                languagePublishStatePath &&
+                (!publish || !publishLanguagesFlag)
+            ) {
+                throw new Error(
+                    "--languagePublishStatePath requires --publish and --publishLanguages for 'migrate content'.",
                 );
             }
 
@@ -178,6 +191,7 @@ export const migrate = async (props: CLIOptions) => {
                             publishLanguages,
                             fromFilePath,
                             fileName,
+                            languagePublishStatePath,
                         },
                         apiConfig,
                     );
@@ -218,6 +232,7 @@ export const migrate = async (props: CLIOptions) => {
                             publishLanguages,
                             fromFilePath,
                             fileName,
+                            languagePublishStatePath,
                         },
                         apiConfig,
                     );
@@ -283,6 +298,9 @@ export const migrate = async (props: CLIOptions) => {
             const publishLanguagesFlag = flags["publishLanguages"] as
                 | string
                 | undefined;
+            const languagePublishStatePath = flags[
+                "languagePublishStatePath"
+            ] as string | undefined;
 
             if (migrationConfigs.length === 0) {
                 throw new Error(
@@ -299,6 +317,12 @@ export const migrate = async (props: CLIOptions) => {
             if (publishLanguagesFlag) {
                 throw new Error(
                     "--publishLanguages is only supported for 'migrate content'. Presets cannot be published.",
+                );
+            }
+
+            if (languagePublishStatePath) {
+                throw new Error(
+                    "--languagePublishStatePath is only supported for 'migrate content'. Presets cannot be published.",
                 );
             }
 

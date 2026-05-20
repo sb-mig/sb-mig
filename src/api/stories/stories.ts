@@ -11,6 +11,7 @@ import type {
     DeepUpsertStory,
     ExtendedISbStoriesParams,
     GetStoryBySlug,
+    LanguagePublishStateMap,
     PublishLanguagesOption,
 } from "./stories.types.js";
 
@@ -230,6 +231,57 @@ export const resolvePublishLanguageCodes = async (
         DEFAULT_PUBLISH_LANGUAGE,
         ...spaceLanguageCodes,
     ]);
+};
+
+const isPublishLanguageStateClean = (
+    languagePublishStateMap: LanguagePublishStateMap | undefined,
+    story: Record<string, any>,
+    language: string,
+): boolean | undefined => {
+    const storyEntry = languagePublishStateMap?.stories?.[story.full_slug];
+    const languageState = storyEntry?.languages?.[language]?.state;
+
+    if (!languageState) {
+        return undefined;
+    }
+
+    return languageState === "published_clean";
+};
+
+const resolvePublishLanguagesForStory = ({
+    story,
+    publishState,
+    publishLanguages,
+    languagePublishStateMap,
+}: {
+    story: Record<string, any>;
+    publishState?: StoryPublishState;
+    publishLanguages: string[];
+    languagePublishStateMap?: LanguagePublishStateMap;
+}): string[] => {
+    if (!languagePublishStateMap) {
+        return publishState && !publishState.shouldPublish
+            ? []
+            : publishLanguages;
+    }
+
+    return publishLanguages.filter((language) => {
+        if (language === DEFAULT_PUBLISH_LANGUAGE) {
+            return !publishState || publishState.shouldPublish;
+        }
+
+        const languageStateAllowsPublish = isPublishLanguageStateClean(
+            languagePublishStateMap,
+            story,
+            language,
+        );
+
+        if (languageStateAllowsPublish !== undefined) {
+            return languageStateAllowsPublish;
+        }
+
+        return !publishState || publishState.shouldPublish;
+    });
 };
 
 const resolveStoryblokErrorResponse = (err: any): string | undefined => {
@@ -555,9 +607,19 @@ export const updateStories: UpdateStories = async (args, config) => {
             const publishState = shouldPreservePublishState
                 ? resolveStoryPublishState(story)
                 : undefined;
+            const storyPublishLanguages = publishLanguages
+                ? resolvePublishLanguagesForStory({
+                      story,
+                      publishState,
+                      publishLanguages,
+                      languagePublishStateMap: options.languagePublishStateMap,
+                  })
+                : undefined;
             const shouldPublishStory =
                 options.publish &&
-                (!publishState || publishState.shouldPublish);
+                (!publishState || publishState.shouldPublish) &&
+                (!shouldPublishLanguages ||
+                    storyPublishLanguages?.includes(DEFAULT_PUBLISH_LANGUAGE));
             const updateResult = await updateStory(
                 story,
                 story.id,
@@ -571,21 +633,25 @@ export const updateStories: UpdateStories = async (args, config) => {
             if (
                 options.publish &&
                 updateResult?.ok &&
-                isSkippedStoryPublishState(publishState)
+                isSkippedStoryPublishState(publishState) &&
+                (!storyPublishLanguages || storyPublishLanguages.length === 0)
             ) {
                 return withSkippedPublish({
                     updateResult,
                     story,
                     storyId: story.id,
                     spaceId,
-                    publishLanguages,
+                    publishLanguages: options.languagePublishStateMap
+                        ? storyPublishLanguages
+                        : publishLanguages,
                     publishState,
                 });
             }
 
             if (
                 !shouldPublishLanguages ||
-                !publishLanguages ||
+                !storyPublishLanguages ||
+                storyPublishLanguages.length === 0 ||
                 !updateResult?.ok
             ) {
                 return updateResult;
@@ -595,7 +661,7 @@ export const updateStories: UpdateStories = async (args, config) => {
                 {
                     storyId: story.id,
                     story,
-                    languages: publishLanguages,
+                    languages: storyPublishLanguages,
                 },
                 { ...config, spaceId },
             );
