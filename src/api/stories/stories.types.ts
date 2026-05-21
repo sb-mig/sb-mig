@@ -49,6 +49,24 @@ export type GetStoryBySlug = (
     config: RequestBaseConfig,
 ) => Promise<any>;
 
+export type SearchStorySlugs = (
+    args: {
+        search: string;
+        perPage?: number;
+    },
+    config: RequestBaseConfig,
+) => Promise<any[]>;
+
+export type GetStoryVersions = (
+    args: {
+        storyId: string;
+        showContent?: boolean;
+        page?: number;
+        perPage?: number;
+    },
+    config: RequestBaseConfig,
+) => Promise<any>;
+
 export type GetAllStories = (
     args: { options?: ExtendedISbStoriesParams },
     config: RequestBaseConfig,

@@ -11,8 +11,10 @@ import type {
     DeepUpsertStory,
     ExtendedISbStoriesParams,
     GetStoryBySlug,
+    GetStoryVersions,
     LanguagePublishStateMap,
     PublishLanguagesOption,
+    SearchStorySlugs,
 } from "./stories.types.js";
 
 import chalk from "chalk";
@@ -446,6 +448,47 @@ export const getStoryBySlug: GetStoryBySlug = async (slug, config) => {
     );
 
     return storiesWithContent[0];
+};
+
+export const searchStorySlugs: SearchStorySlugs = async (
+    { search, perPage = 10 },
+    config,
+) => {
+    const { spaceId, sbApi } = config;
+
+    return (sbApi as any)
+        .get(`spaces/${spaceId}/stories/`, {
+            per_page: perPage,
+            search,
+        })
+        .then((res: any) => res.data.stories ?? [])
+        .catch((err: any) => {
+            Logger.error(err);
+            return [];
+        });
+};
+
+export const getStoryVersions: GetStoryVersions = async (
+    { storyId, showContent = true, page = 1, perPage = 25 },
+    config,
+) => {
+    const { spaceId, sbApi, debug } = config;
+
+    if (debug) {
+        console.log(
+            `Trying to get story versions for story id: ${storyId} from space: ${spaceId}.`,
+        );
+    }
+
+    return (sbApi as any)
+        .get(`spaces/${spaceId}/story_versions`, {
+            by_story_id: storyId,
+            show_content: showContent,
+            page,
+            per_page: perPage,
+        })
+        .then((res: any) => res.data)
+        .catch((err: any) => Logger.error(err));
 };
 
 // CREATE

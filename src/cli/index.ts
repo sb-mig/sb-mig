@@ -11,6 +11,8 @@ import {
     discoverDescription,
     migrateDescription,
     languagePublishStateDescription,
+    storyVersionsDescription,
+    publishedLayerExportDescription,
     revertDescription,
     migrationsDescription,
     copyDescription,
@@ -23,8 +25,10 @@ import { init } from "./commands/init.js";
 import { languagePublishState } from "./commands/language-publish-state.js";
 import { migrate } from "./commands/migrate.js";
 import { migrations } from "./commands/migrations.js";
+import { publishedLayerExport } from "./commands/published-layer-export.js";
 import { remove } from "./commands/remove.js";
 import { revert } from "./commands/revert.js";
+import { storyVersions } from "./commands/story-versions.js";
 import { sync } from "./commands/sync.js";
 import { testCommand } from "./commands/test.js";
 import { pipe, prop } from "./utils/cli-utils.js";
@@ -109,6 +113,10 @@ app.migrate = () => ({
             languagePublishStatePath: {
                 type: "string",
             },
+            preservePublishedLayer: {
+                type: "boolean",
+                default: false,
+            },
             fileName: {
                 type: "string",
             },
@@ -150,6 +158,86 @@ app["language-publish-state"] = () => ({
         },
     }),
     action: (cli: any) => languagePublishState(cli),
+});
+
+app["story-versions"] = () => ({
+    cli: meow(storyVersionsDescription, {
+        importMeta: import.meta,
+        booleanDefault: undefined,
+        flags: {
+            from: {
+                type: "string",
+            },
+            storyId: {
+                type: "string",
+            },
+            withSlug: {
+                type: "string",
+            },
+            showContent: {
+                type: "boolean",
+                default: true,
+            },
+            page: {
+                type: "number",
+                default: 1,
+            },
+            perPage: {
+                type: "number",
+                default: 25,
+            },
+            raw: {
+                type: "boolean",
+                default: false,
+            },
+            outputPath: {
+                type: "string",
+            },
+        },
+    }),
+    action: (cli: any) => storyVersions(cli),
+});
+
+app["published-layer-export"] = () => ({
+    cli: meow(publishedLayerExportDescription, {
+        importMeta: import.meta,
+        booleanDefault: undefined,
+        flags: {
+            from: {
+                type: "string",
+            },
+            all: {
+                type: "boolean",
+                default: false,
+            },
+            storyId: {
+                type: "string",
+                isMultiple: true,
+            },
+            withSlug: {
+                type: "string",
+                isMultiple: true,
+            },
+            startsWith: {
+                type: "string",
+            },
+            fileName: {
+                type: "string",
+            },
+            outputPath: {
+                type: "string",
+            },
+            versionsPerPage: {
+                type: "number",
+                default: 25,
+            },
+            maxVersionPages: {
+                type: "number",
+                default: 4,
+            },
+        },
+    }),
+    action: (cli: any) => publishedLayerExport(cli),
 });
 
 app.revert = () => ({

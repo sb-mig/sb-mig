@@ -68,6 +68,7 @@ export const migrate = async (props: CLIOptions) => {
         "publish",
         "publishLanguages",
         "languagePublishStatePath",
+        "preservePublishedLayer",
         "fileName",
     ]);
 
@@ -116,6 +117,9 @@ export const migrate = async (props: CLIOptions) => {
             const languagePublishStatePath = flags[
                 "languagePublishStatePath"
             ] as string | undefined;
+            const preservePublishedLayer = Boolean(
+                flags["preservePublishedLayer"],
+            );
             const publishLanguages = publishLanguagesFlag
                 ? parsePublishLanguagesOption(publishLanguagesFlag)
                 : undefined;
@@ -153,10 +157,22 @@ export const migrate = async (props: CLIOptions) => {
                 );
             }
 
+            if (preservePublishedLayer && !publish) {
+                throw new Error(
+                    "--preservePublishedLayer requires --publish for 'migrate content'.",
+                );
+            }
+
             if (isIt("empty")) {
                 const componentsToMigrate = unpackElements(input) || [""];
 
                 const migrateFrom: MigrateFrom = "space";
+
+                if (preservePublishedLayer && from !== to) {
+                    throw new Error(
+                        "--preservePublishedLayer currently requires --from and --to to be the same Storyblok space.",
+                    );
+                }
 
                 const runMigration = async () => {
                     Logger.warning("Preparing to migrate...");
@@ -189,6 +205,7 @@ export const migrate = async (props: CLIOptions) => {
                             dryRun,
                             publish,
                             publishLanguages,
+                            preservePublishedLayer,
                             fromFilePath,
                             fileName,
                             languagePublishStatePath,
@@ -214,6 +231,18 @@ export const migrate = async (props: CLIOptions) => {
             } else if (isIt("all")) {
                 const migrateFrom: MigrateFrom = flags["migrateFrom"];
 
+                if (preservePublishedLayer && migrateFrom !== "space") {
+                    throw new Error(
+                        "--preservePublishedLayer requires --migrate-from space.",
+                    );
+                }
+
+                if (preservePublishedLayer && from !== to) {
+                    throw new Error(
+                        "--preservePublishedLayer currently requires --from and --to to be the same Storyblok space.",
+                    );
+                }
+
                 const runMigration = async () => {
                     Logger.warning("Preparing to migrate...");
 
@@ -230,6 +259,7 @@ export const migrate = async (props: CLIOptions) => {
                             dryRun,
                             publish,
                             publishLanguages,
+                            preservePublishedLayer,
                             fromFilePath,
                             fileName,
                             languagePublishStatePath,
@@ -301,6 +331,9 @@ export const migrate = async (props: CLIOptions) => {
             const languagePublishStatePath = flags[
                 "languagePublishStatePath"
             ] as string | undefined;
+            const preservePublishedLayer = Boolean(
+                flags["preservePublishedLayer"],
+            );
 
             if (migrationConfigs.length === 0) {
                 throw new Error(
@@ -323,6 +356,12 @@ export const migrate = async (props: CLIOptions) => {
             if (languagePublishStatePath) {
                 throw new Error(
                     "--languagePublishStatePath is only supported for 'migrate content'. Presets cannot be published.",
+                );
+            }
+
+            if (preservePublishedLayer) {
+                throw new Error(
+                    "--preservePublishedLayer is only supported for 'migrate content'. Presets cannot preserve story published layers.",
                 );
             }
 
