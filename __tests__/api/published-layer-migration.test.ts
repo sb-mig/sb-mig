@@ -129,6 +129,7 @@ describe("published layer content migration", () => {
         createAndSaveToFileMock.mockResolvedValue(undefined);
         modifyAppliedMigrationsMock.mockResolvedValue(undefined);
         saveMigrationRunLogMock.mockResolvedValue(undefined);
+        resolvePublishLanguageCodesMock.mockResolvedValue(["[default]"]);
         getStoryVersionsMock.mockResolvedValue({
             story_versions: [
                 {
@@ -168,8 +169,7 @@ describe("published layer content migration", () => {
                 itemsToMigrate: [createDirtyStoryItem()],
                 migrationConfigs: [migrationConfig],
                 dryRun: true,
-                publish: true,
-                preservePublishedLayer: true,
+                publicationMode: "preserve-layers",
                 fileName: "published-layer-test",
             },
             config,
@@ -197,6 +197,12 @@ describe("published layer content migration", () => {
         expect(artifactFilenames).toContain(
             "dry-run--published-layer-test---published-layer-summary",
         );
+        expect(artifactFilenames).toContain(
+            "dry-run--published-layer-test---language-publish-state-map",
+        );
+        expect(artifactFilenames).toContain(
+            "dry-run--published-layer-test---publication-plan-summary",
+        );
 
         const summaryCall = createAndSaveToFileMock.mock.calls.find(
             ([args]) =>
@@ -222,8 +228,7 @@ describe("published layer content migration", () => {
                 itemsToMigrate: [createDirtyStoryItem()],
                 migrationConfigs: [migrationConfig],
                 dryRun: false,
-                publish: true,
-                preservePublishedLayer: true,
+                publicationMode: "preserve-layers",
                 fileName: "published-layer-test",
             },
             config,
@@ -249,7 +254,26 @@ describe("published layer content migration", () => {
                 },
             }),
             "story-1",
-            { publish: true },
+            { publish: false },
+            { ...config, spaceId: "space-1" },
+        );
+        expect(publishStoryLanguagesMock).toHaveBeenCalledWith(
+            {
+                storyId: "story-1",
+                story: expect.objectContaining({
+                    content: {
+                        component: "page",
+                        body: [
+                            {
+                                component: "target",
+                                text: "French Text Published Again",
+                                migrated: true,
+                            },
+                        ],
+                    },
+                }),
+                languages: ["[default]"],
+            },
             { ...config, spaceId: "space-1" },
         );
         expect(updateStoryMock).toHaveBeenNthCalledWith(
@@ -297,8 +321,7 @@ describe("published layer content migration", () => {
                     itemsToMigrate: [createDirtyStoryItem()],
                     migrationConfigs: [migrationConfig],
                     dryRun: true,
-                    publish: true,
-                    preservePublishedLayer: true,
+                    publicationMode: "preserve-layers",
                     fileName: "published-layer-test",
                 },
                 config,
@@ -338,8 +361,7 @@ describe("published layer content migration", () => {
                 itemsToMigrate: [createDirtyStoryItem()],
                 migrationConfigs: [migrationConfig],
                 dryRun: false,
-                publish: true,
-                preservePublishedLayer: true,
+                publicationMode: "preserve-layers",
                 fileName: "published-layer-test",
             },
             config,

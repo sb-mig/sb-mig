@@ -103,19 +103,14 @@ app.migrate = () => ({
                 type: "boolean",
                 default: false,
             },
-            publish: {
-                type: "boolean",
-                default: false,
+            publicationMode: {
+                type: "string",
             },
-            publishLanguages: {
+            publicationLanguages: {
                 type: "string",
             },
             languagePublishStatePath: {
                 type: "string",
-            },
-            preservePublishedLayer: {
-                type: "boolean",
-                default: false,
             },
             fileName: {
                 type: "string",

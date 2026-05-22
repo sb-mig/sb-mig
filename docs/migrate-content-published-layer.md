@@ -9,7 +9,7 @@ Storyblok stories can have two meaningful content layers at the same time:
 
 For a story where `published === true` and `unpublished_changes === true`, these layers are intentionally different. Editors published one version, then saved newer draft edits that should not be live yet.
 
-The existing `migrate content` command reads the Management API story and migrates that current editable content. When `--publish` is used with publish-state preservation, sb-mig skips publishing dirty stories so it does not accidentally publish editor draft work. That preserves the editorial state shape, but it leaves the published production JSON unmigrated.
+The existing `migrate content` command reads the Management API story and migrates that current editable content. If a dirty published story is handled as a single layer, sb-mig has to make an explicit tradeoff: either publish the latest draft and lose the older published layer, or keep the migrated draft saved and leave the published production JSON unmigrated.
 
 For schema/content migrations, that is not enough. The production layer must be migrated too.
 
@@ -103,15 +103,31 @@ const publishedLayerStory = {
 
 The published layer must use the current Management story metadata for ids, slug, parent, translated slugs, path, and other story-level fields. The historical version object should not be passed directly to the migration pipeline because it is not a full story object.
 
-## Desired opt-in migrate behavior
+## Publication modes
 
-This behavior should be opt-in at first, for example:
+`migrate content` uses explicit publication modes instead of a generic `--publish` flag:
 
 ```bash
-sb-mig migrate content ... --publish --preservePublishedLayer
+--publicationMode preserve-layers
+--publicationMode collapse-draft
+--publicationMode save-only
 ```
 
-`--preservePublishedLayer` should initially be valid only for `migrate content`. It should require `--publish`, because the feature exists to migrate the production published layer as well as the saved draft layer. Existing `migrate content` behavior must remain unchanged unless this flag is present.
+`preserve-layers` is the correct Storyblok-state-preserving mode and the default for space-to-same-space migrations. It uses Story Versions API for dirty published stories, migrates the latest published layer and the latest draft/current layer separately, publishes the migrated published layer, then restores the migrated draft/current layer as saved draft.
+
+`collapse-draft` is the duplicated-space fallback. Storyblok duplicated spaces can preserve `published` and `unpublished_changes` metadata while having empty version history. In that case there is no Management-shaped published layer to fetch. This mode intentionally migrates the latest draft/current content and publishes it for stories that are already published. Draft-only or unpublished stories remain saved-only.
+
+`save-only` migrates all changed stories as saved draft and does not publish anything.
+
+`--publicationLanguages` controls which language scope is inspected and preserved when the selected publication mode publishes a story. It defaults to `all`:
+
+```bash
+--publicationLanguages default
+--publicationLanguages all
+--publicationLanguages default,fr,de
+```
+
+For each selected story and each resolved language, migrate builds a language publish-state map automatically. A language is published after migration only if that language was published before migration. In `collapse-draft`, a language with unpublished changes is intentionally published from latest draft/current content. In `preserve-layers`, the migrated published layer is published for languages that were published before, then migrated draft/current content is restored with `publish:false`.
 
 For each story:
 
@@ -186,7 +202,7 @@ The real migrate implementation should include these checks:
 
 ## Dry-run contract
 
-`--dry-run --preservePublishedLayer` must prove the data path without writing to Storyblok.
+`--dry-run --publicationMode preserve-layers` must prove the data path without writing to Storyblok.
 
 Dry run should:
 
@@ -237,7 +253,7 @@ For dirty published stories, these files should contain enough data to say: if t
 
 ## Real write contract
 
-When `--preservePublishedLayer` is used without `--dry-run`, writes must be sequential per dirty published story:
+When `--publicationMode preserve-layers` is used without `--dry-run`, writes must be sequential per dirty published story:
 
 1. re-fetch the current Management story
 2. compare the current story's `current_version_id` or `updated_at` against the story that was migrated
@@ -250,23 +266,25 @@ The draft/current layer must never be published as part of the restore step. The
 
 Clean published stories may continue through the existing update-and-publish path. Draft-only stories may continue through the existing save-draft path.
 
-## Implementation plan
+## Implemented behavior
 
-Implementation should be incremental:
+The current implementation:
 
-1. Add `--preservePublishedLayer` to the `migrate content` CLI flags and validation.
-2. Refactor the migration pipeline so an already-loaded story array can be migrated without fetching again.
-3. Add helpers to fetch Story Versions API pages and select the newest `status === "published"` version.
-4. Build dual-layer inputs for dirty published stories.
-5. Run the migration pipeline separately for draft/current and published-layer inputs.
-6. Extend dry-run artifact writing with the dual-layer files and summary.
-7. Add the real sequential write path for dirty published stories.
-8. Add focused tests for:
+1. Uses `--publicationMode preserve-layers` for dual-layer migration.
+2. Uses `--publicationMode collapse-draft` for duplicated spaces without story versions.
+3. Uses `--publicationMode save-only` for draft-only writes.
+4. Refactors the migration pipeline so an already-loaded story array can be migrated without fetching again.
+5. Fetches Story Versions API pages and selects the newest `status === "published"` version.
+6. Builds dual-layer inputs for dirty published stories.
+7. Runs the migration pipeline separately for draft/current and published-layer inputs.
+8. Writes dry-run artifacts with the dual-layer files and summary.
+9. Adds the real sequential write path for dirty published stories.
+10. Adds focused tests for:
    - dry-run artifact generation
    - missing published version handling
    - dirty published write order
    - stale story safety check
-   - unchanged behavior without `--preservePublishedLayer`
+   - dirty-published `collapse-draft` publishing
 
 ## Read-only export spike
 
@@ -299,5 +317,4 @@ The export command already confirmed the model for the dirty Contact Us story in
 ## Open questions
 
 - Confirm pagination behavior for stories with many versions.
-- Decide how this combines with `--publishLanguages` and `languagePublishStatePath` for non-default language publishing.
 - Decide whether real runs should fail the whole command on a missing published layer, or skip only the affected story and fail the final summary.

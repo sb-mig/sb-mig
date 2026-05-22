@@ -58,6 +58,8 @@ export interface MigrationRunLogRecord {
             stage?: "update" | "publish";
             sourcePublishState?: string;
             publishSkippedReason?: string;
+            publishLanguages?: string[];
+            savedOnlyLanguages?: string[];
         }>;
     };
     item?: {
@@ -72,6 +74,8 @@ export interface MigrationRunLogRecord {
     stage?: "update" | "publish";
     sourcePublishState?: string;
     publishSkippedReason?: string;
+    actualPublishLanguages?: string[];
+    savedOnlyLanguages?: string[];
     error?: unknown;
 }
 
@@ -214,6 +218,8 @@ export const buildMigrationRunLogRecords = ({
                 stage,
                 sourcePublishState: value.sourcePublishState,
                 publishSkippedReason: value.publishSkippedReason,
+                actualPublishLanguages: value.publishLanguages,
+                savedOnlyLanguages: value.savedOnlyLanguages,
                 ...(value.ok ? {} : { error: serializeError(value.error) }),
             };
         },
@@ -236,6 +242,8 @@ export const buildMigrationRunLogRecords = ({
                 stage: item.stage,
                 sourcePublishState: item.sourcePublishState,
                 publishSkippedReason: item.publishSkippedReason,
+                publishLanguages: item.publishLanguages,
+                savedOnlyLanguages: item.savedOnlyLanguages,
             })),
         },
     };

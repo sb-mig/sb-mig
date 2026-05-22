@@ -33,6 +33,13 @@ export interface BuildLanguagePublishStateMapArgs {
     outputPath?: string;
 }
 
+export interface BuildLanguagePublishStateMapFromStoriesArgs {
+    from: string;
+    stories: any[];
+    languages: string[];
+    accessToken?: string;
+}
+
 export interface LanguagePublishStateMapEntry {
     id?: number | string;
     uuid?: string;
@@ -289,17 +296,20 @@ export const buildLanguagePublishStateMap = async (
         throw new Error("--from is required.");
     }
 
-    if (!accessToken) {
-        throw new Error(
-            "--accessToken is required when config accessToken is empty.",
-        );
-    }
-
     const sourceConfig = { ...config, spaceId: args.from };
     const deliveryApiUrl =
         config.storyblokDeliveryApiUrl || "https://api.storyblok.com/v2";
     const languages = await resolveLanguages(args.languages, sourceConfig);
     const uniqueLanguages = Array.from(new Set(languages));
+
+    if (
+        uniqueLanguages.some((language) => language !== DEFAULT_LANGUAGE) &&
+        !accessToken
+    ) {
+        throw new Error(
+            "--accessToken is required when config accessToken is empty and translated language state is requested.",
+        );
+    }
     const stories = (
         await loadStoriesForLanguageState(
             {
@@ -312,6 +322,74 @@ export const buildLanguagePublishStateMap = async (
 
     Logger.success(
         `Fetched ${stories.length} source stories from space '${args.from}'.`,
+    );
+
+    const result = await buildLanguagePublishStateMapFromStories(
+        {
+            from: args.from,
+            stories,
+            languages: uniqueLanguages,
+            accessToken,
+        },
+        {
+            ...config,
+            storyblokDeliveryApiUrl: deliveryApiUrl,
+        },
+    );
+
+    result.source = {
+        ...result.source,
+        startsWith: args.startsWith || null,
+        withSlug: args.withSlug || null,
+    };
+
+    await createAndSaveToFile(
+        {
+            ext: "json",
+            datestamp: !args.fileName && !args.outputPath,
+            filename:
+                args.fileName || `${args.from}---language-publish-state-map`,
+            folder: "language-publish-state",
+            path: args.outputPath,
+            res: result,
+        },
+        config,
+    );
+
+    Logger.success(
+        `Language publish-state map created for ${result.storyCount ?? 0} stories.`,
+    );
+
+    return result;
+};
+
+export const buildLanguagePublishStateMapFromStories = async (
+    args: BuildLanguagePublishStateMapFromStoriesArgs,
+    config: RequestBaseConfig,
+): Promise<LanguagePublishStateMap> => {
+    const accessToken = args.accessToken || config.accessToken;
+
+    if (!args.from) {
+        throw new Error("--from is required.");
+    }
+
+    const needsDeliveryApi = args.languages.some(
+        (language) => language !== DEFAULT_LANGUAGE,
+    );
+
+    if (needsDeliveryApi && !accessToken) {
+        throw new Error(
+            "A Delivery API access token is required to resolve translated language publication state.",
+        );
+    }
+
+    const deliveryAccessToken = accessToken || "";
+
+    const deliveryApiUrl =
+        config.storyblokDeliveryApiUrl || "https://api.storyblok.com/v2";
+    const uniqueLanguages = Array.from(new Set(args.languages));
+    const stories = args.stories.filter(
+        (item: any) => item?.story && item.story.is_folder !== true,
     );
 
     const storyEntries = await mapWithConcurrency(
@@ -337,14 +415,14 @@ export const buildLanguagePublishStateMap = async (
                 const [published, draft] = await Promise.all([
                     fetchDeliveryStory({
                         deliveryApiUrl,
-                        accessToken,
+                        accessToken: deliveryAccessToken,
                         slug: story.full_slug,
                         version: "published",
                         language,
                     }),
                     fetchDeliveryStory({
                         deliveryApiUrl,
-                        accessToken,
+                        accessToken: deliveryAccessToken,
                         slug: story.full_slug,
                         version: "draft",
                         language,
@@ -377,12 +455,12 @@ export const buildLanguagePublishStateMap = async (
         },
     );
 
-    const result = {
+    return {
         generatedAt: new Date().toISOString(),
         source: {
             spaceId: args.from,
-            startsWith: args.startsWith || null,
-            withSlug: args.withSlug || null,
+            startsWith: null,
+            withSlug: null,
         },
         languages: uniqueLanguages,
         storyCount: storyEntries.length,
@@ -391,7 +469,7 @@ export const buildLanguagePublishStateMap = async (
                 acc[language] = storyEntries.reduce<Record<string, number>>(
                     (stateAcc, story) => {
                         const state =
-                            story.languages[language]?.state || "missing";
+                            story.languages?.[language]?.state || "missing";
                         stateAcc[state] = (stateAcc[state] || 0) + 1;
                         return stateAcc;
                     },
@@ -405,23 +483,4 @@ export const buildLanguagePublishStateMap = async (
             storyEntries.map((story) => [story.fullSlug, story]),
         ),
     };
-
-    await createAndSaveToFile(
-        {
-            ext: "json",
-            datestamp: !args.fileName && !args.outputPath,
-            filename:
-                args.fileName || `${args.from}---language-publish-state-map`,
-            folder: "language-publish-state",
-            path: args.outputPath,
-            res: result,
-        },
-        config,
-    );
-
-    Logger.success(
-        `Language publish-state map created for ${storyEntries.length} stories.`,
-    );
-
-    return result;
 };

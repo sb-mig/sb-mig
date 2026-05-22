@@ -10,6 +10,7 @@ interface ModifyStoryOptions {
     force_update?: boolean;
     publishLanguages?: PublishLanguagesOption;
     preservePublishState?: boolean;
+    publishDirtyPublishedStories?: boolean;
     languagePublishStateMap?: LanguagePublishStateMap;
 }
 
