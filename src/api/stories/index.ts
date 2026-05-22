@@ -2,6 +2,8 @@ export {
     createStory,
     updateStory,
     getStoryById,
+    getStoryVersions,
+    searchStorySlugs,
     removeStory,
     getStoryBySlug,
     updateStories,

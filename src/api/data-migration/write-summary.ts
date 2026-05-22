@@ -8,6 +8,7 @@ export interface MutationWriteResult {
     status?: number | string;
     response?: string | null;
     publishLanguages?: string[];
+    savedOnlyLanguages?: string[];
     sourcePublishState?: string;
     publishSkippedReason?: string;
     error?: unknown;

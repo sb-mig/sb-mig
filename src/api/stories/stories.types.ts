@@ -10,6 +10,7 @@ interface ModifyStoryOptions {
     force_update?: boolean;
     publishLanguages?: PublishLanguagesOption;
     preservePublishState?: boolean;
+    publishDirtyPublishedStories?: boolean;
     languagePublishStateMap?: LanguagePublishStateMap;
 }
 
@@ -46,6 +47,24 @@ export type GetStoryById = (
 
 export type GetStoryBySlug = (
     slug: string,
+    config: RequestBaseConfig,
+) => Promise<any>;
+
+export type SearchStorySlugs = (
+    args: {
+        search: string;
+        perPage?: number;
+    },
+    config: RequestBaseConfig,
+) => Promise<any[]>;
+
+export type GetStoryVersions = (
+    args: {
+        storyId: string;
+        showContent?: boolean;
+        page?: number;
+        perPage?: number;
+    },
     config: RequestBaseConfig,
 ) => Promise<any>;
 

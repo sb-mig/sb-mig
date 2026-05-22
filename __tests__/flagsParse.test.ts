@@ -117,7 +117,7 @@ describe("isItFactory for parsing flags", () => {
         });
     });
 
-    it("allows publish language flags as whitelisted migrate options", () => {
+    it("allows publication flags as whitelisted migrate options", () => {
         const rules = {
             all: ["all", "migrateFrom"],
             empty: [],
@@ -126,14 +126,20 @@ describe("isItFactory for parsing flags", () => {
             {
                 all: true,
                 migrateFrom: "space",
-                publish: true,
-                publishLanguages: "all",
+                publicationMode: "collapse-draft",
+                publicationLanguages: "all",
                 migration: "component-migration",
                 from: "1234",
                 to: "987",
             },
             rules,
-            ["from", "to", "migration", "publish", "publishLanguages"],
+            [
+                "from",
+                "to",
+                "migration",
+                "publicationMode",
+                "publicationLanguages",
+            ],
         );
 
         expect(isIt("all")).toBe(true);

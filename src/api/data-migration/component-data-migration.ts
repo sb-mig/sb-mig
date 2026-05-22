@@ -21,7 +21,11 @@ import Logger from "../../utils/logger.js";
 import { modifyOrCreateAppliedMigrationsFile } from "../../utils/migrations.js";
 import { isObjectEmpty } from "../../utils/object-utils.js";
 import { managementApi } from "../managementApi.js";
-import { loadLanguagePublishStateMap } from "../stories/language-publish-state.js";
+import {
+    buildLanguagePublishStateMapFromStories,
+    loadLanguagePublishStateMap,
+    type LanguagePublishStateMap,
+} from "../stories/language-publish-state.js";
 
 import {
     buildPreMigrationBackupBaseName,
@@ -42,9 +46,32 @@ import {
     type MigrationValidationIssue,
     type PreparedMigrationValidator,
 } from "./migration-validation.js";
+import {
+    buildPublishedLayerContext,
+    contentHash,
+    type PublishedLayerContext,
+    type PublishedLayerRecord,
+} from "./published-layer.js";
 import { summarizeMutationWriteResults } from "./write-summary.js";
 
 export type MigrateFrom = "file" | "space";
+export type PublicationMode =
+    | "preserve-layers"
+    | "collapse-draft"
+    | "save-only";
+
+const DEFAULT_PUBLICATION_MODE: PublicationMode = "preserve-layers";
+
+const shouldPublishForPublicationMode = (
+    publicationMode: PublicationMode,
+): boolean => publicationMode !== "save-only";
+
+const shouldUsePublishedLayerMode = (
+    publicationMode: PublicationMode,
+): boolean => publicationMode === "preserve-layers";
+
+const shouldPublishDirtyDrafts = (publicationMode: PublicationMode): boolean =>
+    publicationMode === "collapse-draft";
 
 export interface PreparedMigrationConfig {
     migrationConfigName: string;
@@ -91,8 +118,8 @@ interface MigrateItems {
         startsWith?: string;
     };
     dryRun?: boolean;
-    publish?: boolean;
-    publishLanguages?: PublishLanguagesOption;
+    publicationMode?: PublicationMode;
+    publicationLanguages?: PublishLanguagesOption;
     fromFilePath?: string;
     fileName?: string;
     languagePublishStatePath?: string;
@@ -586,8 +613,8 @@ const savePipelineSummary = async (
         from,
         itemType,
         dryRun,
-        publish,
-        publishLanguages,
+        publicationMode,
+        publicationLanguages,
         migrateFrom,
         fromFilePath,
         languagePublishStatePath,
@@ -598,8 +625,8 @@ const savePipelineSummary = async (
         from: string;
         itemType: "story" | "preset";
         dryRun?: boolean;
-        publish?: boolean;
-        publishLanguages?: PublishLanguagesOption;
+        publicationMode?: PublicationMode;
+        publicationLanguages?: PublishLanguagesOption;
         migrateFrom: MigrateFrom;
         fromFilePath?: string;
         languagePublishStatePath?: string;
@@ -623,11 +650,16 @@ const savePipelineSummary = async (
                     fromFilePath: fromFilePath || null,
                     languagePublishStatePath: languagePublishStatePath || null,
                 },
-                writeMode: itemType === "story" && publish ? "publish" : "save",
+                publicationMode:
+                    itemType === "story" ? publicationMode : "save-only",
+                writeMode:
+                    itemType === "story" && publicationMode !== "save-only"
+                        ? "publish"
+                        : "save",
                 publishLanguages:
-                    itemType === "story" && publish
+                    itemType === "story" && publicationMode !== "save-only"
                         ? {
-                              requested: publishLanguages,
+                              requested: publicationLanguages,
                           }
                         : null,
                 totalItems: pipelineResult.totalItems,
@@ -681,6 +713,663 @@ const saveDryRunDiffArtifacts = async (
             res: finalItems,
         },
         config,
+    );
+};
+
+const storyIdOf = (item: any): string => String(item?.story?.id ?? "");
+
+const indexStoriesById = (items: any[]) =>
+    new Map(items.map((item) => [storyIdOf(item), item]));
+
+const buildPublishedLayerSummary = ({
+    context,
+    draftPipelineResult,
+    publishedPipelineResult,
+}: {
+    context: PublishedLayerContext;
+    draftPipelineResult: MigrationPipelineResult;
+    publishedPipelineResult: MigrationPipelineResult | null;
+}) => {
+    const draftFinalById = indexStoriesById(draftPipelineResult.finalItems);
+    const draftChangedById = indexStoriesById(draftPipelineResult.changedItems);
+    const publishedFinalById = indexStoriesById(
+        publishedPipelineResult?.finalItems ?? [],
+    );
+    const publishedChangedById = indexStoriesById(
+        publishedPipelineResult?.changedItems ?? [],
+    );
+    const stories = context.records.map((record) => {
+        const id = String(record.storyId);
+        const draftAfter = draftFinalById.get(id);
+        const publishedAfter = publishedFinalById.get(id);
+        const draftChanged = draftChangedById.has(id);
+        const publishedLayerChanged = publishedChangedById.has(id);
+        const needsDualLayerWrite =
+            record.state === "dirty-published" &&
+            !record.missingPublishedLayer &&
+            (draftChanged || publishedLayerChanged);
+
+        return {
+            id: record.storyId,
+            name: record.name,
+            full_slug: record.full_slug,
+            state: record.state,
+            missingPublishedLayer: record.missingPublishedLayer,
+            selectedPublishedVersion: record.selectedPublishedVersion,
+            fetchedVersionCount: record.fetchedVersionCount,
+            fetchedVersionStatuses: record.fetchedVersionStatuses,
+            draftCurrentContentHashBefore: record.draftCurrentContentHash,
+            draftCurrentContentHashAfter: draftAfter?.story?.content
+                ? contentHash(draftAfter.story.content)
+                : null,
+            publishedLayerContentHashBefore:
+                record.selectedPublishedVersion?.contentHash ?? null,
+            publishedLayerContentHashAfter: publishedAfter?.story?.content
+                ? contentHash(publishedAfter.story.content)
+                : null,
+            draftChanged,
+            publishedLayerChanged,
+            shapeComparison: record.shapeComparison,
+            plannedWriteOrder: needsDualLayerWrite
+                ? [
+                      "update migrated published layer",
+                      "publish migrated published layer",
+                      "restore migrated draft/current layer with publish:false",
+                  ]
+                : [],
+        };
+    });
+    const countState = (state: string) =>
+        context.records.filter((record) => record.state === state).length;
+
+    return {
+        counts: {
+            totalSelectedStories: context.records.length,
+            draftOnlyStories: countState("draft-only"),
+            cleanPublishedStories: countState("clean-published"),
+            dirtyPublishedStories: countState("dirty-published"),
+            publishedUnknownStories: countState("published-unknown"),
+            dirtyPublishedWithPublishedLayer:
+                context.dirtyPublishedRecords.length -
+                context.missingPublishedLayerRecords.length,
+            dirtyPublishedMissingPublishedLayer:
+                context.missingPublishedLayerRecords.length,
+            draftCurrentStoriesChanged: draftPipelineResult.changedItems.length,
+            publishedLayerStoriesChanged:
+                publishedPipelineResult?.changedItems.length ?? 0,
+        },
+        stories,
+        draftCurrentPipeline: {
+            totalItems: draftPipelineResult.totalItems,
+            totalChangedItems: draftPipelineResult.changedItems.length,
+            steps: draftPipelineResult.stepReports,
+        },
+        publishedLayerPipeline: publishedPipelineResult
+            ? {
+                  totalItems: publishedPipelineResult.totalItems,
+                  totalChangedItems:
+                      publishedPipelineResult.changedItems.length,
+                  steps: publishedPipelineResult.stepReports,
+              }
+            : null,
+    };
+};
+
+const savePublishedLayerArtifacts = async (
+    {
+        artifactBaseName,
+        useDatestamp,
+        dryRun,
+        context,
+        draftInputItems,
+        draftPipelineResult,
+        publishedPipelineResult,
+    }: {
+        artifactBaseName: string;
+        useDatestamp: boolean;
+        dryRun?: boolean;
+        context: PublishedLayerContext;
+        draftInputItems: any[];
+        draftPipelineResult: MigrationPipelineResult;
+        publishedPipelineResult: MigrationPipelineResult | null;
+    },
+    config: RequestBaseConfig,
+) => {
+    const prefix = dryRun ? "dry-run--" : "";
+    const summary = buildPublishedLayerSummary({
+        context,
+        draftPipelineResult,
+        publishedPipelineResult,
+    });
+
+    await createAndSaveToFile(
+        {
+            datestamp: useDatestamp,
+            ext: "json",
+            filename: `${prefix}${artifactBaseName}---draft-current-input-full`,
+            folder: "migrations",
+            res: draftInputItems,
+        },
+        config,
+    );
+
+    await createAndSaveToFile(
+        {
+            datestamp: useDatestamp,
+            ext: "json",
+            filename: `${prefix}${artifactBaseName}---draft-current-after-full`,
+            folder: "migrations",
+            res: draftPipelineResult.finalItems,
+        },
+        config,
+    );
+
+    await createAndSaveToFile(
+        {
+            datestamp: useDatestamp,
+            ext: "json",
+            filename: `${prefix}${artifactBaseName}---published-layer-input-full`,
+            folder: "migrations",
+            res: context.publishedLayerInputItems,
+        },
+        config,
+    );
+
+    await createAndSaveToFile(
+        {
+            datestamp: useDatestamp,
+            ext: "json",
+            filename: `${prefix}${artifactBaseName}---published-layer-after-full`,
+            folder: "migrations",
+            res: publishedPipelineResult?.finalItems ?? [],
+        },
+        config,
+    );
+
+    await createAndSaveToFile(
+        {
+            datestamp: useDatestamp,
+            ext: "json",
+            filename: `${prefix}${artifactBaseName}---published-layer-summary`,
+            folder: "migrations",
+            res: summary,
+        },
+        config,
+    );
+};
+
+const getLanguageState = (
+    languagePublishStateMap: LanguagePublishStateMap | undefined,
+    story: any,
+    language: string,
+): string => {
+    return (
+        languagePublishStateMap?.stories?.[story.full_slug]?.languages?.[
+            language
+        ]?.state || "missing"
+    );
+};
+
+const shouldPublishLanguageFromState = ({
+    publicationMode,
+    languageState,
+    publishDirtyPublishedLanguages,
+}: {
+    publicationMode: PublicationMode;
+    languageState: string;
+    publishDirtyPublishedLanguages: boolean;
+}): boolean => {
+    if (publicationMode === "save-only") {
+        return false;
+    }
+
+    if (languageState === "published_clean") {
+        return true;
+    }
+
+    if (languageState === "published_with_unpublished_changes") {
+        return publishDirtyPublishedLanguages;
+    }
+
+    return false;
+};
+
+const buildPublicationPlanSummary = ({
+    publicationMode,
+    resolvedPublishLanguages,
+    languagePublishStateMap,
+    pipelineResult,
+    publishedLayerContext,
+    publishedLayerPipelineResult,
+}: {
+    publicationMode: PublicationMode;
+    resolvedPublishLanguages?: string[];
+    languagePublishStateMap?: LanguagePublishStateMap;
+    pipelineResult: MigrationPipelineResult;
+    publishedLayerContext?: PublishedLayerContext;
+    publishedLayerPipelineResult: MigrationPipelineResult | null;
+}) => {
+    const changedById = indexStoriesById(pipelineResult.changedItems);
+    const publishedChangedById = indexStoriesById(
+        publishedLayerPipelineResult?.changedItems ?? [],
+    );
+    const publishedLayerRecordById = new Map(
+        publishedLayerContext?.records.map((record) => [
+            String(record.storyId),
+            record,
+        ]) ?? [],
+    );
+
+    const stories = pipelineResult.finalItems.map((item) => {
+        const story = item.story;
+        const id = String(story?.id ?? "");
+        const changed = changedById.has(id);
+        const publishedLayerRecord = publishedLayerRecordById.get(id);
+        const publishedLayerChanged = publishedChangedById.has(id);
+        const isDirtyPreserveLayersStory =
+            publicationMode === "preserve-layers" &&
+            publishedLayerRecord?.state === "dirty-published" &&
+            !publishedLayerRecord.missingPublishedLayer;
+        const publishDirtyPublishedLanguages =
+            publicationMode === "collapse-draft" || isDirtyPreserveLayersStory;
+        const languages = (resolvedPublishLanguages ?? []).map((language) => {
+            const state = getLanguageState(
+                languagePublishStateMap,
+                story,
+                language,
+            );
+            const willPublish =
+                changed || publishedLayerChanged
+                    ? shouldPublishLanguageFromState({
+                          publicationMode,
+                          languageState: state,
+                          publishDirtyPublishedLanguages,
+                      })
+                    : false;
+
+            return {
+                language,
+                state,
+                action: willPublish ? "publish" : "save-only",
+            };
+        });
+        const languagesToPublish = languages
+            .filter((language) => language.action === "publish")
+            .map((language) => language.language);
+
+        let storyAction = "unchanged";
+
+        if (changed || publishedLayerChanged) {
+            if (publicationMode === "save-only") {
+                storyAction = "save migrated draft/current only";
+            } else if (isDirtyPreserveLayersStory) {
+                storyAction =
+                    "publish migrated published layer, then restore migrated draft/current";
+            } else if (languagesToPublish.length > 0) {
+                storyAction =
+                    "save migrated draft/current, then publish planned languages";
+            } else {
+                storyAction = "save migrated draft/current only";
+            }
+        }
+
+        return {
+            id: story?.id,
+            name: story?.name,
+            full_slug: story?.full_slug,
+            changed,
+            publicationMode,
+            storyState:
+                publishedLayerRecord?.state ??
+                getLanguageState(
+                    languagePublishStateMap,
+                    story,
+                    DEFAULT_PUBLISH_LANGUAGE,
+                ),
+            storyAction,
+            languagesToPublish,
+            languages,
+        };
+    });
+
+    return {
+        publicationMode,
+        requestedLanguages: resolvedPublishLanguages ?? [],
+        counts: {
+            totalStories: stories.length,
+            changedStories: stories.filter((story) => story.changed).length,
+            storiesWithPublishAction: stories.filter(
+                (story) => story.languagesToPublish.length > 0,
+            ).length,
+            storiesSavedOnly: stories.filter(
+                (story) =>
+                    story.changed && story.languagesToPublish.length === 0,
+            ).length,
+        },
+        stories,
+    };
+};
+
+const savePublicationPlanArtifact = async (
+    {
+        artifactBaseName,
+        useDatestamp,
+        dryRun,
+        publicationMode,
+        resolvedPublishLanguages,
+        languagePublishStateMap,
+        pipelineResult,
+        publishedLayerContext,
+        publishedLayerPipelineResult,
+    }: {
+        artifactBaseName: string;
+        useDatestamp: boolean;
+        dryRun?: boolean;
+        publicationMode: PublicationMode;
+        resolvedPublishLanguages?: string[];
+        languagePublishStateMap?: LanguagePublishStateMap;
+        pipelineResult: MigrationPipelineResult;
+        publishedLayerContext?: PublishedLayerContext;
+        publishedLayerPipelineResult: MigrationPipelineResult | null;
+    },
+    config: RequestBaseConfig,
+) => {
+    if (!dryRun) {
+        return;
+    }
+
+    await createAndSaveToFile(
+        {
+            datestamp: useDatestamp,
+            ext: "json",
+            filename: `dry-run--${artifactBaseName}---publication-plan-summary`,
+            folder: "migrations",
+            res: buildPublicationPlanSummary({
+                publicationMode,
+                resolvedPublishLanguages,
+                languagePublishStateMap,
+                pipelineResult,
+                publishedLayerContext,
+                publishedLayerPipelineResult,
+            }),
+        },
+        config,
+    );
+};
+
+const assertNoMissingPublishedLayers = (context: PublishedLayerContext) => {
+    if (context.missingPublishedLayerRecords.length === 0) {
+        return;
+    }
+
+    const slugs = context.missingPublishedLayerRecords
+        .map((record) => record.full_slug || record.storyId)
+        .join(", ");
+
+    throw new Error(
+        `Missing published Story Version for dirty published story/stories: ${slugs}`,
+    );
+};
+
+const hasStoryChangedSinceRead = (sourceStory: any, currentStory: any) => {
+    if (
+        sourceStory.current_version_id !== undefined &&
+        currentStory.current_version_id !== undefined
+    ) {
+        return (
+            sourceStory.current_version_id !== currentStory.current_version_id
+        );
+    }
+
+    if (sourceStory.updated_at && currentStory.updated_at) {
+        return sourceStory.updated_at !== currentStory.updated_at;
+    }
+
+    return false;
+};
+
+const DEFAULT_PUBLISH_LANGUAGE = "[default]";
+
+const resolvePublishedLanguagesForStoryFromMap = ({
+    story,
+    publishLanguages,
+    languagePublishStateMap,
+    publishDirtyPublishedLanguages,
+}: {
+    story: any;
+    publishLanguages: string[];
+    languagePublishStateMap?: LanguagePublishStateMap;
+    publishDirtyPublishedLanguages: boolean;
+}): string[] => {
+    if (!languagePublishStateMap) {
+        return publishLanguages;
+    }
+
+    const storyEntry = languagePublishStateMap.stories?.[story.full_slug];
+
+    return publishLanguages.filter((language) => {
+        if (language === DEFAULT_PUBLISH_LANGUAGE) {
+            return true;
+        }
+
+        const languageState = storyEntry?.languages?.[language]?.state;
+
+        if (languageState === "published_clean") {
+            return true;
+        }
+
+        if (languageState === "published_with_unpublished_changes") {
+            return publishDirtyPublishedLanguages;
+        }
+
+        return false;
+    });
+};
+
+const writeDirtyPublishedLayerStory = async (
+    {
+        record,
+        draftFinalItem,
+        draftChanged,
+        publishedFinalItem,
+        publishedLayerChanged,
+        to,
+        resolvedPublishLanguages,
+        languagePublishStateMap,
+    }: {
+        record: PublishedLayerRecord;
+        draftFinalItem: any;
+        draftChanged: boolean;
+        publishedFinalItem?: any;
+        publishedLayerChanged: boolean;
+        to: string;
+        resolvedPublishLanguages?: string[];
+        languagePublishStateMap?: LanguagePublishStateMap;
+    },
+    config: RequestBaseConfig,
+) => {
+    const sourceStory = record.draftCurrentItem.story;
+    const storyId = sourceStory.id;
+    const current = await managementApi.stories.getStoryById(String(storyId), {
+        ...config,
+        spaceId: to,
+    });
+    const currentStory = current?.story;
+
+    if (!currentStory) {
+        return {
+            ok: false,
+            stage: "update" as const,
+            id: storyId,
+            name: sourceStory.name,
+            slug: sourceStory.full_slug || sourceStory.slug,
+            spaceId: to,
+            response: "Could not re-fetch story before dual-layer write.",
+        };
+    }
+
+    if (hasStoryChangedSinceRead(sourceStory, currentStory)) {
+        return {
+            ok: false,
+            stage: "update" as const,
+            id: storyId,
+            name: sourceStory.name,
+            slug: sourceStory.full_slug || sourceStory.slug,
+            spaceId: to,
+            response:
+                "Story changed after migration input was read; refusing to overwrite draft/current layer.",
+        };
+    }
+
+    if (!publishedLayerChanged) {
+        if (!draftChanged) {
+            return {
+                ok: true,
+                stage: "update" as const,
+                id: storyId,
+                name: sourceStory.name,
+                slug: sourceStory.full_slug || sourceStory.slug,
+                spaceId: to,
+                response: "No dirty published layer changes were required.",
+            };
+        }
+
+        return managementApi.stories.updateStory(
+            draftFinalItem.story,
+            String(storyId),
+            { publish: false },
+            { ...config, spaceId: to },
+        );
+    }
+
+    if (!publishedFinalItem) {
+        return {
+            ok: false,
+            stage: "update" as const,
+            id: storyId,
+            name: sourceStory.name,
+            slug: sourceStory.full_slug || sourceStory.slug,
+            spaceId: to,
+            response: "Missing migrated published-layer payload.",
+        };
+    }
+
+    const publishedUpdateResult = await managementApi.stories.updateStory(
+        publishedFinalItem.story,
+        String(storyId),
+        { publish: !resolvedPublishLanguages },
+        { ...config, spaceId: to },
+    );
+
+    if (!publishedUpdateResult?.ok) {
+        return publishedUpdateResult;
+    }
+
+    const storyPublishLanguages = resolvedPublishLanguages
+        ? resolvePublishedLanguagesForStoryFromMap({
+              story: publishedFinalItem.story,
+              publishLanguages: resolvedPublishLanguages,
+              languagePublishStateMap,
+              publishDirtyPublishedLanguages: true,
+          })
+        : undefined;
+
+    let publishResult = {
+        ...publishedUpdateResult,
+        stage: "publish" as const,
+    };
+
+    if (storyPublishLanguages && storyPublishLanguages.length > 0) {
+        publishResult = await managementApi.stories.publishStoryLanguages(
+            {
+                storyId,
+                story: publishedFinalItem.story,
+                languages: storyPublishLanguages,
+            },
+            { ...config, spaceId: to },
+        );
+    }
+
+    const restoreDraftResult = await managementApi.stories.updateStory(
+        draftFinalItem.story,
+        String(storyId),
+        { publish: false },
+        { ...config, spaceId: to },
+    );
+
+    if (!publishResult?.ok) {
+        return {
+            ...publishResult,
+            draftRestore: restoreDraftResult,
+        };
+    }
+
+    if (!restoreDraftResult?.ok) {
+        return {
+            ...restoreDraftResult,
+            response:
+                restoreDraftResult.response ||
+                "Published layer was migrated, but draft/current restore failed.",
+        };
+    }
+
+    return {
+        ...publishResult,
+        sourcePublishState: "published_with_unpublished_changes",
+        publishSkippedReason: undefined,
+        draftRestore: restoreDraftResult,
+    };
+};
+
+const writeDirtyPublishedLayerStories = async (
+    {
+        context,
+        draftPipelineResult,
+        publishedPipelineResult,
+        to,
+        resolvedPublishLanguages,
+        languagePublishStateMap,
+    }: {
+        context: PublishedLayerContext;
+        draftPipelineResult: MigrationPipelineResult;
+        publishedPipelineResult: MigrationPipelineResult;
+        to: string;
+        resolvedPublishLanguages?: string[];
+        languagePublishStateMap?: LanguagePublishStateMap;
+    },
+    config: RequestBaseConfig,
+) => {
+    const draftFinalById = indexStoriesById(draftPipelineResult.finalItems);
+    const draftChangedById = indexStoriesById(draftPipelineResult.changedItems);
+    const publishedFinalById = indexStoriesById(
+        publishedPipelineResult.finalItems,
+    );
+    const publishedChangedById = indexStoriesById(
+        publishedPipelineResult.changedItems,
+    );
+    const recordsToWrite = context.dirtyPublishedRecords.filter((record) => {
+        const id = String(record.storyId);
+        return draftChangedById.has(id) || publishedChangedById.has(id);
+    });
+
+    return Promise.allSettled(
+        recordsToWrite.map((record) => {
+            const id = String(record.storyId);
+
+            return writeDirtyPublishedLayerStory(
+                {
+                    record,
+                    draftFinalItem: draftFinalById.get(id),
+                    draftChanged: draftChangedById.has(id),
+                    publishedFinalItem: publishedFinalById.get(id),
+                    publishedLayerChanged: publishedChangedById.has(id),
+                    to,
+                    resolvedPublishLanguages,
+                    languagePublishStateMap,
+                },
+                config,
+            );
+        }),
     );
 };
 
@@ -780,8 +1469,8 @@ export const migrateAllComponentsDataInStories = async (
         to,
         filters,
         dryRun,
-        publish,
-        publishLanguages,
+        publicationMode,
+        publicationLanguages,
         fromFilePath,
         fileName,
         languagePublishStatePath,
@@ -825,8 +1514,8 @@ export const migrateAllComponentsDataInStories = async (
             to,
             filters,
             dryRun,
-            publish,
-            publishLanguages,
+            publicationMode,
+            publicationLanguages,
             fromFilePath,
             fileName,
             languagePublishStatePath,
@@ -845,8 +1534,8 @@ export const doTheMigration = async (
         migrationConfigs,
         to,
         dryRun,
-        publish,
-        publishLanguages,
+        publicationMode = DEFAULT_PUBLICATION_MODE,
+        publicationLanguages,
         migrateFrom,
         fromFilePath,
         fileName,
@@ -859,8 +1548,8 @@ export const doTheMigration = async (
         migrationConfigs?: PreparedMigrationConfig[];
         to: string;
         dryRun?: boolean;
-        publish?: boolean;
-        publishLanguages?: PublishLanguagesOption;
+        publicationMode?: PublicationMode;
+        publicationLanguages?: PublishLanguagesOption;
         migrateFrom: MigrateFrom;
         fromFilePath?: string;
         fileName?: string;
@@ -875,8 +1564,16 @@ export const doTheMigration = async (
         });
     const artifactBaseName = resolveOutputFileBaseName({ from, fileName });
     const useDatestamp = shouldUseDatestampForArtifacts(fileName);
+    const effectivePublicationLanguages =
+        publicationMode === "save-only"
+            ? undefined
+            : (publicationLanguages ?? "all");
 
     let pipelineResult: MigrationPipelineResult;
+    let publishedLayerContext: PublishedLayerContext | undefined;
+    let publishedLayerPipelineResult: MigrationPipelineResult | null = null;
+    let resolvedPublishLanguages: string[] | undefined;
+    let languagePublishStateMap: LanguagePublishStateMap | undefined;
 
     try {
         pipelineResult = runMigrationPipelineInMemory({
@@ -926,11 +1623,97 @@ export const doTheMigration = async (
         throw error;
     }
 
+    if (itemType === "story" && shouldUsePublishedLayerMode(publicationMode)) {
+        publishedLayerContext = await buildPublishedLayerContext(
+            {
+                items: itemsToMigrate,
+                from,
+            },
+            config,
+        );
+
+        publishedLayerPipelineResult = runMigrationPipelineInMemory({
+            itemType,
+            itemsToMigrate: publishedLayerContext.publishedLayerInputItems,
+            preparedMigrationConfigs,
+        });
+
+        await savePublishedLayerArtifacts(
+            {
+                artifactBaseName,
+                useDatestamp,
+                dryRun,
+                context: publishedLayerContext,
+                draftInputItems: itemsToMigrate,
+                draftPipelineResult: pipelineResult,
+                publishedPipelineResult: publishedLayerPipelineResult,
+            },
+            config,
+        );
+
+        assertNoMissingPublishedLayers(publishedLayerContext);
+    }
+
     if (pipelineResult.changedItems.length === 0) {
         console.log("# No Stories to update #");
     } else {
         console.log(`${pipelineResult.changedItems.length} stories to migrate`);
     }
+
+    if (
+        itemType === "story" &&
+        shouldPublishForPublicationMode(publicationMode) &&
+        effectivePublicationLanguages !== undefined
+    ) {
+        resolvedPublishLanguages =
+            await managementApi.stories.resolvePublishLanguageCodes(
+                effectivePublicationLanguages,
+                {
+                    ...config,
+                    spaceId: to,
+                },
+            );
+
+        languagePublishStateMap = languagePublishStatePath
+            ? loadLanguagePublishStateMap(languagePublishStatePath)
+            : await buildLanguagePublishStateMapFromStories(
+                  {
+                      from,
+                      stories: itemsToMigrate,
+                      languages: resolvedPublishLanguages,
+                  },
+                  {
+                      ...config,
+                      spaceId: from,
+                  },
+              );
+
+        await createAndSaveToFile(
+            {
+                datestamp: useDatestamp,
+                ext: "json",
+                filename: `${dryRun ? "dry-run--" : ""}${artifactBaseName}---language-publish-state-map`,
+                folder: "migrations",
+                res: languagePublishStateMap,
+            },
+            config,
+        );
+    }
+
+    await savePublicationPlanArtifact(
+        {
+            artifactBaseName,
+            useDatestamp,
+            dryRun,
+            publicationMode,
+            resolvedPublishLanguages,
+            languagePublishStateMap,
+            pipelineResult,
+            publishedLayerContext,
+            publishedLayerPipelineResult,
+        },
+        config,
+    );
 
     await saveDryRunDiffArtifacts(
         {
@@ -962,8 +1745,8 @@ export const doTheMigration = async (
             from,
             itemType,
             dryRun,
-            publish,
-            publishLanguages,
+            publicationMode,
+            publicationLanguages: effectivePublicationLanguages,
             migrateFrom,
             fromFilePath,
             languagePublishStatePath,
@@ -974,6 +1757,11 @@ export const doTheMigration = async (
 
     if (dryRun) {
         console.log(" ");
+        if (publishedLayerPipelineResult) {
+            Logger.success(
+                `[DRY RUN] Published-layer preview complete. ${publishedLayerPipelineResult.changedItems.length} published-layer story/stories would be affected.`,
+            );
+        }
         Logger.success(
             `[DRY RUN] Migration preview complete. ${pipelineResult.changedItems.length} ${itemType}(s) would be affected.`,
         );
@@ -990,41 +1778,87 @@ export const doTheMigration = async (
         );
     }
 
-    if (pipelineResult.changedItems.length === 0) {
+    const publishedLayerChangedCount =
+        publishedLayerPipelineResult?.changedItems.length ?? 0;
+
+    if (
+        pipelineResult.changedItems.length === 0 &&
+        publishedLayerChangedCount === 0
+    ) {
         return;
     }
 
     let writeResults: PromiseSettledResult<any>[] = [];
-    let resolvedPublishLanguages: string[] | undefined;
-    const languagePublishStateMap = languagePublishStatePath
-        ? loadLanguagePublishStateMap(languagePublishStatePath)
-        : undefined;
 
     if (itemType === "story") {
-        if (publish && publishLanguages !== undefined) {
-            resolvedPublishLanguages =
-                await managementApi.stories.resolvePublishLanguageCodes(
-                    publishLanguages,
-                    {
-                        ...config,
-                        spaceId: to,
-                    },
-                );
-        }
+        if (
+            shouldUsePublishedLayerMode(publicationMode) &&
+            publishedLayerContext
+        ) {
+            const dirtyStoryIds = new Set(
+                publishedLayerContext.dirtyPublishedRecords.map((record) =>
+                    String(record.storyId),
+                ),
+            );
+            const nonDirtyChangedItems = pipelineResult.changedItems.filter(
+                (item) => !dirtyStoryIds.has(storyIdOf(item)),
+            );
+            const nonDirtyWriteResults =
+                nonDirtyChangedItems.length > 0
+                    ? await managementApi.stories.updateStories(
+                          {
+                              stories: nonDirtyChangedItems,
+                              spaceId: to,
+                              options: {
+                                  publish:
+                                      shouldPublishForPublicationMode(
+                                          publicationMode,
+                                      ),
+                                  publishLanguages: resolvedPublishLanguages,
+                                  preservePublishState:
+                                      shouldPublishForPublicationMode(
+                                          publicationMode,
+                                      ),
+                                  languagePublishStateMap,
+                              },
+                          },
+                          config,
+                      )
+                    : [];
+            const dirtyWriteResults = publishedLayerPipelineResult
+                ? await writeDirtyPublishedLayerStories(
+                      {
+                          context: publishedLayerContext,
+                          draftPipelineResult: pipelineResult,
+                          publishedPipelineResult: publishedLayerPipelineResult,
+                          to,
+                          resolvedPublishLanguages,
+                          languagePublishStateMap,
+                      },
+                      config,
+                  )
+                : [];
 
-        writeResults = await managementApi.stories.updateStories(
-            {
-                stories: pipelineResult.changedItems,
-                spaceId: to,
-                options: {
-                    publish: Boolean(publish),
-                    publishLanguages: resolvedPublishLanguages,
-                    preservePublishState: Boolean(publish),
-                    languagePublishStateMap,
+            writeResults = [...nonDirtyWriteResults, ...dirtyWriteResults];
+        } else {
+            writeResults = await managementApi.stories.updateStories(
+                {
+                    stories: pipelineResult.changedItems,
+                    spaceId: to,
+                    options: {
+                        publish:
+                            shouldPublishForPublicationMode(publicationMode),
+                        publishLanguages: resolvedPublishLanguages,
+                        preservePublishState:
+                            shouldPublishForPublicationMode(publicationMode),
+                        publishDirtyPublishedStories:
+                            shouldPublishDirtyDrafts(publicationMode),
+                        languagePublishStateMap,
+                    },
                 },
-            },
-            config,
-        );
+                config,
+            );
+        }
     } else if (itemType === "preset") {
         writeResults = await managementApi.presets.updatePresets(
             {
@@ -1047,8 +1881,8 @@ export const doTheMigration = async (
                 to,
                 itemType,
                 dryRun,
-                publish,
-                publishLanguages,
+                publish: shouldPublishForPublicationMode(publicationMode),
+                publishLanguages: effectivePublicationLanguages,
                 resolvedPublishLanguages,
                 migrateFrom,
                 fromFilePath,
@@ -1127,8 +1961,8 @@ export const migrateProvidedComponentsDataInStories = async (
         componentsToMigrate,
         filters,
         dryRun,
-        publish,
-        publishLanguages,
+        publicationMode,
+        publicationLanguages,
         fromFilePath,
         fileName,
         languagePublishStatePath,
@@ -1184,8 +2018,8 @@ export const migrateProvidedComponentsDataInStories = async (
             from,
             to,
             dryRun,
-            publish,
-            publishLanguages,
+            publicationMode,
+            publicationLanguages,
             migrateFrom,
             fromFilePath,
             fileName,

@@ -11,8 +11,10 @@ import type {
     DeepUpsertStory,
     ExtendedISbStoriesParams,
     GetStoryBySlug,
+    GetStoryVersions,
     LanguagePublishStateMap,
     PublishLanguagesOption,
+    SearchStorySlugs,
 } from "./stories.types.js";
 
 import chalk from "chalk";
@@ -43,6 +45,10 @@ type StoryPublishState =
           shouldPublish: false;
           skipReason: "source_story_has_unpublished_changes";
           message: string;
+      }
+    | {
+          status: "published_with_unpublished_changes";
+          shouldPublish: true;
       }
     | {
           status: "published_unknown";
@@ -85,7 +91,10 @@ const normalizePublishLanguageCodes = (languages: string[]): string[] => {
     return Array.from(new Set(cleanLanguages));
 };
 
-export const resolveStoryPublishState = (story: any): StoryPublishState => {
+export const resolveStoryPublishState = (
+    story: any,
+    options?: { publishDirtyPublishedStories?: boolean },
+): StoryPublishState => {
     if (story?.published !== true) {
         return {
             status: "draft",
@@ -96,6 +105,13 @@ export const resolveStoryPublishState = (story: any): StoryPublishState => {
     }
 
     if (story.unpublished_changes === true) {
+        if (options?.publishDirtyPublishedStories) {
+            return {
+                status: "published_with_unpublished_changes",
+                shouldPublish: true,
+            };
+        }
+
         return {
             status: "published_with_unpublished_changes",
             shouldPublish: false,
@@ -237,6 +253,7 @@ const isPublishLanguageStateClean = (
     languagePublishStateMap: LanguagePublishStateMap | undefined,
     story: Record<string, any>,
     language: string,
+    options?: { publishDirtyPublishedLanguages?: boolean },
 ): boolean | undefined => {
     const storyEntry = languagePublishStateMap?.stories?.[story.full_slug];
     const languageState = storyEntry?.languages?.[language]?.state;
@@ -245,7 +262,15 @@ const isPublishLanguageStateClean = (
         return undefined;
     }
 
-    return languageState === "published_clean";
+    if (languageState === "published_clean") {
+        return true;
+    }
+
+    if (languageState === "published_with_unpublished_changes") {
+        return Boolean(options?.publishDirtyPublishedLanguages);
+    }
+
+    return false;
 };
 
 const resolvePublishLanguagesForStory = ({
@@ -253,11 +278,13 @@ const resolvePublishLanguagesForStory = ({
     publishState,
     publishLanguages,
     languagePublishStateMap,
+    publishDirtyPublishedLanguages,
 }: {
     story: Record<string, any>;
     publishState?: StoryPublishState;
     publishLanguages: string[];
     languagePublishStateMap?: LanguagePublishStateMap;
+    publishDirtyPublishedLanguages?: boolean;
 }): string[] => {
     if (!languagePublishStateMap) {
         return publishState && !publishState.shouldPublish
@@ -274,6 +301,7 @@ const resolvePublishLanguagesForStory = ({
             languagePublishStateMap,
             story,
             language,
+            { publishDirtyPublishedLanguages },
         );
 
         if (languageStateAllowsPublish !== undefined) {
@@ -283,6 +311,21 @@ const resolvePublishLanguagesForStory = ({
         return !publishState || publishState.shouldPublish;
     });
 };
+
+const subtractLanguages = (
+    allLanguages: string[] | undefined,
+    publishLanguages: string[] | undefined,
+): string[] | undefined => {
+    if (!allLanguages) {
+        return undefined;
+    }
+
+    const publishSet = new Set(publishLanguages ?? []);
+    return allLanguages.filter((language) => !publishSet.has(language));
+};
+
+const formatLanguageList = (languages: string[] | undefined): string =>
+    languages && languages.length > 0 ? languages.join(",") : "none";
 
 const resolveStoryblokErrorResponse = (err: any): string | undefined => {
     if (typeof err?.response === "string" && err.response.trim().length > 0) {
@@ -448,6 +491,47 @@ export const getStoryBySlug: GetStoryBySlug = async (slug, config) => {
     return storiesWithContent[0];
 };
 
+export const searchStorySlugs: SearchStorySlugs = async (
+    { search, perPage = 10 },
+    config,
+) => {
+    const { spaceId, sbApi } = config;
+
+    return (sbApi as any)
+        .get(`spaces/${spaceId}/stories/`, {
+            per_page: perPage,
+            search,
+        })
+        .then((res: any) => res.data.stories ?? [])
+        .catch((err: any) => {
+            Logger.error(err);
+            return [];
+        });
+};
+
+export const getStoryVersions: GetStoryVersions = async (
+    { storyId, showContent = true, page = 1, perPage = 25 },
+    config,
+) => {
+    const { spaceId, sbApi, debug } = config;
+
+    if (debug) {
+        console.log(
+            `Trying to get story versions for story id: ${storyId} from space: ${spaceId}.`,
+        );
+    }
+
+    return (sbApi as any)
+        .get(`spaces/${spaceId}/story_versions`, {
+            by_story_id: storyId,
+            show_content: showContent,
+            page,
+            per_page: perPage,
+        })
+        .then((res: any) => res.data)
+        .catch((err: any) => Logger.error(err));
+};
+
 // CREATE
 export const createStory: CreateStory = (content, config) => {
     const { spaceId, sbApi } = config;
@@ -593,6 +677,9 @@ export const updateStories: UpdateStories = async (args, config) => {
     const shouldPublishLanguages =
         options.publish && options.publishLanguages !== undefined;
     const shouldPreservePublishState = Boolean(options.preservePublishState);
+    const shouldPublishDirtyPublishedStories = Boolean(
+        options.publishDirtyPublishedStories,
+    );
     const publishLanguages = shouldPublishLanguages
         ? await resolvePublishLanguageCodes(options.publishLanguages, {
               ...config,
@@ -605,7 +692,10 @@ export const updateStories: UpdateStories = async (args, config) => {
         stories.map(async (stories: any) => {
             const story = stories.story;
             const publishState = shouldPreservePublishState
-                ? resolveStoryPublishState(story)
+                ? resolveStoryPublishState(story, {
+                      publishDirtyPublishedStories:
+                          shouldPublishDirtyPublishedStories,
+                  })
                 : undefined;
             const storyPublishLanguages = publishLanguages
                 ? resolvePublishLanguagesForStory({
@@ -613,6 +703,8 @@ export const updateStories: UpdateStories = async (args, config) => {
                       publishState,
                       publishLanguages,
                       languagePublishStateMap: options.languagePublishStateMap,
+                      publishDirtyPublishedLanguages:
+                          shouldPublishDirtyPublishedStories,
                   })
                 : undefined;
             const shouldPublishStory =
@@ -620,6 +712,22 @@ export const updateStories: UpdateStories = async (args, config) => {
                 (!publishState || publishState.shouldPublish) &&
                 (!shouldPublishLanguages ||
                     storyPublishLanguages?.includes(DEFAULT_PUBLISH_LANGUAGE));
+            const savedOnlyLanguages = subtractLanguages(
+                publishLanguages,
+                storyPublishLanguages,
+            );
+            const storyLabel = resolveStoryLabel(story, String(story.id));
+
+            if (options.publish && shouldPublishLanguages) {
+                Logger.log(
+                    `Publication plan for story '${storyLabel}' in space '${spaceId}': publish languages [${formatLanguageList(storyPublishLanguages)}]; save-only languages [${formatLanguageList(savedOnlyLanguages)}].`,
+                );
+            } else if (!options.publish) {
+                Logger.log(
+                    `Publication plan for story '${storyLabel}' in space '${spaceId}': update draft/current JSON only; no languages will be published.`,
+                );
+            }
+
             const updateResult = await updateStory(
                 story,
                 story.id,
@@ -629,6 +737,12 @@ export const updateStories: UpdateStories = async (args, config) => {
                 },
                 { ...config, spaceId },
             );
+
+            if (updateResult?.ok) {
+                Logger.success(
+                    `Updated draft/current story JSON for '${storyLabel}' in space '${spaceId}'.`,
+                );
+            }
 
             if (
                 options.publish &&
@@ -654,10 +768,14 @@ export const updateStories: UpdateStories = async (args, config) => {
                 storyPublishLanguages.length === 0 ||
                 !updateResult?.ok
             ) {
-                return updateResult;
+                return {
+                    ...updateResult,
+                    publishLanguages: storyPublishLanguages,
+                    savedOnlyLanguages,
+                };
             }
 
-            return publishStoryLanguages(
+            const publishResult = await publishStoryLanguages(
                 {
                     storyId: story.id,
                     story,
@@ -665,6 +783,11 @@ export const updateStories: UpdateStories = async (args, config) => {
                 },
                 { ...config, spaceId },
             );
+
+            return {
+                ...publishResult,
+                savedOnlyLanguages,
+            };
         }),
     );
 };

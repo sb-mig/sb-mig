@@ -564,6 +564,146 @@ describe("updateStories publish languages", () => {
         });
     });
 
+    it("publishes dirty published stories when collapsing draft state", async () => {
+        const put = vi.fn().mockResolvedValue({
+            data: {
+                story: {
+                    id: "story-1",
+                    name: "Japan",
+                    full_slug: "tours/destinations/japan",
+                },
+            },
+        });
+        const get = vi.fn().mockResolvedValue({
+            data: {
+                story: {
+                    id: "story-1",
+                    name: "Japan",
+                    full_slug: "tours/destinations/japan",
+                },
+            },
+        });
+        const config = {
+            spaceId: "291967263583956",
+            sbApi: {
+                put,
+                get,
+            },
+        } as any;
+        const story = {
+            story: {
+                id: "story-1",
+                name: "Japan",
+                full_slug: "tours/destinations/japan",
+                published: true,
+                unpublished_changes: true,
+            },
+        };
+
+        const results = await updateStories(
+            {
+                stories: [story],
+                spaceId: "291967263583956",
+                options: {
+                    publish: true,
+                    publishLanguages: "default",
+                    preservePublishState: true,
+                    publishDirtyPublishedStories: true,
+                },
+            },
+            config,
+        );
+
+        expect(put).toHaveBeenCalledWith(
+            "spaces/291967263583956/stories/story-1",
+            {
+                story: story.story,
+                publish: false,
+                force_update: false,
+            },
+        );
+        expect(get).toHaveBeenCalledWith(
+            "spaces/291967263583956/stories/story-1/publish",
+            { lang: "[default]" },
+        );
+        expect(results[0]).toMatchObject({
+            status: "fulfilled",
+            value: {
+                ok: true,
+                stage: "publish",
+                publishLanguages: ["[default]"],
+            },
+        });
+    });
+
+    it("publishes dirty translated languages when collapsing draft state", async () => {
+        const put = vi.fn().mockResolvedValue({
+            data: {
+                story: {
+                    id: "story-1",
+                    name: "Japan",
+                    full_slug: "tours/destinations/japan",
+                },
+            },
+        });
+        const get = vi.fn().mockResolvedValue({
+            data: {
+                story: {
+                    id: "story-1",
+                    name: "Japan",
+                    full_slug: "tours/destinations/japan",
+                },
+            },
+        });
+        const config = {
+            spaceId: "291967263583956",
+            sbApi: {
+                put,
+                get,
+            },
+        } as any;
+        const story = {
+            story: {
+                id: "story-1",
+                name: "Japan",
+                full_slug: "tours/destinations/japan",
+                published: true,
+                unpublished_changes: true,
+            },
+        };
+
+        await updateStories(
+            {
+                stories: [story],
+                spaceId: "291967263583956",
+                options: {
+                    publish: true,
+                    publishLanguages: ["[default]", "fr", "de"],
+                    preservePublishState: true,
+                    publishDirtyPublishedStories: true,
+                    languagePublishStateMap: {
+                        stories: {
+                            "tours/destinations/japan": {
+                                languages: {
+                                    fr: {
+                                        state: "published_with_unpublished_changes",
+                                    },
+                                    de: { state: "draft_or_unpublished" },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+            config,
+        );
+
+        expect(get).toHaveBeenCalledWith(
+            "spaces/291967263583956/stories/story-1/publish",
+            { lang: "[default],fr" },
+        );
+    });
+
     it("updates then publishes languages for clean-published source stories", async () => {
         const put = vi.fn().mockResolvedValue({
             data: {
