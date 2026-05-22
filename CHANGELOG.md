@@ -1,3 +1,11 @@
+# [6.1.0-beta.2](https://github.com/sb-mig/sb-mig/compare/v6.1.0-beta.1...v6.1.0-beta.2) (2026-05-22)
+
+
+### Features
+
+* **migrate:** add publication modes ([a29f201](https://github.com/sb-mig/sb-mig/commit/a29f2012847c32585dd24d6c35f59b112844ce35))
+* **migrate:** preserve published story layers ([66843dd](https://github.com/sb-mig/sb-mig/commit/66843dd2b65ca65714314704fb06a67f946c22b3))
+
 # [6.1.0-beta.1](https://github.com/sb-mig/sb-mig/compare/v6.0.1-beta.1...v6.1.0-beta.1) (2026-05-20)
 
 
