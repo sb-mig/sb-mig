@@ -1,3 +1,20 @@
+# [6.1.0](https://github.com/sb-mig/sb-mig/compare/v6.0.0...v6.1.0) (2026-05-26)
+
+
+### Bug Fixes
+
+* **api:** encode query parameters with URLSearchParams ([509648f](https://github.com/sb-mig/sb-mig/commit/509648fd7d39039e2a20df5c05eeff55da66a83f))
+* **discover:** normalize Windows component paths ([4283a37](https://github.com/sb-mig/sb-mig/commit/4283a37fe12bdec67bea2c9554728e2f68f4513c))
+* improve language publish state ([13af2a9](https://github.com/sb-mig/sb-mig/commit/13af2a91404165d576cf778be02420762a91d85b))
+* **migrate:** use Storyblok client for language state checks ([3d834ce](https://github.com/sb-mig/sb-mig/commit/3d834ce34081c8e88fed2e013322a5647c3aa58a))
+
+
+### Features
+
+* add langauge publish state command ([834be88](https://github.com/sb-mig/sb-mig/commit/834be88bced3b7b9464c304ed603a2c22df7d776))
+* **migrate:** add publication modes ([a29f201](https://github.com/sb-mig/sb-mig/commit/a29f2012847c32585dd24d6c35f59b112844ce35))
+* **migrate:** preserve published story layers ([66843dd](https://github.com/sb-mig/sb-mig/commit/66843dd2b65ca65714314704fb06a67f946c22b3))
+
 # [6.1.0-beta.3](https://github.com/sb-mig/sb-mig/compare/v6.1.0-beta.2...v6.1.0-beta.3) (2026-05-26)
 
 
