@@ -14,6 +14,7 @@ vi.mock("../../src/utils/logger.js", () => ({
 }));
 
 import {
+    getStoryById,
     parsePublishLanguagesOption,
     resolvePublishLanguageCodes,
     resolveStoryPublishState,
@@ -131,6 +132,34 @@ describe("updateStory", () => {
             status: 422,
             response: "The field sb-tab-item.content can't be blank",
         });
+    });
+});
+
+describe("getStoryById", () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+    });
+
+    it("logs fetch errors with status and Storyblok response instead of object dumps", async () => {
+        const get = vi.fn().mockRejectedValue({
+            status: 429,
+            response: {
+                data: ["Too Many Requests"],
+            },
+        });
+        const config = {
+            spaceId: "291967263583956",
+            sbApi: {
+                get,
+            },
+        } as any;
+
+        const result = await getStoryById("story-1", config);
+
+        expect(result).toBeUndefined();
+        expect(loggerMock.error).toHaveBeenCalledWith(
+            "Failed to fetch story 'story-1' with full content from space '291967263583956' (status 429). Response: Too Many Requests",
+        );
     });
 });
 

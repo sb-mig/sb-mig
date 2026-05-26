@@ -4,6 +4,8 @@ import { createHash } from "crypto";
 import fs from "fs";
 import path from "path";
 
+import StoryblokClient from "storyblok-js-client";
+
 import { mapWithConcurrency } from "../../utils/async-utils.js";
 import { createAndSaveToFile } from "../../utils/files.js";
 import Logger from "../../utils/logger.js";
@@ -12,6 +14,9 @@ import { getAllStories, getStoryBySlug } from "./stories.js";
 
 const DEFAULT_LANGUAGE = "[default]";
 const DELIVERY_CHECK_CONCURRENCY = 5;
+const DELIVERY_API_DEFAULT_RATE_LIMIT = 5;
+const DELIVERY_API_MAX_RETRIES = 10;
+const DELIVERY_API_TIMEOUT_SECONDS = 60;
 
 export type LanguagePublishState =
     | "published_clean"
@@ -75,7 +80,120 @@ interface DeliveryCheck {
     fullSlug: string | null;
     publishedAt: string | null;
     contentHash: string | null;
+    errorMessage?: string | null;
 }
+
+export const createStatusPreservingFetch =
+    (baseFetch: typeof fetch = fetch): typeof fetch =>
+    async (input, init) => {
+        const response = await baseFetch(input, init);
+
+        if (response.ok) {
+            return response;
+        }
+
+        const responseText = await response
+            .clone()
+            .text()
+            .catch(() => "");
+
+        if (responseText.trim().length === 0) {
+            return new Response("{}", {
+                status: response.status,
+                statusText: response.statusText,
+                headers: response.headers,
+            });
+        }
+
+        try {
+            JSON.parse(responseText);
+            return response;
+        } catch {
+            return new Response(JSON.stringify({ error: responseText }), {
+                status: response.status,
+                statusText: response.statusText,
+                headers: response.headers,
+            });
+        }
+    };
+
+const createDeliveryClient = ({
+    accessToken,
+    deliveryApiUrl,
+    rateLimit,
+}: {
+    accessToken: string;
+    deliveryApiUrl: string;
+    rateLimit?: number;
+}) =>
+    new StoryblokClient(
+        {
+            accessToken,
+            rateLimit: rateLimit ?? DELIVERY_API_DEFAULT_RATE_LIMIT,
+            maxRetries: DELIVERY_API_MAX_RETRIES,
+            timeout: DELIVERY_API_TIMEOUT_SECONDS,
+            fetch: createStatusPreservingFetch(),
+            cache: {
+                clear: "auto",
+                type: "none",
+            },
+        },
+        deliveryApiUrl,
+    );
+
+const resolveStoryblokErrorStatus = (error: any): number =>
+    error?.status ??
+    error?.response?.status ??
+    error?.response?.response?.status ??
+    error?.response?.data?.status ??
+    error?.message?.status ??
+    error?.message?.response?.status ??
+    error?.message?.response?.response?.status ??
+    error?.message?.response?.data?.status ??
+    0;
+
+const resolveStoryblokErrorMessage = (error: any): string | null => {
+    const responseData = error?.response?.data;
+
+    if (Array.isArray(responseData)) {
+        return responseData.filter(Boolean).join(", ") || null;
+    }
+
+    if (typeof responseData === "string") {
+        return responseData;
+    }
+
+    if (responseData && typeof responseData === "object") {
+        return (
+            responseData.error ||
+            responseData.message ||
+            error?.response?.message ||
+            error?.message?.message ||
+            error?.message ||
+            null
+        );
+    }
+
+    if (error?.message && typeof error.message === "object") {
+        return (
+            error.message.message ||
+            error.message.response?.message ||
+            error.message.response?.data?.error ||
+            null
+        );
+    }
+
+    return error?.message || null;
+};
+
+const isStoryblokNotFoundMessage = (message: string | null): boolean => {
+    const normalized = message?.trim().toLowerCase();
+
+    return (
+        normalized === "not found" ||
+        normalized === "this record could not be found"
+    );
+};
 
 const cleanStoryblokContent = (value: any): any => {
     if (Array.isArray(value)) {
@@ -203,40 +321,67 @@ const classifyTranslatedLanguageState = ({
 };
 
 const fetchDeliveryStory = async ({
-    deliveryApiUrl,
-    accessToken,
+    deliveryClient,
     slug,
     version,
     language,
 }: {
-    deliveryApiUrl: string;
-    accessToken: string;
+    deliveryClient: Pick<StoryblokClient, "get">;
     slug: string;
     version: "published" | "draft";
     language?: string;
 }): Promise<DeliveryCheck> => {
-    const url = new URL(
-        `${deliveryApiUrl.replace(/\/$/, "")}/cdn/stories/${slug}`,
-    );
-    url.searchParams.set("token", accessToken);
-    url.searchParams.set("version", version);
-    url.searchParams.set("cv", String(Date.now()));
+    const params: Record<string, string> = {
+        version,
+        cv: String(Date.now()),
+    };
 
     if (language && language !== DEFAULT_LANGUAGE) {
-        url.searchParams.set("language", language);
+        params.language = language;
     }
 
-    const response = await fetch(url);
-    const data = await response.json().catch(() => null);
-    const story = data?.story;
+    try {
+        const response = await deliveryClient.get(
+            `cdn/stories/${slug}`,
+            params,
+        );
+        const story = response?.data?.story;
 
-    return {
-        status: response.status,
-        ok: response.ok,
-        fullSlug: story?.full_slug || null,
-        publishedAt: story?.published_at || null,
-        contentHash: story?.content ? hashContent(story.content) : null,
-    };
+        return {
+            status: 200,
+            ok: true,
+            fullSlug: story?.full_slug || null,
+            publishedAt: story?.published_at || null,
+            contentHash: story?.content ? hashContent(story.content) : null,
+        };
+    } catch (error: any) {
+        const errorMessage = resolveStoryblokErrorMessage(error);
+        const status =
+            resolveStoryblokErrorStatus(error) ||
+            (isStoryblokNotFoundMessage(errorMessage) ? 404 : 0);
+        const story = error?.response?.data?.story;
+
+        if (status === 429) {
+            throw new Error(
+                `Storyblok Delivery API rate limit did not recover after retries for '${slug}' (${version}${language ? `, ${language}` : ""}).`,
+            );
+        }
+
+        if (status === 0) {
+            throw new Error(
+                `Storyblok Delivery API request failed without an HTTP status for '${slug}' (${version}${language ? `, ${language}` : ""})${errorMessage ? `: ${errorMessage}` : "."}`,
+            );
+        }
+
+        return {
+            status,
+            ok: false,
+            fullSlug: story?.full_slug || null,
+            publishedAt: story?.published_at || null,
+            contentHash: story?.content ? hashContent(story.content) : null,
+            errorMessage,
+        };
+    }
 };
 
 const loadStoriesForLanguageState = async (
@@ -384,13 +529,31 @@ export const buildLanguagePublishStateMapFromStories = async (
     }
 
     const deliveryAccessToken = accessToken || "";
-
     const deliveryApiUrl =
         config.storyblokDeliveryApiUrl || "https://api.storyblok.com/v2";
     const uniqueLanguages = Array.from(new Set(args.languages));
+    const translatedLanguages = uniqueLanguages.filter(
+        (language) => language !== DEFAULT_LANGUAGE,
+    );
     const stories = args.stories.filter(
         (item: any) => item?.story && item.story.is_folder !== true,
     );
+    const deliveryClient = needsDeliveryApi
+        ? createDeliveryClient({
+              accessToken: deliveryAccessToken,
+              deliveryApiUrl,
+              rateLimit: config.rateLimit,
+          })
+        : null;
+    const totalDeliveryChecks = stories.length * translatedLanguages.length * 2;
+
+    if (needsDeliveryApi) {
+        Logger.log(
+            `Resolving translated language publish state for ${stories.length} stories and ${translatedLanguages.length} language(s). Up to ${totalDeliveryChecks} Delivery API check(s) will run through StoryblokClient at ${config.rateLimit ?? DELIVERY_API_DEFAULT_RATE_LIMIT} req/s.`,
+        );
+    }
+
+    let processedStories = 0;
 
     const storyEntries = await mapWithConcurrency(
         stories,
@@ -414,15 +577,13 @@ export const buildLanguagePublishStateMapFromStories = async (
 
                 const [published, draft] = await Promise.all([
                     fetchDeliveryStory({
-                        deliveryApiUrl,
-                        accessToken: deliveryAccessToken,
+                        deliveryClient: deliveryClient as StoryblokClient,
                         slug: story.full_slug,
                         version: "published",
                         language,
                     }),
                     fetchDeliveryStory({
-                        deliveryApiUrl,
-                        accessToken: deliveryAccessToken,
+                        deliveryClient: deliveryClient as StoryblokClient,
                         slug: story.full_slug,
                         version: "draft",
                         language,
@@ -440,7 +601,7 @@ export const buildLanguagePublishStateMapFromStories = async (
                 };
             }
 
-            return {
+            const storyEntry = {
                 id: story.id,
                 uuid: story.uuid,
                 name: story.name,
@@ -452,6 +613,19 @@ export const buildLanguagePublishStateMapFromStories = async (
                     )
                     .map(([language]) => language),
             };
+
+            processedStories++;
+            if (
+                needsDeliveryApi &&
+                (processedStories % 10 === 0 ||
+                    processedStories === stories.length)
+            ) {
+                Logger.success(
+                    `Resolved translated language publish state for ${processedStories}/${stories.length} stories.`,
+                );
+            }
+
+            return storyEntry;
         },
     );
 
