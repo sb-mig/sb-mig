@@ -1,3 +1,10 @@
+# [6.1.0-beta.3](https://github.com/sb-mig/sb-mig/compare/v6.1.0-beta.2...v6.1.0-beta.3) (2026-05-26)
+
+
+### Bug Fixes
+
+* **migrate:** use Storyblok client for language state checks ([3d834ce](https://github.com/sb-mig/sb-mig/commit/3d834ce34081c8e88fed2e013322a5647c3aa58a))
+
 # [6.1.0-beta.2](https://github.com/sb-mig/sb-mig/compare/v6.1.0-beta.1...v6.1.0-beta.2) (2026-05-22)
 
 
