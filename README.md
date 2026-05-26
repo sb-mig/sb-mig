@@ -1,11 +1,11 @@
 <p align="center">
     <img width="250" height="250" src="./sb-mig-logo.png" alt="Logo" />
 </p>
-If you've found an issue or you have feature request - <a href="https://github.com/marckraw/sb-mig/issues/new">open an issue</a> or look if it was <a href="https://github.com/sb-mig/sb-mig/issues/">already created</a>.
+If you've found an issue or you have feature request - <a href="https://github.com/sb-mig/sb-mig/issues/new">open an issue</a> or look if it was <a href="https://github.com/sb-mig/sb-mig/issues/">already created</a>.
 <br />
 
 [![npm](https://img.shields.io/npm/v/sb-mig.svg)](https://www.npmjs.com/package/sb-mig)
-[![npm](https://img.shields.io/npm/dt/sb-mig.svg)](ttps://img.shields.io/npm/dt/sb-mig.svg)
+[![npm](https://img.shields.io/npm/dt/sb-mig.svg)](https://www.npmjs.com/package/sb-mig)
 [![GitHub issues](https://img.shields.io/github/issues/sb-mig/sb-mig.svg?style=flat-square&v=1)](https://github.com/sb-mig/sb-mig/issues?q=is%3Aopen+is%3Aissue)
 ![npm](https://img.shields.io/npms-io/maintenance-score/sb-mig)
 
@@ -14,6 +14,29 @@ If you've found an issue or you have feature request - <a href="https://github.c
 |      |              |
 | ---- | ------------ |
 | Node | 22.x.x or >=24.x.x |
+
+# 6.x.x version released!
+
+## Important Updates
+
+- New migration publication model for stories. `sb-mig migrate content` now supports `--publicationMode preserve-layers`, `--publicationMode collapse-draft`, and `--publicationMode save-only`.
+- Default migration behavior is now built around preserving Storyblok publication state where possible, including dirty published stories with separate draft/current and published layers.
+- New language-aware publication support through `--publicationLanguages` and reusable language publish-state maps.
+- New read-only inspection commands:
+    - `sb-mig language-publish-state`
+    - `sb-mig published-layer-export`
+    - `sb-mig story-versions`
+- Migration runs now write better operational artifacts, including dry-run output, publication plans, published-layer summaries, and JSONL run logs.
+- Programmatic asset helpers are now exposed for creating local-file assets and updating existing asset metadata.
+- Windows path handling, selected component syncs, schema precompile imports, query parameter encoding, and SSOT/default content type handling were hardened.
+
+## Breaking changes
+
+- Node 20 is no longer supported. Supported runtimes are Node 22 and Node 24 or newer.
+- The old migration publish flags were replaced:
+    - `--publish` is now `--publicationMode`
+    - `--publishLanguages` is now `--publicationLanguages`
+    - `--preservePublishedLayer` is now `--publicationMode preserve-layers`
 
 # 5.x.x version released!
 
@@ -58,6 +81,8 @@ Do not hesitate to get in touch if you encounter any issues or require further c
     - [Basics](#basics)
     - [Syncing components](#syncing-components)
     - [Syncing datasources](#syncing-datasources)
+    - [Migrating content](#migrating-content)
+    - [Inspecting publication state](#inspecting-publication-state)
     - [Presets support](#presets-support)
 - [Development](#development)
 - [Roadmap](#roadmap)
@@ -232,6 +257,103 @@ stories from a space or from a file.
 sb-mig migrate content --all --from 12345 --to 12345 --migration itemsToContent
 ```
 
+You can run multiple migration configs in order:
+
+```bash
+sb-mig migrate content --all \
+  --from 12345 \
+  --to 12345 \
+  --migration migration-a \
+  --migration migration-b \
+  --migration migration-c
+```
+
+### Publication modes
+
+Storyblok stories can have separate draft/current and published layers. In 6.x, `sb-mig` makes this explicit with `--publicationMode`.
+
+`preserve-layers` is the default. Use it when you want migrated stories to keep the source publication shape: draft-only stories stay draft-only, clean published stories stay published, and dirty published stories keep separate migrated draft/current and published layers. This mode currently requires migrating from a Storyblok space to the same Storyblok space.
+
+```bash
+sb-mig migrate content --all \
+  --from 12345 \
+  --to 12345 \
+  --migration itemsToContent \
+  --publicationMode preserve-layers \
+  --yes
+```
+
+`collapse-draft` publishes changed stories and can collapse draft/current changes into the published result. Use this when the target should end up with the migrated content published.
+
+```bash
+sb-mig migrate content --all \
+  --from 12345 \
+  --to 12345 \
+  --migration itemsToContent \
+  --publicationMode collapse-draft \
+  --publicationLanguages all \
+  --yes
+```
+
+`save-only` updates draft/current JSON without publishing any languages.
+
+```bash
+sb-mig migrate content --all \
+  --from 12345 \
+  --to 12345 \
+  --migration itemsToContent \
+  --publicationMode save-only \
+  --yes
+```
+
+Use `--publicationLanguages` with `default`, `all`, or a comma-separated list of Storyblok language codes:
+
+```bash
+sb-mig migrate content --all \
+  --from 12345 \
+  --to 12345 \
+  --migration itemsToContent \
+  --publicationMode collapse-draft \
+  --publicationLanguages default,fr,de \
+  --yes
+```
+
+When `--publicationMode` publishes languages, `sb-mig` can build the language publish-state map automatically. For bigger or more sensitive runs, generate the map first and pass it back with `--languagePublishStatePath`:
+
+```bash
+sb-mig language-publish-state \
+  --from 12345 \
+  --startsWith blog/ \
+  --languages all \
+  --fileName blog-prod
+
+sb-mig migrate content --all \
+  --from 12345 \
+  --to 12345 \
+  --migration itemsToContent \
+  --publicationMode preserve-layers \
+  --publicationLanguages all \
+  --languagePublishStatePath sbmig/language-publish-state/blog-prod.json \
+  --yes
+```
+
+### Migration artifacts
+
+Migrations write JSON artifacts under `sbmig/migrations` by default. Use `--dry-run` to preview the selected stories, transformed output, publication plan, and write summary without making Storyblok API writes.
+
+```bash
+sb-mig migrate content --all \
+  --from 12345 \
+  --to 12345 \
+  --migration itemsToContent \
+  --publicationMode preserve-layers \
+  --publicationLanguages all \
+  --dry-run \
+  --fileName blog-v6-check
+```
+
+6.x also writes JSONL migration run logs for easier auditing and post-run debugging. When published layers are involved, additional published-layer input/output and summary files are written.
+
 ### Extending migration component scope
 
 Migration files export a mapper keyed by component name. By default, `sb-mig`
@@ -265,6 +387,35 @@ sb-mig migrate content --all \
 This runs `colorPickerModeValues` for the normal Backpack keys and also for the
 two wrapper component names by aliasing them onto the existing `sb-button` and
 `sb-section` migration handlers.
+
+## Inspecting publication state
+
+These commands are read-only against Storyblok and are useful before a migration run.
+
+Build a language publish-state map:
+
+```bash
+sb-mig language-publish-state \
+  --from 12345 \
+  --startsWith about/ \
+  --languages all \
+  --fileName about-prod
+```
+
+Export draft/current and latest published story layers:
+
+```bash
+sb-mig published-layer-export \
+  --from 12345 \
+  --startsWith about/ \
+  --fileName about-layer-check
+```
+
+Inspect raw Storyblok story versions for a single story:
+
+```bash
+sb-mig story-versions --from 12345 --withSlug about/contact --raw
+```
 
 You can also sync your `datasources`.
 
