@@ -327,9 +327,24 @@ const subtractLanguages = (
 const formatLanguageList = (languages: string[] | undefined): string =>
     languages && languages.length > 0 ? languages.join(",") : "none";
 
+const resolveStoryblokErrorStatus = (err: any): number | undefined =>
+    err?.status ??
+    err?.response?.status ??
+    err?.response?.response?.status ??
+    err?.message?.status ??
+    err?.message?.response?.status;
+
 const resolveStoryblokErrorResponse = (err: any): string | undefined => {
     if (typeof err?.response === "string" && err.response.trim().length > 0) {
         return err.response.trim();
+    }
+
+    if (Array.isArray(err?.response?.data)) {
+        const message = err.response.data.filter(Boolean).join(", ").trim();
+
+        if (message.length > 0) {
+            return message;
+        }
     }
 
     if (
@@ -344,6 +359,31 @@ const resolveStoryblokErrorResponse = (err: any): string | undefined => {
         err.response.message.trim().length > 0
     ) {
         return err.response.message.trim();
+    }
+
+    if (
+        typeof err?.message?.message === "string" &&
+        err.message.message.trim().length > 0
+    ) {
+        return err.message.message.trim();
+    }
+
+    if (Array.isArray(err?.message?.response?.data)) {
+        const message = err.message.response.data
+            .filter(Boolean)
+            .join(", ")
+            .trim();
+
+        if (message.length > 0) {
+            return message;
+        }
+    }
+
+    if (
+        typeof err?.message?.response?.data === "string" &&
+        err.message.response.data.trim().length > 0
+    ) {
+        return err.message.response.data.trim();
     }
 
     if (typeof err?.message === "string" && err.message.trim().length > 0) {
@@ -468,7 +508,20 @@ export const getStoryById: GetStoryById = (storyId, config) => {
 
             return res.data;
         })
-        .catch((err: any) => Logger.error(err));
+        .catch((err: any) => {
+            const status = resolveStoryblokErrorStatus(err);
+            const responseMessage = resolveStoryblokErrorResponse(err);
+            const statusLabel = status ? `status ${status}` : "unknown status";
+            const responseLabel = responseMessage
+                ? ` Response: ${responseMessage}`
+                : "";
+
+            Logger.error(
+                `Failed to fetch story '${storyId}' with full content from space '${spaceId}' (${statusLabel}).${responseLabel}`,
+            );
+
+            return undefined;
+        });
 };
 
 export const getStoryBySlug: GetStoryBySlug = async (slug, config) => {
