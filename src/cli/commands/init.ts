@@ -8,6 +8,7 @@ import { v4 as uuidv4 } from "uuid";
 import { managementApi } from "../../api/managementApi.js";
 import { storyblokApiMapping } from "../../config/constants.js";
 import Logger from "../../utils/logger.js";
+import { buildUrl } from "../../utils/url-utils.js";
 import { apiConfig } from "../api-config.js";
 
 const INIT_COMMANDS = {
@@ -97,11 +98,20 @@ export const init = async (props: CLIOptions) => {
             }
 
             try {
+                const previewDomainUrl = buildUrl({
+                    baseUrl: "https://localhost:3000",
+                    pathname: "api/preview/preview",
+                    searchParams: {
+                        secret: STORYBLOK_PREVIEW_SECRET,
+                        slug: "",
+                    },
+                });
+
                 await managementApi.spaces.updateSpace(
                     {
                         spaceId,
                         params: {
-                            domain: `https://localhost:3000/api/preview/preview?secret=${STORYBLOK_PREVIEW_SECRET}&slug=`,
+                            domain: previewDomainUrl.toString(),
                         },
                     },
                     { ...apiConfig, sbApi: localSbApi },

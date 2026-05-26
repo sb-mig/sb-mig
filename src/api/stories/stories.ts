@@ -11,7 +11,10 @@ import type {
     DeepUpsertStory,
     ExtendedISbStoriesParams,
     GetStoryBySlug,
+    GetStoryVersions,
+    LanguagePublishStateMap,
     PublishLanguagesOption,
+    SearchStorySlugs,
 } from "./stories.types.js";
 
 import chalk from "chalk";
@@ -42,6 +45,10 @@ type StoryPublishState =
           shouldPublish: false;
           skipReason: "source_story_has_unpublished_changes";
           message: string;
+      }
+    | {
+          status: "published_with_unpublished_changes";
+          shouldPublish: true;
       }
     | {
           status: "published_unknown";
@@ -84,7 +91,10 @@ const normalizePublishLanguageCodes = (languages: string[]): string[] => {
     return Array.from(new Set(cleanLanguages));
 };
 
-export const resolveStoryPublishState = (story: any): StoryPublishState => {
+export const resolveStoryPublishState = (
+    story: any,
+    options?: { publishDirtyPublishedStories?: boolean },
+): StoryPublishState => {
     if (story?.published !== true) {
         return {
             status: "draft",
@@ -95,6 +105,13 @@ export const resolveStoryPublishState = (story: any): StoryPublishState => {
     }
 
     if (story.unpublished_changes === true) {
+        if (options?.publishDirtyPublishedStories) {
+            return {
+                status: "published_with_unpublished_changes",
+                shouldPublish: true,
+            };
+        }
+
         return {
             status: "published_with_unpublished_changes",
             shouldPublish: false,
@@ -232,9 +249,102 @@ export const resolvePublishLanguageCodes = async (
     ]);
 };
 
+const isPublishLanguageStateClean = (
+    languagePublishStateMap: LanguagePublishStateMap | undefined,
+    story: Record<string, any>,
+    language: string,
+    options?: { publishDirtyPublishedLanguages?: boolean },
+): boolean | undefined => {
+    const storyEntry = languagePublishStateMap?.stories?.[story.full_slug];
+    const languageState = storyEntry?.languages?.[language]?.state;
+
+    if (!languageState) {
+        return undefined;
+    }
+
+    if (languageState === "published_clean") {
+        return true;
+    }
+
+    if (languageState === "published_with_unpublished_changes") {
+        return Boolean(options?.publishDirtyPublishedLanguages);
+    }
+
+    return false;
+};
+
+const resolvePublishLanguagesForStory = ({
+    story,
+    publishState,
+    publishLanguages,
+    languagePublishStateMap,
+    publishDirtyPublishedLanguages,
+}: {
+    story: Record<string, any>;
+    publishState?: StoryPublishState;
+    publishLanguages: string[];
+    languagePublishStateMap?: LanguagePublishStateMap;
+    publishDirtyPublishedLanguages?: boolean;
+}): string[] => {
+    if (!languagePublishStateMap) {
+        return publishState && !publishState.shouldPublish
+            ? []
+            : publishLanguages;
+    }
+
+    return publishLanguages.filter((language) => {
+        if (language === DEFAULT_PUBLISH_LANGUAGE) {
+            return !publishState || publishState.shouldPublish;
+        }
+
+        const languageStateAllowsPublish = isPublishLanguageStateClean(
+            languagePublishStateMap,
+            story,
+            language,
+            { publishDirtyPublishedLanguages },
+        );
+
+        if (languageStateAllowsPublish !== undefined) {
+            return languageStateAllowsPublish;
+        }
+
+        return !publishState || publishState.shouldPublish;
+    });
+};
+
+const subtractLanguages = (
+    allLanguages: string[] | undefined,
+    publishLanguages: string[] | undefined,
+): string[] | undefined => {
+    if (!allLanguages) {
+        return undefined;
+    }
+
+    const publishSet = new Set(publishLanguages ?? []);
+    return allLanguages.filter((language) => !publishSet.has(language));
+};
+
+const formatLanguageList = (languages: string[] | undefined): string =>
+    languages && languages.length > 0 ? languages.join(",") : "none";
+
+const resolveStoryblokErrorStatus = (err: any): number | undefined =>
+    err?.status ??
+    err?.response?.status ??
+    err?.response?.response?.status ??
+    err?.message?.status ??
+    err?.message?.response?.status;
+
 const resolveStoryblokErrorResponse = (err: any): string | undefined => {
     if (typeof err?.response === "string" && err.response.trim().length > 0) {
         return err.response.trim();
+    }
+
+    if (Array.isArray(err?.response?.data)) {
+        const message = err.response.data.filter(Boolean).join(", ").trim();
+
+        if (message.length > 0) {
+            return message;
+        }
     }
 
     if (
@@ -249,6 +359,31 @@ const resolveStoryblokErrorResponse = (err: any): string | undefined => {
         err.response.message.trim().length > 0
     ) {
         return err.response.message.trim();
+    }
+
+    if (
+        typeof err?.message?.message === "string" &&
+        err.message.message.trim().length > 0
+    ) {
+        return err.message.message.trim();
+    }
+
+    if (Array.isArray(err?.message?.response?.data)) {
+        const message = err.message.response.data
+            .filter(Boolean)
+            .join(", ")
+            .trim();
+
+        if (message.length > 0) {
+            return message;
+        }
+    }
+
+    if (
+        typeof err?.message?.response?.data === "string" &&
+        err.message.response.data.trim().length > 0
+    ) {
+        return err.message.response.data.trim();
     }
 
     if (typeof err?.message === "string" && err.message.trim().length > 0) {
@@ -373,7 +508,20 @@ export const getStoryById: GetStoryById = (storyId, config) => {
 
             return res.data;
         })
-        .catch((err: any) => Logger.error(err));
+        .catch((err: any) => {
+            const status = resolveStoryblokErrorStatus(err);
+            const responseMessage = resolveStoryblokErrorResponse(err);
+            const statusLabel = status ? `status ${status}` : "unknown status";
+            const responseLabel = responseMessage
+                ? ` Response: ${responseMessage}`
+                : "";
+
+            Logger.error(
+                `Failed to fetch story '${storyId}' with full content from space '${spaceId}' (${statusLabel}).${responseLabel}`,
+            );
+
+            return undefined;
+        });
 };
 
 export const getStoryBySlug: GetStoryBySlug = async (slug, config) => {
@@ -394,6 +542,47 @@ export const getStoryBySlug: GetStoryBySlug = async (slug, config) => {
     );
 
     return storiesWithContent[0];
+};
+
+export const searchStorySlugs: SearchStorySlugs = async (
+    { search, perPage = 10 },
+    config,
+) => {
+    const { spaceId, sbApi } = config;
+
+    return (sbApi as any)
+        .get(`spaces/${spaceId}/stories/`, {
+            per_page: perPage,
+            search,
+        })
+        .then((res: any) => res.data.stories ?? [])
+        .catch((err: any) => {
+            Logger.error(err);
+            return [];
+        });
+};
+
+export const getStoryVersions: GetStoryVersions = async (
+    { storyId, showContent = true, page = 1, perPage = 25 },
+    config,
+) => {
+    const { spaceId, sbApi, debug } = config;
+
+    if (debug) {
+        console.log(
+            `Trying to get story versions for story id: ${storyId} from space: ${spaceId}.`,
+        );
+    }
+
+    return (sbApi as any)
+        .get(`spaces/${spaceId}/story_versions`, {
+            by_story_id: storyId,
+            show_content: showContent,
+            page,
+            per_page: perPage,
+        })
+        .then((res: any) => res.data)
+        .catch((err: any) => Logger.error(err));
 };
 
 // CREATE
@@ -541,6 +730,9 @@ export const updateStories: UpdateStories = async (args, config) => {
     const shouldPublishLanguages =
         options.publish && options.publishLanguages !== undefined;
     const shouldPreservePublishState = Boolean(options.preservePublishState);
+    const shouldPublishDirtyPublishedStories = Boolean(
+        options.publishDirtyPublishedStories,
+    );
     const publishLanguages = shouldPublishLanguages
         ? await resolvePublishLanguageCodes(options.publishLanguages, {
               ...config,
@@ -553,11 +745,42 @@ export const updateStories: UpdateStories = async (args, config) => {
         stories.map(async (stories: any) => {
             const story = stories.story;
             const publishState = shouldPreservePublishState
-                ? resolveStoryPublishState(story)
+                ? resolveStoryPublishState(story, {
+                      publishDirtyPublishedStories:
+                          shouldPublishDirtyPublishedStories,
+                  })
+                : undefined;
+            const storyPublishLanguages = publishLanguages
+                ? resolvePublishLanguagesForStory({
+                      story,
+                      publishState,
+                      publishLanguages,
+                      languagePublishStateMap: options.languagePublishStateMap,
+                      publishDirtyPublishedLanguages:
+                          shouldPublishDirtyPublishedStories,
+                  })
                 : undefined;
             const shouldPublishStory =
                 options.publish &&
-                (!publishState || publishState.shouldPublish);
+                (!publishState || publishState.shouldPublish) &&
+                (!shouldPublishLanguages ||
+                    storyPublishLanguages?.includes(DEFAULT_PUBLISH_LANGUAGE));
+            const savedOnlyLanguages = subtractLanguages(
+                publishLanguages,
+                storyPublishLanguages,
+            );
+            const storyLabel = resolveStoryLabel(story, String(story.id));
+
+            if (options.publish && shouldPublishLanguages) {
+                Logger.log(
+                    `Publication plan for story '${storyLabel}' in space '${spaceId}': publish languages [${formatLanguageList(storyPublishLanguages)}]; save-only languages [${formatLanguageList(savedOnlyLanguages)}].`,
+                );
+            } else if (!options.publish) {
+                Logger.log(
+                    `Publication plan for story '${storyLabel}' in space '${spaceId}': update draft/current JSON only; no languages will be published.`,
+                );
+            }
+
             const updateResult = await updateStory(
                 story,
                 story.id,
@@ -568,37 +791,56 @@ export const updateStories: UpdateStories = async (args, config) => {
                 { ...config, spaceId },
             );
 
+            if (updateResult?.ok) {
+                Logger.success(
+                    `Updated draft/current story JSON for '${storyLabel}' in space '${spaceId}'.`,
+                );
+            }
+
             if (
                 options.publish &&
                 updateResult?.ok &&
-                isSkippedStoryPublishState(publishState)
+                isSkippedStoryPublishState(publishState) &&
+                (!storyPublishLanguages || storyPublishLanguages.length === 0)
             ) {
                 return withSkippedPublish({
                     updateResult,
                     story,
                     storyId: story.id,
                     spaceId,
-                    publishLanguages,
+                    publishLanguages: options.languagePublishStateMap
+                        ? storyPublishLanguages
+                        : publishLanguages,
                     publishState,
                 });
             }
 
             if (
                 !shouldPublishLanguages ||
-                !publishLanguages ||
+                !storyPublishLanguages ||
+                storyPublishLanguages.length === 0 ||
                 !updateResult?.ok
             ) {
-                return updateResult;
+                return {
+                    ...updateResult,
+                    publishLanguages: storyPublishLanguages,
+                    savedOnlyLanguages,
+                };
             }
 
-            return publishStoryLanguages(
+            const publishResult = await publishStoryLanguages(
                 {
                     storyId: story.id,
                     story,
-                    languages: publishLanguages,
+                    languages: storyPublishLanguages,
                 },
                 { ...config, spaceId },
             );
+
+            return {
+                ...publishResult,
+                savedOnlyLanguages,
+            };
         }),
     );
 };

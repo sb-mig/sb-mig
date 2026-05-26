@@ -30,6 +30,7 @@ export interface MigrationRunLogRecord {
         migrateFrom: MigrateFrom;
         from: string;
         fromFilePath: string | null;
+        languagePublishStatePath?: string | null;
     };
     target: {
         to: string;
@@ -57,6 +58,8 @@ export interface MigrationRunLogRecord {
             stage?: "update" | "publish";
             sourcePublishState?: string;
             publishSkippedReason?: string;
+            publishLanguages?: string[];
+            savedOnlyLanguages?: string[];
         }>;
     };
     item?: {
@@ -71,6 +74,8 @@ export interface MigrationRunLogRecord {
     stage?: "update" | "publish";
     sourcePublishState?: string;
     publishSkippedReason?: string;
+    actualPublishLanguages?: string[];
+    savedOnlyLanguages?: string[];
     error?: unknown;
 }
 
@@ -86,6 +91,7 @@ interface SaveMigrationRunLogArgs {
     resolvedPublishLanguages?: string[];
     migrateFrom: MigrateFrom;
     fromFilePath?: string;
+    languagePublishStatePath?: string;
     pipelineResult: MigrationPipelineResult;
     writeResults: PromiseSettledResult<MutationWriteResult>[];
     writeSummary: MutationWriteSummary;
@@ -140,6 +146,7 @@ export const buildMigrationRunLogRecords = ({
     resolvedPublishLanguages,
     migrateFrom,
     fromFilePath,
+    languagePublishStatePath,
     pipelineResult,
     writeResults,
     writeSummary,
@@ -154,6 +161,7 @@ export const buildMigrationRunLogRecords = ({
             migrateFrom,
             from,
             fromFilePath: fromFilePath || null,
+            languagePublishStatePath: languagePublishStatePath || null,
         },
         target: {
             to,
@@ -210,6 +218,8 @@ export const buildMigrationRunLogRecords = ({
                 stage,
                 sourcePublishState: value.sourcePublishState,
                 publishSkippedReason: value.publishSkippedReason,
+                actualPublishLanguages: value.publishLanguages,
+                savedOnlyLanguages: value.savedOnlyLanguages,
                 ...(value.ok ? {} : { error: serializeError(value.error) }),
             };
         },
@@ -232,6 +242,8 @@ export const buildMigrationRunLogRecords = ({
                 stage: item.stage,
                 sourcePublishState: item.sourcePublishState,
                 publishSkippedReason: item.publishSkippedReason,
+                publishLanguages: item.publishLanguages,
+                savedOnlyLanguages: item.savedOnlyLanguages,
             })),
         },
     };

@@ -186,6 +186,24 @@ describe("path-utils", () => {
 
                 expect(result.local[0].name).toBe("hero.sb.js");
             });
+
+            it("should extract filename from Windows paths regardless of runtime OS", () => {
+                const result = compare({
+                    local: [
+                        "C:\\Users\\PaddyEvans\\Documents\\Tickets\\project\\src\\components\\hero.sb.js",
+                        "C:/Users/PaddyEvans/Documents/Tickets/project/.next/cache/sb-mig/card.sb.cjs",
+                    ],
+                    external: [
+                        "C:\\Users\\PaddyEvans\\Documents\\Tickets\\project\\node_modules\\@ef-global\\backpack\\lib\\components\\Accordion\\storyblok\\sb-accordion.sb.cjs",
+                    ],
+                });
+
+                expect(result.local.map((file) => file.name)).toEqual([
+                    "hero.sb.js",
+                    "card.sb.cjs",
+                ]);
+                expect(result.external[0].name).toBe("sb-accordion.sb.cjs");
+            });
         });
 
         describe("deduplication", () => {

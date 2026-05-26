@@ -1,4 +1,7 @@
-import type { MigrateFrom } from "../../api/data-migration/component-data-migration.js";
+import type {
+    MigrateFrom,
+    PublicationMode,
+} from "../../api/data-migration/component-data-migration.js";
 import type { CLIOptions } from "../../utils/interfaces.js";
 
 import path from "path";
@@ -45,6 +48,46 @@ const normalizeMigrationFlags = (
     return [];
 };
 
+const parsePublicationMode = (
+    publicationModeFlag: string | undefined,
+): PublicationMode => {
+    if (!publicationModeFlag) {
+        return "preserve-layers";
+    }
+
+    if (
+        publicationModeFlag === "preserve-layers" ||
+        publicationModeFlag === "collapse-draft" ||
+        publicationModeFlag === "save-only"
+    ) {
+        return publicationModeFlag;
+    }
+
+    throw new Error(
+        "--publicationMode must be one of: preserve-layers, collapse-draft, save-only.",
+    );
+};
+
+const assertNoLegacyPublicationFlags = (flags: Record<string, unknown>) => {
+    if (flags["publish"] !== undefined) {
+        throw new Error(
+            "--publish has been replaced by --publicationMode. Use --publicationMode preserve-layers, collapse-draft, or save-only.",
+        );
+    }
+
+    if (flags["publishLanguages"] !== undefined) {
+        throw new Error(
+            "--publishLanguages has been replaced by --publicationLanguages.",
+        );
+    }
+
+    if (flags["preservePublishedLayer"] !== undefined) {
+        throw new Error(
+            "--preservePublishedLayer has been replaced by --publicationMode preserve-layers.",
+        );
+    }
+};
+
 export const migrate = async (props: CLIOptions) => {
     const { input, flags } = props;
 
@@ -65,8 +108,12 @@ export const migrate = async (props: CLIOptions) => {
         "withSlug",
         "startsWith",
         "dryRun",
+        "publicationMode",
+        "publicationLanguages",
         "publish",
         "publishLanguages",
+        "languagePublishStatePath",
+        "preservePublishedLayer",
         "fileName",
     ]);
 
@@ -108,13 +155,22 @@ export const migrate = async (props: CLIOptions) => {
                         | undefined,
                 );
             const dryRun = flags["dryRun"] as boolean | undefined;
-            const publish = Boolean(flags["publish"]);
-            const publishLanguagesFlag = flags["publishLanguages"] as
+            assertNoLegacyPublicationFlags(flags);
+            const publicationMode = parsePublicationMode(
+                flags["publicationMode"] as string | undefined,
+            );
+            const publicationLanguagesFlag = flags["publicationLanguages"] as
                 | string
                 | undefined;
-            const publishLanguages = publishLanguagesFlag
-                ? parsePublishLanguagesOption(publishLanguagesFlag)
-                : undefined;
+            const languagePublishStatePath = flags[
+                "languagePublishStatePath"
+            ] as string | undefined;
+            const publicationLanguages =
+                publicationMode === "save-only"
+                    ? undefined
+                    : publicationLanguagesFlag
+                      ? parsePublishLanguagesOption(publicationLanguagesFlag)
+                      : "all";
             const fileName = flags["fileName"] as string | undefined;
             const withSlugFlag = flags["withSlug"] as
                 | string
@@ -134,9 +190,15 @@ export const migrate = async (props: CLIOptions) => {
                 );
             }
 
-            if (!publish && publishLanguagesFlag) {
+            if (publicationMode === "save-only" && publicationLanguagesFlag) {
                 throw new Error(
-                    "--publishLanguages requires --publish for 'migrate content'.",
+                    "--publicationLanguages cannot be used with --publicationMode save-only.",
+                );
+            }
+
+            if (languagePublishStatePath && publicationMode === "save-only") {
+                throw new Error(
+                    "--languagePublishStatePath requires a publishing --publicationMode for 'migrate content'.",
                 );
             }
 
@@ -144,6 +206,12 @@ export const migrate = async (props: CLIOptions) => {
                 const componentsToMigrate = unpackElements(input) || [""];
 
                 const migrateFrom: MigrateFrom = "space";
+
+                if (publicationMode === "preserve-layers" && from !== to) {
+                    throw new Error(
+                        "--publicationMode preserve-layers currently requires --from and --to to be the same Storyblok space.",
+                    );
+                }
 
                 const runMigration = async () => {
                     Logger.warning("Preparing to migrate...");
@@ -174,10 +242,11 @@ export const migrate = async (props: CLIOptions) => {
                             migrationComponentOverrides,
                             filters: { withSlug, startsWith },
                             dryRun,
-                            publish,
-                            publishLanguages,
+                            publicationMode,
+                            publicationLanguages,
                             fromFilePath,
                             fileName,
+                            languagePublishStatePath,
                         },
                         apiConfig,
                     );
@@ -200,6 +269,21 @@ export const migrate = async (props: CLIOptions) => {
             } else if (isIt("all")) {
                 const migrateFrom: MigrateFrom = flags["migrateFrom"];
 
+                if (
+                    publicationMode === "preserve-layers" &&
+                    migrateFrom !== "space"
+                ) {
+                    throw new Error(
+                        "--publicationMode preserve-layers requires --migrate-from space.",
+                    );
+                }
+
+                if (publicationMode === "preserve-layers" && from !== to) {
+                    throw new Error(
+                        "--publicationMode preserve-layers currently requires --from and --to to be the same Storyblok space.",
+                    );
+                }
+
                 const runMigration = async () => {
                     Logger.warning("Preparing to migrate...");
 
@@ -214,10 +298,11 @@ export const migrate = async (props: CLIOptions) => {
                             migrationComponentOverrides,
                             filters: { withSlug, startsWith },
                             dryRun,
-                            publish,
-                            publishLanguages,
+                            publicationMode,
+                            publicationLanguages,
                             fromFilePath,
                             fileName,
+                            languagePublishStatePath,
                         },
                         apiConfig,
                     );
@@ -279,10 +364,16 @@ export const migrate = async (props: CLIOptions) => {
                 fromFallback ||
                 getFrom(flags, apiConfig);
             const to = getTo(flags, apiConfig);
-            const publish = Boolean(flags["publish"]);
-            const publishLanguagesFlag = flags["publishLanguages"] as
+            assertNoLegacyPublicationFlags(flags);
+            const publicationModeFlag = flags["publicationMode"] as
                 | string
                 | undefined;
+            const publicationLanguagesFlag = flags["publicationLanguages"] as
+                | string
+                | undefined;
+            const languagePublishStatePath = flags[
+                "languagePublishStatePath"
+            ] as string | undefined;
 
             if (migrationConfigs.length === 0) {
                 throw new Error(
@@ -290,15 +381,21 @@ export const migrate = async (props: CLIOptions) => {
                 );
             }
 
-            if (publish) {
+            if (publicationModeFlag) {
                 throw new Error(
-                    "--publish is only supported for 'migrate content'. Presets cannot be published.",
+                    "--publicationMode is only supported for 'migrate content'. Presets cannot be published.",
                 );
             }
 
-            if (publishLanguagesFlag) {
+            if (publicationLanguagesFlag) {
                 throw new Error(
-                    "--publishLanguages is only supported for 'migrate content'. Presets cannot be published.",
+                    "--publicationLanguages is only supported for 'migrate content'. Presets cannot be published.",
+                );
+            }
+
+            if (languagePublishStatePath) {
+                throw new Error(
+                    "--languagePublishStatePath is only supported for 'migrate content'. Presets cannot be published.",
                 );
             }
 

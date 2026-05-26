@@ -10,9 +10,28 @@ interface ModifyStoryOptions {
     force_update?: boolean;
     publishLanguages?: PublishLanguagesOption;
     preservePublishState?: boolean;
+    publishDirtyPublishedStories?: boolean;
+    languagePublishStateMap?: LanguagePublishStateMap;
 }
 
 export type PublishLanguagesOption = "default" | "all" | string[];
+
+export interface LanguagePublishStateMap {
+    stories?: Record<
+        string,
+        {
+            languages?: Record<
+                string,
+                {
+                    state?: string;
+                    [key: string]: unknown;
+                }
+            >;
+            cleanPublishedLanguages?: string[];
+            [key: string]: unknown;
+        }
+    >;
+}
 
 export type RemoveStory = (
     args: { storyId: string },
@@ -28,6 +47,24 @@ export type GetStoryById = (
 
 export type GetStoryBySlug = (
     slug: string,
+    config: RequestBaseConfig,
+) => Promise<any>;
+
+export type SearchStorySlugs = (
+    args: {
+        search: string;
+        perPage?: number;
+    },
+    config: RequestBaseConfig,
+) => Promise<any[]>;
+
+export type GetStoryVersions = (
+    args: {
+        storyId: string;
+        showContent?: boolean;
+        page?: number;
+        perPage?: number;
+    },
     config: RequestBaseConfig,
 ) => Promise<any>;
 
