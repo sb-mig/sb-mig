@@ -8,7 +8,7 @@ import { pkg } from "../utils/pkg.js";
 
 import { defaultConfig, getStoryblokConfigContent, SCHEMA } from "./helper.js";
 
-dotenv.config();
+dotenv.config({ quiet: true });
 
 export { SCHEMA };
 export type { IStoryblokConfig };

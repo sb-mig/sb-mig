@@ -17,28 +17,14 @@ import {
     migrationsDescription,
     copyDescription,
 } from "./cli-descriptions.js";
-import { backup } from "./commands/backup.js";
-import { copyCommand } from "./commands/copy.js";
-import { debug } from "./commands/debug.js";
-import { discover } from "./commands/discover.js";
-import { init } from "./commands/init.js";
-import { languagePublishState } from "./commands/language-publish-state.js";
-import { migrate } from "./commands/migrate.js";
-import { migrations } from "./commands/migrations.js";
-import { publishedLayerExport } from "./commands/published-layer-export.js";
-import { remove } from "./commands/remove.js";
-import { revert } from "./commands/revert.js";
-import { storyVersions } from "./commands/story-versions.js";
-import { sync } from "./commands/sync.js";
-import { testCommand } from "./commands/test.js";
 import { pipe, prop } from "./utils/cli-utils.js";
 
-const app = () => ({
+const app: any = () => ({
     cli: meow(mainDescription, {
         importMeta: import.meta,
         booleanDefault: undefined,
     }),
-    action: (cli: any) => cli.showHelp(),
+    action: (cli: any) => cli.showHelp(0),
 });
 
 app.sync = () => ({
@@ -46,8 +32,9 @@ app.sync = () => ({
         importMeta: import.meta,
         booleanDefault: undefined,
     }),
-    action: (cli: any) => {
-        sync(cli);
+    action: async (cli: any) => {
+        const { sync } = await import("./commands/sync.js");
+        await sync(cli);
     },
 });
 
@@ -56,8 +43,9 @@ app.copy = () => ({
         importMeta: import.meta,
         booleanDefault: undefined,
     }),
-    action: (cli: any) => {
-        copyCommand(cli);
+    action: async (cli: any) => {
+        const { copyCommand } = await import("./commands/copy.js");
+        await copyCommand(cli);
     },
 });
 
@@ -117,8 +105,9 @@ app.migrate = () => ({
             },
         },
     }),
-    action: (cli: any) => {
-        migrate(cli);
+    action: async (cli: any) => {
+        const { migrate } = await import("./commands/migrate.js");
+        await migrate(cli);
     },
 });
 
@@ -152,7 +141,11 @@ app["language-publish-state"] = () => ({
             },
         },
     }),
-    action: (cli: any) => languagePublishState(cli),
+    action: async (cli: any) => {
+        const { languagePublishState } =
+            await import("./commands/language-publish-state.js");
+        await languagePublishState(cli);
+    },
 });
 
 app["story-versions"] = () => ({
@@ -190,7 +183,10 @@ app["story-versions"] = () => ({
             },
         },
     }),
-    action: (cli: any) => storyVersions(cli),
+    action: async (cli: any) => {
+        const { storyVersions } = await import("./commands/story-versions.js");
+        await storyVersions(cli);
+    },
 });
 
 app["published-layer-export"] = () => ({
@@ -232,7 +228,11 @@ app["published-layer-export"] = () => ({
             },
         },
     }),
-    action: (cli: any) => publishedLayerExport(cli),
+    action: async (cli: any) => {
+        const { publishedLayerExport } =
+            await import("./commands/published-layer-export.js");
+        await publishedLayerExport(cli);
+    },
 });
 
 app.revert = () => ({
@@ -240,8 +240,9 @@ app.revert = () => ({
         importMeta: import.meta,
         booleanDefault: undefined,
     }),
-    action: (cli: any) => {
-        revert(cli);
+    action: async (cli: any) => {
+        const { revert } = await import("./commands/revert.js");
+        await revert(cli);
     },
 });
 
@@ -250,8 +251,9 @@ app.discover = () => ({
         importMeta: import.meta,
         booleanDefault: undefined,
     }),
-    action: (cli: any) => {
-        discover(cli);
+    action: async (cli: any) => {
+        const { discover } = await import("./commands/discover.js");
+        await discover(cli);
     },
 });
 
@@ -260,8 +262,9 @@ app.migrations = () => ({
         importMeta: import.meta,
         booleanDefault: undefined,
     }),
-    action: (cli: any) => {
-        migrations(cli);
+    action: async (cli: any) => {
+        const { migrations } = await import("./commands/migrations.js");
+        await migrations(cli);
     },
 });
 
@@ -270,8 +273,9 @@ app.remove = () => ({
         importMeta: import.meta,
         booleanDefault: undefined,
     }),
-    action: (cli: any) => {
-        remove(cli);
+    action: async (cli: any) => {
+        const { remove } = await import("./commands/remove.js");
+        await remove(cli);
     },
 });
 
@@ -280,8 +284,9 @@ app.backup = () => ({
         importMeta: import.meta,
         booleanDefault: undefined,
     }),
-    action: (cli: any) => {
-        backup(cli);
+    action: async (cli: any) => {
+        const { backup } = await import("./commands/backup.js");
+        await backup(cli);
     },
 });
 
@@ -290,8 +295,9 @@ app.debug = () => ({
         importMeta: import.meta,
         booleanDefault: undefined,
     }),
-    action: () => {
-        debug();
+    action: async () => {
+        const { debug } = await import("./commands/debug.js");
+        await debug();
     },
 });
 
@@ -300,8 +306,9 @@ app.init = () => ({
         importMeta: import.meta,
         booleanDefault: undefined,
     }),
-    action: (cli: any) => {
-        init(cli);
+    action: async (cli: any) => {
+        const { init } = await import("./commands/init.js");
+        await init(cli);
     },
 });
 
@@ -310,8 +317,9 @@ app.test = () => ({
         importMeta: import.meta,
         booleanDefault: undefined,
     }),
-    action: (cli: any) => {
-        testCommand(cli);
+    action: async (cli: any) => {
+        const { testCommand } = await import("./commands/test.js");
+        await testCommand(cli);
     },
 });
 
@@ -320,14 +328,14 @@ const getSubcommand = (cliObject: any, level: any) =>
         prop("cli")(cliObject()),
     );
 
-const cli = (cliObject: any, level = 0): any => {
+const cli = async (cliObject: any, level = 0): Promise<any> => {
     const { cli: nextCli, action } = cliObject();
     const subCommand = getSubcommand(cliObject, level);
     return subCommand
-        ? cli(subCommand, level + 1)
+        ? await cli(subCommand, level + 1)
         : nextCli.flags.help
-          ? nextCli.showHelp()
-          : action(nextCli);
+          ? nextCli.showHelp(0)
+          : await action(nextCli);
 };
 
-cli(app);
+await cli(app);
