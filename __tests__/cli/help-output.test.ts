@@ -1,12 +1,11 @@
-import { execFileSync, spawnSync } from "child_process";
-import { mkdtempSync, rmSync } from "fs";
+import { spawnSync } from "child_process";
+import { existsSync, mkdtempSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import path from "path";
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 const cliPath = path.resolve(process.cwd(), "dist/cli/index.js");
-const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
 const publicCommands = [
     "sync",
     "copy",
@@ -45,11 +44,12 @@ const runCli = (args: string[]) => {
 
 describe("CLI help output", () => {
     beforeAll(() => {
-        execFileSync(npmCommand, ["run", "build"], {
-            cwd: process.cwd(),
-            encoding: "utf8",
-            stdio: "pipe",
-        });
+        if (!existsSync(cliPath)) {
+            throw new Error(
+                `CLI not built. Run 'npm run build' before help-output tests. Expected: ${cliPath}`,
+            );
+        }
+
         tempProjectDir = mkdtempSync(path.join(tmpdir(), "sb-mig-help-"));
     });
 
