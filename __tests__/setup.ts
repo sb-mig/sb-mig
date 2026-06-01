@@ -4,4 +4,4 @@
 import { config } from "dotenv";
 
 // Load .env file for all tests
-config();
+config({ quiet: true });
