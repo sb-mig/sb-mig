@@ -9,6 +9,7 @@ import path from "path";
 import {
     migrateAllComponentsDataInStories,
     migrateProvidedComponentsDataInStories,
+    prepareContinueMigration,
 } from "../../api/data-migration/component-data-migration.js";
 import { buildStoryBackupBaseName } from "../../api/data-migration/file-naming.js";
 import {
@@ -32,6 +33,7 @@ import {
 const MIGRATE_COMMANDS = {
     content: "content",
     presets: "presets",
+    continue: "continue",
 };
 
 const normalizeMigrationFlags = (
@@ -468,6 +470,57 @@ export const migrate = async (props: CLIOptions) => {
                 console.log("Passed flags: ");
                 console.log(flags);
             }
+
+            break;
+        }
+        case MIGRATE_COMMANDS.continue: {
+            const manifestFileName = flags["manifest"] as string | undefined;
+
+            const plan = await prepareContinueMigration(
+                { manifestFileName },
+                apiConfig,
+            );
+            const { summary } = plan;
+
+            Logger.log("Found dry-run to continue:");
+            console.log(`  manifest:          ${summary.manifestFileName}`);
+            console.log(`  space (from→to):   ${summary.from} → ${summary.to}`);
+            console.log(`  publication mode:  ${summary.publicationMode}`);
+            console.log(
+                `  migrations:        ${
+                    summary.migrationConfigNames.join(", ") || "(none recorded)"
+                }`,
+            );
+            if (summary.resolvedPublishLanguages.length > 0) {
+                console.log(
+                    `  languages:         ${summary.resolvedPublishLanguages.join(", ")}`,
+                );
+            }
+            console.log(
+                `  ${summary.itemType}s to write:   ${summary.changedCount} changed${
+                    summary.dirtyPublishedCount > 0
+                        ? `  (${summary.dirtyPublishedCount} dirty-published dual-layer write(s))`
+                        : ""
+                }`,
+            );
+            console.log("  using artifacts:");
+            summary.artifactFiles.forEach((file) =>
+                console.log(`    - ${file}`),
+            );
+            console.log(" ");
+
+            await askForConfirmation(
+                `Continue and write these to Storyblok space ${summary.to}? (it will overwrite ${summary.itemType}s)`,
+                async () => {
+                    await plan.run();
+                },
+                () => {
+                    Logger.warning(
+                        "Continue not started, exiting the program...",
+                    );
+                },
+                flags["yes"],
+            );
 
             break;
         }

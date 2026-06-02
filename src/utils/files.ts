@@ -282,6 +282,16 @@ export const createAndSaveComponentListToFile: CreateAndSaveComponentListToFile 
         Logger.success(`All components written to a file:  ${filename}`);
     };
 
+export const listFilesInDir = async (dirPath: string): Promise<string[]> => {
+    const absolutePath = resolveFromCwd(dirPath);
+
+    try {
+        return await fs.promises.readdir(absolutePath);
+    } catch {
+        return [];
+    }
+};
+
 export const readFile = async (pathToFile: string) => {
     const absolutePath = resolveFromCwd(pathToFile);
 
