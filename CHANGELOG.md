@@ -1,3 +1,10 @@
+## [6.1.1](https://github.com/sb-mig/sb-mig/compare/v6.1.0...v6.1.1) (2026-06-02)
+
+
+### Bug Fixes
+
+* **cli:** document complete help surface ([94cffbd](https://github.com/sb-mig/sb-mig/commit/94cffbd7b04f9e65cfdf2f24d9f44ccdd60e7d95))
+
 ## [6.1.1-beta.1](https://github.com/sb-mig/sb-mig/compare/v6.1.0...v6.1.1-beta.1) (2026-06-01)
 
 
