@@ -5,6 +5,7 @@ export const mainDescription = `
     COMMANDS
         sync                    Synchronize components, roles, datasources, plugins, stories, and assets.
         copy                    Copy Storyblok stories or folders between spaces.
+        inspect                 Inspect Storyblok content without writing changes.
         discover                Discover local components and migration config files.
         backup                  Back up Storyblok resources to local JSON files.
         migrate                 Run story or preset data migrations.
@@ -21,7 +22,42 @@ export const mainDescription = `
     EXAMPLES
       $ sb-mig sync components --all
       $ sb-mig migrate content --all --from 12345 --to 12345 --migration file-with-migration --dry-run
+      $ sb-mig inspect component-usage --from 12345 --all --query flex-group-width-child
       $ sb-mig copy stories --sourceSpace 12345 --targetSpace 67890 --what folder/* --where target-folder
+`;
+
+export const inspectDescription = `
+    USAGE
+        $ sb-mig inspect component-usage --from [spaceId] --all --query [query-name]
+        $ sb-mig inspect component-usage --from [spaceId] --withSlug [full_slug] --query [query-name]
+        $ sb-mig inspect component-usage --from [spaceId] --startsWith [prefix] --query [query-name]
+
+    DESCRIPTION
+        Inspect Storyblok story content with a local component usage query file.
+        This command is read-only against Storyblok and writes a local JSON file only when --outputPath is passed.
+
+    COMMANDS
+        component-usage  Find component usage patterns in selected stories.
+
+    FLAGS
+        --from        Source space ID to inspect. Falls back to configured spaceId.
+        --all         Inspect all non-folder stories.
+        --withSlug    Exact story full_slug to inspect. Can be repeated.
+        --startsWith  Filter stories by starts_with prefix.
+        --query       Query file name or path. Looks for *.sb.query.js, *.sb.query.cjs, or *.sb.query.mjs.
+        --outputPath  Optional file path for JSON report output.
+
+    SIDE EFFECTS
+        Read-only against Storyblok. Writes a local JSON report only when --outputPath is passed.
+
+    GOTCHAS
+        Pass exactly one selection mode: --all, --withSlug, or --startsWith.
+        A query file must default-export an object with name and match(node, context).
+        TypeScript query files are planned, but the first implementation supports JS/CJS/MJS query files.
+
+    EXAMPLES
+        $ sb-mig inspect component-usage --from 12345 --all --query flex-group-width-child
+        $ sb-mig inspect component-usage --from 12345 --startsWith landing-pages --query ./queries/flex-group-width-child.sb.query.js --outputPath sbmig/usage/flex-group-width-child.json
 `;
 
 export const storyVersionsDescription = `
