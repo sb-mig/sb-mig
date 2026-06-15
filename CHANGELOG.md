@@ -1,3 +1,10 @@
+# [6.2.0](https://github.com/sb-mig/sb-mig/compare/v6.1.1...v6.2.0) (2026-06-15)
+
+
+### Features
+
+* **inspect:** add component usage queries ([8c802d7](https://github.com/sb-mig/sb-mig/commit/8c802d783b91c20adf81afb755e3a070d43f7b72))
+
 ## [6.1.1](https://github.com/sb-mig/sb-mig/compare/v6.1.0...v6.1.1) (2026-06-02)
 
 
