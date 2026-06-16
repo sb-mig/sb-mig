@@ -10,12 +10,12 @@ This repository uses **conventional commits** for all commits. When committing, 
 
 Use the following commit types when appropriate:
 
-- `feat` – new features
-- `fix` – bug fixes
-- `chore` – maintenance work
-- `refactor` – code refactoring
-- `docs` – documentation changes
-- `test` – adding or modifying tests
+- `feat` - new features
+- `fix` - bug fixes
+- `chore` - maintenance work
+- `refactor` - code refactoring
+- `docs` - documentation changes
+- `test` - adding or modifying tests
 
 Other commit types from the [Conventional Commits](https://www.conventionalcommits.org/) specification are also allowed.
 
