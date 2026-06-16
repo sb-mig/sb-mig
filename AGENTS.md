@@ -21,3 +21,8 @@ Other commit types from the [Conventional Commits](https://www.conventionalcommi
 
 Every pull request should contain commits that adhere to this style. The repository is configured with commitlint and commitizen to help enforce these rules.
 
+## LLM-ready docs maintenance
+
+The canonical public docs live in the `sb-mig-landing` repository and are exposed at `https://sb-mig.vercel.app`, including `/llms.txt` and `/llms-full.txt`.
+
+When changing this package README or package metadata, keep links to the canonical docs site and LLM entrypoints accurate. Normal package code changes do not require touching the LLM routes. If docs URLs, the canonical domain, or the public docs strategy changes, update this repo's README/package metadata and the matching `sb-mig-landing` docs configuration in the same workstream.
