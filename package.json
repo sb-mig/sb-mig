@@ -15,7 +15,7 @@
     "access": "public"
   },
   "bugs": "https://github.com/sb-mig/sb-mig/issues",
-  "homepage": "https://github.com/sb-mig/sb-mig",
+  "homepage": "https://sb-mig.vercel.app",
   "keywords": [
     "cli",
     "storyblok",
