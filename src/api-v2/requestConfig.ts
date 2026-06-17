@@ -1,4 +1,4 @@
-import type { ApiClient } from "./client.js";
+import type { ApiClient, ClientConfig } from "./client.js";
 import type { RequestBaseConfig } from "../api/utils/request.js";
 
 export function toRequestConfig(
@@ -39,5 +39,38 @@ export function toRequestConfig(
         advancedResolvers: overrides?.advancedResolvers,
         storyblokComponentsLocalDirectory:
             overrides?.storyblokComponentsLocalDirectory,
+    };
+}
+
+/**
+ * Inverse of `toRequestConfig`: adapt a legacy `RequestBaseConfig` into an
+ * `ApiClient`.
+ *
+ * This is the primitive used by the Strategy-B shims (see SDK-REFACTOR.md §3): a
+ * legacy `api/<x>` function receives a `RequestBaseConfig` and delegates to the
+ * moved `api-v2/<x>` function, which takes an `ApiClient`. The live `sbApi`
+ * instance is reused (not recreated) so rate-limit and cache state are preserved.
+ *
+ * Note: `ApiClient` intentionally carries only the data-API essentials (`sbApi`,
+ * `spaceId`, tokens). The remaining `IStoryblokConfig` fields on
+ * `RequestBaseConfig` (directories, extensions, resolvers, …) are node-tier /
+ * file-discovery concerns handled separately — they are not represented on
+ * `ApiClient`. See SDK-REFACTOR.md §4 and ticket F5.
+ */
+export function configToClient(
+    config: RequestBaseConfig,
+    overrides?: Partial<ClientConfig>,
+): ApiClient {
+    const clientConfig: ClientConfig = {
+        oauthToken: overrides?.oauthToken ?? config.oauthToken ?? "",
+        spaceId: overrides?.spaceId ?? config.spaceId,
+        accessToken: overrides?.accessToken ?? config.accessToken,
+        rateLimit: overrides?.rateLimit ?? config.rateLimit,
+    };
+
+    return {
+        config: clientConfig,
+        sbApi: config.sbApi,
+        spaceId: clientConfig.spaceId,
     };
 }
