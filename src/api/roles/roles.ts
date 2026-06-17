@@ -5,171 +5,52 @@ import type {
     UpdateRole,
 } from "./roles.types.js";
 import type { SyncResult } from "../sync/sync.types.js";
+import type { RequestBaseConfig } from "../utils/request.js";
 
-import Logger from "../../utils/logger.js";
-import { getAllItemsWithPagination } from "../utils/request.js";
+import { configToClient } from "../../api-v2/requestConfig.js";
+import {
+    createRole as createRoleV2,
+    getAllRoles as getAllRolesV2,
+    getRole as getRoleV2,
+    syncRoles as syncRolesV2,
+    updateRole as updateRoleV2,
+} from "../../api-v2/roles/index.js";
+
+/*
+ * Strategy-B shim layer (S1 pilot).
+ *
+ * The canonical roles implementation now lives in `api-v2/roles`. These legacy
+ * config-based exports delegate to it via `configToClient`, keeping every existing
+ * caller (CLI, managementApi, backup) on the exact same code path while the data
+ * logic lives in the SDK layer. See SDK-REFACTOR.md (S1).
+ *
+ * The file-based sync wrapper still lives in `roles.sync.ts`.
+ */
 
 // POST
 export const createRole: CreateRole = (role: any, config) => {
-    const { sbApi, spaceId } = config;
-
-    return sbApi
-        .post(`spaces/${spaceId}/space_roles/`, {
-            space_role: role,
-        } as any)
-        .then(() => {
-            Logger.success(`Role '${role.role}' has been created.`);
-        })
-        .catch((err) => {
-            Logger.error("error happened... :(");
-            console.log(
-                `${err.message} in migration of ${role.role} in createRole function`,
-            );
-            throw err;
-        });
+    return createRoleV2(configToClient(config), role);
 };
 
 // PUT
 export const updateRole: UpdateRole = (role, config) => {
-    const { sbApi, spaceId } = config;
-
-    return sbApi
-        .put(`spaces/${spaceId}/space_roles/${role.id}`, {
-            space_role: role,
-        } as any)
-        .then(() => {
-            Logger.success(`Role '${role.role}' has been updated.`);
-        })
-        .catch((err) => {
-            Logger.error("error happened... :(");
-            console.log(
-                `${err.message} in migration of ${role.role} in updateRole function`,
-            );
-            throw err;
-        });
+    return updateRoleV2(configToClient(config), role);
 };
 
-// GET
-export const getAllRoles: GetAllRoles = async (config) => {
-    const { sbApi, spaceId } = config;
-    Logger.log("Trying to get all roles.");
-
-    // TODO: All Roles doesnt support pagination...
-    // https://github.com/storyblok/storyblok-js-client/issues/535
-    return getAllItemsWithPagination({
-        apiFn: ({ per_page, page }) =>
-            sbApi
-                .get(`spaces/${spaceId}/space_roles/`, { per_page, page })
-                .then((res) => {
-                    Logger.log(`Amount of roles: ${res.total}`);
-
-                    return res;
-                })
-                .catch((err) => {
-                    if (err.response.status === 404) {
-                        Logger.error(
-                            `There is no roles in your Storyblok ${spaceId} space.`,
-                        );
-                        return true;
-                    } else {
-                        Logger.error(err);
-                        return false;
-                    }
-                }),
-        params: {
-            spaceId,
-        },
-        itemsKey: "space_roles",
-    });
+// GET all
+export const getAllRoles: GetAllRoles = (config) => {
+    return getAllRolesV2(configToClient(config));
 };
 
-// GET
-export const getRole: GetRole = async (
-    roleName: string | undefined,
-    config,
-) => {
-    Logger.log(`Trying to get '${roleName}' role.`);
-
-    return getAllRoles(config)
-        .then((res) => res.filter((role: any) => role.role === roleName))
-        .then((res) => {
-            if (Array.isArray(res) && res.length === 0) {
-                Logger.warning(`There is no role named '${roleName}'`);
-                return false;
-            }
-            return res;
-        })
-        .catch((err) => Logger.error(err));
+// GET one
+export const getRole: GetRole = (roleName, config) => {
+    return getRoleV2(configToClient(config), roleName);
 };
 
-export const syncRolesData = async (
+// Data-only sync
+export const syncRolesData = (
     { roles, dryRun }: { roles: any[]; dryRun?: boolean },
-    config: any,
+    config: RequestBaseConfig,
 ): Promise<SyncResult> => {
-    const result: SyncResult = {
-        created: [],
-        updated: [],
-        skipped: [],
-        errors: [],
-    };
-
-    if (dryRun) {
-        Logger.warning(
-            "[dry-run] Role sync will only read remote data and report planned changes.",
-        );
-    }
-
-    const space_roles_raw = await getAllRoles(config);
-    const space_roles = Array.isArray(space_roles_raw) ? space_roles_raw : [];
-
-    const rolesToUpdate: any[] = [];
-    const rolesToCreate: any[] = [];
-
-    for (const role of roles) {
-        if (!role || typeof role !== "object" || !("role" in role)) {
-            result.skipped.push(String((role as any)?.role ?? "unknown"));
-            continue;
-        }
-
-        const shouldBeUpdated = space_roles.find(
-            (remoteRole: any) => role.role === remoteRole.role,
-        );
-        if (shouldBeUpdated) {
-            rolesToUpdate.push({ id: shouldBeUpdated.id, ...role });
-        } else {
-            rolesToCreate.push(role);
-        }
-    }
-
-    const updateResults = dryRun
-        ? rolesToUpdate.map(() => ({ status: "fulfilled" as const }))
-        : await Promise.allSettled(
-              rolesToUpdate.map((role) => updateRole(role, config) as any),
-          );
-    updateResults.forEach((r: any, idx) => {
-        const name = String(rolesToUpdate[idx]?.role ?? "unknown");
-        if (dryRun) {
-            Logger.warning(`[dry-run] Would update role '${name}'.`);
-        }
-        if (r.status === "fulfilled") result.updated.push(name);
-        else result.errors.push({ name, message: String(r.reason) });
-    });
-
-    const createResults = dryRun
-        ? rolesToCreate.map(() => ({ status: "fulfilled" as const }))
-        : await Promise.allSettled(
-              rolesToCreate.map((role) => createRole(role, config) as any),
-          );
-    createResults.forEach((r: any, idx) => {
-        const name = String(rolesToCreate[idx]?.role ?? "unknown");
-        if (dryRun) {
-            Logger.warning(`[dry-run] Would create role '${name}'.`);
-        }
-        if (r.status === "fulfilled") result.created.push(name);
-        else result.errors.push({ name, message: String(r.reason) });
-    });
-
-    return result;
+    return syncRolesV2(configToClient(config), { roles, dryRun });
 };
-
-// File-based sync wrapper lives in `roles.sync.ts` to keep this module CJS-safe.
