@@ -24,6 +24,19 @@
 * **api-v2:** add configToClient adapter (F2) ([c6fe484](https://github.com/sb-mig/sb-mig/commit/c6fe4841d6228ce32223f099b472a59e454ab25b))
 * **inspect:** add component usage queries ([8c802d7](https://github.com/sb-mig/sb-mig/commit/8c802d783b91c20adf81afb755e3a070d43f7b72))
 
+# [6.2.0-beta.1](https://github.com/sb-mig/sb-mig/compare/v6.1.1...v6.2.0-beta.1) (2026-06-23)
+
+
+### Bug Fixes
+
+* **files.ts:** stringify failing with big strings ([0c069bc](https://github.com/sb-mig/sb-mig/commit/0c069bc04916595080b36f2889d164059607b79f))
+
+
+### Features
+
+* **api-v2:** add configToClient adapter (F2) ([c6fe484](https://github.com/sb-mig/sb-mig/commit/c6fe4841d6228ce32223f099b472a59e454ab25b))
+* **inspect:** add component usage queries ([8c802d7](https://github.com/sb-mig/sb-mig/commit/8c802d783b91c20adf81afb755e3a070d43f7b72))
+
 # [6.2.0-beta.1](https://github.com/sb-mig/sb-mig/compare/v6.1.1...v6.2.0-beta.1) (2026-06-17)
 
 
