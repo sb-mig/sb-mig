@@ -7,6 +7,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
     getStoryBySlug: vi.fn(),
     getAllStories: vi.fn(),
+    createStory: vi.fn(),
     createTree: vi.fn(),
     traverseAndCreate: vi.fn(),
 }));
@@ -23,6 +24,7 @@ vi.mock("../../src/api/managementApi.js", () => ({
         stories: {
             getStoryBySlug: mocks.getStoryBySlug,
             getAllStories: mocks.getAllStories,
+            createStory: mocks.createStory,
         },
     },
 }));
@@ -56,6 +58,7 @@ describe("copy stories dry-run", () => {
                         slug: "imported",
                         full_slug: "imported",
                         is_folder: true,
+                        uuid: "target-imported-uuid",
                     },
                 });
             }
@@ -69,6 +72,7 @@ describe("copy stories dry-run", () => {
                         full_slug: "blog",
                         is_folder: true,
                         parent_id: 0,
+                        uuid: "source-blog-uuid",
                     },
                 });
             }
@@ -85,21 +89,43 @@ describe("copy stories dry-run", () => {
                     full_slug: "blog/post-1",
                     is_folder: false,
                     parent_id: 1,
+                    uuid: "source-post-uuid",
                 },
             },
         ]);
 
         mocks.createTree.mockImplementation((stories: any[]) => [
             {
+                id: stories[0].id,
                 story: stories[0],
                 children: [
                     {
+                        id: stories[1].id,
                         story: stories[1],
                         children: [],
                     },
                 ],
             },
         ]);
+        mocks.createStory.mockImplementation((content: any) => {
+            if (content.slug === "blog") {
+                return Promise.resolve({
+                    story: {
+                        id: 1001,
+                        uuid: "target-blog-uuid",
+                        full_slug: "imported/blog",
+                    },
+                });
+            }
+
+            return Promise.resolve({
+                story: {
+                    id: 1002,
+                    uuid: "target-post-uuid",
+                    full_slug: "imported/blog/post-1",
+                },
+            });
+        });
     });
 
     it("plans selected stories without creating them", async () => {
@@ -196,6 +222,91 @@ describe("copy stories dry-run", () => {
         expect(report.commands.apply).toBe(
             "sb-mig copy stories --from source-space --to target-space --source blog --mode subtree --destination imported",
         );
+
+        await rm(tempDir, { recursive: true, force: true });
+    });
+
+    it("copies selected stories and writes story manifests", async () => {
+        const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-copy-"));
+        const manifestRoot = path.join(tempDir, ".sb-mig");
+
+        await copyCommand({
+            input: ["copy", "stories"],
+            flags: {
+                from: "source-space",
+                to: "target-space",
+                source: "blog",
+                destination: "imported",
+                manifestRoot,
+            },
+        } as any);
+
+        expect(mocks.createStory).toHaveBeenCalledTimes(2);
+        expect(mocks.createStory).toHaveBeenNthCalledWith(
+            1,
+            expect.objectContaining({
+                slug: "blog",
+                parent_id: 900,
+            }),
+            expect.objectContaining({ spaceId: "target-space" }),
+        );
+        expect(mocks.createStory).toHaveBeenNthCalledWith(
+            2,
+            expect.objectContaining({
+                slug: "post-1",
+                parent_id: 1001,
+            }),
+            expect.objectContaining({ spaceId: "target-space" }),
+        );
+
+        const manifestDirectory = path.join(
+            manifestRoot,
+            "copy",
+            "source-space",
+            "target-space",
+        );
+        const storyManifest = (
+            await readFile(
+                path.join(manifestDirectory, "stories.manifest.jsonl"),
+                "utf8",
+            )
+        )
+            .trim()
+            .split("\n")
+            .map((line) => JSON.parse(line));
+        const combinedManifest = (
+            await readFile(
+                path.join(manifestDirectory, "manifest.jsonl"),
+                "utf8",
+            )
+        )
+            .trim()
+            .split("\n")
+            .map((line) => JSON.parse(line));
+
+        expect(storyManifest).toMatchObject([
+            {
+                type: "story",
+                source_id: 1,
+                target_id: 1001,
+                source_uuid: "source-blog-uuid",
+                target_uuid: "target-blog-uuid",
+                source_full_slug: "blog",
+                target_full_slug: "imported/blog",
+                action: "created",
+            },
+            {
+                type: "story",
+                source_id: 2,
+                target_id: 1002,
+                source_uuid: "source-post-uuid",
+                target_uuid: "target-post-uuid",
+                source_full_slug: "blog/post-1",
+                target_full_slug: "imported/blog/post-1",
+                action: "created",
+            },
+        ]);
+        expect(combinedManifest).toMatchObject(storyManifest);
 
         await rm(tempDir, { recursive: true, force: true });
     });

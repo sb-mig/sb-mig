@@ -1127,6 +1127,14 @@ Goal:
 
 - Create or match target story shells in hierarchy order before full content update.
 
+Current implementation status:
+
+- `copy stories` apply mode now writes story ID/UUID manifests while preserving the current full-content create behavior.
+- Manifests are written to `.sb-mig/copy/<source>/<target>/stories.manifest.jsonl` and the combined `.sb-mig/copy/<source>/<target>/manifest.jsonl`.
+- Existing manifest mappings are loaded first so reruns can reuse mapped target parents.
+- If no manifest entry exists, target stories are matched by planned target `full_slug` before creating a new story.
+- Pure shell-only creation is still future work; this incremental slice intentionally avoids regressing the current user-facing story copy behavior before reference rewriting exists.
+
 Required behavior:
 
 - Create folders before child stories.

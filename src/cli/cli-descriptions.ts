@@ -246,6 +246,7 @@ export const copyDescription = `
 
     SIDE EFFECTS
         copy stories writes copied stories into the target Storyblok space unless --dry-run is passed.
+        copy stories writes story ID/UUID manifests under .sb-mig/copy/<source>/<target>/ during apply.
         copy assets writes asset folders and assets into the target Storyblok space unless --dry-run is passed.
         copy assets writes JSONL manifests under .sb-mig/copy/<source>/<target>/ during apply.
         --outputPath writes a local JSON report for dry-run or apply.
@@ -257,6 +258,7 @@ export const copyDescription = `
         mode 'children' copies a folder's descendants without the folder root.
         mode 'self' copies only the source story or folder shell.
         Copy currently creates new stories only. It does not update existing target stories.
+        copy stories matches existing targets by manifest first, then target full_slug when safe, so reruns can reuse mapped target stories.
         --dry-run checks likely target path conflicts, but the real copy can still fail if target state changes afterwards.
         Copy stories currently does not copy assets or rewrite story/asset references.
         copy assets currently requires --all. It matches by manifest first, then safe target folder path or unique asset file name before creating.

@@ -2,6 +2,7 @@ import type {
     CopyAssetFolderManifestEntry,
     CopyAssetManifestEntry,
     CopyManifestEntry,
+    CopyStoryManifestEntry,
 } from "../../api/copy/index.js";
 import type { CLIOptions } from "../../utils/interfaces.js";
 
@@ -18,7 +19,7 @@ import {
     summarizeCopyGraph,
 } from "../../api/copy/index.js";
 import { managementApi } from "../../api/managementApi.js";
-import { createTree, traverseAndCreate } from "../../api/stories/tree.js";
+import { createTree } from "../../api/stories/tree.js";
 import Logger from "../../utils/logger.js";
 import { getFileName } from "../../utils/string-utils.js";
 import { apiConfig } from "../api-config.js";
@@ -781,6 +782,159 @@ const buildCopyAssetsApplyReport = ({
     errors: graph.errors,
 });
 
+const buildSourceStoryById = (sourceStories: any[]): Map<number, any> =>
+    new Map(
+        sourceStories
+            .map((item) => item?.story)
+            .filter(Boolean)
+            .map((story) => [Number(story.id), story] as const),
+    );
+
+const buildTargetSlugBySourceSlug = (
+    plan: CopyPlanItem[],
+): Map<string, string> =>
+    new Map(
+        plan.map((item) => [item.sourceFullSlug, item.targetFullSlug] as const),
+    );
+
+const createStoriesAndWriteManifests = async ({
+    tree,
+    realParentId,
+    sourceStoryById,
+    targetSlugBySourceSlug,
+    sourceSpace,
+    targetSpace,
+    manifestRoot,
+}: {
+    tree: any[];
+    realParentId: number | null;
+    sourceStoryById: Map<number, any>;
+    targetSlugBySourceSlug: Map<string, string>;
+    sourceSpace: string;
+    targetSpace: string;
+    manifestRoot?: string;
+}) => {
+    const manifestPaths = getDefaultCopyManifestPaths({
+        sourceSpaceId: sourceSpace,
+        targetSpaceId: targetSpace,
+        rootDir: manifestRoot,
+    });
+    const existingManifestEntries = await loadManifest(manifestPaths.combined);
+    const copyMaps = buildCopyMaps(existingManifestEntries);
+
+    const walk = async (nodes: any[], parentId: number | null) => {
+        for (const node of nodes) {
+            const sourceStory = sourceStoryById.get(
+                Number(node.id ?? node.story.id),
+            );
+            const sourceFullSlug = String(
+                sourceStory?.full_slug ?? node.story.full_slug ?? "",
+            );
+            const targetFullSlug = targetSlugBySourceSlug.get(sourceFullSlug);
+
+            if (!sourceStory?.uuid) {
+                throw new Error(
+                    `Cannot write story manifest for '${sourceFullSlug}' because source uuid is missing.`,
+                );
+            }
+
+            const mappedTargetId = copyMaps.storyIds.get(
+                Number(sourceStory.id),
+            );
+
+            if (mappedTargetId) {
+                await walk(node.children ?? [], mappedTargetId);
+                continue;
+            }
+
+            const existingTargetStory = targetFullSlug
+                ? await managementApi.stories.getStoryBySlug(targetFullSlug, {
+                      ...apiConfig,
+                      spaceId: targetSpace,
+                  })
+                : undefined;
+            const createdAt = new Date().toISOString();
+
+            if (existingTargetStory?.story) {
+                const targetStory = existingTargetStory.story;
+                const entry: CopyStoryManifestEntry = {
+                    type: "story",
+                    source_space_id: sourceSpace,
+                    target_space_id: targetSpace,
+                    source_id: Number(sourceStory.id),
+                    target_id: Number(targetStory.id),
+                    source_uuid: String(sourceStory.uuid),
+                    target_uuid: String(targetStory.uuid),
+                    source_full_slug: sourceFullSlug,
+                    target_full_slug: targetStory.full_slug ?? targetFullSlug,
+                    action: "matched_by_target_key",
+                    created_at: createdAt,
+                };
+
+                await appendCopyManifestEntry({
+                    combinedPath: manifestPaths.combined,
+                    resourcePath: manifestPaths.stories,
+                    entry,
+                });
+                copyMaps.storyIds.set(entry.source_id, entry.target_id);
+                copyMaps.storyUuids.set(entry.source_uuid, entry.target_uuid);
+
+                await walk(node.children ?? [], entry.target_id);
+                continue;
+            }
+
+            const { parent, ...content } = node.story;
+            const createdStoryResult = await managementApi.stories.createStory(
+                {
+                    ...content,
+                    parent_id: parentId,
+                },
+                {
+                    ...apiConfig,
+                    spaceId: targetSpace,
+                },
+            );
+            const targetStory = createdStoryResult?.story;
+
+            if (!targetStory?.id || !targetStory?.uuid) {
+                throw new Error(
+                    `Failed to create target story for '${sourceFullSlug}'.`,
+                );
+            }
+
+            const entry: CopyStoryManifestEntry = {
+                type: "story",
+                source_space_id: sourceSpace,
+                target_space_id: targetSpace,
+                source_id: Number(sourceStory.id),
+                target_id: Number(targetStory.id),
+                source_uuid: String(sourceStory.uuid),
+                target_uuid: String(targetStory.uuid),
+                source_full_slug: sourceFullSlug,
+                target_full_slug: targetStory.full_slug ?? targetFullSlug,
+                action: "created",
+                created_at: createdAt,
+            };
+
+            await appendCopyManifestEntry({
+                combinedPath: manifestPaths.combined,
+                resourcePath: manifestPaths.stories,
+                entry,
+            });
+            copyMaps.storyIds.set(entry.source_id, entry.target_id);
+            copyMaps.storyUuids.set(entry.source_uuid, entry.target_uuid);
+
+            await walk(node.children ?? [], entry.target_id);
+        }
+    };
+
+    await walk(tree, realParentId);
+    await dedupeManifestFile(manifestPaths.stories);
+    await dedupeManifestFile(manifestPaths.combined);
+
+    Logger.success(`Story manifest written to ${manifestPaths.stories}`);
+};
+
 const copyAssetsAndWriteManifests = async ({
     sourceSpace,
     targetSpace,
@@ -1258,8 +1412,9 @@ export const copyCommand = async (props: CLIOptions) => {
                 break;
             }
 
+            const plan = buildCopyPlan(rootsToCreate, destination);
+
             if (dryRun) {
-                const plan = buildCopyPlan(rootsToCreate, destination);
                 const conflicts = await findTargetConflicts(plan, targetSpace);
                 const report = buildCopyDryRunReport({
                     sourceSpace,
@@ -1281,17 +1436,15 @@ export const copyCommand = async (props: CLIOptions) => {
                 break;
             }
 
-            await traverseAndCreate(
-                {
-                    tree: rootsToCreate as any,
-                    realParentId: destinationParentId,
-                    spaceId: targetSpace,
-                },
-                {
-                    ...apiConfig,
-                    spaceId: targetSpace,
-                },
-            );
+            await createStoriesAndWriteManifests({
+                tree: rootsToCreate,
+                realParentId: destinationParentId,
+                sourceStoryById: buildSourceStoryById(sourceStories),
+                targetSlugBySourceSlug: buildTargetSlugBySourceSlug(plan),
+                sourceSpace,
+                targetSpace,
+                manifestRoot,
+            });
 
             break;
         }
