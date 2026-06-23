@@ -2,7 +2,7 @@
 
 Status: Draft
 Task context: GCTT-3758, "Reinvestigate copy command for sb-mig"
-Last updated: 2026-06-16
+Last updated: 2026-06-23
 
 Related docs:
 
@@ -43,7 +43,7 @@ Current behavior:
 - Does not copy assets.
 - Does not rewrite asset references in story content.
 - Does not rewrite story references in story content.
-- Does not expose a dry-run mode.
+- Exposes a current-state `--dry-run` mode and optional `--outputPath` JSON artifact for the implemented create-oriented story copy plan.
 - Does not have idempotent rerun behavior.
 - Does not provide a structured summary or unresolved-reference report.
 - Publishes created stories through `createStory` rather than preserving source publication state.
@@ -53,20 +53,24 @@ There is also an API-v2 `copyStories` helper, but it is not wired into the CLI a
 
 ## Official Storyblok CLI Baseline
 
-Current official CLI package checked on 2026-06-16:
+Current official CLI package checked on 2026-06-23:
 
 - npm package: `storyblok`
-- latest version: `4.18.0`
+- latest version: `4.18.1`
+- repository: `storyblok/monoblok`, package directory `packages/cli`
 
 Useful references:
 
-- Storyblok CLI docs: https://www.storyblok.com/docs/packages/storyblok-cli
+- Storyblok CLI docs: https://www.storyblok.com/docs/libraries/storyblok-cli
 - Storyblok CLI v4.14 release article: https://www.storyblok.com/mp/storyblok-cli-v4-14-0-pull-and-push-stories-and-assets
 - Management API introduction: https://www.storyblok.com/docs/api/management/getting-started/introduction
 - Duplicate space endpoint: https://www.storyblok.com/docs/api/management/spaces/duplicate-a-space
 - Duplicate story endpoint: https://www.storyblok.com/docs/api/management/stories/duplicate-a-story
 - Asset folder endpoints: https://www.storyblok.com/docs/api/management/asset-folders
 - Asset endpoints: https://www.storyblok.com/docs/api/management/assets
+- Story object: https://www.storyblok.com/docs/api/management/stories/the-story-object
+- Component schema field object: https://www.storyblok.com/docs/api/management/components/the-component-schema-field-object
+- `@storyblok/migrations` reference helpers: https://www.storyblok.com/docs/libraries/js/migrations
 
 ### Official CLI Clean Copy Flow
 
@@ -154,6 +158,62 @@ Observed pattern:
   - source story uuid to target story uuid
 
 This is important because different Storyblok fields use different identity types. Some use numeric IDs, some use UUIDs, and assets use both IDs and filenames.
+
+### Official CLI Implementation Notes
+
+The `storyblok@4.18.1` package confirms the implementation model that sb-mig should mirror conceptually:
+
+- Generic manifests are newline-delimited JSON and are loaded by splitting non-empty lines and parsing each line.
+- Manifest appends are incremental during push/copy, then deduplicated after successful non-dry-run asset pushes.
+- `assets push` writes:
+  - `.storyblok/assets/<from-space>/manifest.jsonl`
+  - `.storyblok/assets/<from-space>/folders/manifest.jsonl`
+- Asset manifest entries include:
+  - `old_id`
+  - `new_id`
+  - `old_filename`
+  - `new_filename`
+  - `created_at`
+- Asset folder manifest entries include:
+  - `old_id`
+  - `new_id`
+  - `created_at`
+- `stories push` writes `.storyblok/stories/<from-space>/manifest.jsonl`.
+- Story manifest appends two entries per story:
+  - source story `uuid` to target story `uuid`
+  - source numeric story `id` to target numeric story `id`
+- `stories push` loads both the story manifest and asset manifest before rewriting story content.
+- `stories push` creates or matches story shells first, then rewrites references, then updates remote stories with mapped content.
+- `assets push --update-stories` fetches existing target stories and rewrites asset references after assets have already been pushed.
+- `stories push` requires local component schemas and aborts if schemas are missing or story JSON has fields that would be lost.
+- Official rewrite traversal is schema-aware and handles `asset`, `multiasset`, `multilink`, `richtext`, `bloks`, and `options`.
+
+The official CLI storage path is `.storyblok/`. sb-mig should use its own `.sb-mig/` path to avoid colliding with official CLI state while keeping the same durable JSONL manifest idea.
+
+### `@storyblok/migrations` Reuse Candidate
+
+The `@storyblok/migrations@0.1.15` package exposes `mapRefs(story, { schemas, maps })`.
+
+It handles:
+
+- `asset`
+- `multiasset`
+- `multilink`
+- `richtext`
+- embedded richtext bloks
+- `bloks`
+- `options`
+- maps for `stories`, `assets`, `users`, `tags`, and `datasources`
+
+Important caveat:
+
+- The package's current asset mapper maps asset IDs, while the official CLI's internal mapper also updates filenames using richer asset map entries. For sb-mig asset-safe story copy, we either need to wrap/extend `mapRefs` with filename rewriting or keep our own rewriter aligned with official CLI behavior.
+
+Recommendation:
+
+- Treat `@storyblok/migrations` as the official reference traversal model.
+- Prefer importing it if it gives us enough control over asset filename rewriting and reporting.
+- If not, implement an sb-mig rewriter with the same field coverage and test fixtures copied from the official behavior model.
 
 ## Required sb-mig Manifest Model
 
@@ -838,6 +898,27 @@ MVP should satisfy:
 
 ## Suggested Implementation Slices
 
+Linear project `sb-mig` is the implementation source of truth. Keep this section aligned with Linear issues whenever the roadmap changes.
+
+Existing related Linear issues:
+
+- `MAR-1507`: focused parent roadmap for official-CLI-aligned copy assets/references work.
+- `MAR-1508`: manifest store and copy graph model.
+- `MAR-1509`: schema-aware reference scanner and graph report.
+- `MAR-1510`: `copy assets` with asset folders/assets manifests.
+- `MAR-1511`: story shell creation and story ID/UUID manifest.
+- `MAR-1512`: reference rewriting from manifests.
+- `MAR-1513`: `copy stories --with-assets` end-to-end pipeline.
+- `MAR-1514`: `--reference-policy fail` and `include-referenced`.
+- `MAR-1515`: publication state, resume behavior, and live safety.
+- `MAR-1451`: older SDK-refactor issue for copy story CLI strategies.
+- `MAR-1452`: older SDK-refactor issue for content/asset directional sync.
+- `MAR-1464`: older SDK-refactor issue for spaces/auth/assets slices.
+- `MAR-1502`: copy stories dry-run `--outputPath` JSON artifact.
+- `MAR-1503`: shared command report writer for `--outputPath` artifacts.
+
+The focused copy roadmap should live in new copy-specific issues under the `sb-mig` project rather than overloading the broad SDK-refactor tickets.
+
 ### Slice 1: Copy Domain Model and Manifest Store
 
 Deliverables:
@@ -926,6 +1007,222 @@ Deliverables:
 - Mock API tests for operation order.
 - Optional live test gated by Storyblok credentials.
 - Regression tests for rerun/resume behavior.
+
+## Linear Phase Plan
+
+Use these phases as the ticket structure.
+
+### Phase 0: Roadmap and Sources of Truth (`MAR-1507`)
+
+Goal:
+
+- Keep the repo spec, Linear document, and Linear ticket tree aligned.
+- Record official Storyblok CLI behavior with exact version/date.
+- Make the plan easy for agents to reload after context compaction.
+
+Exit criteria:
+
+- `docs/copy-command-spec.md` documents official CLI manifest behavior.
+- Linear has a parent roadmap issue and phase tickets.
+- Linear document mirrors the key plan and links back to the repo spec.
+
+### Phase 1: Manifest Store and Copy Graph Model (`MAR-1508`)
+
+Goal:
+
+- Add the copy domain model used by all later phases.
+- Store durable source-to-target mappings in JSONL manifests.
+- Produce a graph/report object that dry-run and real copy both use.
+
+Required behavior:
+
+- Manifest loader treats missing files as empty.
+- Manifest append is atomic enough for command usage.
+- Manifest dedupe keeps latest mapping for a source key.
+- Runtime maps include story IDs, story UUIDs, asset IDs, asset filenames, and asset folder IDs.
+- Graph nodes include selected stories, referenced assets, asset folders, story references, warnings, and limitations.
+
+Do not implement real asset/story rewriting in this phase.
+
+### Phase 2: Schema-Aware Reference Scanner (`MAR-1509`)
+
+Goal:
+
+- Scan selected stories and produce a reference graph before copying.
+
+Required behavior:
+
+- Require component schemas by default.
+- Traverse `bloks` and richtext embedded bloks.
+- Detect asset references in `asset` and `multiasset`.
+- Detect story references in `multilink`, richtext story links, and `options` with `source: "internal_stories"`.
+- Detect `alternates` and parent references outside content.
+- Report plugin/custom fields as potentially opaque.
+- Output structured unresolved/external-reference entries.
+
+Default story-reference policy for MVP:
+
+```txt
+--reference-policy preserve
+```
+
+Meaning:
+
+- Rewrite only references already mapped or inside selected copy scope.
+- Preserve external references.
+- Report preserved external references in the graph/report.
+
+### Phase 3: `copy assets` (`MAR-1510`)
+
+Goal:
+
+- Copy asset folders and assets independently of stories.
+
+Required behavior:
+
+- Copy or match asset folders before assets.
+- Preserve asset folder nesting.
+- Copy assets through signed upload flow.
+- Preserve safe metadata: `alt`, `title`, `copyright`, `source`, `focus`, `meta_data`, `is_private`, `locked`, `publish_at` when supported.
+- Write asset and asset-folder manifests.
+- Support `--dry-run` and `--outputPath`.
+- Support rerun without duplicate uploads where manifest or safe target match exists.
+
+MVP selector:
+
+```bash
+sb-mig copy assets --from 123456 --to 789012 --all
+```
+
+Later selectors:
+
+```bash
+sb-mig copy assets --from 123456 --to 789012 --referenced-by-stories --source blog
+sb-mig copy assets --from 123456 --to 789012 --starts-with blog/
+```
+
+### Phase 4: Story Shell Creation and Story Manifest (`MAR-1511`)
+
+Goal:
+
+- Create or match target story shells in hierarchy order before full content update.
+
+Required behavior:
+
+- Create folders before child stories.
+- Preserve parent-child structure under selected destination.
+- Create minimal story shells with slug/name/folder/startpage/content component.
+- Write both source numeric ID to target numeric ID and source UUID to target UUID.
+- Match by manifest first, then target slug when safe.
+- Avoid updating full story content in this phase except minimal shell data.
+
+### Phase 5: Reference Rewriter (`MAR-1512`)
+
+Goal:
+
+- Rewrite copied story content using manifests and schemas.
+
+Required behavior:
+
+- Rewrite asset fields with target asset ID and target filename.
+- Rewrite multiasset entries.
+- Rewrite internal story multilinks.
+- Rewrite richtext story links by UUID.
+- Rewrite embedded richtext bloks recursively.
+- Rewrite `options` with `source: "internal_stories"`.
+- Rewrite `alternates` where mapped.
+- Preserve/report external references according to `--reference-policy preserve`.
+- Expose enough rewrite records for JSON reports.
+
+Implementation note:
+
+- Compare against `@storyblok/migrations mapRefs()` and official CLI internals.
+- If using `mapRefs`, add sb-mig wrapping for asset filename rewriting and detailed reporting.
+
+### Phase 6: `copy stories --with-assets` (`MAR-1513`)
+
+Goal:
+
+- End-to-end story copy with referenced assets copied first and story content relinked to target assets.
+
+Required order:
+
+1. Resolve story scope.
+2. Load schemas.
+3. Build copy graph.
+4. Load manifests.
+5. Copy/match asset folders.
+6. Copy/match referenced assets.
+7. Create/match story shells.
+8. Rewrite story content.
+9. Update target stories.
+10. Write report.
+
+MVP command:
+
+```bash
+sb-mig copy stories \
+  --from 123456 \
+  --to 789012 \
+  --source blog \
+  --destination imported \
+  --with-assets \
+  --dry-run \
+  --outputPath sbmig/copy-plans/blog-copy.json
+```
+
+### Phase 7: Story Reference Expansion Policies (`MAR-1514`)
+
+Goal:
+
+- Add explicit behavior for references to stories outside the selected copy scope.
+
+Policies:
+
+```txt
+preserve
+fail
+include-referenced
+```
+
+MVP already uses `preserve`.
+
+Later behavior:
+
+- `fail`: abort plan/apply when an external story reference has no mapping.
+- `include-referenced`: expand selected story graph to include referenced stories.
+- Add `--reference-depth` to avoid accidental full-space expansion.
+- Detect and report cycles.
+
+### Phase 8: Publication State, Resume, and Live Safety (`MAR-1515`)
+
+Goal:
+
+- Make first-class copy operationally safe.
+
+Required behavior:
+
+- Preserve draft-only stories as draft-only.
+- Publish clean published source stories in target.
+- Define behavior for published stories with unpublished changes.
+- Support multilingual publication where possible.
+- Resume cleanly after partial failures.
+- Write final report with created/updated/skipped/failed/matched counts.
+- Add mock and optional live tests for real Storyblok spaces.
+
+Recommended default:
+
+```txt
+--publication-mode preserve-layers
+```
+
+Fallback for MVP if full layer preservation is too large:
+
+```txt
+--publication-mode save-only
+```
+
+with explicit report warnings.
 
 ## Open Questions
 
