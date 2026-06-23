@@ -24,6 +24,7 @@ export const mainDescription = `
       $ sb-mig migrate content --all --from 12345 --to 12345 --migration file-with-migration --dry-run
       $ sb-mig inspect component-usage --from 12345 --all --query flex-group-width-child
       $ sb-mig copy stories --from 12345 --to 67890 --source folder/* --destination target-folder
+      $ sb-mig copy assets --from 12345 --to 67890 --all --dry-run --outputPath sbmig/copy-plans/assets.json
 `;
 
 export const inspectDescription = `
@@ -217,12 +218,14 @@ export const copyDescription = `
         $ sb-mig copy stories --from [spaceId] --to [spaceId] --source [folder_full_slug]
         $ sb-mig copy stories --from [spaceId] --to [spaceId] --source [folder_full_slug]/* --destination [target_folder_full_slug]
         $ sb-mig copy stories --from [spaceId] --to [spaceId] --source [folder_full_slug] --mode self --destination /
+        $ sb-mig copy assets --from [spaceId] --to [spaceId] --all --dry-run
 
     DESCRIPTION
-        Copy Storyblok stories or folders from one space to another.
+        Copy Storyblok stories or folders from one space to another, and inspect asset copy plans.
 
     COMMANDS
         stories         Copy one story, one folder subtree, a folder's children, or one folder shell.
+        assets          Plan copying all assets and asset folders. Apply mode is not implemented yet.
 
     FLAGS
         --from          Source Storyblok space ID. Falls back to configured spaceId.
@@ -230,6 +233,7 @@ export const copyDescription = `
         --source        Source story or folder full_slug. Use folder/* to copy a folder's children without the folder root.
         --destination   Target folder full_slug where copied stories are attached. Omit, '/', or 'root' to copy into target root.
         --mode          Copy mode: subtree, children, or self. Default: subtree. folder/* defaults to children.
+        --all           Select all assets and asset folders. [assets only]
         --dry-run       Preview the copy plan, destination paths, and likely target conflicts without writing to Storyblok.
         --outputPath    Optional JSON file path for a dry-run copy plan artifact. Only writes locally when passed.
 
@@ -240,7 +244,8 @@ export const copyDescription = `
         --where         Alias for --destination.
 
     SIDE EFFECTS
-        Writes copied stories into the target Storyblok space.
+        copy stories writes copied stories into the target Storyblok space unless --dry-run is passed.
+        copy assets is currently read-only against Storyblok and writes a local JSON report only when --outputPath is passed.
 
     GOTCHAS
         --source must resolve to an existing source story or folder.
@@ -251,6 +256,7 @@ export const copyDescription = `
         Copy currently creates new stories only. It does not update existing target stories.
         --dry-run checks likely target path conflicts, but the real copy can still fail if target state changes afterwards.
         Copy currently does not copy assets or rewrite story/asset references.
+        copy assets currently requires --all and --dry-run. Real upload/apply is blocked until target asset records can be resolved for manifest mappings.
 
     EXAMPLES
         $ sb-mig copy stories --from 12345 --to 67890 --source blog/post-1 --destination imported
@@ -259,6 +265,8 @@ export const copyDescription = `
         $ sb-mig copy stories --from 12345 --to 67890 --source blog --mode self --destination /
         $ sb-mig copy stories --from 12345 --to 67890 --source blog --destination imported --dry-run
         $ sb-mig copy stories --from 12345 --to 67890 --source blog --destination imported --dry-run --outputPath sbmig/copy-plans/blog-copy.json
+        $ sb-mig copy assets --from 12345 --to 67890 --all --dry-run
+        $ sb-mig copy assets --from 12345 --to 67890 --all --dry-run --outputPath sbmig/copy-plans/assets-copy.json
 `;
 
 export const migrateDescription = `

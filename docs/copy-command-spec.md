@@ -34,9 +34,9 @@ Current behavior:
 
 - Only supports `copy stories`.
 - Supports story/folder modes:
-  - `subtree`: copy a story, or a folder plus all descendants
-  - `children`: copy a folder's descendants without the folder root
-  - `self`: copy only one story or folder shell
+    - `subtree`: copy a story, or a folder plus all descendants
+    - `children`: copy a folder's descendants without the folder root
+    - `self`: copy only one story or folder shell
 - Supports copying into a target folder or into the target root.
 - Creates stories directly through the existing tree traversal.
 - Does not keep a durable source-to-target ID map.
@@ -154,8 +154,8 @@ Observed pattern:
 - Asset manifest maps source asset id and filename to target asset id and filename.
 - Asset folder manifest maps source folder id to target folder id.
 - Story manifest maps both:
-  - source numeric story id to target numeric story id
-  - source story uuid to target story uuid
+    - source numeric story id to target numeric story id
+    - source story uuid to target story uuid
 
 This is important because different Storyblok fields use different identity types. Some use numeric IDs, some use UUIDs, and assets use both IDs and filenames.
 
@@ -166,22 +166,22 @@ The `storyblok@4.18.1` package confirms the implementation model that sb-mig sho
 - Generic manifests are newline-delimited JSON and are loaded by splitting non-empty lines and parsing each line.
 - Manifest appends are incremental during push/copy, then deduplicated after successful non-dry-run asset pushes.
 - `assets push` writes:
-  - `.storyblok/assets/<from-space>/manifest.jsonl`
-  - `.storyblok/assets/<from-space>/folders/manifest.jsonl`
+    - `.storyblok/assets/<from-space>/manifest.jsonl`
+    - `.storyblok/assets/<from-space>/folders/manifest.jsonl`
 - Asset manifest entries include:
-  - `old_id`
-  - `new_id`
-  - `old_filename`
-  - `new_filename`
-  - `created_at`
+    - `old_id`
+    - `new_id`
+    - `old_filename`
+    - `new_filename`
+    - `created_at`
 - Asset folder manifest entries include:
-  - `old_id`
-  - `new_id`
-  - `created_at`
+    - `old_id`
+    - `new_id`
+    - `created_at`
 - `stories push` writes `.storyblok/stories/<from-space>/manifest.jsonl`.
 - Story manifest appends two entries per story:
-  - source story `uuid` to target story `uuid`
-  - source numeric story `id` to target numeric story `id`
+    - source story `uuid` to target story `uuid`
+    - source numeric story `id` to target numeric story `id`
 - `stories push` loads both the story manifest and asset manifest before rewriting story content.
 - `stories push` creates or matches story shells first, then rewrites references, then updates remote stories with mapped content.
 - `assets push --update-stories` fetches existing target stories and rewrites asset references after assets have already been pushed.
@@ -237,17 +237,17 @@ Proposed story entry:
 
 ```json
 {
-  "type": "story",
-  "source_space_id": "123456",
-  "target_space_id": "789012",
-  "source_id": 123,
-  "target_id": 8123,
-  "source_uuid": "source-uuid",
-  "target_uuid": "target-uuid",
-  "source_full_slug": "blog/my-post",
-  "target_full_slug": "blog/my-post",
-  "action": "created",
-  "created_at": "2026-06-16T10:00:00.000Z"
+    "type": "story",
+    "source_space_id": "123456",
+    "target_space_id": "789012",
+    "source_id": 123,
+    "target_id": 8123,
+    "source_uuid": "source-uuid",
+    "target_uuid": "target-uuid",
+    "source_full_slug": "blog/my-post",
+    "target_full_slug": "blog/my-post",
+    "action": "created",
+    "created_at": "2026-06-16T10:00:00.000Z"
 }
 ```
 
@@ -255,17 +255,17 @@ Proposed asset entry:
 
 ```json
 {
-  "type": "asset",
-  "source_space_id": "123456",
-  "target_space_id": "789012",
-  "source_id": 999,
-  "target_id": 42001,
-  "source_filename": "https://a.storyblok.com/f/123456/source.jpg",
-  "target_filename": "https://a.storyblok.com/f/789012/target.jpg",
-  "source_asset_folder_id": 77,
-  "target_asset_folder_id": 991,
-  "action": "created",
-  "created_at": "2026-06-16T10:00:00.000Z"
+    "type": "asset",
+    "source_space_id": "123456",
+    "target_space_id": "789012",
+    "source_id": 999,
+    "target_id": 42001,
+    "source_filename": "https://a.storyblok.com/f/123456/source.jpg",
+    "target_filename": "https://a.storyblok.com/f/789012/target.jpg",
+    "source_asset_folder_id": 77,
+    "target_asset_folder_id": 991,
+    "action": "created",
+    "created_at": "2026-06-16T10:00:00.000Z"
 }
 ```
 
@@ -273,17 +273,17 @@ Proposed asset folder entry:
 
 ```json
 {
-  "type": "asset_folder",
-  "source_space_id": "123456",
-  "target_space_id": "789012",
-  "source_id": 77,
-  "target_id": 991,
-  "source_name": "Hero",
-  "target_name": "Hero",
-  "source_parent_id": null,
-  "target_parent_id": null,
-  "action": "created",
-  "created_at": "2026-06-16T10:00:00.000Z"
+    "type": "asset_folder",
+    "source_space_id": "123456",
+    "target_space_id": "789012",
+    "source_id": 77,
+    "target_id": 991,
+    "source_name": "Hero",
+    "target_name": "Hero",
+    "source_parent_id": null,
+    "target_parent_id": null,
+    "action": "created",
+    "created_at": "2026-06-16T10:00:00.000Z"
 }
 ```
 
@@ -327,16 +327,16 @@ Storyblok story content can reference other stories by ID or UUID depending on f
 
 Known fields to rewrite:
 
-| Field location | Identity | Required behavior |
-| --- | --- | --- |
-| `multilink` with `linktype: "story"` | story id | Replace source story id with target story id |
-| `richtext` story links | story uuid | Replace source story uuid with target story uuid |
-| `options` with `source: "internal_stories"` | story ids | Replace each source id with target id |
-| nested `bloks` | varies | Recursively inspect nested components |
-| richtext embedded bloks | varies | Recursively inspect embedded component content |
-| `alternates[].id` | story id | Replace source id with target id |
-| `alternates[].parent_id` | story id | Replace source parent id with target parent id |
-| `parent_id` | story id | Replace source parent id with target parent id |
+| Field location                              | Identity   | Required behavior                                |
+| ------------------------------------------- | ---------- | ------------------------------------------------ |
+| `multilink` with `linktype: "story"`        | story id   | Replace source story id with target story id     |
+| `richtext` story links                      | story uuid | Replace source story uuid with target story uuid |
+| `options` with `source: "internal_stories"` | story ids  | Replace each source id with target id            |
+| nested `bloks`                              | varies     | Recursively inspect nested components            |
+| richtext embedded bloks                     | varies     | Recursively inspect embedded component content   |
+| `alternates[].id`                           | story id   | Replace source id with target id                 |
+| `alternates[].parent_id`                    | story id   | Replace source parent id with target parent id   |
+| `parent_id`                                 | story id   | Replace source parent id with target parent id   |
 
 If a story reference points to a story outside the selected copy scope, the command must not silently corrupt it. The copy report should classify it:
 
@@ -358,13 +358,13 @@ Asset fields commonly contain both an asset ID and a filename URL. Both can need
 
 Known fields to rewrite:
 
-| Field location | Identity | Required behavior |
-| --- | --- | --- |
-| `asset` field | asset id, filename | Replace with target asset id and target filename |
-| `multiasset` field | asset id, filename | Replace each asset object |
-| nested `bloks` | varies | Recursively inspect nested components |
-| richtext embedded bloks | varies | Recursively inspect embedded component content |
-| plugin/custom fields | unknown | Warn if schema is unknown or plugin data may contain references |
+| Field location          | Identity           | Required behavior                                               |
+| ----------------------- | ------------------ | --------------------------------------------------------------- |
+| `asset` field           | asset id, filename | Replace with target asset id and target filename                |
+| `multiasset` field      | asset id, filename | Replace each asset object                                       |
+| nested `bloks`          | varies             | Recursively inspect nested components                           |
+| richtext embedded bloks | varies             | Recursively inspect embedded component content                  |
+| plugin/custom fields    | unknown            | Warn if schema is unknown or plugin data may contain references |
 
 Asset references should be rewritten after target assets exist and asset manifests are populated.
 
@@ -392,8 +392,8 @@ Requirements:
 
 - For robust rewriting, fetch or require source component schemas.
 - If schemas are missing, the command should either:
-  - fail in strict mode, or
-  - continue with warnings and limited generic rewriting.
+    - fail in strict mode, or
+    - continue with warnings and limited generic rewriting.
 
 MVP recommendation:
 
@@ -451,11 +451,11 @@ Matching priority:
 
 1. Existing manifest mapping.
 2. Target resource by stable key:
-   - story full_slug
-   - asset folder path
-   - asset filename or checksum where available
-   - datasource name/slug
-   - component name
+    - story full_slug
+    - asset folder path
+    - asset filename or checksum where available
+    - datasource name/slug
+    - component name
 3. Create new target resource.
 
 The report should show:
@@ -547,8 +547,8 @@ Dry-run behavior:
 2. Fetch the source story or folder.
 3. Fetch descendants when mode is `subtree` or `children`.
 4. Validate the destination:
-   - omitted, `/`, or `root` means target root
-   - otherwise the target destination must exist and be a folder
+    - omitted, `/`, or `root` means target root
+    - otherwise the target destination must exist and be a folder
 5. Build the exact selected tree roots that real copy would pass to creation.
 6. Compute planned target full slugs from destination plus copied story slugs.
 7. Check likely target path conflicts by looking up each planned target full slug in the target space.
@@ -796,7 +796,11 @@ type UnresolvedReference = {
     type: "asset" | "story";
     path: string;
     sourceValue: unknown;
-    reason: "not_in_manifest" | "not_in_scope" | "unknown_schema" | "unsupported_field";
+    reason:
+        | "not_in_manifest"
+        | "not_in_scope"
+        | "unknown_schema"
+        | "unsupported_field";
 };
 ```
 
@@ -986,17 +990,17 @@ Deliverables:
 
 - `sb-mig copy stories`
 - flags:
-  - `--from`
-  - `--to`
-  - `--source`
-  - `--destination`
-  - `--mode`
-  - `--with-assets`
-  - `--dry-run`
-  - `--yes`
-  - `--publication-mode`
-  - `--manifest-dir`
-  - `--missing-reference-policy`
+    - `--from`
+    - `--to`
+    - `--source`
+    - `--destination`
+    - `--mode`
+    - `--with-assets`
+    - `--dry-run`
+    - `--yes`
+    - `--publication-mode`
+    - `--manifest-dir`
+    - `--missing-reference-policy`
 - useful help text and examples.
 
 ### Slice 8: Integration and Live Tests
@@ -1078,6 +1082,13 @@ Goal:
 
 - Copy asset folders and assets independently of stories.
 
+Current implementation status:
+
+- `sb-mig copy assets --from <sourceSpaceId> --to <targetSpaceId> --all --dry-run` is implemented as the first safe slice.
+- `--outputPath` writes a JSON report with the copy graph, ordered asset-folder nodes, asset nodes, warnings, limitations, and replay commands.
+- The command reads source assets and source asset folders from Storyblok, but makes no Storyblok writes.
+- Real apply mode is intentionally blocked until the asset upload path can resolve the created target asset record and write trustworthy asset/asset-folder manifest mappings.
+
 Required behavior:
 
 - Copy or match asset folders before assets.
@@ -1092,6 +1103,12 @@ MVP selector:
 
 ```bash
 sb-mig copy assets --from 123456 --to 789012 --all
+```
+
+Safe dry-run selector available now:
+
+```bash
+sb-mig copy assets --from 123456 --to 789012 --all --dry-run --outputPath sbmig/copy-plans/assets-copy.json
 ```
 
 Later selectors:

@@ -3,6 +3,10 @@ import type { CLIOptions } from "../../utils/interfaces.js";
 import fs from "fs/promises";
 import path from "path";
 
+import {
+    buildCopyAssetsGraph,
+    summarizeCopyGraph,
+} from "../../api/copy/index.js";
 import { managementApi } from "../../api/managementApi.js";
 import { createTree, traverseAndCreate } from "../../api/stories/tree.js";
 import Logger from "../../utils/logger.js";
@@ -10,6 +14,7 @@ import { apiConfig } from "../api-config.js";
 
 const COPY_COMMANDS = {
     stories: "stories",
+    assets: "assets",
 };
 
 const COPY_MODES = ["subtree", "children", "self"] as const;
@@ -60,6 +65,32 @@ type CopyDryRunReport = {
     items: CopyPlanItem[];
     warnings: CopyPlanWarning[];
     errors: any[];
+    limitations: string[];
+    commands: {
+        dryRun: string;
+        apply: string;
+    };
+};
+
+type CopyAssetsDryRunReport = {
+    schemaVersion: 1;
+    command: "copy assets";
+    dryRun: true;
+    generatedAt: string;
+    input: Record<string, any>;
+    normalized: {
+        sourceSpaceId: string;
+        targetSpaceId: string;
+        selection: "all";
+    };
+    summary: {
+        plannedCreates: number;
+        assetFolders: number;
+        assets: number;
+        warnings: number;
+        errors: number;
+    };
+    graph: ReturnType<typeof buildCopyAssetsGraph>;
     limitations: string[];
     commands: {
         dryRun: string;
@@ -421,6 +452,39 @@ const buildCopyCommand = ({
     return args.map(quoteCommandArg).join(" ");
 };
 
+const buildCopyAssetsCommand = ({
+    sourceSpace,
+    targetSpace,
+    dryRun,
+    outputPath,
+}: {
+    sourceSpace: string;
+    targetSpace: string;
+    dryRun: boolean;
+    outputPath?: string;
+}): string => {
+    const args = [
+        "sb-mig",
+        "copy",
+        "assets",
+        "--from",
+        sourceSpace,
+        "--to",
+        targetSpace,
+        "--all",
+    ];
+
+    if (dryRun) {
+        args.push("--dry-run");
+    }
+
+    if (outputPath) {
+        args.push("--outputPath", outputPath);
+    }
+
+    return args.map(quoteCommandArg).join(" ");
+};
+
 const buildCopyDryRunReport = ({
     sourceSpace,
     targetSpace,
@@ -488,10 +552,58 @@ const buildCopyDryRunReport = ({
     };
 };
 
-const writeDryRunReport = async (
-    outputPath: string,
-    report: CopyDryRunReport,
-) => {
+const buildCopyAssetsDryRunReport = ({
+    sourceSpace,
+    targetSpace,
+    input,
+    outputPath,
+    graph,
+}: {
+    sourceSpace: string;
+    targetSpace: string;
+    input: Record<string, any>;
+    outputPath?: string;
+    graph: ReturnType<typeof buildCopyAssetsGraph>;
+}): CopyAssetsDryRunReport => {
+    const graphSummary = summarizeCopyGraph(graph);
+
+    return {
+        schemaVersion: 1,
+        command: "copy assets",
+        dryRun: true,
+        generatedAt: graph.generatedAt,
+        input,
+        normalized: {
+            sourceSpaceId: sourceSpace,
+            targetSpaceId: targetSpace,
+            selection: "all",
+        },
+        summary: {
+            plannedCreates: graphSummary.assetFolders + graphSummary.assets,
+            assetFolders: graphSummary.assetFolders,
+            assets: graphSummary.assets,
+            warnings: graphSummary.warnings,
+            errors: graphSummary.errors,
+        },
+        graph,
+        limitations: graph.limitations,
+        commands: {
+            dryRun: buildCopyAssetsCommand({
+                sourceSpace,
+                targetSpace,
+                dryRun: true,
+                outputPath,
+            }),
+            apply: buildCopyAssetsCommand({
+                sourceSpace,
+                targetSpace,
+                dryRun: false,
+            }),
+        },
+    };
+};
+
+const writeDryRunReport = async (outputPath: string, report: unknown) => {
     const outputDirectory = path.dirname(outputPath);
     await fs.mkdir(outputDirectory, { recursive: true });
     await fs.writeFile(outputPath, JSON.stringify(report, null, 2), "utf8");
@@ -536,6 +648,44 @@ const logDryRunCopyPlan = async ({ report }: { report: CopyDryRunReport }) => {
 
     report.warnings.forEach((warning) =>
         Logger.warning(`[dry-run] ${warning.message}`),
+    );
+};
+
+const logDryRunCopyAssetsPlan = async ({
+    report,
+}: {
+    report: CopyAssetsDryRunReport;
+}) => {
+    Logger.warning(
+        "[dry-run] Copy assets preview only. No Storyblok writes will be made.",
+    );
+    Logger.warning(
+        `[dry-run] Source space: ${report.normalized.sourceSpaceId}`,
+    );
+    Logger.warning(
+        `[dry-run] Target space: ${report.normalized.targetSpaceId}`,
+    );
+    Logger.warning("[dry-run] Selection: all assets and asset folders");
+    Logger.warning(
+        `[dry-run] Would plan ${report.summary.assetFolders} asset folder(s) and ${report.summary.assets} asset(s).`,
+    );
+
+    for (const folder of report.graph.assetFolders) {
+        Logger.warning(
+            `[dry-run]   asset_folder ${folder.targetPath ?? `#${folder.sourceId}`}`,
+        );
+    }
+
+    for (const asset of report.graph.assets) {
+        Logger.warning(`[dry-run]   asset ${asset.targetFilename}`);
+    }
+
+    report.graph.warnings.forEach((warning) =>
+        Logger.warning(`[dry-run] ${warning.message}`),
+    );
+
+    report.limitations.forEach((limitation) =>
+        Logger.warning(`[dry-run] limitation: ${limitation}`),
     );
 };
 
@@ -627,7 +777,87 @@ export const copyCommand = async (props: CLIOptions) => {
 
             break;
         }
+        case COPY_COMMANDS.assets: {
+            const sourceSpace = getCopySpace(
+                flags,
+                ["from", "sourceSpace"],
+                apiConfig.spaceId,
+            );
+            const targetSpace = getCopySpace(
+                flags,
+                ["to", "targetSpace"],
+                apiConfig.spaceId,
+            );
+            const dryRun = Boolean(flags["dryRun"]);
+            const outputPath = readStringFlag(flags, ["outputPath"]);
+
+            if (!flags["all"]) {
+                throw new Error(
+                    "copy assets currently requires --all. Referenced-asset selectors are planned for a later slice.",
+                );
+            }
+
+            if (!dryRun) {
+                throw new Error(
+                    "copy assets apply is not implemented yet. Run with --dry-run to inspect the asset copy plan.",
+                );
+            }
+
+            Logger.warning(
+                `Planning asset copy from space '${sourceSpace}' to space '${targetSpace}'.`,
+            );
+
+            const [assetsResult, assetFoldersResult] = await Promise.all([
+                managementApi.assets.getAllAssets(
+                    { spaceId: sourceSpace },
+                    {
+                        ...apiConfig,
+                        spaceId: sourceSpace,
+                    },
+                ),
+                managementApi.assets.getAllAssetFolders(
+                    { spaceId: sourceSpace },
+                    {
+                        ...apiConfig,
+                        spaceId: sourceSpace,
+                    },
+                ),
+            ]);
+
+            const sourceAssets = Array.isArray(assetsResult?.assets)
+                ? assetsResult.assets
+                : [];
+            const sourceAssetFolders = Array.isArray(
+                assetFoldersResult?.asset_folders,
+            )
+                ? assetFoldersResult.asset_folders
+                : [];
+
+            const graph = buildCopyAssetsGraph({
+                sourceSpaceId: sourceSpace,
+                targetSpaceId: targetSpace,
+                assets: sourceAssets,
+                assetFolders: sourceAssetFolders,
+            });
+            const report = buildCopyAssetsDryRunReport({
+                sourceSpace,
+                targetSpace,
+                input: { ...flags },
+                outputPath,
+                graph,
+            });
+
+            await logDryRunCopyAssetsPlan({ report });
+
+            if (outputPath) {
+                await writeDryRunReport(outputPath, report);
+            }
+
+            break;
+        }
         default:
-            console.log(`no command like that: ${command}`);
+            Logger.warning(
+                "Unsupported copy command. Use: sb-mig copy stories --from <sourceSpaceId> --to <targetSpaceId> --source <full_slug> --destination <target_folder>, or sb-mig copy assets --from <sourceSpaceId> --to <targetSpaceId> --all --dry-run",
+            );
     }
 };

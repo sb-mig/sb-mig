@@ -47,7 +47,11 @@ vi.mock("../../src/utils/logger.js", () => ({
     },
 }));
 
-import { createAsset, updateAsset } from "../../src/api/assets/index.js";
+import {
+    createAsset,
+    getAllAssetFolders,
+    updateAsset,
+} from "../../src/api/assets/index.js";
 import { managementApi } from "../../src/api/managementApi.js";
 
 describe("Assets API", () => {
@@ -60,6 +64,46 @@ describe("Assets API", () => {
     it("exposes createAsset and updateAsset through managementApi.assets", () => {
         expect(managementApi.assets.createAsset).toBe(createAsset);
         expect(managementApi.assets.updateAsset).toBe(updateAsset);
+        expect(managementApi.assets.getAllAssetFolders).toBe(
+            getAllAssetFolders,
+        );
+    });
+
+    it("retrieves asset folders with Storyblok's query parameters", async () => {
+        const response = {
+            data: {
+                asset_folders: [
+                    {
+                        id: 42,
+                        name: "Images",
+                        parent_id: null,
+                    },
+                ],
+            },
+        };
+        const sbApi = {
+            get: vi.fn().mockResolvedValue(response),
+        };
+
+        const result = await getAllAssetFolders(
+            {
+                spaceId: "12345",
+                search: "Images",
+                withParent: 0,
+                byIds: [42, 43],
+                byUuids: ["uuid-a", "uuid-b"],
+            },
+            { spaceId: "12345", sbApi: sbApi as any },
+        );
+
+        expect(result).toBe(response.data);
+        expect(sbApi.get).toHaveBeenCalledWith("spaces/12345/asset_folders/", {
+            search: "Images",
+            with_parent: "0",
+            by_ids: "42,43",
+            by_uuids: "uuid-a,uuid-b",
+            per_page: 100,
+        });
     });
 
     it("creates an asset by requesting a signed upload and submitting the file", async () => {

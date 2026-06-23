@@ -9,7 +9,7 @@ export interface SBAsset {
     space_id: number;
     created_at: string;
     updated_at: string;
-    asset_folder_id?: null;
+    asset_folder_id?: number | null;
     deleted_at: null;
     content_length: number;
     content_type: AssetTypes;
