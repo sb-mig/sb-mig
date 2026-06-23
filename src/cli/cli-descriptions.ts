@@ -23,7 +23,7 @@ export const mainDescription = `
       $ sb-mig sync components --all
       $ sb-mig migrate content --all --from 12345 --to 12345 --migration file-with-migration --dry-run
       $ sb-mig inspect component-usage --from 12345 --all --query flex-group-width-child
-      $ sb-mig copy stories --sourceSpace 12345 --targetSpace 67890 --what folder/* --where target-folder
+      $ sb-mig copy stories --from 12345 --to 67890 --source folder/* --destination target-folder
 `;
 
 export const inspectDescription = `
@@ -213,35 +213,52 @@ export const syncDescription = `
 
 export const copyDescription = `
     USAGE
-        $ sb-mig copy stories --sourceSpace [spaceId] --targetSpace [spaceId] --what [full_slug] --where [target_folder_full_slug]
-        $ sb-mig copy stories --sourceSpace [spaceId] --targetSpace [spaceId] --what [folder_full_slug]
-        $ sb-mig copy stories --sourceSpace [spaceId] --targetSpace [spaceId] --what [folder_full_slug]/* --where [target_folder_full_slug]
+        $ sb-mig copy stories --from [spaceId] --to [spaceId] --source [full_slug] --destination [target_folder_full_slug]
+        $ sb-mig copy stories --from [spaceId] --to [spaceId] --source [folder_full_slug]
+        $ sb-mig copy stories --from [spaceId] --to [spaceId] --source [folder_full_slug]/* --destination [target_folder_full_slug]
+        $ sb-mig copy stories --from [spaceId] --to [spaceId] --source [folder_full_slug] --mode self --destination /
 
     DESCRIPTION
-        Copy Storyblok stories or folders from one space to a folder in another space.
+        Copy Storyblok stories or folders from one space to another.
 
     COMMANDS
-        stories         Copy one story, one folder with its root, or a folder's children recursively.
+        stories         Copy one story, one folder subtree, a folder's children, or one folder shell.
 
     FLAGS
-        --sourceSpace   Source Storyblok space ID. Falls back to configured spaceId.
-        --targetSpace   Target Storyblok space ID. Falls back to configured spaceId.
-        --what          Source story or folder full_slug. Use folder/* to copy a folder's children without the folder root.
-        --where         Target folder full_slug where copied stories are attached.
+        --from          Source Storyblok space ID. Falls back to configured spaceId.
+        --to            Target Storyblok space ID. Falls back to configured spaceId.
+        --source        Source story or folder full_slug. Use folder/* to copy a folder's children without the folder root.
+        --destination   Target folder full_slug where copied stories are attached. Omit, '/', or 'root' to copy into target root.
+        --mode          Copy mode: subtree, children, or self. Default: subtree. folder/* defaults to children.
+        --dry-run       Preview the copy plan, destination paths, and likely target conflicts without writing to Storyblok.
+        --outputPath    Optional JSON file path for a dry-run copy plan artifact. Only writes locally when passed.
+
+    LEGACY FLAGS
+        --sourceSpace   Alias for --from.
+        --targetSpace   Alias for --to.
+        --what          Alias for --source.
+        --where         Alias for --destination.
 
     SIDE EFFECTS
         Writes copied stories into the target Storyblok space.
 
     GOTCHAS
-        --what must resolve to an existing source story or folder.
-        --where must resolve to an existing target folder.
-        folder/* requires the source path before /* to be a folder.
-        Copy currently logs internal strategy details while it runs.
+        --source must resolve to an existing source story or folder.
+        --destination must resolve to an existing target folder unless it is omitted, '/', or 'root'.
+        mode 'subtree' copies a folder and all descendants. This is the default for folders.
+        mode 'children' copies a folder's descendants without the folder root.
+        mode 'self' copies only the source story or folder shell.
+        Copy currently creates new stories only. It does not update existing target stories.
+        --dry-run checks likely target path conflicts, but the real copy can still fail if target state changes afterwards.
+        Copy currently does not copy assets or rewrite story/asset references.
 
     EXAMPLES
-        $ sb-mig copy stories --sourceSpace 12345 --targetSpace 67890 --what blog/post-1 --where imported
-        $ sb-mig copy stories --sourceSpace 12345 --targetSpace 67890 --what blog --where imported
-        $ sb-mig copy stories --sourceSpace 12345 --targetSpace 67890 --what blog/* --where imported
+        $ sb-mig copy stories --from 12345 --to 67890 --source blog/post-1 --destination imported
+        $ sb-mig copy stories --from 12345 --to 67890 --source blog --destination imported
+        $ sb-mig copy stories --from 12345 --to 67890 --source blog/* --destination imported
+        $ sb-mig copy stories --from 12345 --to 67890 --source blog --mode self --destination /
+        $ sb-mig copy stories --from 12345 --to 67890 --source blog --destination imported --dry-run
+        $ sb-mig copy stories --from 12345 --to 67890 --source blog --destination imported --dry-run --outputPath sbmig/copy-plans/blog-copy.json
 `;
 
 export const migrateDescription = `

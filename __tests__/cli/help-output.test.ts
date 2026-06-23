@@ -114,9 +114,13 @@ describe("CLI help output", () => {
         expect(migrateHelp).toContain("--publish");
 
         expect(copyHelp).toContain("copy stories");
-        expect(copyHelp).toContain("--what");
-        expect(copyHelp).toContain("--where");
+        expect(copyHelp).toContain("--source");
+        expect(copyHelp).toContain("--destination");
+        expect(copyHelp).toContain("--mode");
+        expect(copyHelp).toContain("--dry-run");
+        expect(copyHelp).toContain("--outputPath");
         expect(copyHelp).toContain("folder/*");
+        expect(copyHelp).toContain("Alias for --from");
         expect(copyHelp).not.toContain("?");
 
         expect(syncHelp).toContain("--syncDirection");
