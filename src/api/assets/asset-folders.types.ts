@@ -13,6 +13,11 @@ export interface SBAllAssetFoldersRequestResult {
     asset_folders: SBAssetFolder[];
 }
 
+export type CreateAssetFolderPayload = {
+    name: string;
+    parent_id?: number | null;
+};
+
 export type GetAllAssetFolders = (
     {
         spaceId,
@@ -29,3 +34,14 @@ export type GetAllAssetFolders = (
     },
     config: RequestBaseConfig,
 ) => Promise<SBAllAssetFoldersRequestResult>;
+
+export type CreateAssetFolder = (
+    {
+        spaceId,
+        payload,
+    }: {
+        spaceId: string;
+        payload: CreateAssetFolderPayload;
+    },
+    config: RequestBaseConfig,
+) => Promise<{ asset_folder: SBAssetFolder }>;

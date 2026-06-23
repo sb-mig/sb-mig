@@ -1086,8 +1086,11 @@ Current implementation status:
 
 - `sb-mig copy assets --from <sourceSpaceId> --to <targetSpaceId> --all --dry-run` is implemented as the first safe slice.
 - `--outputPath` writes a JSON report with the copy graph, ordered asset-folder nodes, asset nodes, warnings, limitations, and replay commands.
-- The command reads source assets and source asset folders from Storyblok, but makes no Storyblok writes.
-- Real apply mode is intentionally blocked until the asset upload path can resolve the created target asset record and write trustworthy asset/asset-folder manifest mappings.
+- `sb-mig copy assets --from <sourceSpaceId> --to <targetSpaceId> --all` now applies the copy.
+- Apply mode loads existing `.sb-mig/copy/<source>/<target>/manifest.jsonl` mappings first.
+- Apply mode creates or matches asset folders before assets.
+- Apply mode uploads assets, calls Storyblok `finish_upload`, optionally updates safe metadata, and writes asset/asset-folder manifests.
+- Reruns avoid duplicate uploads when a manifest mapping exists. Without a manifest, the command may match target folders by path and target assets by unique file name.
 
 Required behavior:
 

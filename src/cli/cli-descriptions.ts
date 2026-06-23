@@ -218,6 +218,7 @@ export const copyDescription = `
         $ sb-mig copy stories --from [spaceId] --to [spaceId] --source [folder_full_slug]
         $ sb-mig copy stories --from [spaceId] --to [spaceId] --source [folder_full_slug]/* --destination [target_folder_full_slug]
         $ sb-mig copy stories --from [spaceId] --to [spaceId] --source [folder_full_slug] --mode self --destination /
+        $ sb-mig copy assets --from [spaceId] --to [spaceId] --all
         $ sb-mig copy assets --from [spaceId] --to [spaceId] --all --dry-run
 
     DESCRIPTION
@@ -225,7 +226,7 @@ export const copyDescription = `
 
     COMMANDS
         stories         Copy one story, one folder subtree, a folder's children, or one folder shell.
-        assets          Plan copying all assets and asset folders. Apply mode is not implemented yet.
+        assets          Copy or plan all assets and asset folders with durable manifests.
 
     FLAGS
         --from          Source Storyblok space ID. Falls back to configured spaceId.
@@ -245,7 +246,9 @@ export const copyDescription = `
 
     SIDE EFFECTS
         copy stories writes copied stories into the target Storyblok space unless --dry-run is passed.
-        copy assets is currently read-only against Storyblok and writes a local JSON report only when --outputPath is passed.
+        copy assets writes asset folders and assets into the target Storyblok space unless --dry-run is passed.
+        copy assets writes JSONL manifests under .sb-mig/copy/<source>/<target>/ during apply.
+        --outputPath writes a local JSON report for dry-run or apply.
 
     GOTCHAS
         --source must resolve to an existing source story or folder.
@@ -255,8 +258,9 @@ export const copyDescription = `
         mode 'self' copies only the source story or folder shell.
         Copy currently creates new stories only. It does not update existing target stories.
         --dry-run checks likely target path conflicts, but the real copy can still fail if target state changes afterwards.
-        Copy currently does not copy assets or rewrite story/asset references.
-        copy assets currently requires --all and --dry-run. Real upload/apply is blocked until target asset records can be resolved for manifest mappings.
+        Copy stories currently does not copy assets or rewrite story/asset references.
+        copy assets currently requires --all. It matches by manifest first, then safe target folder path or unique asset file name before creating.
+        copy assets uploads assets, finalizes the upload, and writes source-to-target asset/folder manifests.
 
     EXAMPLES
         $ sb-mig copy stories --from 12345 --to 67890 --source blog/post-1 --destination imported
@@ -265,6 +269,7 @@ export const copyDescription = `
         $ sb-mig copy stories --from 12345 --to 67890 --source blog --mode self --destination /
         $ sb-mig copy stories --from 12345 --to 67890 --source blog --destination imported --dry-run
         $ sb-mig copy stories --from 12345 --to 67890 --source blog --destination imported --dry-run --outputPath sbmig/copy-plans/blog-copy.json
+        $ sb-mig copy assets --from 12345 --to 67890 --all
         $ sb-mig copy assets --from 12345 --to 67890 --all --dry-run
         $ sb-mig copy assets --from 12345 --to 67890 --all --dry-run --outputPath sbmig/copy-plans/assets-copy.json
 `;

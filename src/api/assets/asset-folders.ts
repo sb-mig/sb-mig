@@ -1,4 +1,7 @@
-import type { GetAllAssetFolders } from "./asset-folders.types.js";
+import type {
+    CreateAssetFolder,
+    GetAllAssetFolders,
+} from "./asset-folders.types.js";
 
 import Logger from "../../utils/logger.js";
 
@@ -32,6 +35,28 @@ export const getAllAssetFolders: GetAllAssetFolders = async (args, config) => {
                 return { asset_folders: [] };
             }
 
+            Logger.error(err);
+            throw err;
+        });
+};
+
+export const createAssetFolder: CreateAssetFolder = async (
+    { spaceId, payload },
+    config,
+) => {
+    const { sbApi } = config;
+
+    return (sbApi as any)
+        .post(`spaces/${spaceId}/asset_folders/`, {
+            asset_folder: {
+                name: payload.name,
+                ...(payload.parent_id === undefined
+                    ? {}
+                    : { parent_id: payload.parent_id }),
+            },
+        })
+        .then(({ data }: any) => data)
+        .catch((err: any) => {
             Logger.error(err);
             throw err;
         });

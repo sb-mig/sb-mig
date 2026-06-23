@@ -122,7 +122,8 @@ describe("CLI help output", () => {
         expect(copyHelp).toContain("--dry-run");
         expect(copyHelp).toContain("--outputPath");
         expect(copyHelp).toContain("folder/*");
-        expect(copyHelp).toContain("Apply mode is not implemented yet");
+        expect(copyHelp).toContain("durable manifests");
+        expect(copyHelp).toContain(".sb-mig/copy");
         expect(copyHelp).toContain("Alias for --from");
         expect(copyHelp).not.toContain("?");
 

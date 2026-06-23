@@ -1,15 +1,26 @@
+import type {
+    CopyAssetFolderManifestEntry,
+    CopyAssetManifestEntry,
+    CopyManifestEntry,
+} from "../../api/copy/index.js";
 import type { CLIOptions } from "../../utils/interfaces.js";
 
 import fs from "fs/promises";
 import path from "path";
 
 import {
+    appendManifestEntry,
     buildCopyAssetsGraph,
+    buildCopyMaps,
+    dedupeManifestFile,
+    getDefaultCopyManifestPaths,
+    loadManifest,
     summarizeCopyGraph,
 } from "../../api/copy/index.js";
 import { managementApi } from "../../api/managementApi.js";
 import { createTree, traverseAndCreate } from "../../api/stories/tree.js";
 import Logger from "../../utils/logger.js";
+import { getFileName } from "../../utils/string-utils.js";
 import { apiConfig } from "../api-config.js";
 
 const COPY_COMMANDS = {
@@ -96,6 +107,35 @@ type CopyAssetsDryRunReport = {
         dryRun: string;
         apply: string;
     };
+};
+
+type CopyAssetsApplyReport = {
+    schemaVersion: 1;
+    command: "copy assets";
+    dryRun: false;
+    generatedAt: string;
+    input: Record<string, any>;
+    normalized: {
+        sourceSpaceId: string;
+        targetSpaceId: string;
+        selection: "all";
+    };
+    summary: {
+        assetFoldersCreated: number;
+        assetFoldersMatched: number;
+        assetsCreated: number;
+        assetsMatched: number;
+        warnings: number;
+        errors: number;
+    };
+    graph: ReturnType<typeof buildCopyAssetsGraph>;
+    manifestPaths: {
+        assets: string;
+        assetFolders: string;
+        combined: string;
+    };
+    warnings: any[];
+    errors: any[];
 };
 
 const COPY_DRY_RUN_LIMITATIONS = [
@@ -610,6 +650,483 @@ const writeDryRunReport = async (outputPath: string, report: unknown) => {
     Logger.success(`[dry-run] Copy plan written to ${outputPath}`);
 };
 
+const writeJsonReport = async (outputPath: string, report: unknown) => {
+    const outputDirectory = path.dirname(outputPath);
+    await fs.mkdir(outputDirectory, { recursive: true });
+    await fs.writeFile(outputPath, JSON.stringify(report, null, 2), "utf8");
+    Logger.success(`Copy report written to ${outputPath}`);
+};
+
+const appendCopyManifestEntry = async ({
+    combinedPath,
+    resourcePath,
+    entry,
+}: {
+    combinedPath: string;
+    resourcePath: string;
+    entry: CopyManifestEntry;
+}) => {
+    await appendManifestEntry(resourcePath, entry);
+    await appendManifestEntry(combinedPath, entry);
+};
+
+const getAssetFolderPath = (
+    folder: any,
+    folderById: Map<number, any>,
+): string => {
+    const names = [String(folder.name ?? folder.id)];
+    const visited = new Set<number>([Number(folder.id)]);
+    let parentId = folder.parent_id;
+
+    while (parentId !== null && parentId !== undefined) {
+        const parent = folderById.get(Number(parentId));
+
+        if (!parent || visited.has(Number(parent.id))) {
+            break;
+        }
+
+        names.unshift(String(parent.name ?? parent.id));
+        visited.add(Number(parent.id));
+        parentId = parent.parent_id;
+    }
+
+    return names.join("/");
+};
+
+const buildAssetFolderPathMap = (folders: any[]): Map<string, any> => {
+    const folderById = new Map(
+        folders.map((folder) => [Number(folder.id), folder] as const),
+    );
+    const folderByPath = new Map<string, any>();
+
+    for (const folder of folders) {
+        folderByPath.set(getAssetFolderPath(folder, folderById), folder);
+    }
+
+    return folderByPath;
+};
+
+const getAssetMetadataPayload = (asset: any) => ({
+    ...(asset.alt ? { alt: asset.alt } : {}),
+    ...(asset.title ? { title: asset.title } : {}),
+    ...(asset.copyright ? { copyright: asset.copyright } : {}),
+    ...(asset.source ? { source: asset.source } : {}),
+    ...(asset.focus ? { focus: asset.focus } : {}),
+    ...(asset.meta_data ? { meta_data: asset.meta_data } : {}),
+    ...(asset.is_private === undefined ? {} : { is_private: asset.is_private }),
+    ...(asset.locked === undefined ? {} : { locked: asset.locked }),
+    ...(asset.publish_at === undefined ? {} : { publish_at: asset.publish_at }),
+    ...(asset.internal_tag_ids?.length
+        ? { internal_tag_ids: asset.internal_tag_ids }
+        : {}),
+});
+
+const findUniqueTargetAssetByFileName = (
+    targetAssets: any[],
+    fileName: string,
+): any | undefined => {
+    const matches = targetAssets.filter(
+        (asset) => getFileName(asset.filename) === fileName,
+    );
+
+    return matches.length === 1 ? matches[0] : undefined;
+};
+
+const buildCopyAssetsApplyReport = ({
+    sourceSpace,
+    targetSpace,
+    input,
+    graph,
+    manifestPaths,
+    assetFoldersCreated,
+    assetFoldersMatched,
+    assetsCreated,
+    assetsMatched,
+}: {
+    sourceSpace: string;
+    targetSpace: string;
+    input: Record<string, any>;
+    graph: ReturnType<typeof buildCopyAssetsGraph>;
+    manifestPaths: ReturnType<typeof getDefaultCopyManifestPaths>;
+    assetFoldersCreated: number;
+    assetFoldersMatched: number;
+    assetsCreated: number;
+    assetsMatched: number;
+}): CopyAssetsApplyReport => ({
+    schemaVersion: 1,
+    command: "copy assets",
+    dryRun: false,
+    generatedAt: graph.generatedAt,
+    input,
+    normalized: {
+        sourceSpaceId: sourceSpace,
+        targetSpaceId: targetSpace,
+        selection: "all",
+    },
+    summary: {
+        assetFoldersCreated,
+        assetFoldersMatched,
+        assetsCreated,
+        assetsMatched,
+        warnings: graph.warnings.length,
+        errors: graph.errors.length,
+    },
+    graph,
+    manifestPaths: {
+        assets: manifestPaths.assets,
+        assetFolders: manifestPaths.assetFolders,
+        combined: manifestPaths.combined,
+    },
+    warnings: graph.warnings,
+    errors: graph.errors,
+});
+
+const copyAssetsAndWriteManifests = async ({
+    sourceSpace,
+    targetSpace,
+    input,
+    graph,
+    sourceAssets,
+    sourceAssetFolders,
+    outputPath,
+    manifestRoot,
+}: {
+    sourceSpace: string;
+    targetSpace: string;
+    input: Record<string, any>;
+    graph: ReturnType<typeof buildCopyAssetsGraph>;
+    sourceAssets: any[];
+    sourceAssetFolders: any[];
+    outputPath?: string;
+    manifestRoot?: string;
+}): Promise<CopyAssetsApplyReport> => {
+    const manifestPaths = getDefaultCopyManifestPaths({
+        sourceSpaceId: sourceSpace,
+        targetSpaceId: targetSpace,
+        rootDir: manifestRoot,
+    });
+    const existingManifestEntries = await loadManifest(manifestPaths.combined);
+    const copyMaps = buildCopyMaps(existingManifestEntries);
+    const targetAssetFoldersResult =
+        await managementApi.assets.getAllAssetFolders(
+            { spaceId: targetSpace },
+            {
+                ...apiConfig,
+                spaceId: targetSpace,
+            },
+        );
+    const targetAssetsResult = await managementApi.assets.getAllAssets(
+        { spaceId: targetSpace },
+        {
+            ...apiConfig,
+            spaceId: targetSpace,
+        },
+    );
+    const targetAssetFolders = Array.isArray(
+        targetAssetFoldersResult?.asset_folders,
+    )
+        ? targetAssetFoldersResult.asset_folders
+        : [];
+    const targetAssets = Array.isArray(targetAssetsResult?.assets)
+        ? targetAssetsResult.assets
+        : [];
+    const targetFolderByPath = buildAssetFolderPathMap(targetAssetFolders);
+    const sourceFolderById = new Map(
+        sourceAssetFolders.map(
+            (folder) => [Number(folder.id), folder] as const,
+        ),
+    );
+    const graphFolderBySourceId = new Map(
+        graph.assetFolders.map((folder) => [folder.sourceId, folder] as const),
+    );
+    const graphAssetBySourceId = new Map(
+        graph.assets.map((asset) => [asset.sourceId, asset] as const),
+    );
+    let assetFoldersCreated = 0;
+    let assetFoldersMatched = 0;
+    let assetsCreated = 0;
+    let assetsMatched = 0;
+
+    Logger.warning(
+        `Copying assets from space '${sourceSpace}' to space '${targetSpace}'.`,
+    );
+
+    for (const folderNode of graph.assetFolders) {
+        const sourceFolder = sourceFolderById.get(folderNode.sourceId);
+
+        if (!sourceFolder) {
+            continue;
+        }
+
+        const mappedTargetFolderId = copyMaps.assetFolderIds.get(
+            folderNode.sourceId,
+        );
+
+        if (mappedTargetFolderId) {
+            folderNode.targetParentId =
+                sourceFolder.parent_id === null ||
+                sourceFolder.parent_id === undefined
+                    ? null
+                    : (copyMaps.assetFolderIds.get(
+                          Number(sourceFolder.parent_id),
+                      ) ?? null);
+            folderNode.action = "match";
+            assetFoldersMatched += 1;
+            continue;
+        }
+
+        const existingTargetFolder = folderNode.sourcePath
+            ? targetFolderByPath.get(folderNode.sourcePath)
+            : undefined;
+        const createdAt = new Date().toISOString();
+
+        if (existingTargetFolder) {
+            const entry: CopyAssetFolderManifestEntry = {
+                type: "asset_folder",
+                source_space_id: sourceSpace,
+                target_space_id: targetSpace,
+                source_id: folderNode.sourceId,
+                target_id: Number(existingTargetFolder.id),
+                source_name: String(sourceFolder.name ?? ""),
+                target_name: String(existingTargetFolder.name ?? ""),
+                source_parent_id: sourceFolder.parent_id ?? null,
+                target_parent_id: existingTargetFolder.parent_id ?? null,
+                source_path: folderNode.sourcePath,
+                target_path: folderNode.sourcePath,
+                action: "matched_by_target_key",
+                created_at: createdAt,
+            };
+
+            await appendCopyManifestEntry({
+                combinedPath: manifestPaths.combined,
+                resourcePath: manifestPaths.assetFolders,
+                entry,
+            });
+            copyMaps.assetFolderIds.set(entry.source_id, entry.target_id);
+            folderNode.targetParentId = entry.target_parent_id;
+            folderNode.action = "match";
+            assetFoldersMatched += 1;
+            continue;
+        }
+
+        const targetParentId =
+            sourceFolder.parent_id === null ||
+            sourceFolder.parent_id === undefined
+                ? null
+                : (copyMaps.assetFolderIds.get(
+                      Number(sourceFolder.parent_id),
+                  ) ?? null);
+        const createdFolder = await managementApi.assets.createAssetFolder(
+            {
+                spaceId: targetSpace,
+                payload: {
+                    name: String(sourceFolder.name),
+                    parent_id: targetParentId,
+                },
+            },
+            {
+                ...apiConfig,
+                spaceId: targetSpace,
+            },
+        );
+        const targetFolder = createdFolder.asset_folder;
+        const entry: CopyAssetFolderManifestEntry = {
+            type: "asset_folder",
+            source_space_id: sourceSpace,
+            target_space_id: targetSpace,
+            source_id: folderNode.sourceId,
+            target_id: Number(targetFolder.id),
+            source_name: String(sourceFolder.name ?? ""),
+            target_name: String(targetFolder.name ?? ""),
+            source_parent_id: sourceFolder.parent_id ?? null,
+            target_parent_id: targetFolder.parent_id ?? null,
+            source_path: folderNode.sourcePath,
+            target_path: folderNode.sourcePath,
+            action: "created",
+            created_at: createdAt,
+        };
+
+        await appendCopyManifestEntry({
+            combinedPath: manifestPaths.combined,
+            resourcePath: manifestPaths.assetFolders,
+            entry,
+        });
+        copyMaps.assetFolderIds.set(entry.source_id, entry.target_id);
+        folderNode.targetParentId = entry.target_parent_id;
+        folderNode.action = "create";
+        assetFoldersCreated += 1;
+    }
+
+    for (const asset of sourceAssets) {
+        const graphAsset = graphAssetBySourceId.get(Number(asset.id));
+
+        if (!graphAsset) {
+            continue;
+        }
+
+        const mappedTargetAsset = copyMaps.assetIds.get(Number(asset.id));
+
+        if (mappedTargetAsset) {
+            graphAsset.targetFilename = mappedTargetAsset.filename;
+            graphAsset.targetAssetFolderId =
+                asset.asset_folder_id === null ||
+                asset.asset_folder_id === undefined
+                    ? null
+                    : (copyMaps.assetFolderIds.get(
+                          Number(asset.asset_folder_id),
+                      ) ?? null);
+            graphAsset.action = "match";
+            assetsMatched += 1;
+            continue;
+        }
+
+        const fileName = getFileName(asset.filename);
+        const existingTargetAsset = findUniqueTargetAssetByFileName(
+            targetAssets,
+            fileName,
+        );
+        const targetAssetFolderId =
+            asset.asset_folder_id === null ||
+            asset.asset_folder_id === undefined
+                ? null
+                : (copyMaps.assetFolderIds.get(Number(asset.asset_folder_id)) ??
+                  null);
+        const createdAt = new Date().toISOString();
+
+        if (existingTargetAsset) {
+            const entry: CopyAssetManifestEntry = {
+                type: "asset",
+                source_space_id: sourceSpace,
+                target_space_id: targetSpace,
+                source_id: Number(asset.id),
+                target_id: Number(existingTargetAsset.id),
+                source_filename: asset.filename,
+                target_filename: existingTargetAsset.filename,
+                source_asset_folder_id: asset.asset_folder_id ?? null,
+                target_asset_folder_id:
+                    existingTargetAsset.asset_folder_id ?? null,
+                action: "matched_by_target_key",
+                created_at: createdAt,
+            };
+
+            await appendCopyManifestEntry({
+                combinedPath: manifestPaths.combined,
+                resourcePath: manifestPaths.assets,
+                entry,
+            });
+            copyMaps.assetIds.set(entry.source_id, {
+                id: entry.target_id,
+                filename: entry.target_filename,
+            });
+            copyMaps.assetFilenames.set(
+                entry.source_filename,
+                entry.target_filename,
+            );
+            graphAsset.targetFilename = entry.target_filename;
+            graphAsset.targetAssetFolderId = entry.target_asset_folder_id;
+            graphAsset.action = "match";
+            assetsMatched += 1;
+            continue;
+        }
+
+        const pathToFile = await managementApi.assets.downloadAsset(
+            { payload: asset },
+            apiConfig,
+        );
+        const targetAsset = await managementApi.assets.createAssetAndFinalize(
+            {
+                spaceId: targetSpace,
+                pathToFile,
+                payload: {
+                    filename: asset.filename,
+                    asset_folder_id: targetAssetFolderId,
+                },
+            },
+            {
+                ...apiConfig,
+                spaceId: targetSpace,
+            },
+        );
+
+        if (Object.keys(getAssetMetadataPayload(asset)).length > 0) {
+            await managementApi.assets.updateAsset(
+                {
+                    spaceId: targetSpace,
+                    assetId: Number(targetAsset.id),
+                    payload: getAssetMetadataPayload(asset),
+                },
+                {
+                    ...apiConfig,
+                    spaceId: targetSpace,
+                },
+            );
+        }
+
+        const entry: CopyAssetManifestEntry = {
+            type: "asset",
+            source_space_id: sourceSpace,
+            target_space_id: targetSpace,
+            source_id: Number(asset.id),
+            target_id: Number(targetAsset.id),
+            source_filename: asset.filename,
+            target_filename: targetAsset.filename,
+            source_asset_folder_id: asset.asset_folder_id ?? null,
+            target_asset_folder_id: targetAssetFolderId,
+            action: "created",
+            created_at: createdAt,
+        };
+
+        await appendCopyManifestEntry({
+            combinedPath: manifestPaths.combined,
+            resourcePath: manifestPaths.assets,
+            entry,
+        });
+        copyMaps.assetIds.set(entry.source_id, {
+            id: entry.target_id,
+            filename: entry.target_filename,
+        });
+        copyMaps.assetFilenames.set(
+            entry.source_filename,
+            entry.target_filename,
+        );
+        graphAsset.targetFilename = entry.target_filename;
+        graphAsset.targetAssetFolderId = entry.target_asset_folder_id;
+        graphAsset.action = "create";
+        assetsCreated += 1;
+    }
+
+    await dedupeManifestFile(manifestPaths.assetFolders);
+    await dedupeManifestFile(manifestPaths.assets);
+    await dedupeManifestFile(manifestPaths.combined);
+    graph.limitations = [];
+
+    const report = buildCopyAssetsApplyReport({
+        sourceSpace,
+        targetSpace,
+        input,
+        graph,
+        manifestPaths,
+        assetFoldersCreated,
+        assetFoldersMatched,
+        assetsCreated,
+        assetsMatched,
+    });
+
+    if (outputPath) {
+        await writeJsonReport(outputPath, report);
+    }
+
+    Logger.success(
+        `Asset copy complete. Created ${assetsCreated} asset(s), matched ${assetsMatched} asset(s).`,
+    );
+    Logger.success(`Asset manifest written to ${manifestPaths.assets}`);
+    Logger.success(
+        `Asset folder manifest written to ${manifestPaths.assetFolders}`,
+    );
+
+    return report;
+};
+
 const logDryRunCopyPlan = async ({ report }: { report: CopyDryRunReport }) => {
     Logger.warning(
         "[dry-run] Copy stories preview only. No Storyblok writes will be made.",
@@ -709,6 +1226,7 @@ export const copyCommand = async (props: CLIOptions) => {
             const selection = resolveCopySelection(flags);
             const dryRun = Boolean(flags["dryRun"]);
             const outputPath = readStringFlag(flags, ["outputPath"]);
+            const manifestRoot = readStringFlag(flags, ["manifestRoot"]);
             const destination = readStringFlag(flags, ["destination", "where"]);
             const destinationParentId = await resolveDestinationParentId(
                 destination,
@@ -790,6 +1308,7 @@ export const copyCommand = async (props: CLIOptions) => {
             );
             const dryRun = Boolean(flags["dryRun"]);
             const outputPath = readStringFlag(flags, ["outputPath"]);
+            const manifestRoot = readStringFlag(flags, ["manifestRoot"]);
 
             if (!flags["all"]) {
                 throw new Error(
@@ -797,14 +1316,10 @@ export const copyCommand = async (props: CLIOptions) => {
                 );
             }
 
-            if (!dryRun) {
-                throw new Error(
-                    "copy assets apply is not implemented yet. Run with --dry-run to inspect the asset copy plan.",
-                );
-            }
-
             Logger.warning(
-                `Planning asset copy from space '${sourceSpace}' to space '${targetSpace}'.`,
+                dryRun
+                    ? `Planning asset copy from space '${sourceSpace}' to space '${targetSpace}'.`
+                    : `Preparing asset copy from space '${sourceSpace}' to space '${targetSpace}'.`,
             );
 
             const [assetsResult, assetFoldersResult] = await Promise.all([
@@ -839,19 +1354,34 @@ export const copyCommand = async (props: CLIOptions) => {
                 assets: sourceAssets,
                 assetFolders: sourceAssetFolders,
             });
-            const report = buildCopyAssetsDryRunReport({
+            if (dryRun) {
+                const report = buildCopyAssetsDryRunReport({
+                    sourceSpace,
+                    targetSpace,
+                    input: { ...flags },
+                    outputPath,
+                    graph,
+                });
+
+                await logDryRunCopyAssetsPlan({ report });
+
+                if (outputPath) {
+                    await writeDryRunReport(outputPath, report);
+                }
+
+                break;
+            }
+
+            await copyAssetsAndWriteManifests({
                 sourceSpace,
                 targetSpace,
                 input: { ...flags },
-                outputPath,
                 graph,
+                sourceAssets,
+                sourceAssetFolders,
+                outputPath,
+                manifestRoot,
             });
-
-            await logDryRunCopyAssetsPlan({ report });
-
-            if (outputPath) {
-                await writeDryRunReport(outputPath, report);
-            }
 
             break;
         }

@@ -1,14 +1,17 @@
 import type {
     CreateAsset,
+    CreateAssetAndFinalize,
     GetAllAssets,
     GetAssetById,
     GetAssetByName,
     MigrateAsset,
     RequestSignedUploadUrl,
+    SBAsset,
     SignedUploadPayload,
     UpdateAsset,
     UploadFile,
     DownloadAsset,
+    FinishAssetUpload,
 } from "./assets.types.js";
 
 import fs from "fs";
@@ -141,7 +144,36 @@ const uploadFile: UploadFile = ({ signedResponseObject, pathToFile }) => {
     });
 };
 
-const downloadAsset: DownloadAsset = async (args, config) => {
+const getSignedUploadAssetId = (signedResponseObject: any): number => {
+    const assetId = Number(
+        signedResponseObject?.id ?? signedResponseObject?.asset?.id,
+    );
+
+    if (!Number.isFinite(assetId)) {
+        throw new Error(
+            "Signed upload response did not include an asset id, so upload cannot be finalized.",
+        );
+    }
+
+    return assetId;
+};
+
+export const finishAssetUpload: FinishAssetUpload = async (
+    { spaceId, assetId },
+    config,
+) => {
+    const { sbApi } = config;
+
+    return (sbApi as any)
+        .get(`spaces/${spaceId}/assets/${assetId}/finish_upload`, {})
+        .then(({ data }: any) => data)
+        .catch((err: any) => {
+            Logger.error(err);
+            throw err;
+        });
+};
+
+export const downloadAsset: DownloadAsset = async (args, config) => {
     const { debug, sbmigWorkingDirectory } = config;
     const { payload } = args;
     if (!sbmigWorkingDirectory) {
@@ -228,6 +260,34 @@ export const createAsset: CreateAsset = async (
     await uploadFile({ signedResponseObject, pathToFile });
 
     return signedResponseObject;
+};
+
+export const createAssetAndFinalize: CreateAssetAndFinalize = async (
+    { spaceId, pathToFile, payload = {} },
+    config,
+) => {
+    const signedResponseObject = await createAsset(
+        {
+            spaceId,
+            pathToFile,
+            payload: {
+                ...payload,
+                filename: payload.filename ?? pathToFile,
+                validate_upload: payload.validate_upload ?? 1,
+            },
+        },
+        config,
+    );
+    const assetId = getSignedUploadAssetId(signedResponseObject);
+    const finishedUpload = await finishAssetUpload(
+        {
+            spaceId,
+            assetId,
+        },
+        config,
+    );
+
+    return finishedUpload.asset as SBAsset;
 };
 
 export const updateAsset: UpdateAsset = async (

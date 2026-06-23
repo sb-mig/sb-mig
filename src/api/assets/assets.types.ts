@@ -121,6 +121,18 @@ export type CreateAsset = (
     },
     config: RequestBaseConfig,
 ) => Promise<SignedResponseObject>;
+export type CreateAssetAndFinalize = (
+    {
+        spaceId,
+        pathToFile,
+        payload,
+    }: {
+        spaceId: string;
+        pathToFile: string;
+        payload?: CreateAssetPayload;
+    },
+    config: RequestBaseConfig,
+) => Promise<SBAsset>;
 export type UpdateAsset = (
     {
         spaceId,
@@ -145,6 +157,17 @@ export type FinalizeUpload = ({
 }: {
     signedResponseObject: SignedResponseObject;
 }) => void;
+
+export type FinishAssetUpload = (
+    {
+        spaceId,
+        assetId,
+    }: {
+        spaceId: string;
+        assetId: number;
+    },
+    config: RequestBaseConfig,
+) => Promise<{ asset: Partial<SBAsset> & Pick<SBAsset, "id" | "filename"> }>;
 
 export type RequestSignedUploadUrl = (
     {
