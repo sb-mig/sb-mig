@@ -167,4 +167,46 @@ describe("files utilities", () => {
             JSON.stringify(summary, undefined, 2),
         );
     });
+
+    it("preserves an existing target file when array streaming fails", async () => {
+        const tempDir = makeTempDir();
+        const filePath = path.join(tempDir, "story-to-migrate.json");
+        const circular: any = { id: 2 };
+        circular.self = circular;
+        fs.writeFileSync(filePath, '{"previous":true}');
+
+        await expect(
+            writeJsonArrayStreamed([{ id: 1 }, circular], filePath),
+        ).rejects.toThrow(/circular/i);
+
+        expect(fs.readFileSync(filePath, "utf8")).toBe('{"previous":true}');
+        expect(
+            fs.readdirSync(tempDir).filter((name) => name.endsWith(".tmp")),
+        ).toEqual([]);
+    });
+
+    it("createAndSaveToFile rejects failed array writes without final artifact", async () => {
+        const tempDir = makeTempDir();
+        const circular: any = { story: { id: 2 } };
+        circular.self = circular;
+
+        await expect(
+            createAndSaveToFile(
+                {
+                    ext: "json",
+                    filename: "story-to-migrate",
+                    folder: "migrations",
+                    res: [{ story: { id: 1 } }, circular],
+                },
+                { sbmigWorkingDirectory: tempDir } as any,
+            ),
+        ).rejects.toThrow(/circular/i);
+
+        const folderPath = path.join(tempDir, "migrations");
+        const filePath = path.join(folderPath, "story-to-migrate.json");
+        expect(fs.existsSync(filePath)).toBe(false);
+        expect(
+            fs.readdirSync(folderPath).filter((name) => name.endsWith(".tmp")),
+        ).toEqual([]);
+    });
 });

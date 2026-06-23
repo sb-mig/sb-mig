@@ -4,6 +4,8 @@ import * as fs from "fs";
 import { writeFile } from "fs";
 import { createRequire } from "module";
 import nodePath from "path";
+import { Readable } from "stream";
+import { pipeline } from "stream/promises";
 import { pathToFileURL } from "url";
 
 import pkg from "ncp";
@@ -125,72 +127,68 @@ export const writeJsonArrayStreamed = (
     items: any[],
     pathWithFilename: string,
 ): Promise<void> => {
-    return new Promise<void>((resolve, reject) => {
-        const stream = fs.createWriteStream(pathWithFilename, { flags: "w" });
-        let settled = false;
+    const directory = nodePath.dirname(pathWithFilename);
+    const basename = nodePath.basename(pathWithFilename);
+    const tempPath = nodePath.join(
+        directory,
+        `.${basename}.${process.pid}.${Date.now()}.${Math.random()
+            .toString(36)
+            .slice(2)}.tmp`,
+    );
+    const itemCount = items.length;
+    let expectedBytes = 0;
+    let serializedItems = 0;
 
-        const fail = (err: Error) => {
-            if (settled) return;
-            settled = true;
-            reject(err);
-        };
+    const trackChunk = (chunk: string) => {
+        expectedBytes += Buffer.byteLength(chunk);
+        return chunk;
+    };
 
-        stream.on("error", fail);
-        stream.on("finish", () => {
-            if (settled) return;
-            settled = true;
-            resolve();
+    const indentElement = (item: any): string => {
+        const serialized = JSON.stringify(item, null, 2);
+        const body = serialized === undefined ? "null" : serialized;
+        return `  ${body.replace(/\n/g, "\n  ")}`;
+    };
+
+    function* jsonArrayChunks() {
+        if (itemCount === 0) {
+            yield trackChunk("[]");
+            return;
+        }
+
+        yield trackChunk("[\n");
+        for (let i = 0; i < itemCount; i++) {
+            const prefix = i === 0 ? "" : ",\n";
+            yield trackChunk(`${prefix}${indentElement(items[i])}`);
+            serializedItems++;
+        }
+        yield trackChunk("\n]");
+    }
+
+    return pipeline(
+        Readable.from(jsonArrayChunks()),
+        fs.createWriteStream(tempPath, { flags: "wx" }),
+    )
+        .then(async () => {
+            if (serializedItems !== itemCount) {
+                throw new Error(
+                    `Incomplete JSON array stream for ${pathWithFilename}: expected ${itemCount} item(s), serialized ${serializedItems}.`,
+                );
+            }
+
+            const stats = await fs.promises.stat(tempPath);
+            if (stats.size !== expectedBytes) {
+                throw new Error(
+                    `Incomplete JSON array stream for ${pathWithFilename}: expected ${expectedBytes} byte(s), wrote ${stats.size}.`,
+                );
+            }
+
+            await fs.promises.rename(tempPath, pathWithFilename);
+        })
+        .catch(async (err) => {
+            await fs.promises.rm(tempPath, { force: true });
+            throw err;
         });
-
-        const indentElement = (item: any): string => {
-            const serialized = JSON.stringify(item, null, 2);
-            const body = serialized === undefined ? "null" : serialized;
-            return `  ${body.replace(/\n/g, "\n  ")}`;
-        };
-
-        const writeChunk = (chunk: string): Promise<void> =>
-            new Promise<void>((res, rej) => {
-                const onErr = (err: Error) => rej(err);
-                const ok = stream.write(chunk, (err) => {
-                    if (err) {
-                        rej(err);
-                        return;
-                    }
-                    if (ok) {
-                        stream.removeListener("error", onErr);
-                        res();
-                    }
-                });
-                if (!ok) {
-                    stream.once("drain", () => {
-                        stream.removeListener("error", onErr);
-                        res();
-                    });
-                }
-                stream.once("error", onErr);
-            });
-
-        const writeChunks = async () => {
-            if (items.length === 0) {
-                stream.write("[]");
-                return;
-            }
-
-            await writeChunk("[\n");
-            for (let i = 0; i < items.length; i++) {
-                const prefix = i === 0 ? "" : ",\n";
-                await writeChunk(`${prefix}${indentElement(items[i])}`);
-            }
-            await writeChunk("\n]");
-        };
-
-        writeChunks()
-            .then(() => stream.end())
-            .catch((err) => {
-                stream.destroy();
-                fail(err as Error);
-            });
-    });
 };
 
 export const createJSAllComponentsFile = async (
