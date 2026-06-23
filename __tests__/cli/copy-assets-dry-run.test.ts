@@ -200,11 +200,9 @@ describe("copy assets dry-run", () => {
                 ],
             },
             limitations: [
-                "apply_not_implemented",
                 "target_conflicts_not_checked",
                 "target_asset_identity_not_resolved",
-                "asset_folder_manifest_not_written",
-                "asset_manifest_not_written",
+                "manifests_not_written_in_dry_run",
             ],
         });
         expect(report.commands.dryRun).toBe(

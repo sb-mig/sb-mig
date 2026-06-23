@@ -1182,6 +1182,13 @@ Goal:
 
 - End-to-end story copy with referenced assets copied first and story content relinked to target assets.
 
+Current implementation status:
+
+- `copy stories --with-assets --dry-run` scans the selected story scope with source component schemas, includes a reference graph in the JSON report, and plans only referenced source assets plus their asset-folder ancestors.
+- `copy stories --with-assets` apply mode copies/matches referenced asset folders/assets first using the same manifest writer as `copy assets`, then creates/matches stories, writes story manifests, and rewrites copied story content from the combined manifests.
+- Unresolved referenced assets are reported in the graph when the selected stories reference an asset that is not present in the source asset list.
+- Apply mode does not yet write a combined final story+asset report for `--outputPath`; the current nested asset copy writes manifests but not a separate report when invoked by `copy stories --with-assets`.
+
 Required order:
 
 1. Resolve story scope.

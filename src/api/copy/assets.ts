@@ -5,11 +5,9 @@ import type { SBAsset } from "../assets/assets.types.js";
 import { createCopyGraph } from "./graph.js";
 
 export const COPY_ASSETS_DRY_RUN_LIMITATIONS = [
-    "apply_not_implemented",
     "target_conflicts_not_checked",
     "target_asset_identity_not_resolved",
-    "asset_folder_manifest_not_written",
-    "asset_manifest_not_written",
+    "manifests_not_written_in_dry_run",
 ];
 
 const getAssetFolderPath = (

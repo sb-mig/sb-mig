@@ -10,6 +10,12 @@ const mocks = vi.hoisted(() => ({
     createStory: vi.fn(),
     updateStory: vi.fn(),
     getAllComponents: vi.fn(),
+    getAllAssets: vi.fn(),
+    getAllAssetFolders: vi.fn(),
+    createAssetFolder: vi.fn(),
+    createAssetAndFinalize: vi.fn(),
+    downloadAsset: vi.fn(),
+    updateAsset: vi.fn(),
     createTree: vi.fn(),
     traverseAndCreate: vi.fn(),
 }));
@@ -32,6 +38,14 @@ vi.mock("../../src/api/managementApi.js", () => ({
         components: {
             getAllComponents: mocks.getAllComponents,
         },
+        assets: {
+            getAllAssets: mocks.getAllAssets,
+            getAllAssetFolders: mocks.getAllAssetFolders,
+            createAssetFolder: mocks.createAssetFolder,
+            createAssetAndFinalize: mocks.createAssetAndFinalize,
+            downloadAsset: mocks.downloadAsset,
+            updateAsset: mocks.updateAsset,
+        },
     },
 }));
 
@@ -52,6 +66,24 @@ vi.mock("../../src/utils/logger.js", () => ({
 import { copyCommand } from "../../src/cli/commands/copy.js";
 
 describe("copy stories dry-run", () => {
+    const sourceAsset = {
+        id: 300,
+        filename: "https://a.storyblok.com/f/source/image.jpg",
+        asset_folder_id: 30,
+    };
+    const sourceAssetFolders = [
+        {
+            id: 20,
+            name: "Images",
+            parent_id: null,
+        },
+        {
+            id: 30,
+            name: "Nested",
+            parent_id: 20,
+        },
+    ];
+
     beforeEach(() => {
         vi.clearAllMocks();
 
@@ -162,9 +194,56 @@ describe("copy stories dry-run", () => {
         mocks.getAllComponents.mockResolvedValue([
             {
                 name: "page",
-                schema: {},
+                schema: {
+                    image: {
+                        type: "asset",
+                    },
+                    cta: {
+                        type: "multilink",
+                    },
+                    body: {
+                        type: "richtext",
+                    },
+                },
             },
         ]);
+        mocks.getAllAssets.mockImplementation(({ spaceId }) => {
+            if (spaceId === "source-space") {
+                return Promise.resolve({
+                    assets: [sourceAsset],
+                });
+            }
+
+            return Promise.resolve({
+                assets: [],
+            });
+        });
+        mocks.getAllAssetFolders.mockImplementation(({ spaceId }) => {
+            if (spaceId === "source-space") {
+                return Promise.resolve({
+                    asset_folders: sourceAssetFolders,
+                });
+            }
+
+            return Promise.resolve({
+                asset_folders: [],
+            });
+        });
+        mocks.createAssetFolder.mockImplementation(({ payload }) =>
+            Promise.resolve({
+                asset_folder: {
+                    id: payload.name === "Images" ? 120 : 130,
+                    name: payload.name,
+                    parent_id: payload.parent_id,
+                },
+            }),
+        );
+        mocks.downloadAsset.mockResolvedValue("/tmp/source-image.jpg");
+        mocks.createAssetAndFinalize.mockResolvedValue({
+            id: 900,
+            filename: "https://a.storyblok.com/f/target/image.jpg",
+            asset_folder_id: 130,
+        });
         mocks.updateStory.mockResolvedValue({ ok: true });
     });
 
@@ -253,14 +332,116 @@ describe("copy stories dry-run", () => {
                 },
             ],
             limitations: [
-                "assets_not_copied",
-                "asset_fields_not_rewritten",
-                "story_references_not_rewritten",
-                "create_only",
+                "create_or_match",
+                "target_state_may_change",
+                "assets_not_copied_by_story_command",
+                "asset_rewrite_requires_existing_asset_manifest",
             ],
         });
         expect(report.commands.apply).toBe(
             "sb-mig copy stories --from source-space --to target-space --source blog --mode subtree --destination imported",
+        );
+
+        await rm(tempDir, { recursive: true, force: true });
+    });
+
+    it("plans referenced assets when copying stories with assets", async () => {
+        const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-copy-"));
+        const outputPath = path.join(tempDir, "plans", "copy-plan.json");
+
+        await copyCommand({
+            input: ["copy", "stories"],
+            flags: {
+                from: "source-space",
+                to: "target-space",
+                source: "blog",
+                destination: "imported",
+                withAssets: true,
+                dryRun: true,
+                outputPath,
+            },
+        } as any);
+
+        expect(mocks.getAllComponents).toHaveBeenCalledWith(
+            expect.objectContaining({ spaceId: "source-space" }),
+        );
+        expect(mocks.getAllAssets).toHaveBeenCalledWith(
+            { spaceId: "source-space" },
+            expect.objectContaining({ spaceId: "source-space" }),
+        );
+        expect(mocks.getAllAssetFolders).toHaveBeenCalledWith(
+            { spaceId: "source-space" },
+            expect.objectContaining({ spaceId: "source-space" }),
+        );
+        expect(mocks.createAssetFolder).not.toHaveBeenCalled();
+        expect(mocks.createAssetAndFinalize).not.toHaveBeenCalled();
+        expect(mocks.createStory).not.toHaveBeenCalled();
+
+        const report = JSON.parse(await readFile(outputPath, "utf8"));
+
+        expect(report).toMatchObject({
+            schemaVersion: 1,
+            command: "copy stories",
+            dryRun: true,
+            normalized: {
+                sourceSpaceId: "source-space",
+                targetSpaceId: "target-space",
+                source: "blog",
+                destination: "imported",
+                mode: "subtree",
+                withAssets: true,
+            },
+            summary: {
+                plannedCreates: 2,
+                assetFolders: 2,
+                assets: 1,
+                assetReferences: 1,
+                storyReferences: 4,
+                errors: 0,
+            },
+            graph: {
+                scope: {
+                    command: "copy stories",
+                    withAssets: true,
+                },
+                assetFolders: [
+                    {
+                        sourceId: 20,
+                        sourcePath: "Images",
+                        action: "create",
+                    },
+                    {
+                        sourceId: 30,
+                        sourcePath: "Images/Nested",
+                        action: "create",
+                    },
+                ],
+                assets: [
+                    {
+                        sourceId: 300,
+                        sourceFilename:
+                            "https://a.storyblok.com/f/source/image.jpg",
+                        sourceAssetFolderId: 30,
+                        action: "create",
+                    },
+                ],
+                assetReferences: [
+                    {
+                        assetId: 300,
+                        filename: "https://a.storyblok.com/f/source/image.jpg",
+                        path: "content.image",
+                        status: "planned",
+                    },
+                ],
+            },
+            limitations: [
+                "create_or_match",
+                "target_state_may_change",
+                "target_asset_identity_not_resolved_until_apply",
+            ],
+        });
+        expect(report.commands.apply).toBe(
+            "sb-mig copy stories --from source-space --to target-space --source blog --mode subtree --destination imported --with-assets",
         );
 
         await rm(tempDir, { recursive: true, force: true });
@@ -411,6 +592,91 @@ describe("copy stories dry-run", () => {
                 },
             },
             "1002",
+            { force_update: true },
+            expect.objectContaining({ spaceId: "target-space" }),
+        );
+
+        await rm(tempDir, { recursive: true, force: true });
+    });
+
+    it("copies referenced assets before stories when withAssets is passed", async () => {
+        const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-copy-"));
+        const manifestRoot = path.join(tempDir, ".sb-mig");
+        const manifestDirectory = path.join(
+            manifestRoot,
+            "copy",
+            "source-space",
+            "target-space",
+        );
+
+        await copyCommand({
+            input: ["copy", "stories"],
+            flags: {
+                from: "source-space",
+                to: "target-space",
+                source: "blog",
+                destination: "imported",
+                withAssets: true,
+                manifestRoot,
+            },
+        } as any);
+
+        expect(mocks.createAssetFolder).toHaveBeenCalledTimes(2);
+        expect(mocks.createAssetAndFinalize).toHaveBeenCalledWith(
+            {
+                spaceId: "target-space",
+                pathToFile: "/tmp/source-image.jpg",
+                payload: {
+                    filename: "https://a.storyblok.com/f/source/image.jpg",
+                    asset_folder_id: 130,
+                },
+            },
+            expect.objectContaining({ spaceId: "target-space" }),
+        );
+        expect(
+            mocks.createAssetAndFinalize.mock.invocationCallOrder[0],
+        ).toBeLessThan(mocks.createStory.mock.invocationCallOrder[0]);
+
+        const assetManifest = (
+            await readFile(
+                path.join(manifestDirectory, "assets.manifest.jsonl"),
+                "utf8",
+            )
+        )
+            .trim()
+            .split("\n")
+            .map((line) => JSON.parse(line));
+        const storyManifest = (
+            await readFile(
+                path.join(manifestDirectory, "stories.manifest.jsonl"),
+                "utf8",
+            )
+        )
+            .trim()
+            .split("\n")
+            .map((line) => JSON.parse(line));
+
+        expect(assetManifest).toMatchObject([
+            {
+                type: "asset",
+                source_id: 300,
+                target_id: 900,
+                source_filename: "https://a.storyblok.com/f/source/image.jpg",
+                target_filename: "https://a.storyblok.com/f/target/image.jpg",
+                action: "created",
+            },
+        ]);
+        expect(storyManifest).toHaveLength(2);
+        expect(mocks.updateStory).toHaveBeenCalledWith(
+            {
+                content: expect.objectContaining({
+                    image: {
+                        id: 900,
+                        filename: "https://a.storyblok.com/f/target/image.jpg",
+                    },
+                }),
+            },
+            "1001",
             { force_update: true },
             expect.objectContaining({ spaceId: "target-space" }),
         );
