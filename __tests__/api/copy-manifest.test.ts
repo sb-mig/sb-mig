@@ -245,6 +245,8 @@ describe("copy graph model", () => {
             assets: 1,
             assetFolders: 0,
             storyReferences: 1,
+            assetReferences: 0,
+            opaqueFields: 0,
             warnings: 1,
             errors: 0,
             limitations: 0,

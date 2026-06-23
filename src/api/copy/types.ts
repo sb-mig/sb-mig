@@ -132,6 +132,30 @@ export type CopyGraphStoryReference = {
     status: "mapped" | "preserved_external" | "unresolved" | "unsupported";
 };
 
+export type CopyGraphAssetReference = {
+    type: "asset_reference";
+    sourceStoryId?: number;
+    sourceStoryUuid?: string;
+    sourceStoryFullSlug?: string;
+    assetId?: number;
+    filename?: string;
+    path: string;
+    status: "planned" | "mapped" | "unresolved" | "unsupported";
+};
+
+export type CopyGraphOpaqueField = {
+    type: "opaque_field";
+    sourceStoryId?: number;
+    sourceStoryUuid?: string;
+    sourceStoryFullSlug?: string;
+    component: string;
+    field: string;
+    fieldType?: string;
+    plugin?: string;
+    path: string;
+    reason: "plugin_field" | "unknown_schema" | "unsupported_field";
+};
+
 export type CopyGraph = {
     schemaVersion: 1;
     sourceSpaceId: string;
@@ -142,6 +166,8 @@ export type CopyGraph = {
     assets: CopyGraphAssetNode[];
     assetFolders: CopyGraphAssetFolderNode[];
     storyReferences: CopyGraphStoryReference[];
+    assetReferences: CopyGraphAssetReference[];
+    opaqueFields: CopyGraphOpaqueField[];
     warnings: CopyWarning[];
     errors: CopyError[];
     limitations: string[];
@@ -152,7 +178,36 @@ export type CopyGraphSummary = {
     assets: number;
     assetFolders: number;
     storyReferences: number;
+    assetReferences: number;
+    opaqueFields: number;
     warnings: number;
     errors: number;
     limitations: number;
+};
+
+export type CopyComponentSchemaField = {
+    type?: string;
+    source?: string;
+    plugin?: string;
+    component_whitelist?: string[];
+    restrict_components?: boolean;
+    [key: string]: unknown;
+};
+
+export type CopyComponentSchema = Record<string, CopyComponentSchemaField>;
+
+export type CopyComponentSchemaRegistry = Record<string, CopyComponentSchema>;
+
+export type CopyReferenceScannerOptions = {
+    referencePolicy?: "preserve" | "fail" | "include-referenced";
+};
+
+export type CopyReferenceScannerResult = {
+    storyReferences: CopyGraphStoryReference[];
+    assetReferences: CopyGraphAssetReference[];
+    assetNodes: CopyGraphAssetNode[];
+    opaqueFields: CopyGraphOpaqueField[];
+    warnings: CopyWarning[];
+    errors: CopyError[];
+    missingSchemas: string[];
 };
