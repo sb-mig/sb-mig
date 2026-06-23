@@ -259,8 +259,9 @@ export const copyDescription = `
         mode 'self' copies only the source story or folder shell.
         Copy currently creates new stories only. It does not update existing target stories.
         copy stories matches existing targets by manifest first, then target full_slug when safe, so reruns can reuse mapped target stories.
+        copy stories rewrites mapped asset and story references after story manifests exist.
         --dry-run checks likely target path conflicts, but the real copy can still fail if target state changes afterwards.
-        Copy stories currently does not copy assets or rewrite story/asset references.
+        Copy stories currently does not copy assets by itself. Run copy assets first when copied stories should point to target-space assets.
         copy assets currently requires --all. It matches by manifest first, then safe target folder path or unique asset file name before creating.
         copy assets uploads assets, finalizes the upload, and writes source-to-target asset/folder manifests.
 

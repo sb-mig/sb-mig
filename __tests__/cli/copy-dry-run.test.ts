@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm } from "fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "fs/promises";
 import { tmpdir } from "os";
 import path from "path";
 
@@ -8,6 +8,8 @@ const mocks = vi.hoisted(() => ({
     getStoryBySlug: vi.fn(),
     getAllStories: vi.fn(),
     createStory: vi.fn(),
+    updateStory: vi.fn(),
+    getAllComponents: vi.fn(),
     createTree: vi.fn(),
     traverseAndCreate: vi.fn(),
 }));
@@ -25,6 +27,10 @@ vi.mock("../../src/api/managementApi.js", () => ({
             getStoryBySlug: mocks.getStoryBySlug,
             getAllStories: mocks.getAllStories,
             createStory: mocks.createStory,
+            updateStory: mocks.updateStory,
+        },
+        components: {
+            getAllComponents: mocks.getAllComponents,
         },
     },
 }));
@@ -73,6 +79,18 @@ describe("copy stories dry-run", () => {
                         is_folder: true,
                         parent_id: 0,
                         uuid: "source-blog-uuid",
+                        content: {
+                            component: "page",
+                            image: {
+                                id: 300,
+                                filename:
+                                    "https://a.storyblok.com/f/source/image.jpg",
+                            },
+                            cta: {
+                                linktype: "story",
+                                id: 2,
+                            },
+                        },
                     },
                 });
             }
@@ -90,6 +108,21 @@ describe("copy stories dry-run", () => {
                     is_folder: false,
                     parent_id: 1,
                     uuid: "source-post-uuid",
+                    content: {
+                        component: "page",
+                        body: {
+                            type: "doc",
+                            content: [
+                                {
+                                    type: "link",
+                                    attrs: {
+                                        linktype: "story",
+                                        uuid: "source-blog-uuid",
+                                    },
+                                },
+                            ],
+                        },
+                    },
                 },
             },
         ]);
@@ -126,6 +159,13 @@ describe("copy stories dry-run", () => {
                 },
             });
         });
+        mocks.getAllComponents.mockResolvedValue([
+            {
+                name: "page",
+                schema: {},
+            },
+        ]);
+        mocks.updateStory.mockResolvedValue({ ok: true });
     });
 
     it("plans selected stories without creating them", async () => {
@@ -229,6 +269,29 @@ describe("copy stories dry-run", () => {
     it("copies selected stories and writes story manifests", async () => {
         const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-copy-"));
         const manifestRoot = path.join(tempDir, ".sb-mig");
+        const manifestDirectory = path.join(
+            manifestRoot,
+            "copy",
+            "source-space",
+            "target-space",
+        );
+
+        await mkdir(manifestDirectory, { recursive: true });
+        await writeFile(
+            path.join(manifestDirectory, "manifest.jsonl"),
+            JSON.stringify({
+                type: "asset",
+                source_space_id: "source-space",
+                target_space_id: "target-space",
+                source_id: 300,
+                target_id: 900,
+                source_filename: "https://a.storyblok.com/f/source/image.jpg",
+                target_filename: "https://a.storyblok.com/f/target/image.jpg",
+                action: "created",
+                created_at: "2026-06-23T10:00:00.000Z",
+            }) + "\n",
+            "utf8",
+        );
 
         await copyCommand({
             input: ["copy", "stories"],
@@ -259,12 +322,6 @@ describe("copy stories dry-run", () => {
             expect.objectContaining({ spaceId: "target-space" }),
         );
 
-        const manifestDirectory = path.join(
-            manifestRoot,
-            "copy",
-            "source-space",
-            "target-space",
-        );
         const storyManifest = (
             await readFile(
                 path.join(manifestDirectory, "stories.manifest.jsonl"),
@@ -306,7 +363,57 @@ describe("copy stories dry-run", () => {
                 action: "created",
             },
         ]);
-        expect(combinedManifest).toMatchObject(storyManifest);
+        expect(combinedManifest).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({
+                    type: "asset",
+                    source_id: 300,
+                    target_id: 900,
+                }),
+                ...storyManifest.map((entry) => expect.objectContaining(entry)),
+            ]),
+        );
+        expect(mocks.updateStory).toHaveBeenCalledTimes(2);
+        expect(mocks.updateStory).toHaveBeenCalledWith(
+            {
+                content: {
+                    component: "page",
+                    image: {
+                        id: 900,
+                        filename: "https://a.storyblok.com/f/target/image.jpg",
+                    },
+                    cta: {
+                        linktype: "story",
+                        id: 1002,
+                    },
+                },
+            },
+            "1001",
+            { force_update: true },
+            expect.objectContaining({ spaceId: "target-space" }),
+        );
+        expect(mocks.updateStory).toHaveBeenCalledWith(
+            {
+                content: {
+                    component: "page",
+                    body: {
+                        type: "doc",
+                        content: [
+                            {
+                                type: "link",
+                                attrs: {
+                                    linktype: "story",
+                                    uuid: "target-blog-uuid",
+                                },
+                            },
+                        ],
+                    },
+                },
+            },
+            "1002",
+            { force_update: true },
+            expect.objectContaining({ spaceId: "target-space" }),
+        );
 
         await rm(tempDir, { recursive: true, force: true });
     });

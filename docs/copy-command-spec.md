@@ -1150,6 +1150,15 @@ Goal:
 
 - Rewrite copied story content using manifests and schemas.
 
+Current implementation status:
+
+- `copy stories` apply mode rewrites copied target story `content` after stories are created/matched and story manifests are written.
+- Asset fields and multiasset-like asset objects are rewritten when asset mappings exist in the combined manifest.
+- Story multilink IDs and richtext story UUID links are rewritten when story mappings exist in the combined manifest.
+- Embedded richtext bloks are traversed and rewritten.
+- `options` fields with `source: "internal_stories"` are rewritten when source component schemas can be fetched.
+- `copy stories` still does not copy assets itself; run `copy assets` first when copied stories should point to target-space assets.
+
 Required behavior:
 
 - Rewrite asset fields with target asset ID and target filename.

@@ -211,3 +211,17 @@ export type CopyReferenceScannerResult = {
     errors: CopyError[];
     missingSchemas: string[];
 };
+
+export type CopyRewriteRecord = {
+    type: "asset" | "story";
+    path: string;
+    sourceValue: unknown;
+    targetValue: unknown;
+    field: "id" | "uuid" | "filename";
+};
+
+export type CopyRewriteResult<T> = {
+    value: T;
+    records: CopyRewriteRecord[];
+    warnings: CopyWarning[];
+};

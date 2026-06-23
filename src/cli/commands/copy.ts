@@ -16,6 +16,7 @@ import {
     dedupeManifestFile,
     getDefaultCopyManifestPaths,
     loadManifest,
+    rewriteCopyReferences,
     summarizeCopyGraph,
 } from "../../api/copy/index.js";
 import { managementApi } from "../../api/managementApi.js";
@@ -797,6 +798,93 @@ const buildTargetSlugBySourceSlug = (
         plan.map((item) => [item.sourceFullSlug, item.targetFullSlug] as const),
     );
 
+const buildComponentSchemaRegistry = async (
+    sourceSpace: string,
+): Promise<Record<string, any>> => {
+    const components = await managementApi.components.getAllComponents({
+        ...apiConfig,
+        spaceId: sourceSpace,
+    });
+
+    if (!Array.isArray(components)) {
+        return {};
+    }
+
+    return Object.fromEntries(
+        components
+            .filter((component: any) => component?.name && component?.schema)
+            .map((component: any) => [component.name, component.schema]),
+    );
+};
+
+const rewriteCopiedStoryContents = async ({
+    sourceStories,
+    sourceSpace,
+    targetSpace,
+    manifestRoot,
+}: {
+    sourceStories: any[];
+    sourceSpace: string;
+    targetSpace: string;
+    manifestRoot?: string;
+}) => {
+    const manifestPaths = getDefaultCopyManifestPaths({
+        sourceSpaceId: sourceSpace,
+        targetSpaceId: targetSpace,
+        rootDir: manifestRoot,
+    });
+    const manifestEntries = await loadManifest(manifestPaths.combined);
+    const maps = buildCopyMaps(manifestEntries);
+    const schemas = await buildComponentSchemaRegistry(sourceSpace);
+    let updatedStories = 0;
+    let rewrittenReferences = 0;
+
+    for (const item of sourceStories) {
+        const sourceStory = item?.story;
+
+        if (!sourceStory?.id || !sourceStory.content) {
+            continue;
+        }
+
+        const targetStoryId = maps.storyIds.get(Number(sourceStory.id));
+        if (!targetStoryId) {
+            continue;
+        }
+
+        const rewritten = rewriteCopyReferences({
+            value: sourceStory.content,
+            maps,
+            schemas,
+        });
+
+        if (rewritten.records.length === 0) {
+            continue;
+        }
+
+        await managementApi.stories.updateStory(
+            {
+                content: rewritten.value,
+            },
+            String(targetStoryId),
+            {
+                force_update: true,
+            },
+            {
+                ...apiConfig,
+                spaceId: targetSpace,
+            },
+        );
+        updatedStories += 1;
+        rewrittenReferences += rewritten.records.length;
+    }
+
+    if (updatedStories > 0) {
+        Logger.success(
+            `Rewrote ${rewrittenReferences} reference(s) across ${updatedStories} copied story/stories.`,
+        );
+    }
+};
+
 const createStoriesAndWriteManifests = async ({
     tree,
     realParentId,
@@ -1441,6 +1529,12 @@ export const copyCommand = async (props: CLIOptions) => {
                 realParentId: destinationParentId,
                 sourceStoryById: buildSourceStoryById(sourceStories),
                 targetSlugBySourceSlug: buildTargetSlugBySourceSlug(plan),
+                sourceSpace,
+                targetSpace,
+                manifestRoot,
+            });
+            await rewriteCopiedStoryContents({
+                sourceStories,
                 sourceSpace,
                 targetSpace,
                 manifestRoot,
