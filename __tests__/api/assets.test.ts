@@ -262,6 +262,40 @@ describe("Assets API", () => {
         );
     });
 
+    it("normalizes direct finish_upload asset responses", async () => {
+        const sbApi = {
+            post: vi.fn().mockResolvedValue({
+                data: {
+                    id: 987,
+                    post_url: "https://s3.example.com/upload",
+                    fields: {},
+                },
+            }),
+            get: vi.fn().mockResolvedValue({
+                data: {
+                    id: 987,
+                    filename: "https://a.storyblok.com/f/123/direct.jpg",
+                },
+            }),
+        };
+
+        const result = await createAssetAndFinalize(
+            {
+                spaceId: "12345",
+                pathToFile: "README.md",
+                payload: {
+                    filename: "direct.jpg",
+                },
+            },
+            { spaceId: "12345", sbApi: sbApi as any },
+        );
+
+        expect(result).toEqual({
+            id: 987,
+            filename: "https://a.storyblok.com/f/123/direct.jpg",
+        });
+    });
+
     it("updates asset metadata with Storyblok's asset update payload", async () => {
         const updateResponse = {
             data: {

@@ -158,6 +158,19 @@ const getSignedUploadAssetId = (signedResponseObject: any): number => {
     return assetId;
 };
 
+const normalizeFinishedUploadAsset = (finishedUpload: any): SBAsset => {
+    const asset =
+        finishedUpload?.asset ?? finishedUpload?.data?.asset ?? finishedUpload;
+
+    if (!asset?.id || !asset?.filename) {
+        throw new Error(
+            "Finish upload response did not include a target asset id and filename.",
+        );
+    }
+
+    return asset as SBAsset;
+};
+
 export const finishAssetUpload: FinishAssetUpload = async (
     { spaceId, assetId },
     config,
@@ -287,7 +300,7 @@ export const createAssetAndFinalize: CreateAssetAndFinalize = async (
         config,
     );
 
-    return finishedUpload.asset as SBAsset;
+    return normalizeFinishedUploadAsset(finishedUpload);
 };
 
 export const updateAsset: UpdateAsset = async (
