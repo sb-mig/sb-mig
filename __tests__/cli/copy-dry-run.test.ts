@@ -345,6 +345,71 @@ describe("copy stories dry-run", () => {
         await rm(tempDir, { recursive: true, force: true });
     });
 
+    it("reports asset references already mapped by manifests during story dry-run", async () => {
+        const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-copy-"));
+        const outputPath = path.join(tempDir, "plans", "copy-plan.json");
+        const manifestRoot = path.join(tempDir, ".sb-mig");
+        const manifestDirectory = path.join(
+            manifestRoot,
+            "copy",
+            "source-space",
+            "target-space",
+        );
+
+        await mkdir(manifestDirectory, { recursive: true });
+        await writeFile(
+            path.join(manifestDirectory, "manifest.jsonl"),
+            JSON.stringify({
+                type: "asset",
+                source_space_id: "source-space",
+                target_space_id: "target-space",
+                source_id: 300,
+                target_id: 900,
+                source_filename: "https://a.storyblok.com/f/source/image.jpg",
+                target_filename: "https://a.storyblok.com/f/target/image.jpg",
+                action: "created",
+                created_at: "2026-06-24T10:00:00.000Z",
+            }) + "\n",
+            "utf8",
+        );
+
+        await copyCommand({
+            input: ["copy", "stories"],
+            flags: {
+                from: "source-space",
+                to: "target-space",
+                source: "blog",
+                destination: "imported",
+                dryRun: true,
+                outputPath,
+                manifestRoot,
+            },
+        } as any);
+
+        expect(mocks.getAllAssets).not.toHaveBeenCalled();
+        expect(mocks.getAllAssetFolders).not.toHaveBeenCalled();
+
+        const report = JSON.parse(await readFile(outputPath, "utf8"));
+
+        expect(report.summary).toMatchObject({
+            assetReferences: 1,
+            assetReferencesMapped: 1,
+            assetReferencesPlanned: 0,
+            assetReferencesUnresolved: 0,
+            assetsMapped: 0,
+            assetsToCopy: 0,
+        });
+        expect(report.graph.assetReferences).toMatchObject([
+            {
+                assetId: 300,
+                filename: "https://a.storyblok.com/f/source/image.jpg",
+                status: "mapped",
+            },
+        ]);
+
+        await rm(tempDir, { recursive: true, force: true });
+    });
+
     it("plans referenced assets when copying stories with assets", async () => {
         const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-copy-"));
         const outputPath = path.join(tempDir, "plans", "copy-plan.json");
@@ -443,6 +508,105 @@ describe("copy stories dry-run", () => {
         expect(report.commands.apply).toBe(
             "sb-mig copy stories --from source-space --to target-space --source blog --mode subtree --destination imported --with-assets",
         );
+
+        await rm(tempDir, { recursive: true, force: true });
+    });
+
+    it("marks referenced with-assets assets as manifest matches during dry-run", async () => {
+        const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-copy-"));
+        const outputPath = path.join(tempDir, "plans", "copy-plan.json");
+        const manifestRoot = path.join(tempDir, ".sb-mig");
+        const manifestDirectory = path.join(
+            manifestRoot,
+            "copy",
+            "source-space",
+            "target-space",
+        );
+
+        await mkdir(manifestDirectory, { recursive: true });
+        await writeFile(
+            path.join(manifestDirectory, "manifest.jsonl"),
+            [
+                JSON.stringify({
+                    type: "asset_folder",
+                    source_space_id: "source-space",
+                    target_space_id: "target-space",
+                    source_id: 20,
+                    target_id: 120,
+                    action: "created",
+                    created_at: "2026-06-24T10:00:00.000Z",
+                }),
+                JSON.stringify({
+                    type: "asset_folder",
+                    source_space_id: "source-space",
+                    target_space_id: "target-space",
+                    source_id: 30,
+                    target_id: 130,
+                    action: "created",
+                    created_at: "2026-06-24T10:00:00.000Z",
+                }),
+                JSON.stringify({
+                    type: "asset",
+                    source_space_id: "source-space",
+                    target_space_id: "target-space",
+                    source_id: 300,
+                    target_id: 900,
+                    source_filename:
+                        "https://a.storyblok.com/f/source/image.jpg",
+                    target_filename:
+                        "https://a.storyblok.com/f/target/image.jpg",
+                    action: "created",
+                    created_at: "2026-06-24T10:00:00.000Z",
+                }),
+            ].join("\n") + "\n",
+            "utf8",
+        );
+
+        await copyCommand({
+            input: ["copy", "stories"],
+            flags: {
+                from: "source-space",
+                to: "target-space",
+                source: "blog",
+                destination: "imported",
+                withAssets: true,
+                dryRun: true,
+                outputPath,
+                manifestRoot,
+            },
+        } as any);
+
+        const report = JSON.parse(await readFile(outputPath, "utf8"));
+
+        expect(report.summary).toMatchObject({
+            assetReferencesMapped: 1,
+            assetReferencesPlanned: 0,
+            assetsMapped: 1,
+            assetsToCopy: 0,
+        });
+        expect(report.graph.assets).toMatchObject([
+            {
+                sourceId: 300,
+                targetFilename: "https://a.storyblok.com/f/target/image.jpg",
+                action: "match",
+            },
+        ]);
+        expect(report.graph.assetFolders).toMatchObject([
+            {
+                sourceId: 20,
+                action: "match",
+            },
+            {
+                sourceId: 30,
+                action: "match",
+            },
+        ]);
+        expect(report.graph.assetReferences).toMatchObject([
+            {
+                assetId: 300,
+                status: "mapped",
+            },
+        ]);
 
         await rm(tempDir, { recursive: true, force: true });
     });

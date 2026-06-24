@@ -1,5 +1,6 @@
 import type {
     CopyGraph,
+    CopyMaps,
     CopyAssetFolderManifestEntry,
     CopyAssetManifestEntry,
     CopyManifestEntry,
@@ -14,6 +15,7 @@ import {
     appendManifestEntry,
     buildCopyAssetsGraph,
     buildCopyMaps,
+    createCopyGraph,
     dedupeManifestFile,
     getDefaultCopyManifestPaths,
     loadManifest,
@@ -77,7 +79,15 @@ type CopyDryRunReport = {
         assetFolders: number;
         assets: number;
         assetReferences: number;
+        assetReferencesMapped: number;
+        assetReferencesPlanned: number;
+        assetReferencesUnresolved: number;
+        assetsMapped: number;
+        assetsToCopy: number;
         storyReferences: number;
+        storyReferencesMapped: number;
+        storyReferencesPreserved: number;
+        storyReferencesUnresolved: number;
         conflicts: number;
         warnings: number;
         errors: number;
@@ -584,6 +594,34 @@ const buildCopyDryRunReport = ({
     const items = withConflictFlags(plan, conflicts);
     const warnings = buildDryRunWarnings({ conflicts, withAssets });
     const graphSummary = graph ? summarizeCopyGraph(graph) : undefined;
+    const assetReferencesMapped =
+        graph?.assetReferences.filter(
+            (reference) => reference.status === "mapped",
+        ).length ?? 0;
+    const assetReferencesPlanned =
+        graph?.assetReferences.filter(
+            (reference) => reference.status === "planned",
+        ).length ?? 0;
+    const assetReferencesUnresolved =
+        graph?.assetReferences.filter(
+            (reference) => reference.status === "unresolved",
+        ).length ?? 0;
+    const storyReferencesMapped =
+        graph?.storyReferences.filter(
+            (reference) => reference.status === "mapped",
+        ).length ?? 0;
+    const storyReferencesPreserved =
+        graph?.storyReferences.filter(
+            (reference) => reference.status === "preserved_external",
+        ).length ?? 0;
+    const storyReferencesUnresolved =
+        graph?.storyReferences.filter(
+            (reference) => reference.status === "unresolved",
+        ).length ?? 0;
+    const assetsMapped =
+        graph?.assets.filter((asset) => asset.action === "match").length ?? 0;
+    const assetsToCopy =
+        graph?.assets.filter((asset) => asset.action === "create").length ?? 0;
     const limitations = [
         ...COPY_DRY_RUN_BASE_LIMITATIONS,
         ...(withAssets
@@ -612,7 +650,15 @@ const buildCopyDryRunReport = ({
             assetFolders: graphSummary?.assetFolders ?? 0,
             assets: graphSummary?.assets ?? 0,
             assetReferences: graphSummary?.assetReferences ?? 0,
+            assetReferencesMapped,
+            assetReferencesPlanned,
+            assetReferencesUnresolved,
+            assetsMapped,
+            assetsToCopy,
             storyReferences: graphSummary?.storyReferences ?? 0,
+            storyReferencesMapped,
+            storyReferencesPreserved,
+            storyReferencesUnresolved,
             conflicts: conflicts.length,
             warnings: warnings.length + (graphSummary?.warnings ?? 0),
             errors: graphSummary?.errors ?? 0,
@@ -907,6 +953,164 @@ const collectAssetFolderAncestors = ({
     );
 };
 
+const hasMappedAssetReference = ({
+    assetId,
+    filename,
+    copyMaps,
+}: {
+    assetId?: number;
+    filename?: string;
+    copyMaps: CopyMaps;
+}): boolean =>
+    (assetId !== undefined && copyMaps.assetIds.has(assetId)) ||
+    (filename !== undefined && copyMaps.assetFilenames.has(filename));
+
+const annotateReferencesWithManifestMaps = ({
+    graph,
+    copyMaps,
+    withAssets,
+}: {
+    graph: CopyGraph;
+    copyMaps: CopyMaps;
+    withAssets: boolean;
+}) => {
+    for (const reference of graph.assetReferences) {
+        if (hasMappedAssetReference({ ...reference, copyMaps })) {
+            reference.status = "mapped";
+            continue;
+        }
+
+        if (!withAssets && reference.status === "planned") {
+            reference.status = "unresolved";
+        }
+    }
+
+    for (const reference of graph.storyReferences) {
+        if (
+            (reference.referencedStoryId !== undefined &&
+                copyMaps.storyIds.has(reference.referencedStoryId)) ||
+            (reference.referencedStoryUuid !== undefined &&
+                copyMaps.storyUuids.has(reference.referencedStoryUuid))
+        ) {
+            reference.status = "mapped";
+        }
+    }
+};
+
+const annotateAssetsWithManifestMaps = ({
+    graph,
+    copyMaps,
+}: {
+    graph: CopyGraph;
+    copyMaps: CopyMaps;
+}) => {
+    for (const folder of graph.assetFolders) {
+        const targetFolderId = copyMaps.assetFolderIds.get(folder.sourceId);
+
+        if (targetFolderId === undefined) {
+            continue;
+        }
+
+        folder.targetParentId =
+            folder.sourceParentId === null ||
+            folder.sourceParentId === undefined
+                ? null
+                : (copyMaps.assetFolderIds.get(folder.sourceParentId) ?? null);
+        folder.action = "match";
+    }
+
+    for (const asset of graph.assets) {
+        const mappedAsset = copyMaps.assetIds.get(asset.sourceId);
+        const targetFilename =
+            mappedAsset?.filename ??
+            copyMaps.assetFilenames.get(asset.sourceFilename);
+
+        if (!mappedAsset && !targetFilename) {
+            continue;
+        }
+
+        asset.action = "match";
+        asset.targetFilename = targetFilename ?? asset.targetFilename;
+        asset.targetAssetFolderId =
+            asset.sourceAssetFolderId === null ||
+            asset.sourceAssetFolderId === undefined
+                ? null
+                : (copyMaps.assetFolderIds.get(asset.sourceAssetFolderId) ??
+                  null);
+    }
+};
+
+const buildStoryReferenceDryRunGraph = ({
+    sourceSpace,
+    targetSpace,
+    selection,
+    destination,
+    plan,
+    sourceStories,
+    schemas,
+    copyMaps,
+}: {
+    sourceSpace: string;
+    targetSpace: string;
+    selection: CopySelection;
+    destination: string | undefined;
+    plan: CopyPlanItem[];
+    sourceStories: any[];
+    schemas: Record<string, any>;
+    copyMaps: CopyMaps;
+}): CopyGraph => {
+    const sourceStoryByFullSlug = new Map(
+        sourceStories
+            .map((item) => item?.story)
+            .filter(Boolean)
+            .map((story) => [String(story.full_slug ?? ""), story] as const),
+    );
+    const scanResult = scanStoriesReferences({
+        stories: sourceStories.map((item) => item?.story).filter(Boolean),
+        schemas,
+        options: {
+            referencePolicy: "preserve",
+        },
+    });
+    const graph = createCopyGraph({
+        sourceSpaceId: sourceSpace,
+        targetSpaceId: targetSpace,
+        scope: {
+            command: "copy stories",
+            source: selection.source,
+            destination: normalizeDestination(destination) || "root",
+            mode: selection.mode,
+            withAssets: false,
+            referencePolicy: "preserve",
+        },
+    });
+
+    graph.stories = plan.map((item) => ({
+        type: "story",
+        sourceId: Number(
+            sourceStoryByFullSlug.get(item.sourceFullSlug)?.id ?? 0,
+        ),
+        sourceUuid: sourceStoryByFullSlug.get(item.sourceFullSlug)?.uuid,
+        sourceFullSlug: item.sourceFullSlug,
+        targetFullSlug: item.targetFullSlug,
+        isFolder: item.type === "folder",
+        action: item.action,
+    }));
+    graph.assetReferences.push(...scanResult.assetReferences);
+    graph.storyReferences.push(...scanResult.storyReferences);
+    graph.opaqueFields.push(...scanResult.opaqueFields);
+    graph.warnings.push(...scanResult.warnings);
+    graph.errors.push(...scanResult.errors);
+
+    annotateReferencesWithManifestMaps({
+        graph,
+        copyMaps,
+        withAssets: false,
+    });
+
+    return graph;
+};
+
 const buildReferencedAssetsGraph = ({
     sourceSpace,
     targetSpace,
@@ -917,6 +1121,7 @@ const buildReferencedAssetsGraph = ({
     sourceAssets,
     sourceAssetFolders,
     schemas,
+    copyMaps,
 }: {
     sourceSpace: string;
     targetSpace: string;
@@ -927,6 +1132,7 @@ const buildReferencedAssetsGraph = ({
     sourceAssets: any[];
     sourceAssetFolders: any[];
     schemas: Record<string, any>;
+    copyMaps: CopyMaps;
 }): CopyGraph => {
     const scanResult = scanStoriesReferences({
         stories: sourceStories.map((item) => item?.story).filter(Boolean),
@@ -1010,6 +1216,16 @@ const buildReferencedAssetsGraph = ({
     graph.opaqueFields.push(...scanResult.opaqueFields);
     graph.warnings.push(...scanResult.warnings);
     graph.errors.push(...scanResult.errors);
+
+    annotateReferencesWithManifestMaps({
+        graph,
+        copyMaps,
+        withAssets: true,
+    });
+    annotateAssetsWithManifestMaps({
+        graph,
+        copyMaps,
+    });
 
     for (const reference of graph.assetReferences) {
         if (reference.status !== "unresolved") {
@@ -1623,15 +1839,29 @@ const logDryRunCopyPlan = async ({ report }: { report: CopyDryRunReport }) => {
         Logger.warning(
             `[dry-run] Would plan ${report.summary.assetFolders} referenced asset folder(s) and ${report.summary.assets} referenced asset(s).`,
         );
+        Logger.warning(
+            `[dry-run] Asset refs: ${report.summary.assetReferencesMapped} mapped, ${report.summary.assetReferencesPlanned} planned, ${report.summary.assetReferencesUnresolved} unresolved.`,
+        );
+        Logger.warning(
+            `[dry-run] Story refs: ${report.summary.storyReferencesMapped} mapped, ${report.summary.storyReferencesPreserved} preserved, ${report.summary.storyReferencesUnresolved} unresolved.`,
+        );
 
         for (const folder of report.graph.assetFolders) {
             Logger.warning(
-                `[dry-run]   asset_folder ${folder.targetPath ?? `#${folder.sourceId}`}`,
+                `[dry-run]   asset_folder ${folder.action.padEnd(6)} ${folder.targetPath ?? `#${folder.sourceId}`}`,
             );
         }
 
         for (const asset of report.graph.assets) {
-            Logger.warning(`[dry-run]   asset ${asset.targetFilename}`);
+            Logger.warning(
+                `[dry-run]   asset ${asset.action.padEnd(6)} ${asset.targetFilename}`,
+            );
+        }
+
+        for (const reference of report.graph.assetReferences) {
+            Logger.warning(
+                `[dry-run]   asset_ref ${reference.status.padEnd(10)} ${reference.filename ?? reference.assetId ?? "<unknown>"} at ${reference.sourceStoryFullSlug ?? reference.path}`,
+            );
         }
     }
 
@@ -1734,49 +1964,76 @@ export const copyCommand = async (props: CLIOptions) => {
             }
 
             const plan = buildCopyPlan(rootsToCreate, destination);
+            const manifestPaths = getDefaultCopyManifestPaths({
+                sourceSpaceId: sourceSpace,
+                targetSpaceId: targetSpace,
+                rootDir: manifestRoot,
+            });
+            const manifestEntries = await loadManifest(manifestPaths.combined);
+            const copyMaps = buildCopyMaps(manifestEntries);
+            let dryRunGraph: CopyGraph | undefined;
             let withAssetsGraph: CopyGraph | undefined;
             let sourceAssets: any[] = [];
             let sourceAssetFolders: any[] = [];
 
-            if (withAssets) {
-                const [schemas, assetsResult, assetFoldersResult] =
-                    await Promise.all([
-                        buildComponentSchemaRegistry(sourceSpace),
-                        managementApi.assets.getAllAssets(
-                            { spaceId: sourceSpace },
-                            {
-                                ...apiConfig,
-                                spaceId: sourceSpace,
-                            },
-                        ),
-                        managementApi.assets.getAllAssetFolders(
-                            { spaceId: sourceSpace },
-                            {
-                                ...apiConfig,
-                                spaceId: sourceSpace,
-                            },
-                        ),
-                    ]);
+            if (dryRun || withAssets) {
+                const schemasPromise =
+                    buildComponentSchemaRegistry(sourceSpace);
 
-                sourceAssets = Array.isArray(assetsResult?.assets)
-                    ? assetsResult.assets
-                    : [];
-                sourceAssetFolders = Array.isArray(
-                    assetFoldersResult?.asset_folders,
-                )
-                    ? assetFoldersResult.asset_folders
-                    : [];
-                withAssetsGraph = buildReferencedAssetsGraph({
-                    sourceSpace,
-                    targetSpace,
-                    selection,
-                    destination,
-                    plan,
-                    sourceStories,
-                    sourceAssets,
-                    sourceAssetFolders,
-                    schemas,
-                });
+                if (withAssets) {
+                    const [schemas, assetsResult, assetFoldersResult] =
+                        await Promise.all([
+                            schemasPromise,
+                            managementApi.assets.getAllAssets(
+                                { spaceId: sourceSpace },
+                                {
+                                    ...apiConfig,
+                                    spaceId: sourceSpace,
+                                },
+                            ),
+                            managementApi.assets.getAllAssetFolders(
+                                { spaceId: sourceSpace },
+                                {
+                                    ...apiConfig,
+                                    spaceId: sourceSpace,
+                                },
+                            ),
+                        ]);
+
+                    sourceAssets = Array.isArray(assetsResult?.assets)
+                        ? assetsResult.assets
+                        : [];
+                    sourceAssetFolders = Array.isArray(
+                        assetFoldersResult?.asset_folders,
+                    )
+                        ? assetFoldersResult.asset_folders
+                        : [];
+                    withAssetsGraph = buildReferencedAssetsGraph({
+                        sourceSpace,
+                        targetSpace,
+                        selection,
+                        destination,
+                        plan,
+                        sourceStories,
+                        sourceAssets,
+                        sourceAssetFolders,
+                        schemas,
+                        copyMaps,
+                    });
+                    dryRunGraph = withAssetsGraph;
+                } else if (dryRun) {
+                    const schemas = await schemasPromise;
+                    dryRunGraph = buildStoryReferenceDryRunGraph({
+                        sourceSpace,
+                        targetSpace,
+                        selection,
+                        destination,
+                        plan,
+                        sourceStories,
+                        schemas,
+                        copyMaps,
+                    });
+                }
             }
 
             if (dryRun) {
@@ -1790,7 +2047,7 @@ export const copyCommand = async (props: CLIOptions) => {
                     input: { ...flags },
                     plan,
                     conflicts,
-                    graph: withAssetsGraph,
+                    graph: dryRunGraph,
                     outputPath,
                 });
 
