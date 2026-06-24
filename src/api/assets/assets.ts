@@ -23,6 +23,7 @@ import FormData from "form-data";
 import { createDir, isDirectoryExists } from "../../utils/files.js";
 import Logger from "../../utils/logger.js";
 import { getFileName, getSizeFromURL } from "../../utils/string-utils.js";
+import { getAllItemsWithPagination } from "../utils/request.js";
 
 const isStoryblokSize = (size: string | undefined): size is string =>
     Boolean(size && /^\d+x\d+$/i.test(size));
@@ -53,24 +54,31 @@ export const getAllAssets: GetAllAssets = async (args, config) => {
     const { spaceId, search } = args;
     const { sbApi } = config;
 
-    return sbApi
-        .get(`spaces/${spaceId}/assets/`, {
-            // @ts-ignore TODO: have to submit ISSUE to storyblok-js-client (in documentation it is search, in typescript its search_term STORYBLOK_ISSUE
-            search: search ? search : "",
-            per_page: 100, // need to do pagination here probably
-        })
-        .then(({ data }) => data)
-        .catch((err) => {
-            if (err.response.status === 404) {
-                Logger.error(
-                    `There is no assets in your Storyblok ${spaceId} space.`,
-                );
-                return true;
-            } else {
-                Logger.error(err);
-                return false;
-            }
-        });
+    const assets = await getAllItemsWithPagination({
+        apiFn: ({ per_page, page }) =>
+            sbApi
+                .get(`spaces/${spaceId}/assets/`, {
+                    // @ts-ignore TODO: have to submit ISSUE to storyblok-js-client (in documentation it is search, in typescript its search_term STORYBLOK_ISSUE
+                    search: search ? search : "",
+                    per_page,
+                    page,
+                })
+                .catch((err) => {
+                    if (err.response?.status === 404) {
+                        Logger.error(
+                            `There is no assets in your Storyblok ${spaceId} space.`,
+                        );
+                        return { data: { assets: [] }, total: 0, perPage: 100 };
+                    }
+
+                    Logger.error(err);
+                    throw err;
+                }),
+        params: {},
+        itemsKey: "assets",
+    });
+
+    return { assets };
 };
 
 export const getAssetByName: GetAssetByName = async (
