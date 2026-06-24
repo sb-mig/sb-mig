@@ -605,9 +605,7 @@ export const updateStory: UpdateStory = (content, storyId, options, config) => {
     const { spaceId, sbApi } = config;
     const storyLabel = resolveStoryLabel(content, storyId);
     Logger.warning("Trying to update Story...");
-    Logger.log(
-        `Updating story with name: ${content.name} in space: ${spaceId}`,
-    );
+    Logger.log(`Updating story '${storyLabel}' in space: ${spaceId}`);
 
     // console.log("THis is content to update: ");
     // console.log(JSON.stringify(content, null, 2));
