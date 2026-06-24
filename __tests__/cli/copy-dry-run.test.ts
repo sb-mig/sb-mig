@@ -924,6 +924,7 @@ describe("copy stories dry-run", () => {
             "source-space",
             "target-space",
         );
+        const outputPath = path.join(tempDir, "reports", "with-assets.json");
 
         await copyCommand({
             input: ["copy", "stories"],
@@ -934,6 +935,7 @@ describe("copy stories dry-run", () => {
                 destination: "imported",
                 withAssets: true,
                 manifestRoot,
+                outputPath,
             },
         } as any);
 
@@ -985,6 +987,43 @@ describe("copy stories dry-run", () => {
             },
         ]);
         expect(storyManifest).toHaveLength(2);
+        const report = JSON.parse(await readFile(outputPath, "utf8"));
+
+        expect(report).toMatchObject({
+            command: "copy stories",
+            dryRun: false,
+            normalized: {
+                sourceSpaceId: "source-space",
+                targetSpaceId: "target-space",
+                source: "blog",
+                destination: "imported",
+                withAssets: true,
+            },
+            summary: {
+                storyFoldersPlanned: 1,
+                storiesPlanned: 1,
+                storiesCreated: 2,
+                assetsCreated: 1,
+                assetFoldersCreated: 2,
+            },
+            assetCopy: {
+                command: "copy assets",
+                dryRun: false,
+                summary: {
+                    assetsCreated: 1,
+                    assetFoldersCreated: 2,
+                },
+            },
+        });
+        expect(report.manifestPaths).toMatchObject({
+            stories: path.join(manifestDirectory, "stories.manifest.jsonl"),
+            assets: path.join(manifestDirectory, "assets.manifest.jsonl"),
+            assetFolders: path.join(
+                manifestDirectory,
+                "asset-folders.manifest.jsonl",
+            ),
+            combined: path.join(manifestDirectory, "manifest.jsonl"),
+        });
         expect(mocks.updateStory).toHaveBeenCalledWith(
             {
                 content: expect.objectContaining({

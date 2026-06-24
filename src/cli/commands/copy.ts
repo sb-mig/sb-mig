@@ -52,6 +52,35 @@ type CopyPlanItem = {
     conflict?: boolean;
 };
 
+type CopyAssetsSelection =
+    | {
+          type: "all";
+      }
+    | {
+          type: "asset";
+          values: string[];
+      }
+    | {
+          type: "asset_folder";
+          values: string[];
+      }
+    | {
+          type: "referenced_by_stories";
+          storySelection: CopySelection;
+      };
+
+type CopyAssetsSelectionReport =
+    | "all"
+    | {
+          type: "asset" | "asset_folder";
+          values: string[];
+      }
+    | {
+          type: "referenced_by_stories";
+          source: string;
+          mode: CopyMode;
+      };
+
 type CopyPlanWarning = {
     code: string;
     message: string;
@@ -132,7 +161,7 @@ type CopyAssetsDryRunReport = {
     normalized: {
         sourceSpaceId: string;
         targetSpaceId: string;
-        selection: "all";
+        selection: CopyAssetsSelectionReport;
     };
     summary: {
         plannedCreates: number;
@@ -158,7 +187,7 @@ type CopyAssetsApplyReport = {
     normalized: {
         sourceSpaceId: string;
         targetSpaceId: string;
-        selection: "all";
+        selection: CopyAssetsSelectionReport;
     };
     summary: {
         assetFoldersCreated: number;
@@ -170,6 +199,48 @@ type CopyAssetsApplyReport = {
     };
     graph: ReturnType<typeof buildCopyAssetsGraph>;
     manifestPaths: {
+        assets: string;
+        assetFolders: string;
+        combined: string;
+    };
+    warnings: any[];
+    errors: any[];
+};
+
+type CopyStoriesApplySummary = {
+    storyFoldersPlanned: number;
+    storiesPlanned: number;
+    storiesCreated: number;
+    storiesMatched: number;
+};
+
+type CopyStoriesApplyReport = {
+    schemaVersion: 1;
+    command: "copy stories";
+    dryRun: false;
+    generatedAt: string;
+    input: Record<string, any>;
+    normalized: {
+        sourceSpaceId: string;
+        targetSpaceId: string;
+        source: string;
+        destination: string;
+        mode: CopyMode;
+        withAssets: boolean;
+    };
+    summary: CopyStoriesApplySummary & {
+        assetFoldersCreated?: number;
+        assetFoldersMatched?: number;
+        assetsCreated?: number;
+        assetsMatched?: number;
+        warnings: number;
+        errors: number;
+    };
+    items: CopyPlanItem[];
+    graph?: CopyGraph;
+    assetCopy?: CopyAssetsApplyReport;
+    manifestPaths: {
+        stories: string;
         assets: string;
         assetFolders: string;
         combined: string;
@@ -208,6 +279,30 @@ const readStringFlag = (
     return undefined;
 };
 
+const readStringListFlag = (
+    flags: Record<string, any>,
+    names: string[],
+): string[] => {
+    const values: string[] = [];
+
+    for (const name of names) {
+        const value = flags[name];
+
+        if (Array.isArray(value)) {
+            values.push(...value.map(String));
+            continue;
+        }
+
+        if (value !== undefined && value !== null && value !== "") {
+            values.push(String(value));
+        }
+    }
+
+    return values
+        .map((value) => value.trim())
+        .filter((value) => value.length > 0);
+};
+
 const getCopySpace = (
     flags: Record<string, any>,
     names: string[],
@@ -225,6 +320,83 @@ const joinSlugs = (...parts: Array<string | undefined>): string =>
         .map((part) => part.replace(/^\/+|\/+$/g, ""))
         .filter((part) => part.length > 0)
         .join("/");
+
+const normalizeAssetFolderPath = (folderPath: string): string =>
+    folderPath.replace(/^\/+|\/+$/g, "");
+
+const toSelectionReport = (
+    selection: CopyAssetsSelection,
+): CopyAssetsSelectionReport =>
+    selection.type === "all"
+        ? "all"
+        : selection.type === "referenced_by_stories"
+          ? {
+                type: "referenced_by_stories",
+                source: selection.storySelection.source,
+                mode: selection.storySelection.mode,
+            }
+          : {
+                type: selection.type,
+                values: selection.values,
+            };
+
+const resolveCopyAssetsSelection = (
+    flags: Record<string, any>,
+): CopyAssetsSelection => {
+    const assetValues = readStringListFlag(flags, ["asset", "assetId"]);
+    const assetFolderValues = readStringListFlag(flags, [
+        "assetFolder",
+        "asset-folder",
+        "assetFolderId",
+        "asset-folder-id",
+    ]);
+    const hasAll = Boolean(flags["all"]);
+    const hasReferencedByStories = Boolean(
+        flags["referencedByStories"] ?? flags["referenced-by-stories"],
+    );
+    const selectorCount =
+        (hasAll ? 1 : 0) +
+        (assetValues.length > 0 ? 1 : 0) +
+        (assetFolderValues.length > 0 ? 1 : 0) +
+        (hasReferencedByStories ? 1 : 0);
+
+    if (selectorCount === 0) {
+        throw new Error(
+            "copy assets requires one selector: --all, --asset <id|url|unique-name>, --assetFolder <id|path>, or --referenced-by-stories --source <full_slug>.",
+        );
+    }
+
+    if (selectorCount > 1) {
+        throw new Error(
+            "copy assets accepts only one selector family at a time. Use --all, --asset, --assetFolder, or --referenced-by-stories.",
+        );
+    }
+
+    if (hasReferencedByStories) {
+        return {
+            type: "referenced_by_stories",
+            storySelection: resolveCopySelection(flags),
+        };
+    }
+
+    if (assetValues.length > 0) {
+        return {
+            type: "asset",
+            values: assetValues,
+        };
+    }
+
+    if (assetFolderValues.length > 0) {
+        return {
+            type: "asset_folder",
+            values: assetFolderValues.map(normalizeAssetFolderPath),
+        };
+    }
+
+    return {
+        type: "all",
+    };
+};
 
 const resolveCopySelection = (flags: Record<string, any>): CopySelection => {
     const rawSource = readStringFlag(flags, ["source", "what"]);
@@ -558,11 +730,13 @@ const buildCopyCommand = ({
 const buildCopyAssetsCommand = ({
     sourceSpace,
     targetSpace,
+    selection,
     dryRun,
     outputPath,
 }: {
     sourceSpace: string;
     targetSpace: string;
+    selection: CopyAssetsSelection;
     dryRun: boolean;
     outputPath?: string;
 }): string => {
@@ -574,8 +748,27 @@ const buildCopyAssetsCommand = ({
         sourceSpace,
         "--to",
         targetSpace,
-        "--all",
     ];
+
+    if (selection.type === "all") {
+        args.push("--all");
+    } else if (selection.type === "asset") {
+        for (const value of selection.values) {
+            args.push("--asset", value);
+        }
+    } else if (selection.type === "asset_folder") {
+        for (const value of selection.values) {
+            args.push("--assetFolder", value);
+        }
+    } else {
+        args.push(
+            "--referenced-by-stories",
+            "--source",
+            selection.storySelection.source,
+            "--mode",
+            selection.storySelection.mode,
+        );
+    }
 
     if (dryRun) {
         args.push("--dry-run");
@@ -845,12 +1038,14 @@ const buildCopyDryRunReport = ({
 const buildCopyAssetsDryRunReport = ({
     sourceSpace,
     targetSpace,
+    selection,
     input,
     outputPath,
     graph,
 }: {
     sourceSpace: string;
     targetSpace: string;
+    selection: CopyAssetsSelection;
     input: Record<string, any>;
     outputPath?: string;
     graph: ReturnType<typeof buildCopyAssetsGraph>;
@@ -866,7 +1061,7 @@ const buildCopyAssetsDryRunReport = ({
         normalized: {
             sourceSpaceId: sourceSpace,
             targetSpaceId: targetSpace,
-            selection: "all",
+            selection: toSelectionReport(selection),
         },
         summary: {
             plannedCreates: graphSummary.assetFolders + graphSummary.assets,
@@ -881,15 +1076,99 @@ const buildCopyAssetsDryRunReport = ({
             dryRun: buildCopyAssetsCommand({
                 sourceSpace,
                 targetSpace,
+                selection,
                 dryRun: true,
                 outputPath,
             }),
             apply: buildCopyAssetsCommand({
                 sourceSpace,
                 targetSpace,
+                selection,
                 dryRun: false,
             }),
         },
+    };
+};
+
+const buildCopyStoriesApplyReport = ({
+    sourceSpace,
+    targetSpace,
+    selection,
+    destination,
+    withAssets,
+    input,
+    plan,
+    storySummary,
+    graph,
+    assetCopyReport,
+    manifestRoot,
+}: {
+    sourceSpace: string;
+    targetSpace: string;
+    selection: CopySelection;
+    destination: string | undefined;
+    withAssets: boolean;
+    input: Record<string, any>;
+    plan: CopyPlanItem[];
+    storySummary: CopyStoriesApplySummary;
+    graph?: CopyGraph;
+    assetCopyReport?: CopyAssetsApplyReport;
+    manifestRoot?: string;
+}): CopyStoriesApplyReport => {
+    const manifestPaths = getDefaultCopyManifestPaths({
+        sourceSpaceId: sourceSpace,
+        targetSpaceId: targetSpace,
+        rootDir: manifestRoot,
+    });
+    const graphSummary = graph ? summarizeCopyGraph(graph) : undefined;
+
+    return {
+        schemaVersion: 1,
+        command: "copy stories",
+        dryRun: false,
+        generatedAt: new Date().toISOString(),
+        input,
+        normalized: {
+            sourceSpaceId: sourceSpace,
+            targetSpaceId: targetSpace,
+            source: selection.source,
+            destination: normalizeDestination(destination) || "root",
+            mode: selection.mode,
+            withAssets,
+        },
+        summary: {
+            ...storySummary,
+            ...(assetCopyReport
+                ? {
+                      assetFoldersCreated:
+                          assetCopyReport.summary.assetFoldersCreated,
+                      assetFoldersMatched:
+                          assetCopyReport.summary.assetFoldersMatched,
+                      assetsCreated: assetCopyReport.summary.assetsCreated,
+                      assetsMatched: assetCopyReport.summary.assetsMatched,
+                  }
+                : {}),
+            warnings:
+                (graphSummary?.warnings ?? 0) +
+                (assetCopyReport?.summary.warnings ?? 0),
+            errors:
+                (graphSummary?.errors ?? 0) +
+                (assetCopyReport?.summary.errors ?? 0),
+        },
+        items: plan,
+        ...(graph ? { graph } : {}),
+        ...(assetCopyReport ? { assetCopy: assetCopyReport } : {}),
+        manifestPaths: {
+            stories: manifestPaths.stories,
+            assets: manifestPaths.assets,
+            assetFolders: manifestPaths.assetFolders,
+            combined: manifestPaths.combined,
+        },
+        warnings: [
+            ...(graph?.warnings ?? []),
+            ...(assetCopyReport?.warnings ?? []),
+        ],
+        errors: [...(graph?.errors ?? []), ...(assetCopyReport?.errors ?? [])],
     };
 };
 
@@ -956,6 +1235,239 @@ const buildAssetFolderPathMap = (folders: any[]): Map<string, any> => {
     return folderByPath;
 };
 
+const isNumericSelector = (value: string): boolean => /^\d+$/.test(value);
+
+const findSourceAssetBySelector = (assets: any[], selector: string): any => {
+    if (isNumericSelector(selector)) {
+        const byId = assets.find(
+            (asset) => Number(asset.id) === Number(selector),
+        );
+
+        if (byId) {
+            return byId;
+        }
+    }
+
+    const exactFilenameMatches = assets.filter(
+        (asset) => asset.filename === selector,
+    );
+
+    if (exactFilenameMatches.length === 1) {
+        return exactFilenameMatches[0];
+    }
+
+    if (exactFilenameMatches.length > 1) {
+        throw new Error(
+            `Asset selector '${selector}' matched multiple source assets by filename. Use --asset <asset-id>.`,
+        );
+    }
+
+    const fileNameMatches = assets.filter(
+        (asset) => getFileName(asset.filename) === selector,
+    );
+
+    if (fileNameMatches.length === 1) {
+        return fileNameMatches[0];
+    }
+
+    if (fileNameMatches.length > 1) {
+        throw new Error(
+            `Asset selector '${selector}' matched multiple source assets by file name. Use --asset <asset-id>.`,
+        );
+    }
+
+    throw new Error(
+        `Asset selector '${selector}' did not match a source asset by id, filename, or unique file name.`,
+    );
+};
+
+const findSourceAssetFolderBySelector = (
+    folderById: Map<number, any>,
+    folderByPath: Map<string, any>,
+    selector: string,
+): any => {
+    if (isNumericSelector(selector)) {
+        const byId = folderById.get(Number(selector));
+
+        if (byId) {
+            return byId;
+        }
+    }
+
+    const normalizedPath = normalizeAssetFolderPath(selector);
+    const byPath = folderByPath.get(normalizedPath);
+
+    if (byPath) {
+        return byPath;
+    }
+
+    throw new Error(
+        `Asset folder selector '${selector}' did not match a source asset folder by id or path.`,
+    );
+};
+
+const addAssetFolderAncestors = ({
+    folderId,
+    folderById,
+    selectedFolderIds,
+}: {
+    folderId: number | null | undefined;
+    folderById: Map<number, any>;
+    selectedFolderIds: Set<number>;
+}) => {
+    const visited = new Set<number>();
+    let currentFolderId = folderId;
+
+    while (currentFolderId !== null && currentFolderId !== undefined) {
+        const currentFolder = folderById.get(Number(currentFolderId));
+
+        if (!currentFolder || visited.has(Number(currentFolder.id))) {
+            break;
+        }
+
+        selectedFolderIds.add(Number(currentFolder.id));
+        visited.add(Number(currentFolder.id));
+        currentFolderId = currentFolder.parent_id;
+    }
+};
+
+const collectAssetFolderSubtreeIds = (
+    rootFolderId: number,
+    folders: any[],
+): Set<number> => {
+    const selected = new Set<number>([rootFolderId]);
+    let changed = true;
+
+    while (changed) {
+        changed = false;
+
+        for (const folder of folders) {
+            const folderId = Number(folder.id);
+            const parentId = folder.parent_id;
+
+            if (
+                parentId !== null &&
+                parentId !== undefined &&
+                selected.has(Number(parentId)) &&
+                !selected.has(folderId)
+            ) {
+                selected.add(folderId);
+                changed = true;
+            }
+        }
+    }
+
+    return selected;
+};
+
+const selectSourceAssetsForCopy = ({
+    selection,
+    sourceAssets,
+    sourceAssetFolders,
+}: {
+    selection: CopyAssetsSelection;
+    sourceAssets: any[];
+    sourceAssetFolders: any[];
+}): { assets: any[]; assetFolders: any[] } => {
+    if (selection.type === "all") {
+        return {
+            assets: sourceAssets,
+            assetFolders: sourceAssetFolders,
+        };
+    }
+
+    const folderById = new Map(
+        sourceAssetFolders.map(
+            (folder) => [Number(folder.id), folder] as const,
+        ),
+    );
+    const folderByPath = buildAssetFolderPathMap(sourceAssetFolders);
+    const selectedAssetIds = new Set<number>();
+    const selectedFolderIds = new Set<number>();
+
+    if (selection.type === "asset") {
+        for (const selector of selection.values) {
+            const asset = findSourceAssetBySelector(sourceAssets, selector);
+
+            selectedAssetIds.add(Number(asset.id));
+            addAssetFolderAncestors({
+                folderId: asset.asset_folder_id,
+                folderById,
+                selectedFolderIds,
+            });
+        }
+    }
+
+    if (selection.type === "asset_folder") {
+        for (const selector of selection.values) {
+            const folder = findSourceAssetFolderBySelector(
+                folderById,
+                folderByPath,
+                selector,
+            );
+            const subtreeFolderIds = collectAssetFolderSubtreeIds(
+                Number(folder.id),
+                sourceAssetFolders,
+            );
+
+            for (const folderId of subtreeFolderIds) {
+                selectedFolderIds.add(folderId);
+            }
+
+            addAssetFolderAncestors({
+                folderId: folder.parent_id,
+                folderById,
+                selectedFolderIds,
+            });
+        }
+
+        for (const asset of sourceAssets) {
+            if (
+                asset.asset_folder_id !== null &&
+                asset.asset_folder_id !== undefined &&
+                selectedFolderIds.has(Number(asset.asset_folder_id))
+            ) {
+                selectedAssetIds.add(Number(asset.id));
+            }
+        }
+    }
+
+    return {
+        assets: sourceAssets.filter((asset) =>
+            selectedAssetIds.has(Number(asset.id)),
+        ),
+        assetFolders: sourceAssetFolders.filter((folder) =>
+            selectedFolderIds.has(Number(folder.id)),
+        ),
+    };
+};
+
+const selectSourceAssetsFromGraph = ({
+    graph,
+    sourceAssets,
+    sourceAssetFolders,
+}: {
+    graph: ReturnType<typeof buildCopyAssetsGraph>;
+    sourceAssets: any[];
+    sourceAssetFolders: any[];
+}): { assets: any[]; assetFolders: any[] } => {
+    const graphAssetIds = new Set(
+        graph.assets.map((asset) => Number(asset.sourceId)),
+    );
+    const graphAssetFolderIds = new Set(
+        graph.assetFolders.map((folder) => Number(folder.sourceId)),
+    );
+
+    return {
+        assets: sourceAssets.filter((asset) =>
+            graphAssetIds.has(Number(asset.id)),
+        ),
+        assetFolders: sourceAssetFolders.filter((folder) =>
+            graphAssetFolderIds.has(Number(folder.id)),
+        ),
+    };
+};
+
 const getAssetMetadataPayload = (asset: any) => ({
     ...(asset.alt ? { alt: asset.alt } : {}),
     ...(asset.title ? { title: asset.title } : {}),
@@ -985,6 +1497,7 @@ const findUniqueTargetAssetByFileName = (
 const buildCopyAssetsApplyReport = ({
     sourceSpace,
     targetSpace,
+    selection,
     input,
     graph,
     manifestPaths,
@@ -995,6 +1508,7 @@ const buildCopyAssetsApplyReport = ({
 }: {
     sourceSpace: string;
     targetSpace: string;
+    selection: CopyAssetsSelection;
     input: Record<string, any>;
     graph: ReturnType<typeof buildCopyAssetsGraph>;
     manifestPaths: ReturnType<typeof getDefaultCopyManifestPaths>;
@@ -1011,7 +1525,7 @@ const buildCopyAssetsApplyReport = ({
     normalized: {
         sourceSpaceId: sourceSpace,
         targetSpaceId: targetSpace,
-        selection: "all",
+        selection: toSelectionReport(selection),
     },
     summary: {
         assetFoldersCreated,
@@ -1044,6 +1558,25 @@ const buildTargetSlugBySourceSlug = (
 ): Map<string, string> =>
     new Map(
         plan.map((item) => [item.sourceFullSlug, item.targetFullSlug] as const),
+    );
+
+const countTreeStories = (nodes: any[]): { folders: number; stories: number } =>
+    nodes.reduce(
+        (counts, node) => {
+            const childCounts = countTreeStories(node.children ?? []);
+
+            return {
+                folders:
+                    counts.folders +
+                    childCounts.folders +
+                    (node.story?.is_folder ? 1 : 0),
+                stories:
+                    counts.stories +
+                    childCounts.stories +
+                    (node.story?.is_folder ? 0 : 1),
+            };
+        },
+        { folders: 0, stories: 0 },
     );
 
 const buildComponentSchemaRegistry = async (
@@ -1488,6 +2021,8 @@ const createStoriesAndWriteManifests = async ({
     });
     const existingManifestEntries = await loadManifest(manifestPaths.combined);
     const copyMaps = buildCopyMaps(existingManifestEntries);
+    let storiesCreated = 0;
+    let storiesMatched = 0;
 
     const walk = async (nodes: any[], parentId: number | null) => {
         for (const node of nodes) {
@@ -1510,6 +2045,7 @@ const createStoriesAndWriteManifests = async ({
             );
 
             if (mappedTargetId) {
+                storiesMatched += 1;
                 await walk(node.children ?? [], mappedTargetId);
                 continue;
             }
@@ -1545,6 +2081,7 @@ const createStoriesAndWriteManifests = async ({
                 });
                 copyMaps.storyIds.set(entry.source_id, entry.target_id);
                 copyMaps.storyUuids.set(entry.source_uuid, entry.target_uuid);
+                storiesMatched += 1;
 
                 await walk(node.children ?? [], entry.target_id);
                 continue;
@@ -1590,6 +2127,7 @@ const createStoriesAndWriteManifests = async ({
             });
             copyMaps.storyIds.set(entry.source_id, entry.target_id);
             copyMaps.storyUuids.set(entry.source_uuid, entry.target_uuid);
+            storiesCreated += 1;
 
             await walk(node.children ?? [], entry.target_id);
         }
@@ -1600,11 +2138,20 @@ const createStoriesAndWriteManifests = async ({
     await dedupeManifestFile(manifestPaths.combined);
 
     Logger.success(`Story manifest written to ${manifestPaths.stories}`);
+    const plannedCounts = countTreeStories(tree);
+
+    return {
+        storyFoldersPlanned: plannedCounts.folders,
+        storiesPlanned: plannedCounts.stories,
+        storiesCreated,
+        storiesMatched,
+    };
 };
 
 const copyAssetsAndWriteManifests = async ({
     sourceSpace,
     targetSpace,
+    selection,
     input,
     graph,
     sourceAssets,
@@ -1614,6 +2161,7 @@ const copyAssetsAndWriteManifests = async ({
 }: {
     sourceSpace: string;
     targetSpace: string;
+    selection: CopyAssetsSelection;
     input: Record<string, any>;
     graph: ReturnType<typeof buildCopyAssetsGraph>;
     sourceAssets: any[];
@@ -1924,6 +2472,7 @@ const copyAssetsAndWriteManifests = async ({
     const report = buildCopyAssetsApplyReport({
         sourceSpace,
         targetSpace,
+        selection,
         input,
         graph,
         manifestPaths,
@@ -2041,6 +2590,13 @@ const logDryRunCopyAssetsPlan = async ({
 }: {
     report: CopyAssetsDryRunReport;
 }) => {
+    const selectionLabel =
+        report.normalized.selection === "all"
+            ? "all assets and asset folders"
+            : report.normalized.selection.type === "referenced_by_stories"
+              ? `referenced_by_stories ${report.normalized.selection.source} (${report.normalized.selection.mode})`
+              : `${report.normalized.selection.type} ${report.normalized.selection.values.join(", ")}`;
+
     Logger.warning(
         "[dry-run] Copy assets preview only. No Storyblok writes will be made.",
     );
@@ -2050,7 +2606,7 @@ const logDryRunCopyAssetsPlan = async ({
     Logger.warning(
         `[dry-run] Target space: ${report.normalized.targetSpaceId}`,
     );
-    Logger.warning("[dry-run] Selection: all assets and asset folders");
+    Logger.warning(`[dry-run] Selection: ${selectionLabel}`);
     Logger.warning(
         `[dry-run] Would plan ${report.summary.assetFolders} asset folder(s) and ${report.summary.assets} asset(s).`,
     );
@@ -2226,13 +2782,21 @@ export const copyCommand = async (props: CLIOptions) => {
                 break;
             }
 
+            let assetCopyReport: CopyAssetsApplyReport | undefined;
+
             if (withAssetsGraph) {
                 Logger.warning(
                     "Copying referenced assets before stories because --with-assets was passed.",
                 );
-                await copyAssetsAndWriteManifests({
+                assetCopyReport = await copyAssetsAndWriteManifests({
                     sourceSpace,
                     targetSpace,
+                    selection: {
+                        type: "asset",
+                        values: withAssetsGraph.assets.map((asset) =>
+                            String(asset.sourceId),
+                        ),
+                    },
                     input: { ...flags },
                     graph: withAssetsGraph,
                     sourceAssets,
@@ -2241,7 +2805,7 @@ export const copyCommand = async (props: CLIOptions) => {
                 });
             }
 
-            await createStoriesAndWriteManifests({
+            const storySummary = await createStoriesAndWriteManifests({
                 tree: rootsToCreate,
                 realParentId: destinationParentId,
                 sourceStoryById: buildSourceStoryById(sourceStories),
@@ -2256,6 +2820,24 @@ export const copyCommand = async (props: CLIOptions) => {
                 targetSpace,
                 manifestRoot,
             });
+
+            if (outputPath) {
+                const report = buildCopyStoriesApplyReport({
+                    sourceSpace,
+                    targetSpace,
+                    selection,
+                    destination,
+                    withAssets,
+                    input: { ...flags },
+                    plan,
+                    storySummary,
+                    graph: withAssetsGraph,
+                    assetCopyReport,
+                    manifestRoot,
+                });
+
+                await writeJsonReport(outputPath, report);
+            }
 
             break;
         }
@@ -2273,12 +2855,7 @@ export const copyCommand = async (props: CLIOptions) => {
             const dryRun = Boolean(flags["dryRun"]);
             const outputPath = readStringFlag(flags, ["outputPath"]);
             const manifestRoot = readStringFlag(flags, ["manifestRoot"]);
-
-            if (!flags["all"]) {
-                throw new Error(
-                    "copy assets currently requires --all. Referenced-asset selectors are planned for a later slice.",
-                );
-            }
+            const selection = resolveCopyAssetsSelection(flags);
 
             Logger.warning(
                 dryRun
@@ -2311,17 +2888,76 @@ export const copyCommand = async (props: CLIOptions) => {
             )
                 ? assetFoldersResult.asset_folders
                 : [];
+            let graph: ReturnType<typeof buildCopyAssetsGraph>;
+            let scopedSource: { assets: any[]; assetFolders: any[] };
 
-            const graph = buildCopyAssetsGraph({
-                sourceSpaceId: sourceSpace,
-                targetSpaceId: targetSpace,
-                assets: sourceAssets,
-                assetFolders: sourceAssetFolders,
-            });
+            if (selection.type === "referenced_by_stories") {
+                const storySelection = selection.storySelection;
+                const [schemas, sourceStories] = await Promise.all([
+                    buildComponentSchemaRegistry(sourceSpace),
+                    getStoriesForSelection(storySelection, sourceSpace),
+                ]);
+                const normalizedStories = normalizeStoriesForTree(
+                    sourceStories,
+                    storySelection,
+                );
+                const tree = createTree(normalizedStories);
+                const rootsToCreate = prepareTreeForCreate(
+                    selectTreeRoots(tree, storySelection),
+                );
+                const plan = buildCopyPlan(rootsToCreate, undefined);
+                const manifestPaths = getDefaultCopyManifestPaths({
+                    sourceSpaceId: sourceSpace,
+                    targetSpaceId: targetSpace,
+                    rootDir: manifestRoot,
+                });
+                const manifestEntries = await loadManifest(
+                    manifestPaths.combined,
+                );
+                const copyMaps = buildCopyMaps(manifestEntries);
+
+                graph = buildReferencedAssetsGraph({
+                    sourceSpace,
+                    targetSpace,
+                    selection: storySelection,
+                    destination: undefined,
+                    plan,
+                    sourceStories,
+                    sourceAssets,
+                    sourceAssetFolders,
+                    schemas,
+                    copyMaps,
+                });
+                graph.scope = {
+                    command: "copy assets",
+                    source: storySelection.source,
+                    mode: storySelection.mode,
+                    referencePolicy: "preserve",
+                };
+                scopedSource = selectSourceAssetsFromGraph({
+                    graph,
+                    sourceAssets,
+                    sourceAssetFolders,
+                });
+            } else {
+                scopedSource = selectSourceAssetsForCopy({
+                    selection,
+                    sourceAssets,
+                    sourceAssetFolders,
+                });
+                graph = buildCopyAssetsGraph({
+                    sourceSpaceId: sourceSpace,
+                    targetSpaceId: targetSpace,
+                    assets: scopedSource.assets,
+                    assetFolders: scopedSource.assetFolders,
+                });
+            }
+
             if (dryRun) {
                 const report = buildCopyAssetsDryRunReport({
                     sourceSpace,
                     targetSpace,
+                    selection,
                     input: { ...flags },
                     outputPath,
                     graph,
@@ -2339,10 +2975,11 @@ export const copyCommand = async (props: CLIOptions) => {
             await copyAssetsAndWriteManifests({
                 sourceSpace,
                 targetSpace,
+                selection,
                 input: { ...flags },
                 graph,
-                sourceAssets,
-                sourceAssetFolders,
+                sourceAssets: scopedSource.assets,
+                sourceAssetFolders: scopedSource.assetFolders,
                 outputPath,
                 manifestRoot,
             });

@@ -1087,6 +1087,9 @@ Current implementation status:
 - `sb-mig copy assets --from <sourceSpaceId> --to <targetSpaceId> --all --dry-run` is implemented as the first safe slice.
 - `--outputPath` writes a JSON report with the copy graph, ordered asset-folder nodes, asset nodes, warnings, limitations, and replay commands.
 - `sb-mig copy assets --from <sourceSpaceId> --to <targetSpaceId> --all` now applies the copy.
+- `sb-mig copy assets --asset <id|url|unique-file-name>` copies selected assets and their asset-folder ancestors.
+- `sb-mig copy assets --assetFolder <id|path>` copies the selected asset-folder subtree, its ancestor folders, and assets inside the selected subtree.
+- `sb-mig copy assets --referenced-by-stories --source <story-or-folder-full-slug>` scans selected stories with source component schemas and copies only source-space assets referenced by that story scope.
 - Apply mode loads existing `.sb-mig/copy/<source>/<target>/manifest.jsonl` mappings first.
 - Apply mode creates or matches asset folders before assets.
 - Apply mode uploads assets, calls Storyblok `finish_upload`, optionally updates safe metadata, and writes asset/asset-folder manifests.
@@ -1106,19 +1109,26 @@ MVP selector:
 
 ```bash
 sb-mig copy assets --from 123456 --to 789012 --all
+sb-mig copy assets --from 123456 --to 789012 --asset 987654
+sb-mig copy assets --from 123456 --to 789012 --asset hero.jpg
+sb-mig copy assets --from 123456 --to 789012 --assetFolder Marketing/Heroes
+sb-mig copy assets --from 123456 --to 789012 --referenced-by-stories --source blog
 ```
 
 Safe dry-run selector available now:
 
 ```bash
 sb-mig copy assets --from 123456 --to 789012 --all --dry-run --outputPath sbmig/copy-plans/assets-copy.json
+sb-mig copy assets --from 123456 --to 789012 --asset 987654 --dry-run --outputPath sbmig/copy-plans/asset-copy.json
+sb-mig copy assets --from 123456 --to 789012 --assetFolder Marketing/Heroes --dry-run --outputPath sbmig/copy-plans/asset-folder-copy.json
+sb-mig copy assets --from 123456 --to 789012 --referenced-by-stories --source blog --dry-run --outputPath sbmig/copy-plans/blog-assets-copy.json
 ```
 
-Later selectors:
+Additional referenced-story selector shapes:
 
 ```bash
-sb-mig copy assets --from 123456 --to 789012 --referenced-by-stories --source blog
-sb-mig copy assets --from 123456 --to 789012 --starts-with blog/
+sb-mig copy assets --from 123456 --to 789012 --referenced-by-stories --source blog/* --dry-run
+sb-mig copy assets --from 123456 --to 789012 --referenced-by-stories --source blog --mode self
 ```
 
 ### Phase 4: Story Shell Creation and Story Manifest (`MAR-1511`)

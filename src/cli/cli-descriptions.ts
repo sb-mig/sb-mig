@@ -219,10 +219,13 @@ export const copyDescription = `
         $ sb-mig copy stories --from [spaceId] --to [spaceId] --source [folder_full_slug]/* --destination [target_folder_full_slug]
         $ sb-mig copy stories --from [spaceId] --to [spaceId] --source [folder_full_slug] --mode self --destination /
         $ sb-mig copy assets --from [spaceId] --to [spaceId] --all
+        $ sb-mig copy assets --from [spaceId] --to [spaceId] --asset [asset_id_or_filename]
+        $ sb-mig copy assets --from [spaceId] --to [spaceId] --assetFolder [folder_id_or_path]
+        $ sb-mig copy assets --from [spaceId] --to [spaceId] --referenced-by-stories --source [story_or_folder_full_slug]
         $ sb-mig copy assets --from [spaceId] --to [spaceId] --all --dry-run
 
     DESCRIPTION
-        Copy Storyblok stories or folders from one space to another, and inspect asset copy plans.
+        Copy Storyblok stories, folders, assets, or asset folders from one space to another.
 
     COMMANDS
         stories         Copy one story, one folder subtree, a folder's children, or one folder shell.
@@ -236,6 +239,10 @@ export const copyDescription = `
         --mode          Copy mode: subtree, children, or self. Default: subtree. folder/* defaults to children.
         --with-assets   For copy stories, copy referenced assets first and rewrite copied stories to target asset IDs/filenames.
         --all           Select all assets and asset folders. [assets only]
+        --asset         Select one source asset by numeric ID, exact Storyblok asset URL, or unique file name. Repeatable. [assets only]
+        --assetFolder   Select one source asset folder by numeric ID or folder path. Includes descendants and assets in that subtree. Repeatable. [assets only]
+        --referenced-by-stories
+                       Select assets referenced by a story/folder scope. Requires --source. [assets only]
         --dry-run       Preview story paths, manifest-mapped references, and likely target conflicts without writing to Storyblok.
         --outputPath    Optional JSON file path for a dry-run copy plan artifact. Only writes locally when passed.
 
@@ -265,7 +272,11 @@ export const copyDescription = `
         copy stories --with-assets scans selected stories with source component schemas and only copies referenced assets it can resolve from the source asset list.
         --dry-run checks likely target path conflicts and reports mapped/planned/unresolved story and asset references, with occurrence and unique-asset counts in JSON output.
         Without --with-assets, run copy assets first when copied stories should point to target-space assets.
-        copy assets currently requires --all. It matches by manifest first, then safe target folder path or unique asset file name before creating.
+        copy assets supports --all, --asset, or --assetFolder. Use only one selector family per run.
+        copy assets --asset includes the selected asset's folder ancestors so target folder mappings can be preserved.
+        copy assets --assetFolder includes the selected folder, descendants, folder ancestors, and assets inside that selected subtree.
+        copy assets --referenced-by-stories scans selected stories with source component schemas and copies only source-space assets referenced by that story scope.
+        copy assets matches by manifest first, then safe target folder path or unique asset file name before creating.
         copy assets uploads assets, finalizes the upload, and writes source-to-target asset/folder manifests.
 
     EXAMPLES
@@ -278,6 +289,10 @@ export const copyDescription = `
         $ sb-mig copy stories --from 12345 --to 67890 --source blog --destination imported --with-assets --dry-run --outputPath sbmig/copy-plans/blog-copy.json
         $ sb-mig copy stories --from 12345 --to 67890 --source blog --destination imported --dry-run --outputPath sbmig/copy-plans/blog-copy.json
         $ sb-mig copy assets --from 12345 --to 67890 --all
+        $ sb-mig copy assets --from 12345 --to 67890 --asset 987654
+        $ sb-mig copy assets --from 12345 --to 67890 --asset hero.jpg --dry-run
+        $ sb-mig copy assets --from 12345 --to 67890 --assetFolder Marketing/Heroes --dry-run
+        $ sb-mig copy assets --from 12345 --to 67890 --referenced-by-stories --source blog --dry-run --outputPath sbmig/copy-plans/blog-assets.json
         $ sb-mig copy assets --from 12345 --to 67890 --all --dry-run
         $ sb-mig copy assets --from 12345 --to 67890 --all --dry-run --outputPath sbmig/copy-plans/assets-copy.json
 `;
