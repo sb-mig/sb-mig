@@ -89,19 +89,16 @@ describe("copy manifest store", () => {
             sourceSpaceId: "123",
             targetSpaceId: "456",
         });
+        const rootDir = path.join(".sb-mig", "copy", "123", "456");
 
-        expect(paths.rootDir).toBe(".sb-mig/copy/123/456");
-        expect(paths.combined).toBe(".sb-mig/copy/123/456/manifest.jsonl");
-        expect(paths.stories).toBe(
-            ".sb-mig/copy/123/456/stories.manifest.jsonl",
-        );
-        expect(paths.assets).toBe(
-            ".sb-mig/copy/123/456/assets.manifest.jsonl",
-        );
+        expect(paths.rootDir).toBe(rootDir);
+        expect(paths.combined).toBe(path.join(rootDir, "manifest.jsonl"));
+        expect(paths.stories).toBe(path.join(rootDir, "stories.manifest.jsonl"));
+        expect(paths.assets).toBe(path.join(rootDir, "assets.manifest.jsonl"));
         expect(paths.assetFolders).toBe(
-            ".sb-mig/copy/123/456/asset-folders.manifest.jsonl",
+            path.join(rootDir, "asset-folders.manifest.jsonl"),
         );
-        expect(paths.report).toBe(".sb-mig/copy/123/456/report.json");
+        expect(paths.report).toBe(path.join(rootDir, "report.json"));
     });
 
     it("loads missing manifest files as empty", async () => {

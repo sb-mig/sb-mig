@@ -56,6 +56,9 @@ vi.mock("../../src/utils/logger.js", () => ({
 
 import { copyCommand } from "../../src/cli/commands/copy.js";
 
+const quoteCommandArg = (value: string): string =>
+    /^[a-zA-Z0-9_./:-]+$/.test(value) ? value : JSON.stringify(value);
+
 describe("copy assets dry-run", () => {
     const sourceAsset = {
         id: 200,
@@ -253,7 +256,7 @@ describe("copy assets dry-run", () => {
         });
         expect(report.commands.dryRun).toBe(
             "sb-mig copy assets --from source-space --to target-space --all --dry-run --outputPath " +
-                outputPath,
+                quoteCommandArg(outputPath),
         );
         expect(report.commands.apply).toBe(
             "sb-mig copy assets --from source-space --to target-space --all",
