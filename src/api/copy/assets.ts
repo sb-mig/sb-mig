@@ -10,15 +10,19 @@ export const COPY_ASSETS_DRY_RUN_LIMITATIONS = [
     "manifests_not_written_in_dry_run",
 ];
 
+export const normalizeAssetFolderParentId = (
+    parentId: number | null | undefined,
+): number | null => (parentId === 0 || parentId == null ? null : parentId);
+
 const getAssetFolderPath = (
     folder: SBAssetFolder,
     folderById: Map<number, SBAssetFolder>,
 ): string => {
     const names = [folder.name];
     const visited = new Set<number>([folder.id]);
-    let parentId = folder.parent_id;
+    let parentId = normalizeAssetFolderParentId(folder.parent_id);
 
-    while (parentId !== null && parentId !== undefined) {
+    while (parentId !== null) {
         const parent = folderById.get(parentId);
 
         if (!parent || visited.has(parent.id)) {
@@ -27,7 +31,7 @@ const getAssetFolderPath = (
 
         names.unshift(parent.name);
         visited.add(parent.id);
-        parentId = parent.parent_id;
+        parentId = normalizeAssetFolderParentId(parent.parent_id);
     }
 
     return names.join("/");
@@ -39,9 +43,9 @@ const getAssetFolderDepth = (
 ): number => {
     let depth = 0;
     const visited = new Set<number>([folder.id]);
-    let parentId = folder.parent_id;
+    let parentId = normalizeAssetFolderParentId(folder.parent_id);
 
-    while (parentId !== null && parentId !== undefined) {
+    while (parentId !== null) {
         const parent = folderById.get(parentId);
 
         if (!parent || visited.has(parent.id)) {
@@ -50,7 +54,7 @@ const getAssetFolderDepth = (
 
         depth += 1;
         visited.add(parent.id);
-        parentId = parent.parent_id;
+        parentId = normalizeAssetFolderParentId(parent.parent_id);
     }
 
     return depth;
@@ -90,7 +94,7 @@ export const buildCopyAssetsGraph = ({
             sourceId: folder.id,
             sourcePath: getAssetFolderPath(folder, folderById),
             targetPath: getAssetFolderPath(folder, folderById),
-            sourceParentId: folder.parent_id,
+            sourceParentId: normalizeAssetFolderParentId(folder.parent_id),
             action: "create" as const,
             depth: getAssetFolderDepth(folder, folderById),
         }))
@@ -103,16 +107,14 @@ export const buildCopyAssetsGraph = ({
     graph.assetFolders.push(...folderNodes);
 
     for (const folder of assetFolders) {
-        if (
-            folder.parent_id !== null &&
-            folder.parent_id !== undefined &&
-            !folderById.has(folder.parent_id)
-        ) {
+        const parentId = normalizeAssetFolderParentId(folder.parent_id);
+
+        if (parentId !== null && !folderById.has(parentId)) {
             graph.warnings.push({
                 code: "asset_folder_parent_missing",
-                message: `Asset folder '${folder.name}' references parent id ${folder.parent_id}, but that parent was not returned by Storyblok.`,
+                message: `Asset folder '${folder.name}' references parent id ${parentId}, but that parent was not returned by Storyblok.`,
                 path: getAssetFolderPath(folder, folderById),
-                sourceValue: folder.parent_id,
+                sourceValue: parentId,
             });
         }
     }

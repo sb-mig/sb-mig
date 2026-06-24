@@ -93,4 +93,45 @@ describe("copy assets graph", () => {
         );
         expect(graph.limitations).toContain("manifests_not_written_in_dry_run");
     });
+
+    it("treats Storyblok asset folder parent id 0 as root", () => {
+        const graph = buildCopyAssetsGraph({
+            sourceSpaceId: "source-space",
+            targetSpaceId: "target-space",
+            generatedAt: "2026-06-23T10:00:00.000Z",
+            assetFolders: [
+                {
+                    id: 10,
+                    name: "Root",
+                    parent_id: 0,
+                },
+                {
+                    id: 20,
+                    name: "Nested",
+                    parent_id: 10,
+                },
+            ],
+            assets: [],
+        });
+
+        expect(graph.assetFolders).toMatchObject([
+            {
+                type: "asset_folder",
+                sourceId: 10,
+                sourcePath: "Root",
+                targetPath: "Root",
+                sourceParentId: null,
+                action: "create",
+            },
+            {
+                type: "asset_folder",
+                sourceId: 20,
+                sourcePath: "Root/Nested",
+                targetPath: "Root/Nested",
+                sourceParentId: 10,
+                action: "create",
+            },
+        ]);
+        expect(graph.warnings).toEqual([]);
+    });
 });

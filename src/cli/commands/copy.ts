@@ -19,6 +19,7 @@ import {
     dedupeManifestFile,
     getDefaultCopyManifestPaths,
     loadManifest,
+    normalizeAssetFolderParentId,
     rewriteCopyReferences,
     scanStoriesReferences,
     summarizeCopyGraph,
@@ -1696,11 +1697,13 @@ const annotateAssetsWithManifestMaps = ({
             continue;
         }
 
+        const sourceParentId = normalizeAssetFolderParentId(
+            folder.sourceParentId,
+        );
         folder.targetParentId =
-            folder.sourceParentId === null ||
-            folder.sourceParentId === undefined
+            sourceParentId === null
                 ? null
-                : (copyMaps.assetFolderIds.get(folder.sourceParentId) ?? null);
+                : (copyMaps.assetFolderIds.get(sourceParentId) ?? null);
         folder.action = "match";
     }
 
@@ -2227,18 +2230,19 @@ const copyAssetsAndWriteManifests = async ({
             continue;
         }
 
+        const sourceParentId = normalizeAssetFolderParentId(
+            sourceFolder.parent_id,
+        );
+
         const mappedTargetFolderId = copyMaps.assetFolderIds.get(
             folderNode.sourceId,
         );
 
         if (mappedTargetFolderId) {
             folderNode.targetParentId =
-                sourceFolder.parent_id === null ||
-                sourceFolder.parent_id === undefined
+                sourceParentId === null
                     ? null
-                    : (copyMaps.assetFolderIds.get(
-                          Number(sourceFolder.parent_id),
-                      ) ?? null);
+                    : (copyMaps.assetFolderIds.get(sourceParentId) ?? null);
             folderNode.action = "match";
             assetFoldersMatched += 1;
             continue;
@@ -2258,8 +2262,10 @@ const copyAssetsAndWriteManifests = async ({
                 target_id: Number(existingTargetFolder.id),
                 source_name: String(sourceFolder.name ?? ""),
                 target_name: String(existingTargetFolder.name ?? ""),
-                source_parent_id: sourceFolder.parent_id ?? null,
-                target_parent_id: existingTargetFolder.parent_id ?? null,
+                source_parent_id: sourceParentId,
+                target_parent_id: normalizeAssetFolderParentId(
+                    existingTargetFolder.parent_id,
+                ),
                 source_path: folderNode.sourcePath,
                 target_path: folderNode.sourcePath,
                 action: "matched_by_target_key",
@@ -2279,12 +2285,9 @@ const copyAssetsAndWriteManifests = async ({
         }
 
         const targetParentId =
-            sourceFolder.parent_id === null ||
-            sourceFolder.parent_id === undefined
+            sourceParentId === null
                 ? null
-                : (copyMaps.assetFolderIds.get(
-                      Number(sourceFolder.parent_id),
-                  ) ?? null);
+                : (copyMaps.assetFolderIds.get(sourceParentId) ?? null);
         const createdFolder = await managementApi.assets.createAssetFolder(
             {
                 spaceId: targetSpace,
@@ -2307,8 +2310,10 @@ const copyAssetsAndWriteManifests = async ({
             target_id: Number(targetFolder.id),
             source_name: String(sourceFolder.name ?? ""),
             target_name: String(targetFolder.name ?? ""),
-            source_parent_id: sourceFolder.parent_id ?? null,
-            target_parent_id: targetFolder.parent_id ?? null,
+            source_parent_id: sourceParentId,
+            target_parent_id: normalizeAssetFolderParentId(
+                targetFolder.parent_id,
+            ),
             source_path: folderNode.sourcePath,
             target_path: folderNode.sourcePath,
             action: "created",
