@@ -58,6 +58,25 @@ type CopyPlanWarning = {
     targetFullSlug?: string;
 };
 
+type CopyDryRunAssetReferenceBucket = {
+    occurrences: number;
+    uniqueAssets: number;
+};
+
+type CopyDryRunForeignAssetSpaceSummary = {
+    spaceId: string;
+    occurrences: number;
+    uniqueAssets: number;
+};
+
+type CopyDryRunAssetReferenceSummary = {
+    mapped: CopyDryRunAssetReferenceBucket;
+    planned: CopyDryRunAssetReferenceBucket;
+    unresolved: CopyDryRunAssetReferenceBucket;
+    unsupported: CopyDryRunAssetReferenceBucket;
+    foreignAssetSpaces: CopyDryRunForeignAssetSpaceSummary[];
+};
+
 type CopyDryRunReport = {
     schemaVersion: 1;
     command: "copy stories";
@@ -94,6 +113,7 @@ type CopyDryRunReport = {
     };
     items: CopyPlanItem[];
     graph?: CopyGraph;
+    assetReferenceSummary?: CopyDryRunAssetReferenceSummary;
     warnings: CopyPlanWarning[];
     errors: any[];
     limitations: string[];
@@ -568,6 +588,133 @@ const buildCopyAssetsCommand = ({
     return args.map(quoteCommandArg).join(" ");
 };
 
+const parseStoryblokAssetUrl = (
+    filename: string | undefined,
+): { spaceId?: string; uniqueKey?: string } => {
+    if (!filename) {
+        return {};
+    }
+
+    let url: URL;
+    try {
+        url = new URL(filename);
+    } catch {
+        return {
+            uniqueKey: filename,
+        };
+    }
+
+    if (url.hostname !== "a.storyblok.com") {
+        return {
+            uniqueKey: filename,
+        };
+    }
+
+    const parts = url.pathname.split("/").filter(Boolean);
+    const fIndex = parts.indexOf("f");
+    const spaceId = fIndex >= 0 ? parts[fIndex + 1] : undefined;
+    const assetHash = fIndex >= 0 ? parts[fIndex + 3] : undefined;
+    const assetName = fIndex >= 0 ? parts.slice(fIndex + 4).join("/") : "";
+
+    if (!spaceId || !assetHash || !assetName) {
+        return {
+            spaceId,
+            uniqueKey: filename,
+        };
+    }
+
+    return {
+        spaceId,
+        uniqueKey: `storyblok:${spaceId}:${assetHash}:${assetName}`,
+    };
+};
+
+const getAssetReferenceUniqueKey = (
+    reference: CopyGraph["assetReferences"][number],
+): string => {
+    const parsed = parseStoryblokAssetUrl(reference.filename);
+
+    return (
+        parsed.uniqueKey ??
+        (reference.assetId === undefined
+            ? `unknown:${reference.path}`
+            : `asset-id:${reference.assetId}`)
+    );
+};
+
+const buildAssetReferenceSummary = ({
+    graph,
+    sourceSpace,
+}: {
+    graph?: CopyGraph;
+    sourceSpace: string;
+}): CopyDryRunAssetReferenceSummary | undefined => {
+    if (!graph) {
+        return undefined;
+    }
+
+    const statuses = [
+        "mapped",
+        "planned",
+        "unresolved",
+        "unsupported",
+    ] as const;
+    const uniqueByStatus = new Map<(typeof statuses)[number], Set<string>>(
+        statuses.map((status) => [status, new Set<string>()]),
+    );
+    const occurrencesByStatus = new Map<(typeof statuses)[number], number>(
+        statuses.map((status) => [status, 0]),
+    );
+    const foreignSpaces = new Map<
+        string,
+        { occurrences: number; uniqueAssets: Set<string> }
+    >();
+
+    for (const reference of graph.assetReferences) {
+        const status = reference.status;
+        const uniqueKey = getAssetReferenceUniqueKey(reference);
+
+        occurrencesByStatus.set(
+            status,
+            (occurrencesByStatus.get(status) ?? 0) + 1,
+        );
+        uniqueByStatus.get(status)?.add(uniqueKey);
+
+        const parsed = parseStoryblokAssetUrl(reference.filename);
+        if (parsed.spaceId && parsed.spaceId !== sourceSpace) {
+            const existing = foreignSpaces.get(parsed.spaceId) ?? {
+                occurrences: 0,
+                uniqueAssets: new Set<string>(),
+            };
+
+            existing.occurrences += 1;
+            existing.uniqueAssets.add(uniqueKey);
+            foreignSpaces.set(parsed.spaceId, existing);
+        }
+    }
+
+    const bucket = (
+        status: (typeof statuses)[number],
+    ): CopyDryRunAssetReferenceBucket => ({
+        occurrences: occurrencesByStatus.get(status) ?? 0,
+        uniqueAssets: uniqueByStatus.get(status)?.size ?? 0,
+    });
+
+    return {
+        mapped: bucket("mapped"),
+        planned: bucket("planned"),
+        unresolved: bucket("unresolved"),
+        unsupported: bucket("unsupported"),
+        foreignAssetSpaces: Array.from(foreignSpaces.entries())
+            .map(([spaceId, summary]) => ({
+                spaceId,
+                occurrences: summary.occurrences,
+                uniqueAssets: summary.uniqueAssets.size,
+            }))
+            .sort((left, right) => left.spaceId.localeCompare(right.spaceId)),
+    };
+};
+
 const buildCopyDryRunReport = ({
     sourceSpace,
     targetSpace,
@@ -622,6 +769,10 @@ const buildCopyDryRunReport = ({
         graph?.assets.filter((asset) => asset.action === "match").length ?? 0;
     const assetsToCopy =
         graph?.assets.filter((asset) => asset.action === "create").length ?? 0;
+    const assetReferenceSummary = buildAssetReferenceSummary({
+        graph,
+        sourceSpace,
+    });
     const limitations = [
         ...COPY_DRY_RUN_BASE_LIMITATIONS,
         ...(withAssets
@@ -665,6 +816,7 @@ const buildCopyDryRunReport = ({
         },
         items,
         ...(graph ? { graph } : {}),
+        ...(assetReferenceSummary ? { assetReferenceSummary } : {}),
         warnings,
         errors: graph?.errors ?? [],
         limitations,
@@ -1842,6 +1994,20 @@ const logDryRunCopyPlan = async ({ report }: { report: CopyDryRunReport }) => {
         Logger.warning(
             `[dry-run] Asset refs: ${report.summary.assetReferencesMapped} mapped, ${report.summary.assetReferencesPlanned} planned, ${report.summary.assetReferencesUnresolved} unresolved.`,
         );
+
+        if (report.assetReferenceSummary) {
+            Logger.warning(
+                `[dry-run] Unique asset refs: ${report.assetReferenceSummary.mapped.uniqueAssets} mapped, ${report.assetReferenceSummary.planned.uniqueAssets} planned, ${report.assetReferenceSummary.unresolved.uniqueAssets} unresolved.`,
+            );
+
+            for (const foreignSpace of report.assetReferenceSummary
+                .foreignAssetSpaces) {
+                Logger.warning(
+                    `[dry-run] Foreign asset space ${foreignSpace.spaceId}: ${foreignSpace.occurrences} occurrence(s), ${foreignSpace.uniqueAssets} unique asset(s).`,
+                );
+            }
+        }
+
         Logger.warning(
             `[dry-run] Story refs: ${report.summary.storyReferencesMapped} mapped, ${report.summary.storyReferencesPreserved} preserved, ${report.summary.storyReferencesUnresolved} unresolved.`,
         );

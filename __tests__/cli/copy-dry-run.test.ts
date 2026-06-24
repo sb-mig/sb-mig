@@ -68,7 +68,8 @@ import { copyCommand } from "../../src/cli/commands/copy.js";
 describe("copy stories dry-run", () => {
     const sourceAsset = {
         id: 300,
-        filename: "https://a.storyblok.com/f/source/image.jpg",
+        filename:
+            "https://a.storyblok.com/f/source-space/1200x800/sourcehash/image.jpg",
         asset_folder_id: 30,
     };
     const sourceAssetFolders = [
@@ -116,7 +117,7 @@ describe("copy stories dry-run", () => {
                             image: {
                                 id: 300,
                                 filename:
-                                    "https://a.storyblok.com/f/source/image.jpg",
+                                    "https://a.storyblok.com/f/source-space/1200x800/sourcehash/image.jpg",
                             },
                             cta: {
                                 linktype: "story",
@@ -365,7 +366,8 @@ describe("copy stories dry-run", () => {
                 target_space_id: "target-space",
                 source_id: 300,
                 target_id: 900,
-                source_filename: "https://a.storyblok.com/f/source/image.jpg",
+                source_filename:
+                    "https://a.storyblok.com/f/source-space/1200x800/sourcehash/image.jpg",
                 target_filename: "https://a.storyblok.com/f/target/image.jpg",
                 action: "created",
                 created_at: "2026-06-24T10:00:00.000Z",
@@ -402,7 +404,8 @@ describe("copy stories dry-run", () => {
         expect(report.graph.assetReferences).toMatchObject([
             {
                 assetId: 300,
-                filename: "https://a.storyblok.com/f/source/image.jpg",
+                filename:
+                    "https://a.storyblok.com/f/source-space/1200x800/sourcehash/image.jpg",
                 status: "mapped",
             },
         ]);
@@ -485,7 +488,7 @@ describe("copy stories dry-run", () => {
                     {
                         sourceId: 300,
                         sourceFilename:
-                            "https://a.storyblok.com/f/source/image.jpg",
+                            "https://a.storyblok.com/f/source-space/1200x800/sourcehash/image.jpg",
                         sourceAssetFolderId: 30,
                         action: "create",
                     },
@@ -493,11 +496,27 @@ describe("copy stories dry-run", () => {
                 assetReferences: [
                     {
                         assetId: 300,
-                        filename: "https://a.storyblok.com/f/source/image.jpg",
+                        filename:
+                            "https://a.storyblok.com/f/source-space/1200x800/sourcehash/image.jpg",
                         path: "content.image",
                         status: "planned",
                     },
                 ],
+            },
+            assetReferenceSummary: {
+                mapped: {
+                    occurrences: 0,
+                    uniqueAssets: 0,
+                },
+                planned: {
+                    occurrences: 1,
+                    uniqueAssets: 1,
+                },
+                unresolved: {
+                    occurrences: 0,
+                    uniqueAssets: 0,
+                },
+                foreignAssetSpaces: [],
             },
             limitations: [
                 "create_or_match",
@@ -552,7 +571,7 @@ describe("copy stories dry-run", () => {
                     source_id: 300,
                     target_id: 900,
                     source_filename:
-                        "https://a.storyblok.com/f/source/image.jpg",
+                        "https://a.storyblok.com/f/source-space/1200x800/sourcehash/image.jpg",
                     target_filename:
                         "https://a.storyblok.com/f/target/image.jpg",
                     action: "created",
@@ -584,6 +603,21 @@ describe("copy stories dry-run", () => {
             assetsMapped: 1,
             assetsToCopy: 0,
         });
+        expect(report.assetReferenceSummary).toMatchObject({
+            mapped: {
+                occurrences: 1,
+                uniqueAssets: 1,
+            },
+            planned: {
+                occurrences: 0,
+                uniqueAssets: 0,
+            },
+            unresolved: {
+                occurrences: 0,
+                uniqueAssets: 0,
+            },
+            foreignAssetSpaces: [],
+        });
         expect(report.graph.assets).toMatchObject([
             {
                 sourceId: 300,
@@ -611,6 +645,123 @@ describe("copy stories dry-run", () => {
         await rm(tempDir, { recursive: true, force: true });
     });
 
+    it("summarizes duplicate unresolved foreign asset references by unique asset", async () => {
+        const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-copy-"));
+        const outputPath = path.join(tempDir, "plans", "copy-plan.json");
+        const foreignAssetUrl =
+            "https://a.storyblok.com/f/282295/8000x5000/dff09292b3/ashridge.jpg";
+
+        mocks.getStoryBySlug.mockImplementation((slug: string) => {
+            if (slug === "imported") {
+                return Promise.resolve({
+                    story: {
+                        id: 900,
+                        name: "Imported",
+                        slug: "imported",
+                        full_slug: "imported",
+                        is_folder: true,
+                        uuid: "target-imported-uuid",
+                    },
+                });
+            }
+
+            if (slug === "blog") {
+                return Promise.resolve({
+                    story: {
+                        id: 1,
+                        name: "Blog",
+                        slug: "blog",
+                        full_slug: "blog",
+                        is_folder: true,
+                        parent_id: 0,
+                        uuid: "source-blog-uuid",
+                        content: {
+                            component: "page",
+                            image: {
+                                filename: foreignAssetUrl,
+                            },
+                            gallery: [
+                                {
+                                    filename: foreignAssetUrl,
+                                },
+                            ],
+                        },
+                    },
+                });
+            }
+
+            return Promise.resolve(undefined);
+        });
+        mocks.getAllStories.mockResolvedValue([]);
+        mocks.createTree.mockImplementation((stories: any[]) => [
+            {
+                id: stories[0].id,
+                story: stories[0],
+                children: [],
+            },
+        ]);
+        mocks.getAllComponents.mockResolvedValue([
+            {
+                name: "page",
+                schema: {
+                    image: {
+                        type: "asset",
+                    },
+                    gallery: {
+                        type: "multiasset",
+                    },
+                },
+            },
+        ]);
+
+        await copyCommand({
+            input: ["copy", "stories"],
+            flags: {
+                from: "source-space",
+                to: "target-space",
+                source: "blog",
+                destination: "imported",
+                withAssets: true,
+                dryRun: true,
+                outputPath,
+            },
+        } as any);
+
+        const report = JSON.parse(await readFile(outputPath, "utf8"));
+
+        expect(report.summary).toMatchObject({
+            assetReferences: 2,
+            assetReferencesMapped: 0,
+            assetReferencesPlanned: 0,
+            assetReferencesUnresolved: 2,
+            assets: 0,
+        });
+        expect(report.assetReferenceSummary).toMatchObject({
+            unresolved: {
+                occurrences: 2,
+                uniqueAssets: 1,
+            },
+            foreignAssetSpaces: [
+                {
+                    spaceId: "282295",
+                    occurrences: 2,
+                    uniqueAssets: 1,
+                },
+            ],
+        });
+        expect(report.graph.assetReferences).toHaveLength(2);
+        expect(report.graph.assetReferences).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({
+                    filename: foreignAssetUrl,
+                    status: "unresolved",
+                }),
+            ]),
+        );
+
+        await rm(tempDir, { recursive: true, force: true });
+    });
+
     it("copies selected stories and writes story manifests", async () => {
         const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-copy-"));
         const manifestRoot = path.join(tempDir, ".sb-mig");
@@ -630,7 +781,8 @@ describe("copy stories dry-run", () => {
                 target_space_id: "target-space",
                 source_id: 300,
                 target_id: 900,
-                source_filename: "https://a.storyblok.com/f/source/image.jpg",
+                source_filename:
+                    "https://a.storyblok.com/f/source-space/1200x800/sourcehash/image.jpg",
                 target_filename: "https://a.storyblok.com/f/target/image.jpg",
                 action: "created",
                 created_at: "2026-06-23T10:00:00.000Z",
@@ -791,7 +943,8 @@ describe("copy stories dry-run", () => {
                 spaceId: "target-space",
                 pathToFile: "/tmp/source-image.jpg",
                 payload: {
-                    filename: "https://a.storyblok.com/f/source/image.jpg",
+                    filename:
+                        "https://a.storyblok.com/f/source-space/1200x800/sourcehash/image.jpg",
                     asset_folder_id: 130,
                 },
             },
@@ -825,7 +978,8 @@ describe("copy stories dry-run", () => {
                 type: "asset",
                 source_id: 300,
                 target_id: 900,
-                source_filename: "https://a.storyblok.com/f/source/image.jpg",
+                source_filename:
+                    "https://a.storyblok.com/f/source-space/1200x800/sourcehash/image.jpg",
                 target_filename: "https://a.storyblok.com/f/target/image.jpg",
                 action: "created",
             },

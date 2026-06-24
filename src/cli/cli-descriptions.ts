@@ -263,7 +263,7 @@ export const copyDescription = `
         copy stories matches existing targets by manifest first, then target full_slug when safe, so reruns can reuse mapped target stories.
         copy stories rewrites mapped asset and story references after story manifests exist.
         copy stories --with-assets scans selected stories with source component schemas and only copies referenced assets it can resolve from the source asset list.
-        --dry-run checks likely target path conflicts and reports mapped/planned/unresolved story and asset references.
+        --dry-run checks likely target path conflicts and reports mapped/planned/unresolved story and asset references, with occurrence and unique-asset counts in JSON output.
         Without --with-assets, run copy assets first when copied stories should point to target-space assets.
         copy assets currently requires --all. It matches by manifest first, then safe target folder path or unique asset file name before creating.
         copy assets uploads assets, finalizes the upload, and writes source-to-target asset/folder manifests.
