@@ -88,9 +88,9 @@ describe("copy assets graph", () => {
             ],
             warnings: [],
         });
-        expect(graph.limitations).toContain("apply_not_implemented");
         expect(graph.limitations).toContain(
             "target_asset_identity_not_resolved",
         );
+        expect(graph.limitations).toContain("manifests_not_written_in_dry_run");
     });
 });
