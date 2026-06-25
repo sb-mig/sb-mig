@@ -200,6 +200,11 @@ export type CopyComponentSchemaRegistry = Record<string, CopyComponentSchema>;
 
 export type CopyReferenceScannerOptions = {
     referencePolicy?: "preserve" | "fail" | "include-referenced";
+    onProgress?: (progress: {
+        scanned: number;
+        total: number;
+        storyFullSlug?: string;
+    }) => void;
 };
 
 export type CopyReferenceScannerResult = {

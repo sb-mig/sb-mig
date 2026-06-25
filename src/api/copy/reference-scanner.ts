@@ -103,7 +103,7 @@ export const scanStoriesReferences = ({
     const assetNodesByKey = new Map<string, CopyGraphAssetNode>();
     const missingSchemas = new Set<string>();
 
-    for (const story of stories) {
+    stories.forEach((story, index) => {
         const result = scanStoryReferences({ story, schemas, options });
         combined.storyReferences.push(...result.storyReferences);
         combined.assetReferences.push(...result.assetReferences);
@@ -118,7 +118,21 @@ export const scanStoriesReferences = ({
         for (const assetNode of result.assetNodes) {
             assetNodesByKey.set(getAssetNodeKey(assetNode), assetNode);
         }
-    }
+
+        const scanned = index + 1;
+        if (
+            options.onProgress &&
+            (scanned === stories.length ||
+                scanned % 10 === 0 ||
+                stories.length <= 10)
+        ) {
+            options.onProgress({
+                scanned,
+                total: stories.length,
+                storyFullSlug: story.full_slug,
+            });
+        }
+    });
 
     combined.assetNodes = Array.from(assetNodesByKey.values());
     combined.missingSchemas = Array.from(missingSchemas);

@@ -312,4 +312,42 @@ describe("copy reference scanner", () => {
         expect(result.assetNodes).toHaveLength(4);
         expect(result.missingSchemas).toEqual(["missing-component"]);
     });
+
+    it("reports progress while scanning multiple stories", () => {
+        const progress: Array<{
+            scanned: number;
+            total: number;
+            storyFullSlug?: string;
+        }> = [];
+
+        scanStoriesReferences({
+            stories: Array.from({ length: 25 }, (_, index) => ({
+                ...story,
+                id: index + 1,
+                full_slug: `blog/post-${index + 1}`,
+            })),
+            schemas,
+            options: {
+                onProgress: (event) => progress.push(event),
+            },
+        });
+
+        expect(progress).toEqual([
+            {
+                scanned: 10,
+                total: 25,
+                storyFullSlug: "blog/post-10",
+            },
+            {
+                scanned: 20,
+                total: 25,
+                storyFullSlug: "blog/post-20",
+            },
+            {
+                scanned: 25,
+                total: 25,
+                storyFullSlug: "blog/post-25",
+            },
+        ]);
+    });
 });

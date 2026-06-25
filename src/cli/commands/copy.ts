@@ -1942,6 +1942,7 @@ const buildStoryReferenceDryRunGraph = ({
     sourceStories,
     schemas,
     copyMaps,
+    onScanProgress,
 }: {
     sourceSpace: string;
     targetSpace: string;
@@ -1951,6 +1952,11 @@ const buildStoryReferenceDryRunGraph = ({
     sourceStories: any[];
     schemas: Record<string, any>;
     copyMaps: CopyMaps;
+    onScanProgress?: (progress: {
+        scanned: number;
+        total: number;
+        storyFullSlug?: string;
+    }) => void;
 }): CopyGraph => {
     const sourceStoryByFullSlug = new Map(
         sourceStories
@@ -1963,6 +1969,7 @@ const buildStoryReferenceDryRunGraph = ({
         schemas,
         options: {
             referencePolicy: "preserve",
+            onProgress: onScanProgress,
         },
     });
     const graph = createCopyGraph({
@@ -2015,6 +2022,7 @@ const buildReferencedAssetsGraph = ({
     sourceAssetFolders,
     schemas,
     copyMaps,
+    onScanProgress,
 }: {
     sourceSpace: string;
     targetSpace: string;
@@ -2026,12 +2034,18 @@ const buildReferencedAssetsGraph = ({
     sourceAssetFolders: any[];
     schemas: Record<string, any>;
     copyMaps: CopyMaps;
+    onScanProgress?: (progress: {
+        scanned: number;
+        total: number;
+        storyFullSlug?: string;
+    }) => void;
 }): CopyGraph => {
     const scanResult = scanStoriesReferences({
         stories: sourceStories.map((item) => item?.story).filter(Boolean),
         schemas,
         options: {
             referencePolicy: "preserve",
+            onProgress: onScanProgress,
         },
     });
     const referencedAssetIds = new Set(
@@ -2135,6 +2149,19 @@ const buildReferencedAssetsGraph = ({
     }
 
     return graph;
+};
+
+const countStoryItems = (sourceStories: any[]): number =>
+    sourceStories.map((item) => item?.story).filter(Boolean).length;
+
+const logReferenceScanProgress = ({
+    scanned,
+    total,
+}: {
+    scanned: number;
+    total: number;
+}) => {
+    Logger.success(`Scanned ${scanned} of ${total} stories for references.`);
 };
 
 const shouldUsePublishedLayerCopy = (
@@ -3298,6 +3325,9 @@ export const copyCommand = async (props: CLIOptions) => {
                     )
                         ? assetFoldersResult.asset_folders
                         : [];
+                    Logger.warning(
+                        `Planning referenced assets from ${countStoryItems(sourceStories)} stories against ${sourceAssets.length} source asset(s).`,
+                    );
                     withAssetsGraph = buildReferencedAssetsGraph({
                         sourceSpace,
                         targetSpace,
@@ -3309,10 +3339,17 @@ export const copyCommand = async (props: CLIOptions) => {
                         sourceAssetFolders,
                         schemas,
                         copyMaps,
+                        onScanProgress: logReferenceScanProgress,
                     });
+                    Logger.success(
+                        `Reference planning complete. Found ${withAssetsGraph.assets.length} referenced asset(s), ${withAssetsGraph.assetFolders.length} asset folder(s), ${withAssetsGraph.assetReferences.length} asset reference occurrence(s), and ${withAssetsGraph.storyReferences.length} story reference occurrence(s).`,
+                    );
                     dryRunGraph = withAssetsGraph;
                 } else if (dryRun) {
                     const schemas = await schemasPromise;
+                    Logger.warning(
+                        `Scanning ${countStoryItems(sourceStories)} stories for copy references.`,
+                    );
                     dryRunGraph = buildStoryReferenceDryRunGraph({
                         sourceSpace,
                         targetSpace,
@@ -3322,7 +3359,11 @@ export const copyCommand = async (props: CLIOptions) => {
                         sourceStories,
                         schemas,
                         copyMaps,
+                        onScanProgress: logReferenceScanProgress,
                     });
+                    Logger.success(
+                        `Reference planning complete. Found ${dryRunGraph.assetReferences.length} asset reference occurrence(s) and ${dryRunGraph.storyReferences.length} story reference occurrence(s).`,
+                    );
                 }
             }
 
@@ -3511,6 +3552,9 @@ export const copyCommand = async (props: CLIOptions) => {
                 );
                 const copyMaps = buildCopyMaps(manifestEntries);
 
+                Logger.warning(
+                    `Planning referenced assets from ${countStoryItems(sourceStories)} stories against ${sourceAssets.length} source asset(s).`,
+                );
                 graph = buildReferencedAssetsGraph({
                     sourceSpace,
                     targetSpace,
@@ -3522,7 +3566,11 @@ export const copyCommand = async (props: CLIOptions) => {
                     sourceAssetFolders,
                     schemas,
                     copyMaps,
+                    onScanProgress: logReferenceScanProgress,
                 });
+                Logger.success(
+                    `Reference planning complete. Found ${graph.assets.length} referenced asset(s), ${graph.assetFolders.length} asset folder(s), ${graph.assetReferences.length} asset reference occurrence(s), and ${graph.storyReferences.length} story reference occurrence(s).`,
+                );
                 graph.scope = {
                     command: "copy assets",
                     source: storySelection.source,

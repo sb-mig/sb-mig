@@ -1147,6 +1147,7 @@ Current implementation status:
 - If no manifest entry exists, target stories are matched by planned target `full_slug` before creating a new story.
 - After the story manifest exists, `copy stories` updates every copied/matched target story with the full source payload and manifest-backed reference rewrites.
 - A final story update that returns 404 is treated as a stale manifest mapping: the command remaps or recreates the affected shell, retries the update once, and then fails the copy command if the retry still does not succeed.
+- Dry-run and referenced-asset planning logs progress while scanning stories for references, then prints a summary of referenced assets, asset folders, asset reference occurrences, and story reference occurrences.
 - `copy stories` accepts `--publicationMode preserve-layers|collapse-draft|save-only` and `--publicationLanguages default|all|<codes>`, matching `migrate content` flag names and values.
 - Created shells remain save-only drafts. Publication is applied only after full rewritten content is saved.
 - `preserve-layers` is the default. Clean published source stories are published in the target. Dirty published source stories copy the source published version first, publish that target layer, then restore the source draft/current layer as save-only.
