@@ -576,6 +576,56 @@ const resolveStorySlug = (story: any): string => {
     return fullSlug.split("/").filter(Boolean).at(-1) ?? "";
 };
 
+const buildStoryShellPayload = (story: any, parentId: number | null) => {
+    const component = story.content?.component;
+
+    return {
+        name: story.name,
+        slug: resolveStorySlug(story),
+        is_folder: story.is_folder === true,
+        ...(parentId !== null ? { parent_id: parentId } : {}),
+        ...(story.is_startpage === true && parentId !== null
+            ? { is_startpage: true }
+            : {}),
+        ...(component
+            ? {
+                  content: {
+                      _uid: "",
+                      component,
+                  },
+              }
+            : {}),
+    };
+};
+
+const buildFinalStoryPayload = ({
+    sourceStory,
+    targetParentId,
+    rewrittenContent,
+}: {
+    sourceStory: any;
+    targetParentId: number | null;
+    rewrittenContent: any;
+}) => {
+    const payload = stripGeneratedStoryFields(sourceStory);
+
+    delete payload.full_slug;
+    delete payload.parent_id;
+
+    payload.slug = resolveStorySlug(sourceStory);
+    payload.content = rewrittenContent;
+
+    if (targetParentId !== null) {
+        payload.parent_id = targetParentId;
+    }
+
+    if (sourceStory.is_startpage === true && targetParentId !== null) {
+        payload.is_startpage = true;
+    }
+
+    return payload;
+};
+
 const buildCopyPlan = (
     tree: any[],
     destination: string | undefined,
@@ -1933,12 +1983,16 @@ const buildReferencedAssetsGraph = ({
 };
 
 const rewriteCopiedStoryContents = async ({
-    sourceStories,
+    tree,
+    realParentId,
+    sourceStoryById,
     sourceSpace,
     targetSpace,
     manifestRoot,
 }: {
-    sourceStories: any[];
+    tree: any[];
+    realParentId: number | null;
+    sourceStoryById: Map<number, any>;
     sourceSpace: string;
     targetSpace: string;
     manifestRoot?: string;
@@ -1954,48 +2008,55 @@ const rewriteCopiedStoryContents = async ({
     let updatedStories = 0;
     let rewrittenReferences = 0;
 
-    for (const item of sourceStories) {
-        const sourceStory = item?.story;
+    const walk = async (nodes: any[], parentId: number | null) => {
+        for (const node of nodes) {
+            const sourceId = Number(node.id ?? node.story?.id);
+            const sourceStory = sourceStoryById.get(sourceId);
 
-        if (!sourceStory?.id || !sourceStory.content) {
-            continue;
+            if (!sourceStory?.id) {
+                continue;
+            }
+
+            const targetStoryId = maps.storyIds.get(Number(sourceStory.id));
+            if (!targetStoryId) {
+                await walk(node.children ?? [], null);
+                continue;
+            }
+
+            const rewritten = rewriteCopyReferences({
+                value: sourceStory.content ?? {},
+                maps,
+                schemas,
+            });
+
+            await managementApi.stories.updateStory(
+                buildFinalStoryPayload({
+                    sourceStory,
+                    targetParentId: parentId,
+                    rewrittenContent: rewritten.value,
+                }),
+                String(targetStoryId),
+                {
+                    force_update: true,
+                    publish: false,
+                },
+                {
+                    ...apiConfig,
+                    spaceId: targetSpace,
+                },
+            );
+            updatedStories += 1;
+            rewrittenReferences += rewritten.records.length;
+
+            await walk(node.children ?? [], Number(targetStoryId));
         }
+    };
 
-        const targetStoryId = maps.storyIds.get(Number(sourceStory.id));
-        if (!targetStoryId) {
-            continue;
-        }
-
-        const rewritten = rewriteCopyReferences({
-            value: sourceStory.content,
-            maps,
-            schemas,
-        });
-
-        if (rewritten.records.length === 0) {
-            continue;
-        }
-
-        await managementApi.stories.updateStory(
-            {
-                content: rewritten.value,
-            },
-            String(targetStoryId),
-            {
-                force_update: true,
-            },
-            {
-                ...apiConfig,
-                spaceId: targetSpace,
-            },
-        );
-        updatedStories += 1;
-        rewrittenReferences += rewritten.records.length;
-    }
+    await walk(tree, realParentId);
 
     if (updatedStories > 0) {
         Logger.success(
-            `Rewrote ${rewrittenReferences} reference(s) across ${updatedStories} copied story/stories.`,
+            `Updated ${updatedStories} copied story/story shell(s); rewrote ${rewrittenReferences} reference(s).`,
         );
     }
 };
@@ -2090,15 +2151,14 @@ const createStoriesAndWriteManifests = async ({
                 continue;
             }
 
-            const { parent, ...content } = node.story;
             const createdStoryResult = await managementApi.stories.createStory(
-                {
-                    ...content,
-                    parent_id: parentId,
-                },
+                buildStoryShellPayload(node.story, parentId),
                 {
                     ...apiConfig,
                     spaceId: targetSpace,
+                },
+                {
+                    publish: false,
                 },
             );
             const targetStory = createdStoryResult?.story;
@@ -2820,7 +2880,9 @@ export const copyCommand = async (props: CLIOptions) => {
                 manifestRoot,
             });
             await rewriteCopiedStoryContents({
-                sourceStories,
+                tree: rootsToCreate,
+                realParentId: destinationParentId,
+                sourceStoryById: buildSourceStoryById(sourceStories),
                 sourceSpace,
                 targetSpace,
                 manifestRoot,

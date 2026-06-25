@@ -804,19 +804,33 @@ describe("copy stories dry-run", () => {
         expect(mocks.createStory).toHaveBeenCalledTimes(2);
         expect(mocks.createStory).toHaveBeenNthCalledWith(
             1,
-            expect.objectContaining({
+            {
+                content: {
+                    _uid: "",
+                    component: "page",
+                },
+                is_folder: true,
+                name: "Blog",
                 slug: "blog",
                 parent_id: 900,
-            }),
+            },
             expect.objectContaining({ spaceId: "target-space" }),
+            { publish: false },
         );
         expect(mocks.createStory).toHaveBeenNthCalledWith(
             2,
-            expect.objectContaining({
+            {
+                content: {
+                    _uid: "",
+                    component: "page",
+                },
+                is_folder: false,
+                name: "Post 1",
                 slug: "post-1",
                 parent_id: 1001,
-            }),
+            },
             expect.objectContaining({ spaceId: "target-space" }),
+            { publish: false },
         );
 
         const storyManifest = (
@@ -872,7 +886,7 @@ describe("copy stories dry-run", () => {
         );
         expect(mocks.updateStory).toHaveBeenCalledTimes(2);
         expect(mocks.updateStory).toHaveBeenCalledWith(
-            {
+            expect.objectContaining({
                 content: {
                     component: "page",
                     image: {
@@ -884,13 +898,17 @@ describe("copy stories dry-run", () => {
                         id: 1002,
                     },
                 },
-            },
+                is_folder: true,
+                name: "Blog",
+                parent_id: 900,
+                slug: "blog",
+            }),
             "1001",
-            { force_update: true },
+            { force_update: true, publish: false },
             expect.objectContaining({ spaceId: "target-space" }),
         );
         expect(mocks.updateStory).toHaveBeenCalledWith(
-            {
+            expect.objectContaining({
                 content: {
                     component: "page",
                     body: {
@@ -906,9 +924,110 @@ describe("copy stories dry-run", () => {
                         ],
                     },
                 },
-            },
+                is_folder: false,
+                name: "Post 1",
+                parent_id: 1001,
+                slug: "post-1",
+            }),
             "1002",
-            { force_update: true },
+            { force_update: true, publish: false },
+            expect.objectContaining({ spaceId: "target-space" }),
+        );
+
+        await rm(tempDir, { recursive: true, force: true });
+    });
+
+    it("fills copied story shells even when no references changed", async () => {
+        const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-copy-"));
+        const manifestRoot = path.join(tempDir, ".sb-mig");
+
+        mocks.getStoryBySlug.mockImplementation((slug: string) => {
+            if (slug === "imported") {
+                return Promise.resolve({
+                    story: {
+                        id: 900,
+                        name: "Imported",
+                        slug: "imported",
+                        full_slug: "imported",
+                        is_folder: true,
+                        uuid: "target-imported-uuid",
+                    },
+                });
+            }
+
+            if (slug === "plain") {
+                return Promise.resolve({
+                    story: {
+                        id: 3,
+                        name: "Plain Story",
+                        slug: "plain",
+                        full_slug: "plain",
+                        is_folder: false,
+                        parent_id: 0,
+                        uuid: "source-plain-uuid",
+                        content: {
+                            component: "page",
+                            headline: "No references here",
+                        },
+                    },
+                });
+            }
+
+            return Promise.resolve(undefined);
+        });
+        mocks.createTree.mockImplementationOnce((stories: any[]) => [
+            {
+                id: stories[0].id,
+                story: stories[0],
+                children: [],
+            },
+        ]);
+        mocks.createStory.mockResolvedValueOnce({
+            story: {
+                id: 1003,
+                uuid: "target-plain-uuid",
+                full_slug: "imported/plain",
+            },
+        });
+
+        await copyCommand({
+            input: ["copy", "stories"],
+            flags: {
+                from: "source-space",
+                to: "target-space",
+                source: "plain",
+                destination: "imported",
+                manifestRoot,
+            },
+        } as any);
+
+        expect(mocks.createStory).toHaveBeenCalledWith(
+            {
+                content: {
+                    _uid: "",
+                    component: "page",
+                },
+                is_folder: false,
+                name: "Plain Story",
+                slug: "plain",
+                parent_id: 900,
+            },
+            expect.objectContaining({ spaceId: "target-space" }),
+            { publish: false },
+        );
+        expect(mocks.updateStory).toHaveBeenCalledTimes(1);
+        expect(mocks.updateStory).toHaveBeenCalledWith(
+            expect.objectContaining({
+                content: {
+                    component: "page",
+                    headline: "No references here",
+                },
+                name: "Plain Story",
+                parent_id: 900,
+                slug: "plain",
+            }),
+            "1003",
+            { force_update: true, publish: false },
             expect.objectContaining({ spaceId: "target-space" }),
         );
 
@@ -1025,16 +1144,20 @@ describe("copy stories dry-run", () => {
             combined: path.join(manifestDirectory, "manifest.jsonl"),
         });
         expect(mocks.updateStory).toHaveBeenCalledWith(
-            {
+            expect.objectContaining({
                 content: expect.objectContaining({
                     image: {
                         id: 900,
                         filename: "https://a.storyblok.com/f/target/image.jpg",
                     },
                 }),
-            },
+                is_folder: true,
+                name: "Blog",
+                parent_id: 900,
+                slug: "blog",
+            }),
             "1001",
-            { force_update: true },
+            { force_update: true, publish: false },
             expect.objectContaining({ spaceId: "target-space" }),
         );
 

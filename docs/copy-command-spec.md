@@ -1139,11 +1139,13 @@ Goal:
 
 Current implementation status:
 
-- `copy stories` apply mode now writes story ID/UUID manifests while preserving the current full-content create behavior.
+- `copy stories` apply mode creates or matches target story shells before full content is saved.
+- Created shells are unpublished save-only creates with minimal payload: `name`, `slug`, `is_folder`, optional `parent_id`, optional `is_startpage`, and optional placeholder `content` containing the source component.
 - Manifests are written to `.sb-mig/copy/<source>/<target>/stories.manifest.jsonl` and the combined `.sb-mig/copy/<source>/<target>/manifest.jsonl`.
 - Existing manifest mappings are loaded first so reruns can reuse mapped target parents.
 - If no manifest entry exists, target stories are matched by planned target `full_slug` before creating a new story.
-- Pure shell-only creation is still future work; this incremental slice intentionally avoids regressing the current user-facing story copy behavior before reference rewriting exists.
+- After the story manifest exists, `copy stories` updates every copied/matched target story with the full source payload and manifest-backed reference rewrites.
+- Final story updates are also save-only for now. Publication behavior remains a later `MAR-1515` slice.
 
 Required behavior:
 
@@ -1163,6 +1165,7 @@ Goal:
 Current implementation status:
 
 - `copy stories` apply mode rewrites copied target story `content` after stories are created/matched and story manifests are written.
+- The final update runs for every copied/matched story, even when no references changed, so shell-only creates are always filled with full source content.
 - Asset fields and multiasset-like asset objects are rewritten when asset mappings exist in the combined manifest.
 - Story multilink IDs and richtext story UUID links are rewritten when story mappings exist in the combined manifest.
 - Embedded richtext bloks are traversed and rewritten.
@@ -1198,7 +1201,7 @@ Current implementation status:
 - `copy stories --dry-run` also scans selected story references and annotates asset/story references from existing manifests. Plain story dry-run does not fetch or copy source assets, but it reports asset references as `mapped` or `unresolved`.
 - `copy stories --with-assets --dry-run` loads existing manifests before planning, so referenced asset nodes and asset folders are marked as `match` when an existing manifest mapping can be reused and `create` when the apply run would copy them.
 - Dry-run JSON includes `assetReferenceSummary`, which separates reference occurrences from unique assets for `mapped`, `planned`, `unresolved`, and `unsupported` asset refs. It also reports foreign Storyblok asset space IDs detected from asset URLs without trying to copy from those spaces.
-- `copy stories --with-assets` apply mode copies/matches referenced asset folders/assets first using the same manifest writer as `copy assets`, then creates/matches stories, writes story manifests, and rewrites copied story content from the combined manifests.
+- `copy stories --with-assets` apply mode copies/matches referenced asset folders/assets first using the same manifest writer as `copy assets`, then creates/matches story shells, writes story manifests, and updates copied story content from the combined manifests.
 - Unresolved referenced assets are reported in the graph when the selected stories reference an asset that is not present in the source asset list.
 - Apply mode does not yet write a combined final story+asset report for `--outputPath`; the current nested asset copy writes manifests but not a separate report when invoked by `copy stories --with-assets`.
 

@@ -586,7 +586,7 @@ export const getStoryVersions: GetStoryVersions = async (
 };
 
 // CREATE
-export const createStory: CreateStory = (content, config) => {
+export const createStory: CreateStory = (content, config, options) => {
     const { spaceId, sbApi } = config;
     Logger.log(
         `Creating story with name: ${content.name} in space: ${spaceId}`,
@@ -594,7 +594,7 @@ export const createStory: CreateStory = (content, config) => {
     return sbApi
         .post(`spaces/${spaceId}/stories/`, {
             story: content,
-            publish: true,
+            publish: options?.publish ?? true,
         })
         .then((res: any) => res.data)
         .catch((err: any) => console.error(err));
