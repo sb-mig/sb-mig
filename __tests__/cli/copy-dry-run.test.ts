@@ -8,8 +8,10 @@ const mocks = vi.hoisted(() => ({
     getStoryById: vi.fn(),
     getStoryBySlug: vi.fn(),
     getAllStories: vi.fn(),
+    getStoryVersions: vi.fn(),
     createStory: vi.fn(),
     updateStory: vi.fn(),
+    publishStoryLanguages: vi.fn(),
     getAllComponents: vi.fn(),
     getAllAssets: vi.fn(),
     getAllAssetFolders: vi.fn(),
@@ -19,12 +21,15 @@ const mocks = vi.hoisted(() => ({
     updateAsset: vi.fn(),
     createTree: vi.fn(),
     traverseAndCreate: vi.fn(),
+    sbApiGet: vi.fn(),
 }));
 
 vi.mock("../../src/cli/api-config.js", () => ({
     apiConfig: {
         spaceId: "default-space",
-        sbApi: {},
+        sbApi: {
+            get: mocks.sbApiGet,
+        },
     },
 }));
 
@@ -34,8 +39,10 @@ vi.mock("../../src/api/managementApi.js", () => ({
             getStoryById: mocks.getStoryById,
             getStoryBySlug: mocks.getStoryBySlug,
             getAllStories: mocks.getAllStories,
+            getStoryVersions: mocks.getStoryVersions,
             createStory: mocks.createStory,
             updateStory: mocks.updateStory,
+            publishStoryLanguages: mocks.publishStoryLanguages,
         },
         components: {
             getAllComponents: mocks.getAllComponents,
@@ -91,6 +98,15 @@ describe("copy stories dry-run", () => {
         vi.clearAllMocks();
 
         mocks.getStoryById.mockResolvedValue(undefined);
+        mocks.getStoryVersions.mockResolvedValue({ story_versions: [] });
+        mocks.publishStoryLanguages.mockResolvedValue({ ok: true });
+        mocks.sbApiGet.mockResolvedValue({
+            data: {
+                space: {
+                    languages: [],
+                },
+            },
+        });
         mocks.getStoryBySlug.mockImplementation((slug: string) => {
             if (slug === "imported") {
                 return Promise.resolve({
@@ -1030,6 +1046,308 @@ describe("copy stories dry-run", () => {
                 slug: "plain",
             }),
             "1003",
+            { force_update: true, publish: false },
+            expect.objectContaining({ spaceId: "target-space" }),
+        );
+
+        await rm(tempDir, { recursive: true, force: true });
+    });
+
+    it("publishes clean published copied stories by default", async () => {
+        const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-copy-"));
+        const manifestRoot = path.join(tempDir, ".sb-mig");
+
+        mocks.getStoryBySlug.mockImplementation((slug: string) => {
+            if (slug === "imported") {
+                return Promise.resolve({
+                    story: {
+                        id: 900,
+                        name: "Imported",
+                        slug: "imported",
+                        full_slug: "imported",
+                        is_folder: true,
+                        uuid: "target-imported-uuid",
+                    },
+                });
+            }
+
+            if (slug === "published") {
+                return Promise.resolve({
+                    story: {
+                        id: 4,
+                        name: "Published Story",
+                        slug: "published",
+                        full_slug: "published",
+                        is_folder: false,
+                        parent_id: 0,
+                        uuid: "source-published-uuid",
+                        published: true,
+                        unpublished_changes: false,
+                        content: {
+                            component: "page",
+                            headline: "Published content",
+                        },
+                    },
+                });
+            }
+
+            return Promise.resolve(undefined);
+        });
+        mocks.createTree.mockImplementationOnce((stories: any[]) => [
+            {
+                id: stories[0].id,
+                story: stories[0],
+                children: [],
+            },
+        ]);
+        mocks.createStory.mockResolvedValueOnce({
+            story: {
+                id: 1004,
+                uuid: "target-published-uuid",
+                full_slug: "imported/published",
+            },
+        });
+
+        await copyCommand({
+            input: ["copy", "stories"],
+            flags: {
+                from: "source-space",
+                to: "target-space",
+                source: "published",
+                destination: "imported",
+                publicationLanguages: "default",
+                manifestRoot,
+            },
+        } as any);
+
+        expect(mocks.updateStory).toHaveBeenCalledWith(
+            expect.objectContaining({
+                content: {
+                    component: "page",
+                    headline: "Published content",
+                },
+                name: "Published Story",
+                parent_id: 900,
+                slug: "published",
+            }),
+            "1004",
+            { force_update: true, publish: false },
+            expect.objectContaining({ spaceId: "target-space" }),
+        );
+        expect(mocks.publishStoryLanguages).toHaveBeenCalledWith(
+            {
+                storyId: 1004,
+                story: expect.objectContaining({
+                    name: "Published Story",
+                    slug: "published",
+                }),
+                languages: ["[default]"],
+            },
+            expect.objectContaining({ spaceId: "target-space" }),
+        );
+
+        await rm(tempDir, { recursive: true, force: true });
+    });
+
+    it("keeps published copied stories as drafts in save-only publication mode", async () => {
+        const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-copy-"));
+        const manifestRoot = path.join(tempDir, ".sb-mig");
+
+        mocks.getStoryBySlug.mockImplementation((slug: string) => {
+            if (slug === "imported") {
+                return Promise.resolve({
+                    story: {
+                        id: 900,
+                        name: "Imported",
+                        slug: "imported",
+                        full_slug: "imported",
+                        is_folder: true,
+                        uuid: "target-imported-uuid",
+                    },
+                });
+            }
+
+            if (slug === "published") {
+                return Promise.resolve({
+                    story: {
+                        id: 4,
+                        name: "Published Story",
+                        slug: "published",
+                        full_slug: "published",
+                        is_folder: false,
+                        parent_id: 0,
+                        uuid: "source-published-uuid",
+                        published: true,
+                        unpublished_changes: false,
+                        content: {
+                            component: "page",
+                            headline: "Published content",
+                        },
+                    },
+                });
+            }
+
+            return Promise.resolve(undefined);
+        });
+        mocks.createTree.mockImplementationOnce((stories: any[]) => [
+            {
+                id: stories[0].id,
+                story: stories[0],
+                children: [],
+            },
+        ]);
+        mocks.createStory.mockResolvedValueOnce({
+            story: {
+                id: 1004,
+                uuid: "target-published-uuid",
+                full_slug: "published",
+            },
+        });
+
+        await copyCommand({
+            input: ["copy", "stories"],
+            flags: {
+                from: "source-space",
+                to: "target-space",
+                source: "published",
+                destination: "imported",
+                publicationMode: "save-only",
+                manifestRoot,
+            },
+        } as any);
+
+        expect(mocks.updateStory).toHaveBeenCalledWith(
+            expect.objectContaining({
+                name: "Published Story",
+                slug: "published",
+            }),
+            "1004",
+            { force_update: true, publish: false },
+            expect.objectContaining({ spaceId: "target-space" }),
+        );
+        expect(mocks.publishStoryLanguages).not.toHaveBeenCalled();
+
+        await rm(tempDir, { recursive: true, force: true });
+    });
+
+    it("preserves dirty published story layers by publishing the source published layer then restoring draft", async () => {
+        const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-copy-"));
+        const manifestRoot = path.join(tempDir, ".sb-mig");
+
+        mocks.getStoryBySlug.mockImplementation((slug: string) => {
+            if (slug === "imported") {
+                return Promise.resolve({
+                    story: {
+                        id: 900,
+                        name: "Imported",
+                        slug: "imported",
+                        full_slug: "imported",
+                        is_folder: true,
+                        uuid: "target-imported-uuid",
+                    },
+                });
+            }
+
+            if (slug === "dirty") {
+                return Promise.resolve({
+                    story: {
+                        id: 5,
+                        name: "Dirty Published Story",
+                        slug: "dirty",
+                        full_slug: "dirty",
+                        is_folder: false,
+                        parent_id: 0,
+                        uuid: "source-dirty-uuid",
+                        published: true,
+                        unpublished_changes: true,
+                        content: {
+                            component: "page",
+                            headline: "Draft content",
+                        },
+                    },
+                });
+            }
+
+            return Promise.resolve(undefined);
+        });
+        mocks.createTree.mockImplementationOnce((stories: any[]) => [
+            {
+                id: stories[0].id,
+                story: stories[0],
+                children: [],
+            },
+        ]);
+        mocks.createStory.mockResolvedValueOnce({
+            story: {
+                id: 1005,
+                uuid: "target-dirty-uuid",
+                full_slug: "dirty",
+            },
+        });
+        mocks.getStoryVersions.mockResolvedValueOnce({
+            story_versions: [
+                {
+                    id: 77,
+                    status: "published",
+                    created_at: "2026-06-20T10:00:00.000Z",
+                    content: {
+                        component: "page",
+                        headline: "Published content",
+                    },
+                },
+            ],
+        });
+
+        await copyCommand({
+            input: ["copy", "stories"],
+            flags: {
+                from: "source-space",
+                to: "target-space",
+                source: "dirty",
+                destination: "imported",
+                publicationLanguages: "default",
+                manifestRoot,
+            },
+        } as any);
+
+        expect(mocks.updateStory).toHaveBeenNthCalledWith(
+            1,
+            expect.objectContaining({
+                content: {
+                    component: "page",
+                    headline: "Published content",
+                },
+                name: "Dirty Published Story",
+                slug: "dirty",
+            }),
+            "1005",
+            { force_update: true, publish: false },
+            expect.objectContaining({ spaceId: "target-space" }),
+        );
+        expect(mocks.publishStoryLanguages).toHaveBeenCalledWith(
+            {
+                storyId: 1005,
+                story: expect.objectContaining({
+                    content: {
+                        component: "page",
+                        headline: "Published content",
+                    },
+                }),
+                languages: ["[default]"],
+            },
+            expect.objectContaining({ spaceId: "target-space" }),
+        );
+        expect(mocks.updateStory).toHaveBeenNthCalledWith(
+            2,
+            expect.objectContaining({
+                content: {
+                    component: "page",
+                    headline: "Draft content",
+                },
+                name: "Dirty Published Story",
+                slug: "dirty",
+            }),
+            "1005",
             { force_update: true, publish: false },
             expect.objectContaining({ spaceId: "target-space" }),
         );

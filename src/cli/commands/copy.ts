@@ -3,9 +3,13 @@ import type {
     CopyMaps,
     CopyAssetFolderManifestEntry,
     CopyAssetManifestEntry,
+    CopyComponentSchemaRegistry,
     CopyManifestEntry,
     CopyStoryManifestEntry,
 } from "../../api/copy/index.js";
+import type { PublicationMode } from "../../api/data-migration/component-data-migration.js";
+import type { PublishedLayerRecord } from "../../api/data-migration/published-layer.js";
+import type { PublishLanguagesOption } from "../../api/stories/stories.types.js";
 import type { CLIOptions } from "../../utils/interfaces.js";
 
 import fs from "fs/promises";
@@ -24,7 +28,15 @@ import {
     scanStoriesReferences,
     summarizeCopyGraph,
 } from "../../api/copy/index.js";
+import {
+    buildPublishedLayerContext,
+    resolveStoryLayerState,
+} from "../../api/data-migration/published-layer.js";
 import { managementApi } from "../../api/managementApi.js";
+import {
+    parsePublishLanguagesOption,
+    resolvePublishLanguageCodes,
+} from "../../api/stories/stories.js";
 import { createTree } from "../../api/stories/tree.js";
 import Logger from "../../utils/logger.js";
 import { getFileName } from "../../utils/string-utils.js";
@@ -38,6 +50,12 @@ const COPY_COMMANDS = {
 const COPY_MODES = ["subtree", "children", "self"] as const;
 
 type CopyMode = (typeof COPY_MODES)[number];
+
+type CopyPublicationOptions = {
+    mode: PublicationMode;
+    publishLanguages?: PublishLanguagesOption;
+    resolvedPublishLanguages?: string[];
+};
 
 type CopySelection = {
     source: string;
@@ -309,6 +327,69 @@ const getCopySpace = (
     names: string[],
     fallback: string,
 ): string => readStringFlag(flags, names) ?? fallback;
+
+const parseCopyPublicationMode = (
+    publicationModeFlag: string | undefined,
+): PublicationMode => {
+    if (!publicationModeFlag) {
+        return "preserve-layers";
+    }
+
+    if (
+        publicationModeFlag === "preserve-layers" ||
+        publicationModeFlag === "collapse-draft" ||
+        publicationModeFlag === "save-only"
+    ) {
+        return publicationModeFlag;
+    }
+
+    throw new Error(
+        "--publicationMode must be one of: preserve-layers, collapse-draft, save-only.",
+    );
+};
+
+const resolveCopyPublicationOptions = async ({
+    flags,
+    targetSpace,
+    dryRun,
+}: {
+    flags: Record<string, any>;
+    targetSpace: string;
+    dryRun: boolean;
+}): Promise<CopyPublicationOptions> => {
+    const mode = parseCopyPublicationMode(
+        readStringFlag(flags, ["publicationMode", "publication-mode"]),
+    );
+    const publicationLanguagesFlag = readStringFlag(flags, [
+        "publicationLanguages",
+        "publication-languages",
+    ]);
+
+    if (mode === "save-only" && publicationLanguagesFlag) {
+        throw new Error(
+            "--publicationLanguages cannot be used with --publicationMode save-only.",
+        );
+    }
+
+    if (mode === "save-only") {
+        return { mode };
+    }
+
+    const publishLanguages = publicationLanguagesFlag
+        ? parsePublishLanguagesOption(publicationLanguagesFlag)
+        : "all";
+
+    return {
+        mode,
+        publishLanguages,
+        resolvedPublishLanguages: dryRun
+            ? undefined
+            : await resolvePublishLanguageCodes(publishLanguages, {
+                  ...apiConfig,
+                  spaceId: targetSpace,
+              }),
+    };
+};
 
 const normalizeDestination = (destination: string | undefined): string =>
     !destination || destination === "/" || destination === "root"
@@ -2056,11 +2137,102 @@ const buildReferencedAssetsGraph = ({
     return graph;
 };
 
+const shouldUsePublishedLayerCopy = (
+    publication: CopyPublicationOptions,
+    sourceStory: any,
+    publishedLayerRecord?: PublishedLayerRecord,
+): boolean =>
+    publication.mode === "preserve-layers" &&
+    resolveStoryLayerState(sourceStory) === "dirty-published" &&
+    Boolean(publishedLayerRecord?.publishedLayerItem?.story);
+
+const shouldPublishCopiedCurrentStory = (
+    publication: CopyPublicationOptions,
+    sourceStory: any,
+): boolean => {
+    if (publication.mode === "save-only") {
+        return false;
+    }
+
+    const layerState = resolveStoryLayerState(sourceStory);
+
+    if (layerState === "clean-published") {
+        return true;
+    }
+
+    if (layerState === "dirty-published") {
+        return publication.mode === "collapse-draft";
+    }
+
+    return false;
+};
+
+const buildRewrittenStoryPayload = ({
+    sourceStory,
+    content,
+    targetParentId,
+    maps,
+    schemas,
+}: {
+    sourceStory: any;
+    content: any;
+    targetParentId: number | null;
+    maps: CopyMaps;
+    schemas: CopyComponentSchemaRegistry;
+}) => {
+    const rewritten = rewriteCopyReferences({
+        value: content ?? {},
+        maps,
+        schemas,
+    });
+
+    return {
+        payload: buildFinalStoryPayload({
+            sourceStory,
+            targetParentId,
+            rewrittenContent: rewritten.value,
+        }),
+        rewrittenReferences: rewritten.records.length,
+    };
+};
+
+const publishCopiedStory = async ({
+    storyId,
+    story,
+    publication,
+    targetSpace,
+}: {
+    storyId: number;
+    story: any;
+    publication: CopyPublicationOptions;
+    targetSpace: string;
+}) => {
+    const languages = publication.resolvedPublishLanguages;
+
+    if (!languages || languages.length === 0) {
+        return { ok: true, stage: "publish_skipped" };
+    }
+
+    return managementApi.stories.publishStoryLanguages(
+        {
+            storyId,
+            story,
+            languages,
+        },
+        {
+            ...apiConfig,
+            spaceId: targetSpace,
+        },
+    );
+};
+
 const rewriteCopiedStoryContents = async ({
     tree,
     realParentId,
     sourceStoryById,
     targetSlugBySourceSlug,
+    publication,
+    publishedLayerRecordBySourceId,
     sourceSpace,
     targetSpace,
     manifestRoot,
@@ -2069,6 +2241,8 @@ const rewriteCopiedStoryContents = async ({
     realParentId: number | null;
     sourceStoryById: Map<number, any>;
     targetSlugBySourceSlug: Map<string, string>;
+    publication: CopyPublicationOptions;
+    publishedLayerRecordBySourceId: Map<string, PublishedLayerRecord>;
     sourceSpace: string;
     targetSpace: string;
     manifestRoot?: string;
@@ -2196,18 +2370,106 @@ const rewriteCopiedStoryContents = async ({
                 });
             }
 
-            const updateStory = async (id: number) => {
-                const rewritten = rewriteCopyReferences({
-                    value: sourceStory.content ?? {},
+            const writeStory = async (id: number) => {
+                const current = buildRewrittenStoryPayload({
+                    sourceStory,
+                    content: sourceStory.content,
+                    targetParentId: parentId,
                     maps,
                     schemas,
                 });
-                const result = await managementApi.stories.updateStory(
-                    buildFinalStoryPayload({
+                const publishedLayerRecord = publishedLayerRecordBySourceId.get(
+                    String(sourceStory.id),
+                );
+
+                if (
+                    shouldUsePublishedLayerCopy(
+                        publication,
                         sourceStory,
+                        publishedLayerRecord,
+                    )
+                ) {
+                    const publishedLayerStory =
+                        publishedLayerRecord?.publishedLayerItem?.story;
+                    const publishedLayer = buildRewrittenStoryPayload({
+                        sourceStory: publishedLayerStory,
+                        content: publishedLayerStory?.content,
                         targetParentId: parentId,
-                        rewrittenContent: rewritten.value,
-                    }),
+                        maps,
+                        schemas,
+                    });
+                    const publishedUpdateResult =
+                        await managementApi.stories.updateStory(
+                            publishedLayer.payload,
+                            String(id),
+                            {
+                                force_update: true,
+                                publish: false,
+                            },
+                            {
+                                ...apiConfig,
+                                spaceId: targetSpace,
+                            },
+                        );
+
+                    if (!publishedUpdateResult?.ok) {
+                        return {
+                            result: publishedUpdateResult,
+                            rewrittenReferences:
+                                current.rewrittenReferences +
+                                publishedLayer.rewrittenReferences,
+                        };
+                    }
+
+                    const publishResult = await publishCopiedStory({
+                        storyId: id,
+                        story: publishedLayer.payload,
+                        publication,
+                        targetSpace,
+                    });
+
+                    if (!publishResult?.ok) {
+                        return {
+                            result: publishResult,
+                            rewrittenReferences:
+                                current.rewrittenReferences +
+                                publishedLayer.rewrittenReferences,
+                        };
+                    }
+
+                    const restoreDraftResult =
+                        await managementApi.stories.updateStory(
+                            current.payload,
+                            String(id),
+                            {
+                                force_update: true,
+                                publish: false,
+                            },
+                            {
+                                ...apiConfig,
+                                spaceId: targetSpace,
+                            },
+                        );
+
+                    return {
+                        result: restoreDraftResult,
+                        rewrittenReferences:
+                            current.rewrittenReferences +
+                            publishedLayer.rewrittenReferences,
+                    };
+                }
+
+                if (
+                    publication.mode === "preserve-layers" &&
+                    resolveStoryLayerState(sourceStory) === "dirty-published"
+                ) {
+                    Logger.warning(
+                        `Skipping publish for copied story '${sourceStory.full_slug ?? sourceStory.slug}' because source story has unpublished changes and no published layer could be resolved.`,
+                    );
+                }
+
+                const result = await managementApi.stories.updateStory(
+                    current.payload,
                     String(id),
                     {
                         force_update: true,
@@ -2219,13 +2481,32 @@ const rewriteCopiedStoryContents = async ({
                     },
                 );
 
+                if (
+                    result?.ok &&
+                    shouldPublishCopiedCurrentStory(publication, sourceStory)
+                ) {
+                    const publishResult = await publishCopiedStory({
+                        storyId: id,
+                        story: current.payload,
+                        publication,
+                        targetSpace,
+                    });
+
+                    if (!publishResult?.ok) {
+                        return {
+                            result: publishResult,
+                            rewrittenReferences: current.rewrittenReferences,
+                        };
+                    }
+                }
+
                 return {
                     result,
-                    rewrittenReferences: rewritten.records.length,
+                    rewrittenReferences: current.rewrittenReferences,
                 };
             };
 
-            let update = await updateStory(Number(targetStoryId));
+            let update = await writeStory(Number(targetStoryId));
 
             if (isStoryUpdateNotFound(update.result)) {
                 Logger.warning(
@@ -2239,7 +2520,7 @@ const rewriteCopiedStoryContents = async ({
                     parentId,
                     staleTargetId: Number(targetStoryId),
                 });
-                update = await updateStory(Number(targetStoryId));
+                update = await writeStory(Number(targetStoryId));
             }
 
             assertStoryUpdateSucceeded({
@@ -2936,6 +3217,11 @@ export const copyCommand = async (props: CLIOptions) => {
             const withAssets = Boolean(
                 flags["withAssets"] ?? flags["with-assets"],
             );
+            const publication = await resolveCopyPublicationOptions({
+                flags,
+                targetSpace,
+                dryRun,
+            });
             const destination = readStringFlag(flags, ["destination", "where"]);
             const destinationParentId = await resolveDestinationParentId(
                 destination,
@@ -3087,6 +3373,28 @@ export const copyCommand = async (props: CLIOptions) => {
                 });
             }
 
+            const publishedLayerRecordBySourceId = new Map<
+                string,
+                PublishedLayerRecord
+            >();
+
+            if (publication.mode === "preserve-layers") {
+                const publishedLayerContext = await buildPublishedLayerContext(
+                    {
+                        items: sourceStories,
+                        from: sourceSpace,
+                    },
+                    apiConfig,
+                );
+
+                for (const record of publishedLayerContext.records) {
+                    publishedLayerRecordBySourceId.set(
+                        String(record.storyId),
+                        record,
+                    );
+                }
+            }
+
             const storySummary = await createStoriesAndWriteManifests({
                 tree: rootsToCreate,
                 realParentId: destinationParentId,
@@ -3101,6 +3409,8 @@ export const copyCommand = async (props: CLIOptions) => {
                 realParentId: destinationParentId,
                 sourceStoryById: buildSourceStoryById(sourceStories),
                 targetSlugBySourceSlug: buildTargetSlugBySourceSlug(plan),
+                publication,
+                publishedLayerRecordBySourceId,
                 sourceSpace,
                 targetSpace,
                 manifestRoot,

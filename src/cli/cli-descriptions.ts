@@ -238,6 +238,10 @@ export const copyDescription = `
         --destination   Target folder full_slug where copied stories are attached. Omit, '/', or 'root' to copy into target root.
         --mode          Copy mode: subtree, children, or self. Default: subtree. folder/* defaults to children.
         --with-assets   For copy stories, copy referenced assets first and rewrite copied stories to target asset IDs/filenames.
+        --publicationMode
+                       How copy stories should preserve Storyblok publication state. Values: preserve-layers, collapse-draft, save-only. Default: preserve-layers. [stories only]
+        --publicationLanguages
+                       Language scope to publish when publicationMode publishes stories. Values: default, all, or comma-separated Storyblok language codes. Default: all. [stories only]
         --all           Select all assets and asset folders. [assets only]
         --asset         Select one source asset by numeric ID, exact Storyblok asset URL, or unique file name. Repeatable. [assets only]
         --assetFolder   Select one source asset folder by numeric ID or folder path. Includes descendants and assets in that subtree. Repeatable. [assets only]
@@ -266,9 +270,14 @@ export const copyDescription = `
         mode 'subtree' copies a folder and all descendants. This is the default for folders.
         mode 'children' copies a folder's descendants without the folder root.
         mode 'self' copies only the source story or folder shell.
-        Copy currently creates new stories only. It does not update existing target stories.
+        copy stories creates or matches target story shells, then fills them with rewritten source content.
         copy stories matches existing targets by manifest first, then target full_slug when safe, so reruns can reuse mapped target stories.
         copy stories rewrites mapped asset and story references after story manifests exist.
+        copy stories creates shells as save-only drafts, then applies publicationMode after full rewritten content is saved.
+        publicationMode preserve-layers publishes clean published source stories; for dirty published source stories it copies the source published version, publishes it in target, then restores the source draft/current layer as save-only.
+        publicationMode collapse-draft publishes published source stories from their current draft/current JSON.
+        publicationMode save-only never publishes copied stories.
+        --publicationLanguages cannot be used with --publicationMode save-only.
         copy stories --with-assets scans selected stories with source component schemas and only copies referenced assets it can resolve from the source asset list.
         --dry-run checks likely target path conflicts and reports mapped/planned/unresolved story and asset references, with occurrence and unique-asset counts in JSON output.
         Without --with-assets, run copy assets first when copied stories should point to target-space assets.
@@ -285,6 +294,9 @@ export const copyDescription = `
         $ sb-mig copy stories --from 12345 --to 67890 --source blog/* --destination imported
         $ sb-mig copy stories --from 12345 --to 67890 --source blog --mode self --destination /
         $ sb-mig copy stories --from 12345 --to 67890 --source blog --destination imported --with-assets
+        $ sb-mig copy stories --from 12345 --to 67890 --source blog --destination imported --with-assets --publicationMode preserve-layers
+        $ sb-mig copy stories --from 12345 --to 67890 --source blog --destination imported --publicationMode collapse-draft --publicationLanguages default,fr,de
+        $ sb-mig copy stories --from 12345 --to 67890 --source blog --destination imported --publicationMode save-only
         $ sb-mig copy stories --from 12345 --to 67890 --source blog --destination imported --dry-run
         $ sb-mig copy stories --from 12345 --to 67890 --source blog --destination imported --with-assets --dry-run --outputPath sbmig/copy-plans/blog-copy.json
         $ sb-mig copy stories --from 12345 --to 67890 --source blog --destination imported --dry-run --outputPath sbmig/copy-plans/blog-copy.json
