@@ -5,6 +5,7 @@ import path from "path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
+    getStoryById: vi.fn(),
     getStoryBySlug: vi.fn(),
     getAllStories: vi.fn(),
     createStory: vi.fn(),
@@ -30,6 +31,7 @@ vi.mock("../../src/cli/api-config.js", () => ({
 vi.mock("../../src/api/managementApi.js", () => ({
     managementApi: {
         stories: {
+            getStoryById: mocks.getStoryById,
             getStoryBySlug: mocks.getStoryBySlug,
             getAllStories: mocks.getAllStories,
             createStory: mocks.createStory,
@@ -88,6 +90,7 @@ describe("copy stories dry-run", () => {
     beforeEach(() => {
         vi.clearAllMocks();
 
+        mocks.getStoryById.mockResolvedValue(undefined);
         mocks.getStoryBySlug.mockImplementation((slug: string) => {
             if (slug === "imported") {
                 return Promise.resolve({
@@ -1029,6 +1032,125 @@ describe("copy stories dry-run", () => {
             "1003",
             { force_update: true, publish: false },
             expect.objectContaining({ spaceId: "target-space" }),
+        );
+
+        await rm(tempDir, { recursive: true, force: true });
+    });
+
+    it("does not report success when copied story shell updates fail", async () => {
+        const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-copy-"));
+        const manifestRoot = path.join(tempDir, ".sb-mig");
+
+        mocks.updateStory.mockResolvedValueOnce({
+            ok: false,
+            status: 404,
+            response: "This record could not be found",
+        });
+
+        await expect(
+            copyCommand({
+                input: ["copy", "stories"],
+                flags: {
+                    from: "source-space",
+                    to: "target-space",
+                    source: "blog",
+                    destination: "imported",
+                    manifestRoot,
+                },
+            } as any),
+        ).rejects.toThrow(
+            "Failed to update copied story 'blog' in target space 'target-space'",
+        );
+
+        await rm(tempDir, { recursive: true, force: true });
+    });
+
+    it("repairs stale story manifest mappings before filling shells", async () => {
+        const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-copy-"));
+        const manifestRoot = path.join(tempDir, ".sb-mig");
+        const manifestDirectory = path.join(
+            manifestRoot,
+            "copy",
+            "source-space",
+            "target-space",
+        );
+
+        await mkdir(manifestDirectory, { recursive: true });
+        await writeFile(
+            path.join(manifestDirectory, "manifest.jsonl"),
+            JSON.stringify({
+                type: "story",
+                source_space_id: "source-space",
+                target_space_id: "target-space",
+                source_id: 1,
+                target_id: 9999,
+                source_uuid: "source-blog-uuid",
+                target_uuid: "stale-target-blog-uuid",
+                source_full_slug: "blog",
+                target_full_slug: "imported/blog",
+                action: "created",
+                created_at: "2026-06-23T10:00:00.000Z",
+            }) + "\n",
+            "utf8",
+        );
+
+        mocks.getStoryById.mockResolvedValueOnce(undefined);
+
+        await copyCommand({
+            input: ["copy", "stories"],
+            flags: {
+                from: "source-space",
+                to: "target-space",
+                source: "blog",
+                destination: "imported",
+                manifestRoot,
+            },
+        } as any);
+
+        expect(mocks.getStoryById).toHaveBeenCalledWith(
+            "9999",
+            expect.objectContaining({ spaceId: "target-space" }),
+        );
+        expect(mocks.createStory).toHaveBeenNthCalledWith(
+            1,
+            expect.objectContaining({
+                name: "Blog",
+                parent_id: 900,
+                slug: "blog",
+            }),
+            expect.objectContaining({ spaceId: "target-space" }),
+            { publish: false },
+        );
+        expect(mocks.updateStory).toHaveBeenCalledWith(
+            expect.objectContaining({
+                name: "Blog",
+                parent_id: 900,
+                slug: "blog",
+            }),
+            "1001",
+            { force_update: true, publish: false },
+            expect.objectContaining({ spaceId: "target-space" }),
+        );
+
+        const combinedManifest = (
+            await readFile(
+                path.join(manifestDirectory, "manifest.jsonl"),
+                "utf8",
+            )
+        )
+            .trim()
+            .split("\n")
+            .map((line) => JSON.parse(line));
+
+        expect(combinedManifest).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({
+                    type: "story",
+                    source_id: 1,
+                    target_id: 1001,
+                    action: "created",
+                }),
+            ]),
         );
 
         await rm(tempDir, { recursive: true, force: true });

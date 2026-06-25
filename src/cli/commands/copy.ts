@@ -626,6 +626,61 @@ const buildFinalStoryPayload = ({
     return payload;
 };
 
+const getValidMappedTargetStory = async ({
+    sourceStory,
+    targetStoryId,
+    targetSpace,
+}: {
+    sourceStory: any;
+    targetStoryId: number;
+    targetSpace: string;
+}) => {
+    const targetStory = await managementApi.stories.getStoryById(
+        String(targetStoryId),
+        {
+            ...apiConfig,
+            spaceId: targetSpace,
+        },
+    );
+
+    if (targetStory?.story?.id) {
+        return targetStory.story;
+    }
+
+    Logger.warning(
+        `Ignoring stale story manifest mapping for '${sourceStory.full_slug ?? sourceStory.slug}' because target story '${targetStoryId}' was not found in space '${targetSpace}'.`,
+    );
+
+    return undefined;
+};
+
+const assertStoryUpdateSucceeded = ({
+    result,
+    sourceStory,
+    targetStoryId,
+    targetSpace,
+}: {
+    result: any;
+    sourceStory: any;
+    targetStoryId: number;
+    targetSpace: string;
+}) => {
+    if (result?.ok !== false) {
+        return;
+    }
+
+    const statusLabel = result.status
+        ? `status ${result.status}`
+        : "unknown status";
+    const responseLabel = result.response
+        ? ` Response: ${result.response}`
+        : "";
+
+    throw new Error(
+        `Failed to update copied story '${sourceStory.full_slug ?? sourceStory.slug}' in target space '${targetSpace}' (target story id ${targetStoryId}, ${statusLabel}).${responseLabel}`,
+    );
+};
+
 const buildCopyPlan = (
     tree: any[],
     destination: string | undefined,
@@ -2029,7 +2084,7 @@ const rewriteCopiedStoryContents = async ({
                 schemas,
             });
 
-            await managementApi.stories.updateStory(
+            const updateResult = await managementApi.stories.updateStory(
                 buildFinalStoryPayload({
                     sourceStory,
                     targetParentId: parentId,
@@ -2045,6 +2100,12 @@ const rewriteCopiedStoryContents = async ({
                     spaceId: targetSpace,
                 },
             );
+            assertStoryUpdateSucceeded({
+                result: updateResult,
+                sourceStory,
+                targetStoryId: Number(targetStoryId),
+                targetSpace,
+            });
             updatedStories += 1;
             rewrittenReferences += rewritten.records.length;
 
@@ -2109,9 +2170,20 @@ const createStoriesAndWriteManifests = async ({
             );
 
             if (mappedTargetId) {
-                storiesMatched += 1;
-                await walk(node.children ?? [], mappedTargetId);
-                continue;
+                const mappedTargetStory = await getValidMappedTargetStory({
+                    sourceStory,
+                    targetStoryId: mappedTargetId,
+                    targetSpace,
+                });
+
+                if (mappedTargetStory) {
+                    storiesMatched += 1;
+                    await walk(node.children ?? [], mappedTargetId);
+                    continue;
+                }
+
+                copyMaps.storyIds.delete(Number(sourceStory.id));
+                copyMaps.storyUuids.delete(String(sourceStory.uuid));
             }
 
             const existingTargetStory = targetFullSlug
