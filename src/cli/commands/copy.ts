@@ -38,6 +38,7 @@ import {
     resolvePublishLanguageCodes,
 } from "../../api/stories/stories.js";
 import { createTree } from "../../api/stories/tree.js";
+import { mapWithConcurrency } from "../../utils/async-utils.js";
 import Logger from "../../utils/logger.js";
 import { getFileName } from "../../utils/string-utils.js";
 import { apiConfig } from "../api-config.js";
@@ -48,6 +49,7 @@ const COPY_COMMANDS = {
 };
 
 const COPY_MODES = ["subtree", "children", "self"] as const;
+const TARGET_CONFLICT_CHECK_CONCURRENCY = 10;
 
 type CopyMode = (typeof COPY_MODES)[number];
 
@@ -819,21 +821,50 @@ const findTargetConflicts = async (
     plan: CopyPlanItem[],
     targetSpace: string,
 ): Promise<CopyPlanItem[]> => {
-    const conflicts: CopyPlanItem[] = [];
+    let checked = 0;
 
-    for (const item of plan) {
-        const existingStory = await managementApi.stories.getStoryBySlug(
-            item.targetFullSlug,
-            {
-                ...apiConfig,
-                spaceId: targetSpace,
-            },
-        );
-
-        if (existingStory) {
-            conflicts.push(item);
-        }
+    if (plan.length === 0) {
+        return [];
     }
+
+    Logger.warning(
+        `Checking ${plan.length} planned target path(s) for existing stories/folders.`,
+    );
+
+    const results = await mapWithConcurrency(
+        plan,
+        TARGET_CONFLICT_CHECK_CONCURRENCY,
+        async (item) => {
+            const existingStory = await managementApi.stories.getStoryBySlug(
+                item.targetFullSlug,
+                {
+                    ...apiConfig,
+                    spaceId: targetSpace,
+                },
+            );
+
+            checked += 1;
+            if (
+                checked === plan.length ||
+                checked % 25 === 0 ||
+                plan.length <= 25
+            ) {
+                Logger.success(
+                    `Checked ${checked} of ${plan.length} target path(s) for conflicts.`,
+                );
+            }
+
+            return existingStory ? item : null;
+        },
+    );
+
+    const conflicts = results.filter(
+        (item): item is CopyPlanItem => item !== null,
+    );
+
+    Logger.success(
+        `Target conflict check complete. Found ${conflicts.length} existing target path(s).`,
+    );
 
     return conflicts;
 };
@@ -3369,6 +3400,7 @@ export const copyCommand = async (props: CLIOptions) => {
 
             if (dryRun) {
                 const conflicts = await findTargetConflicts(plan, targetSpace);
+                Logger.warning("Building dry-run copy report.");
                 const report = buildCopyDryRunReport({
                     sourceSpace,
                     targetSpace,
@@ -3385,6 +3417,9 @@ export const copyCommand = async (props: CLIOptions) => {
                 await logDryRunCopyPlan({ report });
 
                 if (outputPath) {
+                    Logger.warning(
+                        `Writing dry-run copy report to ${outputPath}.`,
+                    );
                     await writeDryRunReport(outputPath, report);
                 }
 
