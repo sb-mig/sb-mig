@@ -1143,10 +1143,10 @@ Current implementation status:
 - Created shells are unpublished save-only creates with minimal payload: `name`, `slug`, `is_folder`, optional `parent_id`, optional `is_startpage`, and optional placeholder `content` containing the source component.
 - Manifests are written to `.sb-mig/copy/<source>/<target>/stories.manifest.jsonl` and the combined `.sb-mig/copy/<source>/<target>/manifest.jsonl`.
 - Existing manifest mappings are loaded first so reruns can reuse mapped target parents.
-- Existing story manifest mappings are validated against the target space before reuse; stale target IDs are ignored so copy can fall back to target slug matching or fresh shell creation.
+- Existing story manifest mappings are validated against the target space and expected target path before reuse; stale target IDs are ignored so copy can fall back to target slug matching or fresh shell creation.
 - If no manifest entry exists, target stories are matched by planned target `full_slug` before creating a new story.
 - After the story manifest exists, `copy stories` updates every copied/matched target story with the full source payload and manifest-backed reference rewrites.
-- Failed final story updates fail the copy command instead of being counted as successful shell fills.
+- A final story update that returns 404 is treated as a stale manifest mapping: the command remaps or recreates the affected shell, retries the update once, and then fails the copy command if the retry still does not succeed.
 - Final story updates are also save-only for now. Publication behavior remains a later `MAR-1515` slice.
 
 Required behavior:

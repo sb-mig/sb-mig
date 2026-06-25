@@ -1037,15 +1037,21 @@ describe("copy stories dry-run", () => {
         await rm(tempDir, { recursive: true, force: true });
     });
 
-    it("does not report success when copied story shell updates fail", async () => {
+    it("does not report success when copied story shell updates still fail after stale mapping recovery", async () => {
         const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-copy-"));
         const manifestRoot = path.join(tempDir, ".sb-mig");
 
-        mocks.updateStory.mockResolvedValueOnce({
-            ok: false,
-            status: 404,
-            response: "This record could not be found",
-        });
+        mocks.updateStory
+            .mockResolvedValueOnce({
+                ok: false,
+                status: 404,
+                response: "This record could not be found",
+            })
+            .mockResolvedValueOnce({
+                ok: false,
+                status: 404,
+                response: "This record could not be found",
+            });
 
         await expect(
             copyCommand({
@@ -1060,6 +1066,129 @@ describe("copy stories dry-run", () => {
             } as any),
         ).rejects.toThrow(
             "Failed to update copied story 'blog' in target space 'target-space'",
+        );
+
+        await rm(tempDir, { recursive: true, force: true });
+    });
+
+    it("recovers when a mapped story reads successfully but cannot be updated", async () => {
+        const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-copy-"));
+        const manifestRoot = path.join(tempDir, ".sb-mig");
+        const manifestDirectory = path.join(
+            manifestRoot,
+            "copy",
+            "source-space",
+            "target-space",
+        );
+
+        await mkdir(manifestDirectory, { recursive: true });
+        await writeFile(
+            path.join(manifestDirectory, "manifest.jsonl"),
+            JSON.stringify({
+                type: "story",
+                source_space_id: "source-space",
+                target_space_id: "target-space",
+                source_id: 1,
+                target_id: 9999,
+                source_uuid: "source-blog-uuid",
+                target_uuid: "stale-target-blog-uuid",
+                source_full_slug: "blog",
+                target_full_slug: "imported/blog",
+                action: "created",
+                created_at: "2026-06-23T10:00:00.000Z",
+            }) + "\n",
+            "utf8",
+        );
+
+        mocks.getStoryById.mockResolvedValueOnce({
+            story: {
+                id: 9999,
+                uuid: "stale-target-blog-uuid",
+                full_slug: "imported/blog",
+            },
+        });
+        const getStoryBySlug = mocks.getStoryBySlug.getMockImplementation();
+        mocks.getStoryBySlug.mockImplementation((slug: string, options: any) => {
+            if (slug === "imported/blog") {
+                return Promise.resolve({
+                    story: {
+                        id: 9999,
+                        uuid: "stale-target-blog-uuid",
+                        full_slug: "imported/blog",
+                    },
+                });
+            }
+
+            return getStoryBySlug?.(slug, options);
+        });
+        mocks.updateStory
+            .mockResolvedValueOnce({
+                ok: false,
+                status: 404,
+                response: "This record could not be found",
+            })
+            .mockResolvedValue({ ok: true });
+
+        await copyCommand({
+            input: ["copy", "stories"],
+            flags: {
+                from: "source-space",
+                to: "target-space",
+                source: "blog",
+                destination: "imported",
+                manifestRoot,
+            },
+        } as any);
+
+        expect(mocks.createStory).toHaveBeenCalledWith(
+            expect.objectContaining({
+                name: "Blog",
+                parent_id: 900,
+                slug: "blog",
+            }),
+            expect.objectContaining({ spaceId: "target-space" }),
+            { publish: false },
+        );
+        expect(mocks.updateStory).toHaveBeenCalledWith(
+            expect.objectContaining({
+                name: "Blog",
+                parent_id: 900,
+                slug: "blog",
+            }),
+            "1001",
+            { force_update: true, publish: false },
+            expect.objectContaining({ spaceId: "target-space" }),
+        );
+        expect(mocks.updateStory).toHaveBeenCalledWith(
+            expect.objectContaining({
+                name: "Post 1",
+                parent_id: 1001,
+                slug: "post-1",
+            }),
+            "1002",
+            { force_update: true, publish: false },
+            expect.objectContaining({ spaceId: "target-space" }),
+        );
+
+        const combinedManifest = (
+            await readFile(
+                path.join(manifestDirectory, "manifest.jsonl"),
+                "utf8",
+            )
+        )
+            .trim()
+            .split("\n")
+            .map((line) => JSON.parse(line));
+
+        expect(combinedManifest).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({
+                    type: "story",
+                    source_id: 1,
+                    target_id: 1001,
+                    action: "created",
+                }),
+            ]),
         );
 
         await rm(tempDir, { recursive: true, force: true });

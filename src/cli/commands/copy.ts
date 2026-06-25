@@ -629,10 +629,12 @@ const buildFinalStoryPayload = ({
 const getValidMappedTargetStory = async ({
     sourceStory,
     targetStoryId,
+    targetFullSlug,
     targetSpace,
 }: {
     sourceStory: any;
     targetStoryId: number;
+    targetFullSlug?: string;
     targetSpace: string;
 }) => {
     const targetStory = await managementApi.stories.getStoryById(
@@ -644,11 +646,25 @@ const getValidMappedTargetStory = async ({
     );
 
     if (targetStory?.story?.id) {
-        return targetStory.story;
+        if (!targetFullSlug) {
+            return targetStory.story;
+        }
+
+        const targetStoryBySlug = await managementApi.stories.getStoryBySlug(
+            targetFullSlug,
+            {
+                ...apiConfig,
+                spaceId: targetSpace,
+            },
+        );
+
+        if (Number(targetStoryBySlug?.story?.id) === targetStoryId) {
+            return targetStory.story;
+        }
     }
 
     Logger.warning(
-        `Ignoring stale story manifest mapping for '${sourceStory.full_slug ?? sourceStory.slug}' because target story '${targetStoryId}' was not found in space '${targetSpace}'.`,
+        `Ignoring stale story manifest mapping for '${sourceStory.full_slug ?? sourceStory.slug}' because target story '${targetStoryId}' was not found at the expected target path in space '${targetSpace}'.`,
     );
 
     return undefined;
@@ -680,6 +696,9 @@ const assertStoryUpdateSucceeded = ({
         `Failed to update copied story '${sourceStory.full_slug ?? sourceStory.slug}' in target space '${targetSpace}' (target story id ${targetStoryId}, ${statusLabel}).${responseLabel}`,
     );
 };
+
+const isStoryUpdateNotFound = (result: any): boolean =>
+    result?.ok === false && Number(result.status) === 404;
 
 const buildCopyPlan = (
     tree: any[],
@@ -2041,6 +2060,7 @@ const rewriteCopiedStoryContents = async ({
     tree,
     realParentId,
     sourceStoryById,
+    targetSlugBySourceSlug,
     sourceSpace,
     targetSpace,
     manifestRoot,
@@ -2048,6 +2068,7 @@ const rewriteCopiedStoryContents = async ({
     tree: any[];
     realParentId: number | null;
     sourceStoryById: Map<number, any>;
+    targetSlugBySourceSlug: Map<string, string>;
     sourceSpace: string;
     targetSpace: string;
     manifestRoot?: string;
@@ -2063,6 +2084,100 @@ const rewriteCopiedStoryContents = async ({
     let updatedStories = 0;
     let rewrittenReferences = 0;
 
+    const writeStoryMapping = async ({
+        sourceStory,
+        targetStory,
+        targetFullSlug,
+        action,
+    }: {
+        sourceStory: any;
+        targetStory: any;
+        targetFullSlug?: string;
+        action: CopyStoryManifestEntry["action"];
+    }) => {
+        const entry: CopyStoryManifestEntry = {
+            type: "story",
+            source_space_id: sourceSpace,
+            target_space_id: targetSpace,
+            source_id: Number(sourceStory.id),
+            target_id: Number(targetStory.id),
+            source_uuid: String(sourceStory.uuid),
+            target_uuid: String(targetStory.uuid),
+            source_full_slug: String(sourceStory.full_slug ?? ""),
+            target_full_slug: targetStory.full_slug ?? targetFullSlug,
+            action,
+            created_at: new Date().toISOString(),
+        };
+
+        await appendCopyManifestEntry({
+            combinedPath: manifestPaths.combined,
+            resourcePath: manifestPaths.stories,
+            entry,
+        });
+        maps.storyIds.set(entry.source_id, entry.target_id);
+        maps.storyUuids.set(entry.source_uuid, entry.target_uuid);
+
+        return entry.target_id;
+    };
+
+    const createOrMatchReplacementShell = async ({
+        node,
+        sourceStory,
+        parentId,
+        staleTargetId,
+    }: {
+        node: any;
+        sourceStory: any;
+        parentId: number | null;
+        staleTargetId?: number;
+    }): Promise<number> => {
+        const sourceFullSlug = String(sourceStory.full_slug ?? "");
+        const targetFullSlug = targetSlugBySourceSlug.get(sourceFullSlug);
+        const existingTargetStory = targetFullSlug
+            ? await managementApi.stories.getStoryBySlug(targetFullSlug, {
+                  ...apiConfig,
+                  spaceId: targetSpace,
+              })
+            : undefined;
+
+        if (
+            existingTargetStory?.story?.id &&
+            Number(existingTargetStory.story.id) !== staleTargetId
+        ) {
+            return writeStoryMapping({
+                sourceStory,
+                targetStory: existingTargetStory.story,
+                targetFullSlug,
+                action: "matched_by_target_key",
+            });
+        }
+
+        const createdStoryResult = await managementApi.stories.createStory(
+            buildStoryShellPayload(node.story ?? sourceStory, parentId),
+            {
+                ...apiConfig,
+                spaceId: targetSpace,
+            },
+            {
+                publish: false,
+            },
+        );
+        const targetStory = createdStoryResult?.story;
+
+        if (!targetStory?.id || !targetStory?.uuid) {
+            throw new Error(
+                `Failed to create replacement target story for '${sourceFullSlug}'.`,
+            );
+        }
+
+        return writeStoryMapping({
+            sourceStory,
+            targetStory,
+            targetFullSlug,
+            action: "created",
+        });
+    };
+
     const walk = async (nodes: any[], parentId: number | null) => {
         for (const node of nodes) {
             const sourceId = Number(node.id ?? node.story?.id);
@@ -2072,48 +2187,77 @@ const rewriteCopiedStoryContents = async ({
                 continue;
             }
 
-            const targetStoryId = maps.storyIds.get(Number(sourceStory.id));
+            let targetStoryId = maps.storyIds.get(Number(sourceStory.id));
             if (!targetStoryId) {
-                await walk(node.children ?? [], null);
-                continue;
+                targetStoryId = await createOrMatchReplacementShell({
+                    node,
+                    sourceStory,
+                    parentId,
+                });
             }
 
-            const rewritten = rewriteCopyReferences({
-                value: sourceStory.content ?? {},
-                maps,
-                schemas,
-            });
+            const updateStory = async (id: number) => {
+                const rewritten = rewriteCopyReferences({
+                    value: sourceStory.content ?? {},
+                    maps,
+                    schemas,
+                });
+                const result = await managementApi.stories.updateStory(
+                    buildFinalStoryPayload({
+                        sourceStory,
+                        targetParentId: parentId,
+                        rewrittenContent: rewritten.value,
+                    }),
+                    String(id),
+                    {
+                        force_update: true,
+                        publish: false,
+                    },
+                    {
+                        ...apiConfig,
+                        spaceId: targetSpace,
+                    },
+                );
 
-            const updateResult = await managementApi.stories.updateStory(
-                buildFinalStoryPayload({
+                return {
+                    result,
+                    rewrittenReferences: rewritten.records.length,
+                };
+            };
+
+            let update = await updateStory(Number(targetStoryId));
+
+            if (isStoryUpdateNotFound(update.result)) {
+                Logger.warning(
+                    `Ignoring stale story manifest mapping for '${sourceStory.full_slug ?? sourceStory.slug}' because target story '${targetStoryId}' could not be updated in space '${targetSpace}'.`,
+                );
+                maps.storyIds.delete(Number(sourceStory.id));
+                maps.storyUuids.delete(String(sourceStory.uuid));
+                targetStoryId = await createOrMatchReplacementShell({
+                    node,
                     sourceStory,
-                    targetParentId: parentId,
-                    rewrittenContent: rewritten.value,
-                }),
-                String(targetStoryId),
-                {
-                    force_update: true,
-                    publish: false,
-                },
-                {
-                    ...apiConfig,
-                    spaceId: targetSpace,
-                },
-            );
+                    parentId,
+                    staleTargetId: Number(targetStoryId),
+                });
+                update = await updateStory(Number(targetStoryId));
+            }
+
             assertStoryUpdateSucceeded({
-                result: updateResult,
+                result: update.result,
                 sourceStory,
                 targetStoryId: Number(targetStoryId),
                 targetSpace,
             });
             updatedStories += 1;
-            rewrittenReferences += rewritten.records.length;
+            rewrittenReferences += update.rewrittenReferences;
 
             await walk(node.children ?? [], Number(targetStoryId));
         }
     };
 
     await walk(tree, realParentId);
+    await dedupeManifestFile(manifestPaths.stories);
+    await dedupeManifestFile(manifestPaths.combined);
 
     if (updatedStories > 0) {
         Logger.success(
@@ -2173,6 +2317,7 @@ const createStoriesAndWriteManifests = async ({
                 const mappedTargetStory = await getValidMappedTargetStory({
                     sourceStory,
                     targetStoryId: mappedTargetId,
+                    targetFullSlug,
                     targetSpace,
                 });
 
@@ -2955,6 +3100,7 @@ export const copyCommand = async (props: CLIOptions) => {
                 tree: rootsToCreate,
                 realParentId: destinationParentId,
                 sourceStoryById: buildSourceStoryById(sourceStories),
+                targetSlugBySourceSlug: buildTargetSlugBySourceSlug(plan),
                 sourceSpace,
                 targetSpace,
                 manifestRoot,
