@@ -76,6 +76,9 @@ export type GetAllStories = (
 export type CreateStory = (
     content: any,
     config: RequestBaseConfig,
+    options?: {
+        publish?: boolean;
+    },
 ) => Promise<any>;
 
 export type UpdateStory = (

@@ -1,6 +1,6 @@
 {
   "name": "sb-mig",
-  "version": "6.2.0",
+  "version": "6.3.0-beta.1",
   "description": "CLI to rule the world. (and handle stuff related to Storyblok CMS)",
   "author": "Marcin Krawczyk <marckraw@icloud.com>",
   "license": "MIT",
@@ -15,7 +15,7 @@
     "access": "public"
   },
   "bugs": "https://github.com/sb-mig/sb-mig/issues",
-  "homepage": "https://github.com/sb-mig/sb-mig",
+  "homepage": "https://sb-mig.vercel.app",
   "keywords": [
     "cli",
     "storyblok",

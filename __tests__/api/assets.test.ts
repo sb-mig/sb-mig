@@ -47,7 +47,15 @@ vi.mock("../../src/utils/logger.js", () => ({
     },
 }));
 
-import { createAsset, updateAsset } from "../../src/api/assets/index.js";
+import {
+    createAsset,
+    createAssetAndFinalize,
+    createAssetFolder,
+    finishAssetUpload,
+    getAllAssets,
+    getAllAssetFolders,
+    updateAsset,
+} from "../../src/api/assets/index.js";
 import { managementApi } from "../../src/api/managementApi.js";
 
 describe("Assets API", () => {
@@ -59,7 +67,187 @@ describe("Assets API", () => {
 
     it("exposes createAsset and updateAsset through managementApi.assets", () => {
         expect(managementApi.assets.createAsset).toBe(createAsset);
+        expect(managementApi.assets.createAssetAndFinalize).toBe(
+            createAssetAndFinalize,
+        );
+        expect(managementApi.assets.finishAssetUpload).toBe(finishAssetUpload);
         expect(managementApi.assets.updateAsset).toBe(updateAsset);
+        expect(managementApi.assets.createAssetFolder).toBe(createAssetFolder);
+        expect(managementApi.assets.getAllAssetFolders).toBe(
+            getAllAssetFolders,
+        );
+    });
+
+    it("creates asset folders with Storyblok's wrapped payload", async () => {
+        const response = {
+            data: {
+                asset_folder: {
+                    id: 42,
+                    name: "Images",
+                    parent_id: null,
+                },
+            },
+        };
+        const sbApi = {
+            post: vi.fn().mockResolvedValue(response),
+        };
+
+        const result = await createAssetFolder(
+            {
+                spaceId: "12345",
+                payload: {
+                    name: "Images",
+                    parent_id: null,
+                },
+            },
+            { spaceId: "12345", sbApi: sbApi as any },
+        );
+
+        expect(result).toBe(response.data);
+        expect(sbApi.post).toHaveBeenCalledWith("spaces/12345/asset_folders/", {
+            asset_folder: {
+                name: "Images",
+                parent_id: null,
+            },
+        });
+    });
+
+    it("retrieves asset folders with Storyblok's query parameters", async () => {
+        const response = {
+            data: {
+                asset_folders: [
+                    {
+                        id: 42,
+                        name: "Images",
+                        parent_id: null,
+                    },
+                ],
+            },
+        };
+        const sbApi = {
+            get: vi.fn().mockResolvedValue(response),
+        };
+
+        const result = await getAllAssetFolders(
+            {
+                spaceId: "12345",
+                search: "Images",
+                withParent: 0,
+                byIds: [42, 43],
+                byUuids: ["uuid-a", "uuid-b"],
+            },
+            { spaceId: "12345", sbApi: sbApi as any },
+        );
+
+        expect(result).toEqual(response.data);
+        expect(sbApi.get).toHaveBeenCalledWith("spaces/12345/asset_folders/", {
+            search: "Images",
+            with_parent: "0",
+            by_ids: "42,43",
+            by_uuids: "uuid-a,uuid-b",
+            per_page: 100,
+            page: 1,
+        });
+    });
+
+    it("retrieves all paginated assets", async () => {
+        const pageOneAssets = Array.from({ length: 100 }, (_, index) => ({
+            id: index + 1,
+            filename: `https://a.storyblok.com/f/123/image-${index + 1}.jpg`,
+        }));
+        const pageTwoAssets = [
+            {
+                id: 101,
+                filename: "https://a.storyblok.com/f/123/image-101.jpg",
+            },
+        ];
+        const sbApi = {
+            get: vi
+                .fn()
+                .mockResolvedValueOnce({
+                    data: { assets: pageOneAssets },
+                    total: 101,
+                    perPage: 100,
+                })
+                .mockResolvedValueOnce({
+                    data: { assets: pageTwoAssets },
+                    total: 101,
+                    perPage: 100,
+                }),
+        };
+
+        const result = await getAllAssets(
+            { spaceId: "12345", search: "image" },
+            { spaceId: "12345", sbApi: sbApi as any },
+        );
+
+        expect(result.assets).toHaveLength(101);
+        expect(result.assets.at(0)).toEqual(pageOneAssets[0]);
+        expect(result.assets.at(-1)).toEqual(pageTwoAssets[0]);
+        expect(sbApi.get).toHaveBeenNthCalledWith(1, "spaces/12345/assets/", {
+            search: "image",
+            per_page: 100,
+            page: 1,
+        });
+        expect(sbApi.get).toHaveBeenNthCalledWith(2, "spaces/12345/assets/", {
+            search: "image",
+            per_page: 100,
+            page: 2,
+        });
+    });
+
+    it("retrieves all paginated asset folders", async () => {
+        const pageOneFolders = Array.from({ length: 100 }, (_, index) => ({
+            id: index + 1,
+            name: `Folder ${index + 1}`,
+            parent_id: null,
+        }));
+        const pageTwoFolders = [
+            {
+                id: 101,
+                name: "Folder 101",
+                parent_id: null,
+            },
+        ];
+        const sbApi = {
+            get: vi
+                .fn()
+                .mockResolvedValueOnce({
+                    data: { asset_folders: pageOneFolders },
+                    total: 101,
+                    perPage: 100,
+                })
+                .mockResolvedValueOnce({
+                    data: { asset_folders: pageTwoFolders },
+                    total: 101,
+                    perPage: 100,
+                }),
+        };
+
+        const result = await getAllAssetFolders(
+            { spaceId: "12345" },
+            { spaceId: "12345", sbApi: sbApi as any },
+        );
+
+        expect(result.asset_folders).toHaveLength(101);
+        expect(result.asset_folders.at(0)).toEqual(pageOneFolders[0]);
+        expect(result.asset_folders.at(-1)).toEqual(pageTwoFolders[0]);
+        expect(sbApi.get).toHaveBeenNthCalledWith(
+            1,
+            "spaces/12345/asset_folders/",
+            {
+                per_page: 100,
+                page: 1,
+            },
+        );
+        expect(sbApi.get).toHaveBeenNthCalledWith(
+            2,
+            "spaces/12345/asset_folders/",
+            {
+                per_page: 100,
+                page: 2,
+            },
+        );
     });
 
     it("creates an asset by requesting a signed upload and submitting the file", async () => {
@@ -127,6 +315,86 @@ describe("Assets API", () => {
 
         expect(sbApi.post).toHaveBeenCalledWith("spaces/12345/assets/", {
             filename: "sb-mig-logo.png",
+        });
+    });
+
+    it("creates and finalizes an asset upload", async () => {
+        const sbApi = {
+            post: vi.fn().mockResolvedValue({
+                data: {
+                    id: 987,
+                    post_url: "https://s3.example.com/upload",
+                    fields: {},
+                },
+            }),
+            get: vi.fn().mockResolvedValue({
+                data: {
+                    asset: {
+                        id: 987,
+                        filename:
+                            "https://a.storyblok.com/f/123/asset-final.jpg",
+                    },
+                },
+            }),
+        };
+
+        const result = await createAssetAndFinalize(
+            {
+                spaceId: "12345",
+                pathToFile: "README.md",
+                payload: {
+                    filename: "asset-final.jpg",
+                    validate_upload: 1,
+                },
+            },
+            { spaceId: "12345", sbApi: sbApi as any },
+        );
+
+        expect(result).toEqual({
+            id: 987,
+            filename: "https://a.storyblok.com/f/123/asset-final.jpg",
+        });
+        expect(sbApi.post).toHaveBeenCalledWith("spaces/12345/assets/", {
+            filename: "asset-final.jpg",
+            validate_upload: 1,
+        });
+        expect(sbApi.get).toHaveBeenCalledWith(
+            "spaces/12345/assets/987/finish_upload",
+            {},
+        );
+    });
+
+    it("normalizes direct finish_upload asset responses", async () => {
+        const sbApi = {
+            post: vi.fn().mockResolvedValue({
+                data: {
+                    id: 987,
+                    post_url: "https://s3.example.com/upload",
+                    fields: {},
+                },
+            }),
+            get: vi.fn().mockResolvedValue({
+                data: {
+                    id: 987,
+                    filename: "https://a.storyblok.com/f/123/direct.jpg",
+                },
+            }),
+        };
+
+        const result = await createAssetAndFinalize(
+            {
+                spaceId: "12345",
+                pathToFile: "README.md",
+                payload: {
+                    filename: "direct.jpg",
+                },
+            },
+            { spaceId: "12345", sbApi: sbApi as any },
+        );
+
+        expect(result).toEqual({
+            id: 987,
+            filename: "https://a.storyblok.com/f/123/direct.jpg",
         });
     });
 
