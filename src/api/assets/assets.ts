@@ -1,14 +1,17 @@
 import type {
     CreateAsset,
+    CreateAssetAndFinalize,
     GetAllAssets,
     GetAssetById,
     GetAssetByName,
     MigrateAsset,
     RequestSignedUploadUrl,
+    SBAsset,
     SignedUploadPayload,
     UpdateAsset,
     UploadFile,
     DownloadAsset,
+    FinishAssetUpload,
 } from "./assets.types.js";
 
 import fs from "fs";
@@ -20,6 +23,7 @@ import FormData from "form-data";
 import { createDir, isDirectoryExists } from "../../utils/files.js";
 import Logger from "../../utils/logger.js";
 import { getFileName, getSizeFromURL } from "../../utils/string-utils.js";
+import { getAllItemsWithPagination } from "../utils/request.js";
 
 const isStoryblokSize = (size: string | undefined): size is string =>
     Boolean(size && /^\d+x\d+$/i.test(size));
@@ -50,24 +54,31 @@ export const getAllAssets: GetAllAssets = async (args, config) => {
     const { spaceId, search } = args;
     const { sbApi } = config;
 
-    return sbApi
-        .get(`spaces/${spaceId}/assets/`, {
-            // @ts-ignore TODO: have to submit ISSUE to storyblok-js-client (in documentation it is search, in typescript its search_term STORYBLOK_ISSUE
-            search: search ? search : "",
-            per_page: 100, // need to do pagination here probably
-        })
-        .then(({ data }) => data)
-        .catch((err) => {
-            if (err.response.status === 404) {
-                Logger.error(
-                    `There is no assets in your Storyblok ${spaceId} space.`,
-                );
-                return true;
-            } else {
-                Logger.error(err);
-                return false;
-            }
-        });
+    const assets = await getAllItemsWithPagination({
+        apiFn: ({ per_page, page }) =>
+            sbApi
+                .get(`spaces/${spaceId}/assets/`, {
+                    // @ts-ignore TODO: have to submit ISSUE to storyblok-js-client (in documentation it is search, in typescript its search_term STORYBLOK_ISSUE
+                    search: search ? search : "",
+                    per_page,
+                    page,
+                })
+                .catch((err) => {
+                    if (err.response?.status === 404) {
+                        Logger.error(
+                            `There is no assets in your Storyblok ${spaceId} space.`,
+                        );
+                        return { data: { assets: [] }, total: 0, perPage: 100 };
+                    }
+
+                    Logger.error(err);
+                    throw err;
+                }),
+        params: {},
+        itemsKey: "assets",
+    });
+
+    return { assets };
 };
 
 export const getAssetByName: GetAssetByName = async (
@@ -141,7 +152,49 @@ const uploadFile: UploadFile = ({ signedResponseObject, pathToFile }) => {
     });
 };
 
-const downloadAsset: DownloadAsset = async (args, config) => {
+const getSignedUploadAssetId = (signedResponseObject: any): number => {
+    const assetId = Number(
+        signedResponseObject?.id ?? signedResponseObject?.asset?.id,
+    );
+
+    if (!Number.isFinite(assetId)) {
+        throw new Error(
+            "Signed upload response did not include an asset id, so upload cannot be finalized.",
+        );
+    }
+
+    return assetId;
+};
+
+const normalizeFinishedUploadAsset = (finishedUpload: any): SBAsset => {
+    const asset =
+        finishedUpload?.asset ?? finishedUpload?.data?.asset ?? finishedUpload;
+
+    if (!asset?.id || !asset?.filename) {
+        throw new Error(
+            "Finish upload response did not include a target asset id and filename.",
+        );
+    }
+
+    return asset as SBAsset;
+};
+
+export const finishAssetUpload: FinishAssetUpload = async (
+    { spaceId, assetId },
+    config,
+) => {
+    const { sbApi } = config;
+
+    return (sbApi as any)
+        .get(`spaces/${spaceId}/assets/${assetId}/finish_upload`, {})
+        .then(({ data }: any) => data)
+        .catch((err: any) => {
+            Logger.error(err);
+            throw err;
+        });
+};
+
+export const downloadAsset: DownloadAsset = async (args, config) => {
     const { debug, sbmigWorkingDirectory } = config;
     const { payload } = args;
     if (!sbmigWorkingDirectory) {
@@ -228,6 +281,34 @@ export const createAsset: CreateAsset = async (
     await uploadFile({ signedResponseObject, pathToFile });
 
     return signedResponseObject;
+};
+
+export const createAssetAndFinalize: CreateAssetAndFinalize = async (
+    { spaceId, pathToFile, payload = {} },
+    config,
+) => {
+    const signedResponseObject = await createAsset(
+        {
+            spaceId,
+            pathToFile,
+            payload: {
+                ...payload,
+                filename: payload.filename ?? pathToFile,
+                validate_upload: payload.validate_upload ?? 1,
+            },
+        },
+        config,
+    );
+    const assetId = getSignedUploadAssetId(signedResponseObject);
+    const finishedUpload = await finishAssetUpload(
+        {
+            spaceId,
+            assetId,
+        },
+        config,
+    );
+
+    return normalizeFinishedUploadAsset(finishedUpload);
 };
 
 export const updateAsset: UpdateAsset = async (
