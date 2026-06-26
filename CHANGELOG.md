@@ -32,6 +32,40 @@
 * **copy:** write story manifests ([76f9726](https://github.com/sb-mig/sb-mig/commit/76f9726910aa13b037c97b32925d346f9b369a3e))
 * **inspect:** add component usage queries ([8c802d7](https://github.com/sb-mig/sb-mig/commit/8c802d783b91c20adf81afb755e3a070d43f7b72))
 
+# [6.2.0-beta.1](https://github.com/sb-mig/sb-mig/compare/v6.1.1...v6.2.0-beta.1) (2026-06-26)
+
+
+### Bug Fixes
+
+* **copy:** create story shells before content updates ([33232ce](https://github.com/sb-mig/sb-mig/commit/33232ce7ef2992bcf60b46f0b8e565b0b3a2481a))
+* **copy:** ignore stale story manifest targets ([e482474](https://github.com/sb-mig/sb-mig/commit/e482474176855533e81eec1a7939c12e6a894c85))
+* **copy:** normalize finished asset uploads ([7818829](https://github.com/sb-mig/sb-mig/commit/7818829993344175b647604b59a3ccf1a0e9e439))
+* **copy:** paginate asset reads ([d3630ce](https://github.com/sb-mig/sb-mig/commit/d3630ce8dd299cc7cf821f1165471b0bdf69783d))
+* **copy:** recover stale story update mappings ([5f5953d](https://github.com/sb-mig/sb-mig/commit/5f5953daf306d1155cd4d41f1c1e1d46e3a71041))
+* **copy:** show reference planning progress ([b498eb0](https://github.com/sb-mig/sb-mig/commit/b498eb01ac351faaddae2979479cbe5ec504fe50))
+* **copy:** show target conflict progress ([cb788f0](https://github.com/sb-mig/sb-mig/commit/cb788f0fbc814ac63d9282f5d4ce761a89c8db4b))
+* **copy:** treat root asset folders as root ([6b8827a](https://github.com/sb-mig/sb-mig/commit/6b8827ab248ebbb08b64d91736997c758dc06516))
+* **files.ts:** stringify failing with big strings ([0c069bc](https://github.com/sb-mig/sb-mig/commit/0c069bc04916595080b36f2889d164059607b79f))
+* **stories:** avoid undefined update log labels ([42e7ccb](https://github.com/sb-mig/sb-mig/commit/42e7ccbed03101a85e20b085c2d49f45be5b0f8b))
+
+
+### Features
+
+* **api-v2:** add configToClient adapter (F2) ([c6fe484](https://github.com/sb-mig/sb-mig/commit/c6fe4841d6228ce32223f099b472a59e454ab25b))
+* **copy:** add assets dry-run planning ([f9da65d](https://github.com/sb-mig/sb-mig/commit/f9da65d0ed8b41df9284df59439ace760278aa70))
+* **copy:** add manifest graph foundation ([aded707](https://github.com/sb-mig/sb-mig/commit/aded70773b3ec221a03e8620412a4e9254563073))
+* **copy:** add reference scanner ([910660c](https://github.com/sb-mig/sb-mig/commit/910660ced6c23e2d65def09a085daad822b918cd))
+* **copy:** add scoped asset selectors ([0b39d32](https://github.com/sb-mig/sb-mig/commit/0b39d32c00adffe17de66ad0d2cb6a4f7b3c6baf))
+* **copy:** classify dry-run references ([6b80acf](https://github.com/sb-mig/sb-mig/commit/6b80acfe8403fbf1a9c09555448be7df5b2e75ab))
+* **copy:** copy referenced story assets ([2493884](https://github.com/sb-mig/sb-mig/commit/24938845d2ee27c40c37a27c4aa94e6814c55356))
+* **copy:** enable asset copy manifests ([f028aab](https://github.com/sb-mig/sb-mig/commit/f028aab5548dce0119cae8bb2d2e65655cf84577))
+* **copy:** preserve story publication state ([e273fe1](https://github.com/sb-mig/sb-mig/commit/e273fe1ac825f5df03ff439f4cba53208e92c104))
+* **copy:** rethink story copy planning ([3a29718](https://github.com/sb-mig/sb-mig/commit/3a297187d51579f78eb7474e0daff4c34c38ef7b))
+* **copy:** rewrite copied story references ([b289e44](https://github.com/sb-mig/sb-mig/commit/b289e4478035f4fc06bfdd068e35b3af2c8c2134))
+* **copy:** summarize unique dry-run assets ([8ceb3d6](https://github.com/sb-mig/sb-mig/commit/8ceb3d6a10f065ba92a465e923f4f4696910fdc4))
+* **copy:** write story manifests ([76f9726](https://github.com/sb-mig/sb-mig/commit/76f9726910aa13b037c97b32925d346f9b369a3e))
+* **inspect:** add component usage queries ([8c802d7](https://github.com/sb-mig/sb-mig/commit/8c802d783b91c20adf81afb755e3a070d43f7b72))
+
 # [6.2.0-beta.1](https://github.com/sb-mig/sb-mig/compare/v6.1.1...v6.2.0-beta.1) (2026-06-23)
 
 
