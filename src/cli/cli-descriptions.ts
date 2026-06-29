@@ -322,9 +322,14 @@ export const migrateDescription = `
     COMMANDS
         content         Migrate story content for all components or provided component names.
         presets         Migrate presets. Supports --all and exactly one --migration value.
+        continue        Finish a previous --dry-run by writing its already-computed result to
+                        Storyblok. Skips pulling stories and re-running the migration, so it is
+                        much faster. Requires a content freeze between the dry-run and continue.
 
     FLAGS
         --from            Source space ID, or local file name when --migrate-from file is used.
+        --manifest        [continue only] Continue manifest filename inside the migrations folder.
+                          Only needed when more than one dry-run manifest is present.
         --fromFilePath    Direct path to stories or presets JSON when using --migrate-from file.
         --to              Target Storyblok space ID.
         --migrate-from    Migrate from space or file. Default: space.
@@ -347,6 +352,8 @@ export const migrateDescription = `
     SIDE EFFECTS
         content writes migrated stories to Storyblok unless --dry-run is passed.
         content creates a story backup before provided-component migrations unless --dry-run is passed.
+        content --dry-run also writes a continue manifest so the run can later be finished with migrate continue.
+        continue writes the dry-run's migrated stories to Storyblok and updates applied-backpack-migrations.json. It does not pull or re-transform stories.
         presets backs up all remote presets before writing migrated presets unless --dry-run is passed.
 
     GOTCHAS
@@ -359,6 +366,8 @@ export const migrateDescription = `
 
     EXAMPLES
         $ sb-mig migrate content --all --from 12345 --to 12345 --migration file-with-migration --dry-run
+        $ sb-mig migrate continue
+        $ sb-mig migrate continue --manifest dry-run--12345--2026-6-2_13-5---story-continue-manifest.json --yes
         $ sb-mig migrate content --all --from 12345 --to 12345 --migration migration-a --migration migration-b --migration migration-c --yes
         $ sb-mig migrate content --all --from 12345 --to 12345 --migration colorPickerModeValues --migrationComponentAlias colorPickerModeValues:sb-button=sb-open-drift-button
         $ sb-mig migrate content --all --from 12345 --to 12345 --migration colorPickerModeValues --migrationComponents colorPickerModeValues:sb-section,sb-tour-page-section
