@@ -75,6 +75,7 @@ tmp/
 backup/
 sbmig/
 storyblok/
+.sb-mig-docs.local.json
 
 # sb-mig precompile cache (generated during component compilation)
 .sb-mig-cache/

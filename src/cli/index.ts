@@ -9,6 +9,7 @@ import {
     removeDescription,
     initDescription,
     discoverDescription,
+    inspectDescription,
     migrateDescription,
     languagePublishStateDescription,
     storyVersionsDescription,
@@ -257,6 +258,39 @@ app.discover = () => ({
     action: async (cli: any) => {
         const { discover } = await import("./commands/discover.js");
         await discover(cli);
+    },
+});
+
+app.inspect = () => ({
+    cli: meow(inspectDescription, {
+        importMeta: import.meta,
+        booleanDefault: undefined,
+        flags: {
+            from: {
+                type: "string",
+            },
+            all: {
+                type: "boolean",
+                default: false,
+            },
+            withSlug: {
+                type: "string",
+                isMultiple: true,
+            },
+            startsWith: {
+                type: "string",
+            },
+            query: {
+                type: "string",
+            },
+            outputPath: {
+                type: "string",
+            },
+        },
+    }),
+    action: async (cli: any) => {
+        const { inspect } = await import("./commands/inspect.js");
+        await inspect(cli);
     },
 });
 

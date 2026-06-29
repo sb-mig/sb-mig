@@ -2,6 +2,7 @@ import * as assets from "./assets/index.js";
 import * as auth from "./auth/index.js";
 import * as components from "./components/index.js";
 import * as datasources from "./datasources/index.js";
+import * as inspect from "./inspect/index.js";
 import * as plugins from "./plugins/index.js";
 import * as presets from "./presets/index.js";
 import * as roles from "./roles/index.js";
@@ -13,6 +14,7 @@ export const managementApi = {
     auth: { ...auth },
     components: { ...components },
     datasources: { ...datasources },
+    inspect: { ...inspect },
     plugins: { ...plugins },
     presets: { ...presets },
     roles: { ...roles },

@@ -95,6 +95,38 @@ describe("updateStory", () => {
         );
     });
 
+    it("logs a stable story label for partial update payloads", async () => {
+        const put = vi.fn().mockResolvedValue({
+            data: {
+                story: {
+                    id: "story-1",
+                    name: "Japan",
+                    full_slug: "tours/destinations/japan",
+                },
+            },
+        });
+        const config = {
+            spaceId: "291967263583956",
+            sbApi: {
+                put,
+            },
+        } as any;
+        const content = {
+            content: {
+                component: "page",
+            },
+        };
+
+        await updateStory(content, "story-1", { force_update: true }, config);
+
+        expect(loggerMock.log).toHaveBeenCalledWith(
+            "Updating story 'story-1' in space: 291967263583956",
+        );
+        expect(loggerMock.log).not.toHaveBeenCalledWith(
+            expect.stringContaining("undefined"),
+        );
+    });
+
     it("logs the failing story slug, space, and Storyblok response", async () => {
         const put = vi.fn().mockRejectedValue({
             status: 422,

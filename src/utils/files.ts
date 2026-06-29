@@ -114,6 +114,85 @@ export const createJsonFile = async (
     await fs.promises.writeFile(pathWithFilename, content, { flag: "w" });
 };
 
+/*
+ * Streams an array to disk as a pretty-printed (2-space) JSON array,
+ * one element at a time. Avoids building the whole document as a single
+ * string, which overflows V8's max string length (~512 MB) for large
+ * migration sets. Output is byte-for-byte identical to
+ * JSON.stringify(items, null, 2).
+ * */
+export const writeJsonArrayStreamed = (
+    items: any[],
+    pathWithFilename: string,
+): Promise<void> => {
+    return new Promise<void>((resolve, reject) => {
+        const stream = fs.createWriteStream(pathWithFilename, { flags: "w" });
+        let settled = false;
+
+        const fail = (err: Error) => {
+            if (settled) return;
+            settled = true;
+            reject(err);
+        };
+
+        stream.on("error", fail);
+        stream.on("finish", () => {
+            if (settled) return;
+            settled = true;
+            resolve();
+        });
+
+        const indentElement = (item: any): string => {
+            const serialized = JSON.stringify(item, null, 2);
+            const body = serialized === undefined ? "null" : serialized;
+            return `  ${body.replace(/\n/g, "\n  ")}`;
+        };
+
+        const writeChunk = (chunk: string): Promise<void> =>
+            new Promise<void>((res, rej) => {
+                const onErr = (err: Error) => rej(err);
+                const ok = stream.write(chunk, (err) => {
+                    if (err) {
+                        rej(err);
+                        return;
+                    }
+                    if (ok) {
+                        stream.removeListener("error", onErr);
+                        res();
+                    }
+                });
+                if (!ok) {
+                    stream.once("drain", () => {
+                        stream.removeListener("error", onErr);
+                        res();
+                    });
+                }
+                stream.once("error", onErr);
+            });
+
+        const writeChunks = async () => {
+            if (items.length === 0) {
+                stream.write("[]");
+                return;
+            }
+
+            await writeChunk("[\n");
+            for (let i = 0; i < items.length; i++) {
+                const prefix = i === 0 ? "" : ",\n";
+                await writeChunk(`${prefix}${indentElement(items[i])}`);
+            }
+            await writeChunk("\n]");
+        };
+
+        writeChunks()
+            .then(() => stream.end())
+            .catch((err) => {
+                stream.destroy();
+                fail(err as Error);
+            });
+    });
+};
+
 export const createJSAllComponentsFile = async (
     content: string,
     pathWithFilename: string,
@@ -237,8 +316,8 @@ export const createAndSaveToFile: CreateAndSaveToFile = async (
         const fullPath = `${sbmigWorkingDirectory}/${folder}/${finalFilename}${suffix}.${ext}`;
 
         await createDir(`${sbmigWorkingDirectory}/${folder}/`);
-        if (ext === "json") {
-            await createJsonFile(JSON.stringify(res, undefined, 2), fullPath);
+        if (Array.isArray(res)) {
+            await writeJsonArrayStreamed(res, fullPath);
         } else {
             await createJsonFile(JSON.stringify(res, undefined, 2), fullPath);
         }
@@ -249,7 +328,11 @@ export const createAndSaveToFile: CreateAndSaveToFile = async (
     if (path) {
         const folderPath = nodePath.dirname(path);
         await createDir(folderPath);
-        await createJsonFile(JSON.stringify(res, undefined, 2), path);
+        if (Array.isArray(res)) {
+            await writeJsonArrayStreamed(res, path);
+        } else {
+            await createJsonFile(JSON.stringify(res, undefined, 2), path);
+        }
 
         Logger.success(`All response written to a file:  ${path}`);
     }

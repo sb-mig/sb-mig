@@ -5,6 +5,7 @@ export const mainDescription = `
     COMMANDS
         sync                    Synchronize components, roles, datasources, plugins, stories, and assets.
         copy                    Copy Storyblok stories or folders between spaces.
+        inspect                 Inspect Storyblok content without writing changes.
         discover                Discover local components and migration config files.
         backup                  Back up Storyblok resources to local JSON files.
         migrate                 Run story or preset data migrations.
@@ -21,7 +22,43 @@ export const mainDescription = `
     EXAMPLES
       $ sb-mig sync components --all
       $ sb-mig migrate content --all --from 12345 --to 12345 --migration file-with-migration --dry-run
-      $ sb-mig copy stories --sourceSpace 12345 --targetSpace 67890 --what folder/* --where target-folder
+      $ sb-mig inspect component-usage --from 12345 --all --query flex-group-width-child
+      $ sb-mig copy stories --from 12345 --to 67890 --source folder/* --destination target-folder
+      $ sb-mig copy assets --from 12345 --to 67890 --all --dry-run --outputPath sbmig/copy-plans/assets.json
+`;
+
+export const inspectDescription = `
+    USAGE
+        $ sb-mig inspect component-usage --from [spaceId] --all --query [query-name]
+        $ sb-mig inspect component-usage --from [spaceId] --withSlug [full_slug] --query [query-name]
+        $ sb-mig inspect component-usage --from [spaceId] --startsWith [prefix] --query [query-name]
+
+    DESCRIPTION
+        Inspect Storyblok story content with a local component usage query file.
+        This command is read-only against Storyblok and writes a local JSON file only when --outputPath is passed.
+
+    COMMANDS
+        component-usage  Find component usage patterns in selected stories.
+
+    FLAGS
+        --from        Source space ID to inspect. Falls back to configured spaceId.
+        --all         Inspect all non-folder stories.
+        --withSlug    Exact story full_slug to inspect. Can be repeated.
+        --startsWith  Filter stories by starts_with prefix.
+        --query       Query file name or path. Looks for *.sb.query.js, *.sb.query.cjs, or *.sb.query.mjs.
+        --outputPath  Optional file path for JSON report output.
+
+    SIDE EFFECTS
+        Read-only against Storyblok. Writes a local JSON report only when --outputPath is passed.
+
+    GOTCHAS
+        Pass exactly one selection mode: --all, --withSlug, or --startsWith.
+        A query file must default-export an object with name and match(node, context).
+        TypeScript query files are planned, but the first implementation supports JS/CJS/MJS query files.
+
+    EXAMPLES
+        $ sb-mig inspect component-usage --from 12345 --all --query flex-group-width-child
+        $ sb-mig inspect component-usage --from 12345 --startsWith landing-pages --query ./queries/flex-group-width-child.sb.query.js --outputPath sbmig/usage/flex-group-width-child.json
 `;
 
 export const storyVersionsDescription = `
@@ -177,35 +214,99 @@ export const syncDescription = `
 
 export const copyDescription = `
     USAGE
-        $ sb-mig copy stories --sourceSpace [spaceId] --targetSpace [spaceId] --what [full_slug] --where [target_folder_full_slug]
-        $ sb-mig copy stories --sourceSpace [spaceId] --targetSpace [spaceId] --what [folder_full_slug]
-        $ sb-mig copy stories --sourceSpace [spaceId] --targetSpace [spaceId] --what [folder_full_slug]/* --where [target_folder_full_slug]
+        $ sb-mig copy stories --from [spaceId] --to [spaceId] --source [full_slug] --destination [target_folder_full_slug]
+        $ sb-mig copy stories --from [spaceId] --to [spaceId] --source [folder_full_slug]
+        $ sb-mig copy stories --from [spaceId] --to [spaceId] --source [folder_full_slug]/* --destination [target_folder_full_slug]
+        $ sb-mig copy stories --from [spaceId] --to [spaceId] --source [folder_full_slug] --mode self --destination /
+        $ sb-mig copy assets --from [spaceId] --to [spaceId] --all
+        $ sb-mig copy assets --from [spaceId] --to [spaceId] --asset [asset_id_or_filename]
+        $ sb-mig copy assets --from [spaceId] --to [spaceId] --assetFolder [folder_id_or_path]
+        $ sb-mig copy assets --from [spaceId] --to [spaceId] --referenced-by-stories --source [story_or_folder_full_slug]
+        $ sb-mig copy assets --from [spaceId] --to [spaceId] --all --dry-run
 
     DESCRIPTION
-        Copy Storyblok stories or folders from one space to a folder in another space.
+        Copy Storyblok stories, folders, assets, or asset folders from one space to another.
 
     COMMANDS
-        stories         Copy one story, one folder with its root, or a folder's children recursively.
+        stories         Copy one story, one folder subtree, a folder's children, or one folder shell.
+        assets          Copy or plan all assets and asset folders with durable manifests.
 
     FLAGS
-        --sourceSpace   Source Storyblok space ID. Falls back to configured spaceId.
-        --targetSpace   Target Storyblok space ID. Falls back to configured spaceId.
-        --what          Source story or folder full_slug. Use folder/* to copy a folder's children without the folder root.
-        --where         Target folder full_slug where copied stories are attached.
+        --from          Source Storyblok space ID. Falls back to configured spaceId.
+        --to            Target Storyblok space ID. Falls back to configured spaceId.
+        --source        Source story or folder full_slug. Use folder/* to copy a folder's children without the folder root.
+        --destination   Target folder full_slug where copied stories are attached. Omit, '/', or 'root' to copy into target root.
+        --mode          Copy mode: subtree, children, or self. Default: subtree. folder/* defaults to children.
+        --with-assets   For copy stories, copy referenced assets first and rewrite copied stories to target asset IDs/filenames.
+        --publicationMode
+                       How copy stories should preserve Storyblok publication state. Values: preserve-layers, collapse-draft, save-only. Default: preserve-layers. [stories only]
+        --publicationLanguages
+                       Language scope to publish when publicationMode publishes stories. Values: default, all, or comma-separated Storyblok language codes. Default: all. [stories only]
+        --all           Select all assets and asset folders. [assets only]
+        --asset         Select one source asset by numeric ID, exact Storyblok asset URL, or unique file name. Repeatable. [assets only]
+        --assetFolder   Select one source asset folder by numeric ID or folder path. Includes descendants and assets in that subtree. Repeatable. [assets only]
+        --referenced-by-stories
+                       Select assets referenced by a story/folder scope. Requires --source. [assets only]
+        --dry-run       Preview story paths, manifest-mapped references, and likely target conflicts without writing to Storyblok.
+        --outputPath    Optional JSON file path for a dry-run copy plan artifact. Only writes locally when passed.
+
+    LEGACY FLAGS
+        --sourceSpace   Alias for --from.
+        --targetSpace   Alias for --to.
+        --what          Alias for --source.
+        --where         Alias for --destination.
 
     SIDE EFFECTS
-        Writes copied stories into the target Storyblok space.
+        copy stories writes copied stories into the target Storyblok space unless --dry-run is passed.
+        copy stories writes story ID/UUID manifests under .sb-mig/copy/<source>/<target>/ during apply.
+        copy stories --with-assets writes referenced asset folders/assets before story writes unless --dry-run is passed.
+        copy assets writes asset folders and assets into the target Storyblok space unless --dry-run is passed.
+        copy assets writes JSONL manifests under .sb-mig/copy/<source>/<target>/ during apply.
+        --outputPath writes a local JSON report for dry-run or apply.
 
     GOTCHAS
-        --what must resolve to an existing source story or folder.
-        --where must resolve to an existing target folder.
-        folder/* requires the source path before /* to be a folder.
-        Copy currently logs internal strategy details while it runs.
+        --source must resolve to an existing source story or folder.
+        --destination must resolve to an existing target folder unless it is omitted, '/', or 'root'.
+        mode 'subtree' copies a folder and all descendants. This is the default for folders.
+        mode 'children' copies a folder's descendants without the folder root.
+        mode 'self' copies only the source story or folder shell.
+        copy stories creates or matches target story shells, then fills them with rewritten source content.
+        copy stories matches existing targets by manifest first, then target full_slug when safe, so reruns can reuse mapped target stories.
+        copy stories rewrites mapped asset and story references after story manifests exist.
+        copy stories creates shells as save-only drafts, then applies publicationMode after full rewritten content is saved.
+        publicationMode preserve-layers publishes clean published source stories; for dirty published source stories it copies the source published version, publishes it in target, then restores the source draft/current layer as save-only.
+        publicationMode collapse-draft publishes published source stories from their current draft/current JSON.
+        publicationMode save-only never publishes copied stories.
+        --publicationLanguages cannot be used with --publicationMode save-only.
+        copy stories --with-assets scans selected stories with source component schemas and only copies referenced assets it can resolve from the source asset list.
+        --dry-run checks likely target path conflicts and reports mapped/planned/unresolved story and asset references, with occurrence and unique-asset counts in JSON output.
+        Without --with-assets, run copy assets first when copied stories should point to target-space assets.
+        copy assets supports --all, --asset, or --assetFolder. Use only one selector family per run.
+        copy assets --asset includes the selected asset's folder ancestors so target folder mappings can be preserved.
+        copy assets --assetFolder includes the selected folder, descendants, folder ancestors, and assets inside that selected subtree.
+        copy assets --referenced-by-stories scans selected stories with source component schemas and copies only source-space assets referenced by that story scope.
+        copy assets matches by manifest first, then safe target folder path or unique asset file name before creating.
+        copy assets uploads assets, finalizes the upload, and writes source-to-target asset/folder manifests.
 
     EXAMPLES
-        $ sb-mig copy stories --sourceSpace 12345 --targetSpace 67890 --what blog/post-1 --where imported
-        $ sb-mig copy stories --sourceSpace 12345 --targetSpace 67890 --what blog --where imported
-        $ sb-mig copy stories --sourceSpace 12345 --targetSpace 67890 --what blog/* --where imported
+        $ sb-mig copy stories --from 12345 --to 67890 --source blog/post-1 --destination imported
+        $ sb-mig copy stories --from 12345 --to 67890 --source blog --destination imported
+        $ sb-mig copy stories --from 12345 --to 67890 --source blog/* --destination imported
+        $ sb-mig copy stories --from 12345 --to 67890 --source blog --mode self --destination /
+        $ sb-mig copy stories --from 12345 --to 67890 --source blog --destination imported --with-assets
+        $ sb-mig copy stories --from 12345 --to 67890 --source blog --destination imported --with-assets --publicationMode preserve-layers
+        $ sb-mig copy stories --from 12345 --to 67890 --source blog --destination imported --publicationMode collapse-draft --publicationLanguages default,fr,de
+        $ sb-mig copy stories --from 12345 --to 67890 --source blog --destination imported --publicationMode save-only
+        $ sb-mig copy stories --from 12345 --to 67890 --source blog --destination imported --dry-run
+        $ sb-mig copy stories --from 12345 --to 67890 --source blog --destination imported --with-assets --dry-run --outputPath sbmig/copy-plans/blog-copy.json
+        $ sb-mig copy stories --from 12345 --to 67890 --source blog --destination imported --dry-run --outputPath sbmig/copy-plans/blog-copy.json
+        $ sb-mig copy assets --from 12345 --to 67890 --all
+        $ sb-mig copy assets --from 12345 --to 67890 --asset 987654
+        $ sb-mig copy assets --from 12345 --to 67890 --asset hero.jpg --dry-run
+        $ sb-mig copy assets --from 12345 --to 67890 --assetFolder Marketing/Heroes --dry-run
+        $ sb-mig copy assets --from 12345 --to 67890 --referenced-by-stories --source blog --dry-run --outputPath sbmig/copy-plans/blog-assets.json
+        $ sb-mig copy assets --from 12345 --to 67890 --all --dry-run
+        $ sb-mig copy assets --from 12345 --to 67890 --all --dry-run --outputPath sbmig/copy-plans/assets-copy.json
 `;
 
 export const migrateDescription = `
