@@ -193,6 +193,149 @@ export const writeJsonArrayStreamed = (
     });
 };
 
+/*
+ * Streams a top-level JSON array from disk, parsing one element at a time.
+ * The counterpart to writeJsonArrayStreamed: large migration artifacts are
+ * written without ever building the whole document as a single string, so they
+ * must also be READ without `fs.readFile(...).toString()`, which throws
+ * ERR_STRING_TOO_LONG once the file passes V8's ~512 MB max string length.
+ *
+ * Only the array document is streamed; each individual element is parsed with
+ * JSON.parse (elements are small). Throws if the file is not a JSON array.
+ */
+export const readJsonArrayStreamed = (pathToFile: string): Promise<any[]> => {
+    return new Promise<any[]>((resolve, reject) => {
+        const stream = fs.createReadStream(resolveFromCwd(pathToFile), {
+            encoding: "utf8",
+        });
+
+        const items: any[] = [];
+        let started = false; // seen the opening `[`
+        let done = false; // seen the matching top-level `]`
+        let buffer = ""; // current element text
+        let depth = 0; // nesting depth inside the current element
+        let inString = false;
+        let escaped = false;
+        let settled = false;
+
+        const fail = (err: Error) => {
+            if (settled) return;
+            settled = true;
+            stream.destroy();
+            reject(err);
+        };
+
+        const flushElement = () => {
+            const text = buffer.trim();
+            buffer = "";
+            if (text.length === 0) {
+                return;
+            }
+            items.push(JSON.parse(text));
+        };
+
+        stream.on("data", (rawChunk: string | Buffer) => {
+            if (done) return;
+
+            // The stream is opened with utf8 encoding, so chunks arrive as
+            // strings (decoded across multi-byte boundaries). The Buffer arm is
+            // only here to satisfy the Node type signature.
+            const chunk =
+                typeof rawChunk === "string"
+                    ? rawChunk
+                    : rawChunk.toString("utf8");
+
+            for (let i = 0; i < chunk.length; i++) {
+                const ch = chunk[i]!;
+
+                if (!started) {
+                    if (ch === "[") {
+                        started = true;
+                    } else if (ch.trim() !== "") {
+                        fail(
+                            new Error(
+                                `Expected a JSON array in ${pathToFile}, found "${ch}".`,
+                            ),
+                        );
+                        return;
+                    }
+                    continue;
+                }
+
+                if (inString) {
+                    buffer += ch;
+                    if (escaped) {
+                        escaped = false;
+                    } else if (ch === "\\") {
+                        escaped = true;
+                    } else if (ch === '"') {
+                        inString = false;
+                    }
+                    continue;
+                }
+
+                if (ch === '"') {
+                    inString = true;
+                    buffer += ch;
+                    continue;
+                }
+
+                if (ch === "{" || ch === "[") {
+                    depth++;
+                    buffer += ch;
+                    continue;
+                }
+
+                if (ch === "}") {
+                    depth--;
+                    buffer += ch;
+                    continue;
+                }
+
+                if (ch === "]") {
+                    if (depth === 0) {
+                        // closing the top-level array
+                        try {
+                            flushElement();
+                        } catch (error) {
+                            fail(error as Error);
+                            return;
+                        }
+                        done = true;
+                        break;
+                    }
+                    depth--;
+                    buffer += ch;
+                    continue;
+                }
+
+                if (ch === "," && depth === 0) {
+                    try {
+                        flushElement();
+                    } catch (error) {
+                        fail(error as Error);
+                        return;
+                    }
+                    continue;
+                }
+
+                buffer += ch;
+            }
+        });
+
+        stream.on("error", fail);
+        stream.on("end", () => {
+            if (settled) return;
+            if (!started) {
+                fail(new Error(`Empty or non-JSON file: ${pathToFile}`));
+                return;
+            }
+            settled = true;
+            resolve(items);
+        });
+    });
+};
+
 export const createJSAllComponentsFile = async (
     content: string,
     pathWithFilename: string,

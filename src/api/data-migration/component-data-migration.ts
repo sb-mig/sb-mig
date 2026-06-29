@@ -18,6 +18,7 @@ import {
     getFilesContentWithRequire,
     listFilesInDir,
     readFile,
+    readJsonArrayStreamed,
 } from "../../utils/files.js";
 import Logger from "../../utils/logger.js";
 import { modifyOrCreateAppliedMigrationsFile } from "../../utils/migrations.js";
@@ -2369,6 +2370,20 @@ const readMigrationJson = async (
     }
 };
 
+/**
+ * Read a migration artifact that is a JSON array (e.g. the changed-items or
+ * after-full snapshots). These can exceed V8's ~512 MB max string length on
+ * large spaces, so they are streamed element by element instead of read into a
+ * single string (which would throw ERR_STRING_TOO_LONG).
+ */
+const readMigrationJsonArray = (
+    config: RequestBaseConfig,
+    filename: string,
+): Promise<any[]> =>
+    readJsonArrayStreamed(
+        `${config.sbmigWorkingDirectory}/migrations/${filename}`,
+    );
+
 export interface ContinuePlanSummary {
     manifestFileName: string;
     from: string;
@@ -2447,10 +2462,10 @@ export const prepareContinueMigration = async (
         );
     }
 
-    const changedItems = (await readMigrationJson(
+    const changedItems = await readMigrationJsonArray(
         config,
         artifacts.changedItems,
-    )) as any[];
+    );
 
     const pipelineSummary = artifacts.pipelineSummary
         ? await readMigrationJson(config, artifacts.pipelineSummary)
@@ -2487,10 +2502,7 @@ export const prepareContinueMigration = async (
         };
 
         const publishedFinalItems = artifacts.publishedAfterFull
-            ? ((await readMigrationJson(
-                  config,
-                  artifacts.publishedAfterFull,
-              )) as any[])
+            ? await readMigrationJsonArray(config, artifacts.publishedAfterFull)
             : [];
         const publishedChangedIdSet = new Set(
             (dirty.publishedChangedIds ?? []).map(String),
@@ -2507,7 +2519,7 @@ export const prepareContinueMigration = async (
     }
 
     const draftFinalItems = artifacts.draftAfterFull
-        ? ((await readMigrationJson(config, artifacts.draftAfterFull)) as any[])
+        ? await readMigrationJsonArray(config, artifacts.draftAfterFull)
         : changedItems;
 
     const pipelineResult: MigrationPipelineResult = {
