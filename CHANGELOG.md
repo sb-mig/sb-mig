@@ -1,3 +1,15 @@
+# [6.4.0](https://github.com/sb-mig/sb-mig/compare/v6.3.0...v6.4.0) (2026-06-29)
+
+
+### Bug Fixes
+
+* **migrate:** pick newest continue artifact chronologically, not lexicographically ([aa3182d](https://github.com/sb-mig/sb-mig/commit/aa3182d850c2af06e0029e68b8ea1dc369f42719))
+
+
+### Features
+
+* **migrate:** add 'migrate continue' to finish a dry-run without re-pulling ([75d11a3](https://github.com/sb-mig/sb-mig/commit/75d11a37100bc9fa0723b9b86314515f2c8779f3))
+
 # [6.4.0-beta.1](https://github.com/sb-mig/sb-mig/compare/v6.3.0...v6.4.0-beta.1) (2026-06-29)
 
 
