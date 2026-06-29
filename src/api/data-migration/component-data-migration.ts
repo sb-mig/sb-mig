@@ -16,6 +16,8 @@ import {
     createAndSaveToFile,
     getFileContentWithRequire,
     getFilesContentWithRequire,
+    listFilesInDir,
+    readFile,
 } from "../../utils/files.js";
 import Logger from "../../utils/logger.js";
 import { modifyOrCreateAppliedMigrationsFile } from "../../utils/migrations.js";
@@ -1525,6 +1527,421 @@ export const migrateAllComponentsDataInStories = async (
     );
 };
 
+export interface ContinueManifest {
+    manifestVersion: 1;
+    createdAt?: string;
+    kind: "migrate-content-continue-manifest";
+    itemType: "story" | "preset";
+    from: string;
+    to: string;
+    migrateFrom: MigrateFrom;
+    fromFilePath?: string | null;
+    publicationMode: PublicationMode;
+    migrationConfigNames: string[];
+    publishLanguages?: { requested?: PublishLanguagesOption } | null;
+    resolvedPublishLanguages?: string[] | null;
+    artifactBaseName: string;
+    useDatestamp: boolean;
+    artifacts: {
+        changedItems: string;
+        pipelineSummary: string;
+        inputFull?: string | null;
+        languageStateMap?: string | null;
+        draftAfterFull?: string | null;
+        publishedAfterFull?: string | null;
+        dirtyPublishedRecords?: string | null;
+    };
+}
+
+interface FinalizeMigrationArgs {
+    itemType: "story" | "preset";
+    from: string;
+    to: string;
+    migrateFrom: MigrateFrom;
+    fromFilePath?: string;
+    languagePublishStatePath?: string;
+    publicationMode: PublicationMode;
+    effectivePublicationLanguages?: PublishLanguagesOption;
+    resolvedPublishLanguages?: string[];
+    languagePublishStateMap?: LanguagePublishStateMap;
+    appliedMigrationNames: string[];
+    pipelineResult: MigrationPipelineResult;
+    publishedLayerContext?: PublishedLayerContext;
+    publishedLayerPipelineResult: MigrationPipelineResult | null;
+    artifactBaseName: string;
+    useDatestamp: boolean;
+    continuedFromManifest?: string;
+}
+
+/**
+ * Everything `doTheMigration` does AFTER the dry-run preview returns:
+ * mark migrations as applied, write the changes to Storyblok, and write the
+ * run log. Extracted so `migrate continue` can run the exact same path against
+ * inputs reconstructed from dry-run artifacts (instead of re-pulling + re-transforming).
+ */
+export const finalizeMigration = async (
+    {
+        itemType,
+        from,
+        to,
+        migrateFrom,
+        fromFilePath,
+        languagePublishStatePath,
+        publicationMode,
+        effectivePublicationLanguages,
+        resolvedPublishLanguages,
+        languagePublishStateMap,
+        appliedMigrationNames,
+        pipelineResult,
+        publishedLayerContext,
+        publishedLayerPipelineResult,
+        artifactBaseName,
+        useDatestamp,
+        continuedFromManifest,
+    }: FinalizeMigrationArgs,
+    config: RequestBaseConfig,
+) => {
+    for (const migrationConfigName of appliedMigrationNames) {
+        await modifyOrCreateAppliedMigrationsFile(
+            migrationConfigName,
+            itemType,
+        );
+    }
+
+    const publishedLayerChangedCount =
+        publishedLayerPipelineResult?.changedItems.length ?? 0;
+
+    if (
+        pipelineResult.changedItems.length === 0 &&
+        publishedLayerChangedCount === 0
+    ) {
+        return;
+    }
+
+    let writeResults: PromiseSettledResult<any>[] = [];
+
+    if (itemType === "story") {
+        if (
+            shouldUsePublishedLayerMode(publicationMode) &&
+            publishedLayerContext
+        ) {
+            const dirtyStoryIds = new Set(
+                publishedLayerContext.dirtyPublishedRecords.map((record) =>
+                    String(record.storyId),
+                ),
+            );
+            const nonDirtyChangedItems = pipelineResult.changedItems.filter(
+                (item) => !dirtyStoryIds.has(storyIdOf(item)),
+            );
+            const nonDirtyWriteResults =
+                nonDirtyChangedItems.length > 0
+                    ? await managementApi.stories.updateStories(
+                          {
+                              stories: nonDirtyChangedItems,
+                              spaceId: to,
+                              options: {
+                                  publish:
+                                      shouldPublishForPublicationMode(
+                                          publicationMode,
+                                      ),
+                                  publishLanguages: resolvedPublishLanguages,
+                                  preservePublishState:
+                                      shouldPublishForPublicationMode(
+                                          publicationMode,
+                                      ),
+                                  languagePublishStateMap,
+                              },
+                          },
+                          config,
+                      )
+                    : [];
+            const dirtyWriteResults = publishedLayerPipelineResult
+                ? await writeDirtyPublishedLayerStories(
+                      {
+                          context: publishedLayerContext,
+                          draftPipelineResult: pipelineResult,
+                          publishedPipelineResult: publishedLayerPipelineResult,
+                          to,
+                          resolvedPublishLanguages,
+                          languagePublishStateMap,
+                      },
+                      config,
+                  )
+                : [];
+
+            writeResults = [...nonDirtyWriteResults, ...dirtyWriteResults];
+        } else {
+            writeResults = await managementApi.stories.updateStories(
+                {
+                    stories: pipelineResult.changedItems,
+                    spaceId: to,
+                    options: {
+                        publish:
+                            shouldPublishForPublicationMode(publicationMode),
+                        publishLanguages: resolvedPublishLanguages,
+                        preservePublishState:
+                            shouldPublishForPublicationMode(publicationMode),
+                        publishDirtyPublishedStories:
+                            shouldPublishDirtyDrafts(publicationMode),
+                        languagePublishStateMap,
+                    },
+                },
+                config,
+            );
+        }
+    } else if (itemType === "preset") {
+        writeResults = await managementApi.presets.updatePresets(
+            {
+                presets: pipelineResult.changedItems,
+                spaceId: to,
+                options: {},
+            },
+            config,
+        );
+    }
+
+    const writeSummary = summarizeMutationWriteResults(writeResults);
+
+    try {
+        await saveMigrationRunLog(
+            {
+                artifactBaseName,
+                useDatestamp,
+                from,
+                to,
+                itemType,
+                dryRun: false,
+                publish: shouldPublishForPublicationMode(publicationMode),
+                publishLanguages: effectivePublicationLanguages,
+                resolvedPublishLanguages,
+                migrateFrom,
+                fromFilePath,
+                languagePublishStatePath,
+                pipelineResult,
+                writeResults,
+                writeSummary,
+                continuedFromManifest,
+            },
+            config,
+        );
+    } catch (error) {
+        Logger.warning(
+            `[MIGRATION] Could not write migration run log: ${
+                error instanceof Error ? error.message : String(error)
+            }`,
+        );
+    }
+
+    if (writeSummary.failed === 0) {
+        Logger.success(
+            `[MIGRATION] Update complete. ${writeSummary.successful}/${writeSummary.total} ${itemType}(s) updated successfully.`,
+        );
+        return;
+    }
+
+    Logger.warning(
+        `[MIGRATION] Update complete with partial failures. ${writeSummary.successful}/${writeSummary.total} ${itemType}(s) updated successfully, ${writeSummary.failed} failed.`,
+    );
+
+    writeSummary.failedItems.slice(0, 10).forEach((item) => {
+        const label = item.slug || item.name || item.id || "unknown";
+        Logger.error(`[MIGRATION] Failed ${itemType}: ${String(label)}`);
+    });
+
+    if (writeSummary.failedItems.length > 10) {
+        Logger.warning(
+            `[MIGRATION] Showing first 10 failed ${itemType}(s) only.`,
+        );
+    }
+};
+
+/**
+ * Sortable key for an artifact's datestamp suffix.
+ *
+ * Datestamps use the non-zero-padded `YYYY-M-D_H-M` format from
+ * generateDatestamp, so a plain string sort is NOT chronological
+ * (e.g. "2026-1-15_9-30" sorts before "2026-1-9_9-30"). Parse the parts and
+ * compare numerically instead. Returns -1 for the non-datestamped variant
+ * (`${stem}.json`), which only exists when --fileName is used (single match,
+ * never mixed with datestamped files for the same stem).
+ */
+const artifactDatestampKey = (filename: string, stem: string): number => {
+    const prefix = `${stem}__`;
+    if (!filename.startsWith(prefix) || !filename.endsWith(".json")) {
+        return -1;
+    }
+
+    const stamp = filename.slice(prefix.length, -".json".length);
+    const match = /^(\d+)-(\d+)-(\d+)_(\d+)-(\d+)$/.exec(stamp);
+    if (!match) {
+        return -1;
+    }
+
+    const [, year, month, day, hour, minute] = match;
+    // month/day/hour/minute each fit in two decimal digits, so this packs the
+    // parts into one monotonically increasing key.
+    return (
+        Number(year) * 100_000_000 +
+        Number(month) * 1_000_000 +
+        Number(day) * 10_000 +
+        Number(hour) * 100 +
+        Number(minute)
+    );
+};
+
+export const findArtifactFilename = (
+    files: string[],
+    stem: string,
+): string | null => {
+    const matches = files.filter(
+        (file) => file === `${stem}.json` || file.startsWith(`${stem}__`),
+    );
+
+    if (matches.length === 0) {
+        return null;
+    }
+
+    // Pick the chronologically newest match. Do not lexicographically sort:
+    // the datestamp format is not zero-padded, so string order is not time order.
+    return matches.reduce((newest, candidate) =>
+        artifactDatestampKey(candidate, stem) >=
+        artifactDatestampKey(newest, stem)
+            ? candidate
+            : newest,
+    );
+};
+
+interface SaveContinueManifestArgs {
+    artifactBaseName: string;
+    useDatestamp: boolean;
+    dryRun?: boolean;
+    itemType: "story" | "preset";
+    from: string;
+    to: string;
+    migrateFrom: MigrateFrom;
+    fromFilePath?: string;
+    publicationMode: PublicationMode;
+    effectivePublicationLanguages?: PublishLanguagesOption;
+    resolvedPublishLanguages?: string[];
+    appliedMigrationNames: string[];
+    pipelineResult: MigrationPipelineResult;
+    publishedLayerContext?: PublishedLayerContext;
+    publishedLayerPipelineResult: MigrationPipelineResult | null;
+}
+
+/**
+ * Written at the end of a dry-run only. A small machine file that lets
+ * `migrate continue` finish the migration without re-pulling/re-transforming:
+ * carries the scalars that aren't otherwise saved (target space, exact migration
+ * names, run-log metadata) and references the heavy dry-run artifacts by filename.
+ */
+const saveContinueManifest = async (
+    {
+        artifactBaseName,
+        useDatestamp,
+        dryRun,
+        itemType,
+        from,
+        to,
+        migrateFrom,
+        fromFilePath,
+        publicationMode,
+        effectivePublicationLanguages,
+        resolvedPublishLanguages,
+        appliedMigrationNames,
+        publishedLayerContext,
+        publishedLayerPipelineResult,
+    }: SaveContinueManifestArgs,
+    config: RequestBaseConfig,
+) => {
+    if (!dryRun) {
+        return;
+    }
+
+    const isPreserveLayers =
+        shouldUsePublishedLayerMode(publicationMode) &&
+        Boolean(publishedLayerContext);
+
+    if (isPreserveLayers && publishedLayerContext) {
+        const publishedChangedIds = (
+            publishedLayerPipelineResult?.changedItems ?? []
+        ).map((item) => storyIdOf(item));
+
+        await createAndSaveToFile(
+            {
+                datestamp: useDatestamp,
+                ext: "json",
+                filename: `dry-run--${artifactBaseName}---dirty-published-records`,
+                folder: "migrations",
+                res: {
+                    dirtyPublishedRecords:
+                        publishedLayerContext.dirtyPublishedRecords,
+                    publishedChangedIds,
+                },
+            },
+            config,
+        );
+    }
+
+    // Resolve the real sibling filenames from disk. The datestamp suffix has
+    // minute granularity, so sibling artifacts can in rare cases differ; reading
+    // the folder avoids guessing the exact name.
+    const files = await listFilesInDir(
+        `${config.sbmigWorkingDirectory}/migrations`,
+    );
+    const resolve = (stem: string) =>
+        findArtifactFilename(files, `dry-run--${artifactBaseName}---${stem}`);
+
+    const artifacts: ContinueManifest["artifacts"] = {
+        changedItems: resolve(`${itemType}-to-migrate`) ?? "",
+        pipelineSummary:
+            resolve(`${itemType}-migration-pipeline-summary`) ?? "",
+        inputFull: resolve(`${itemType}-input-full`),
+        languageStateMap: resolve("language-publish-state-map"),
+        draftAfterFull: isPreserveLayers
+            ? resolve("draft-current-after-full")
+            : null,
+        publishedAfterFull: isPreserveLayers
+            ? resolve("published-layer-after-full")
+            : null,
+        dirtyPublishedRecords: isPreserveLayers
+            ? resolve("dirty-published-records")
+            : null,
+    };
+
+    const manifest: ContinueManifest = {
+        manifestVersion: 1,
+        createdAt: new Date().toISOString(),
+        kind: "migrate-content-continue-manifest",
+        itemType,
+        from,
+        to,
+        migrateFrom,
+        fromFilePath: fromFilePath ?? null,
+        publicationMode,
+        migrationConfigNames: appliedMigrationNames,
+        publishLanguages:
+            publicationMode === "save-only"
+                ? null
+                : { requested: effectivePublicationLanguages },
+        resolvedPublishLanguages: resolvedPublishLanguages ?? null,
+        artifactBaseName,
+        useDatestamp,
+        artifacts,
+    };
+
+    await createAndSaveToFile(
+        {
+            datestamp: useDatestamp,
+            ext: "json",
+            filename: `dry-run--${artifactBaseName}---${itemType}-continue-manifest`,
+            folder: "migrations",
+            res: manifest,
+        },
+        config,
+    );
+};
+
 export const doTheMigration = async (
     {
         itemType = "story",
@@ -1755,6 +2172,30 @@ export const doTheMigration = async (
         config,
     );
 
+    await saveContinueManifest(
+        {
+            artifactBaseName,
+            useDatestamp,
+            dryRun,
+            itemType,
+            from,
+            to,
+            migrateFrom,
+            fromFilePath,
+            publicationMode,
+            effectivePublicationLanguages,
+            resolvedPublishLanguages,
+            appliedMigrationNames: preparedMigrationConfigs.map(
+                (preparedMigrationConfig) =>
+                    preparedMigrationConfig.migrationConfigName,
+            ),
+            pipelineResult,
+            publishedLayerContext,
+            publishedLayerPipelineResult,
+        },
+        config,
+    );
+
     if (dryRun) {
         console.log(" ");
         if (publishedLayerPipelineResult) {
@@ -1771,157 +2212,30 @@ export const doTheMigration = async (
         return;
     }
 
-    for (const preparedMigrationConfig of preparedMigrationConfigs) {
-        await modifyOrCreateAppliedMigrationsFile(
-            preparedMigrationConfig.migrationConfigName,
+    await finalizeMigration(
+        {
             itemType,
-        );
-    }
-
-    const publishedLayerChangedCount =
-        publishedLayerPipelineResult?.changedItems.length ?? 0;
-
-    if (
-        pipelineResult.changedItems.length === 0 &&
-        publishedLayerChangedCount === 0
-    ) {
-        return;
-    }
-
-    let writeResults: PromiseSettledResult<any>[] = [];
-
-    if (itemType === "story") {
-        if (
-            shouldUsePublishedLayerMode(publicationMode) &&
-            publishedLayerContext
-        ) {
-            const dirtyStoryIds = new Set(
-                publishedLayerContext.dirtyPublishedRecords.map((record) =>
-                    String(record.storyId),
-                ),
-            );
-            const nonDirtyChangedItems = pipelineResult.changedItems.filter(
-                (item) => !dirtyStoryIds.has(storyIdOf(item)),
-            );
-            const nonDirtyWriteResults =
-                nonDirtyChangedItems.length > 0
-                    ? await managementApi.stories.updateStories(
-                          {
-                              stories: nonDirtyChangedItems,
-                              spaceId: to,
-                              options: {
-                                  publish:
-                                      shouldPublishForPublicationMode(
-                                          publicationMode,
-                                      ),
-                                  publishLanguages: resolvedPublishLanguages,
-                                  preservePublishState:
-                                      shouldPublishForPublicationMode(
-                                          publicationMode,
-                                      ),
-                                  languagePublishStateMap,
-                              },
-                          },
-                          config,
-                      )
-                    : [];
-            const dirtyWriteResults = publishedLayerPipelineResult
-                ? await writeDirtyPublishedLayerStories(
-                      {
-                          context: publishedLayerContext,
-                          draftPipelineResult: pipelineResult,
-                          publishedPipelineResult: publishedLayerPipelineResult,
-                          to,
-                          resolvedPublishLanguages,
-                          languagePublishStateMap,
-                      },
-                      config,
-                  )
-                : [];
-
-            writeResults = [...nonDirtyWriteResults, ...dirtyWriteResults];
-        } else {
-            writeResults = await managementApi.stories.updateStories(
-                {
-                    stories: pipelineResult.changedItems,
-                    spaceId: to,
-                    options: {
-                        publish:
-                            shouldPublishForPublicationMode(publicationMode),
-                        publishLanguages: resolvedPublishLanguages,
-                        preservePublishState:
-                            shouldPublishForPublicationMode(publicationMode),
-                        publishDirtyPublishedStories:
-                            shouldPublishDirtyDrafts(publicationMode),
-                        languagePublishStateMap,
-                    },
-                },
-                config,
-            );
-        }
-    } else if (itemType === "preset") {
-        writeResults = await managementApi.presets.updatePresets(
-            {
-                presets: pipelineResult.changedItems,
-                spaceId: to,
-                options: {},
-            },
-            config,
-        );
-    }
-
-    const writeSummary = summarizeMutationWriteResults(writeResults);
-
-    try {
-        await saveMigrationRunLog(
-            {
-                artifactBaseName,
-                useDatestamp,
-                from,
-                to,
-                itemType,
-                dryRun,
-                publish: shouldPublishForPublicationMode(publicationMode),
-                publishLanguages: effectivePublicationLanguages,
-                resolvedPublishLanguages,
-                migrateFrom,
-                fromFilePath,
-                languagePublishStatePath,
-                pipelineResult,
-                writeResults,
-                writeSummary,
-            },
-            config,
-        );
-    } catch (error) {
-        Logger.warning(
-            `[MIGRATION] Could not write migration run log: ${
-                error instanceof Error ? error.message : String(error)
-            }`,
-        );
-    }
-
-    if (writeSummary.failed === 0) {
-        Logger.success(
-            `[MIGRATION] Update complete. ${writeSummary.successful}/${writeSummary.total} ${itemType}(s) updated successfully.`,
-        );
-        return;
-    }
-
-    Logger.warning(
-        `[MIGRATION] Update complete with partial failures. ${writeSummary.successful}/${writeSummary.total} ${itemType}(s) updated successfully, ${writeSummary.failed} failed.`,
+            from,
+            to,
+            migrateFrom,
+            fromFilePath,
+            languagePublishStatePath,
+            publicationMode,
+            effectivePublicationLanguages,
+            resolvedPublishLanguages,
+            languagePublishStateMap,
+            appliedMigrationNames: preparedMigrationConfigs.map(
+                (preparedMigrationConfig) =>
+                    preparedMigrationConfig.migrationConfigName,
+            ),
+            pipelineResult,
+            publishedLayerContext,
+            publishedLayerPipelineResult,
+            artifactBaseName,
+            useDatestamp,
+        },
+        config,
     );
-
-    writeSummary.failedItems.slice(0, 10).forEach((item) => {
-        const label = item.slug || item.name || item.id || "unknown";
-        Logger.error(`[MIGRATION] Failed ${itemType}: ${String(label)}`);
-    });
-
-    if (writeSummary.failedItems.length > 10) {
-        Logger.warning(
-            `[MIGRATION] Showing first 10 failed ${itemType}(s) only.`,
-        );
-    }
 };
 
 type SaveBackupStoriesToFile = (
@@ -2027,4 +2341,238 @@ export const migrateProvidedComponentsDataInStories = async (
         },
         config,
     );
+};
+
+const CONTINUE_MANIFEST_RE =
+    /---(?:story|preset)-continue-manifest(?:__.*)?\.json$/;
+
+const readMigrationJson = async (
+    config: RequestBaseConfig,
+    filename: string,
+): Promise<any> => {
+    const content = await readFile(
+        `${config.sbmigWorkingDirectory}/migrations/${filename}`,
+    );
+
+    if (content === undefined) {
+        throw new Error(
+            `Could not read migration artifact: migrations/${filename}`,
+        );
+    }
+
+    try {
+        return JSON.parse(content);
+    } catch {
+        throw new Error(
+            `Migration artifact is not valid JSON: migrations/${filename}`,
+        );
+    }
+};
+
+export interface ContinuePlanSummary {
+    manifestFileName: string;
+    from: string;
+    to: string;
+    itemType: "story" | "preset";
+    publicationMode: PublicationMode;
+    migrationConfigNames: string[];
+    resolvedPublishLanguages: string[];
+    changedCount: number;
+    dirtyPublishedCount: number;
+    artifactFiles: string[];
+}
+
+export interface ContinuePlan {
+    summary: ContinuePlanSummary;
+    run: () => Promise<void>;
+}
+
+/**
+ * Discover the dry-run `continue` manifest in the migrations folder, load the
+ * artifacts it points at, and reconstruct the exact inputs `finalizeMigration`
+ * needs. Returns a summary (for the confirmation prompt) and a `run()` thunk that
+ * performs the write. Does NOT pull stories, transform, or fetch published layers.
+ */
+export const prepareContinueMigration = async (
+    { manifestFileName }: { manifestFileName?: string },
+    config: RequestBaseConfig,
+): Promise<ContinuePlan> => {
+    const files = await listFilesInDir(
+        `${config.sbmigWorkingDirectory}/migrations`,
+    );
+    const manifestFiles = files.filter((file) =>
+        CONTINUE_MANIFEST_RE.test(file),
+    );
+
+    let chosen: string;
+    if (manifestFileName) {
+        if (!files.includes(manifestFileName)) {
+            throw new Error(
+                `Manifest not found in migrations folder: ${manifestFileName}`,
+            );
+        }
+        chosen = manifestFileName;
+    } else if (manifestFiles.length === 1) {
+        chosen = manifestFiles[0]!;
+    } else if (manifestFiles.length === 0) {
+        throw new Error(
+            "No dry-run found to continue. Run `sb-mig migrate content … --dryRun` first.",
+        );
+    } else {
+        throw new Error(
+            `Multiple dry-run manifests found. Re-run with --manifest <filename>:\n${manifestFiles
+                .map((file) => `  - ${file}`)
+                .join("\n")}`,
+        );
+    }
+
+    const manifest = (await readMigrationJson(
+        config,
+        chosen,
+    )) as ContinueManifest;
+
+    if (manifest.kind !== "migrate-content-continue-manifest") {
+        throw new Error(`Not a continue manifest: ${chosen}`);
+    }
+    if (manifest.manifestVersion !== 1) {
+        throw new Error(
+            `Unsupported continue manifest version (${manifest.manifestVersion}) in ${chosen}.`,
+        );
+    }
+
+    const { artifacts } = manifest;
+    if (!artifacts?.changedItems) {
+        throw new Error(
+            `Manifest ${chosen} is missing the changed-items artifact reference.`,
+        );
+    }
+
+    const changedItems = (await readMigrationJson(
+        config,
+        artifacts.changedItems,
+    )) as any[];
+
+    const pipelineSummary = artifacts.pipelineSummary
+        ? await readMigrationJson(config, artifacts.pipelineSummary)
+        : null;
+
+    const languagePublishStateMap = artifacts.languageStateMap
+        ? ((await readMigrationJson(
+              config,
+              artifacts.languageStateMap,
+          )) as LanguagePublishStateMap)
+        : undefined;
+
+    const isPreserveLayers =
+        shouldUsePublishedLayerMode(manifest.publicationMode) &&
+        Boolean(artifacts.dirtyPublishedRecords);
+
+    let publishedLayerContext: PublishedLayerContext | undefined;
+    let publishedLayerPipelineResult: MigrationPipelineResult | null = null;
+
+    if (isPreserveLayers && artifacts.dirtyPublishedRecords) {
+        const dirty = (await readMigrationJson(
+            config,
+            artifacts.dirtyPublishedRecords,
+        )) as {
+            dirtyPublishedRecords: PublishedLayerRecord[];
+            publishedChangedIds: string[];
+        };
+
+        publishedLayerContext = {
+            records: [],
+            publishedLayerInputItems: [],
+            dirtyPublishedRecords: dirty.dirtyPublishedRecords ?? [],
+            missingPublishedLayerRecords: [],
+        };
+
+        const publishedFinalItems = artifacts.publishedAfterFull
+            ? ((await readMigrationJson(
+                  config,
+                  artifacts.publishedAfterFull,
+              )) as any[])
+            : [];
+        const publishedChangedIdSet = new Set(
+            (dirty.publishedChangedIds ?? []).map(String),
+        );
+
+        publishedLayerPipelineResult = {
+            changedItems: publishedFinalItems.filter((item) =>
+                publishedChangedIdSet.has(storyIdOf(item)),
+            ),
+            finalItems: publishedFinalItems,
+            stepReports: [],
+            totalItems: publishedFinalItems.length,
+        };
+    }
+
+    const draftFinalItems = artifacts.draftAfterFull
+        ? ((await readMigrationJson(config, artifacts.draftAfterFull)) as any[])
+        : changedItems;
+
+    const pipelineResult: MigrationPipelineResult = {
+        changedItems,
+        finalItems: draftFinalItems,
+        stepReports: Array.isArray(pipelineSummary?.steps)
+            ? pipelineSummary.steps
+            : [],
+        totalItems:
+            typeof pipelineSummary?.totalItems === "number"
+                ? pipelineSummary.totalItems
+                : changedItems.length,
+    };
+
+    const resolvedPublishLanguages =
+        manifest.resolvedPublishLanguages ?? undefined;
+    const effectivePublicationLanguages = manifest.publishLanguages?.requested;
+
+    const artifactFiles = [
+        artifacts.changedItems,
+        artifacts.pipelineSummary,
+        artifacts.draftAfterFull,
+        artifacts.publishedAfterFull,
+        artifacts.dirtyPublishedRecords,
+        artifacts.languageStateMap,
+        artifacts.inputFull,
+    ].filter((file): file is string => Boolean(file));
+
+    const summary: ContinuePlanSummary = {
+        manifestFileName: chosen,
+        from: manifest.from,
+        to: manifest.to,
+        itemType: manifest.itemType,
+        publicationMode: manifest.publicationMode,
+        migrationConfigNames: manifest.migrationConfigNames ?? [],
+        resolvedPublishLanguages: resolvedPublishLanguages ?? [],
+        changedCount: changedItems.length,
+        dirtyPublishedCount:
+            publishedLayerContext?.dirtyPublishedRecords.length ?? 0,
+        artifactFiles,
+    };
+
+    const run = async () => {
+        await finalizeMigration(
+            {
+                itemType: manifest.itemType,
+                from: manifest.from,
+                to: manifest.to,
+                migrateFrom: manifest.migrateFrom,
+                fromFilePath: manifest.fromFilePath ?? undefined,
+                publicationMode: manifest.publicationMode,
+                effectivePublicationLanguages,
+                resolvedPublishLanguages,
+                languagePublishStateMap,
+                appliedMigrationNames: manifest.migrationConfigNames ?? [],
+                pipelineResult,
+                publishedLayerContext,
+                publishedLayerPipelineResult,
+                artifactBaseName: manifest.artifactBaseName,
+                useDatestamp: manifest.useDatestamp,
+                continuedFromManifest: chosen,
+            },
+            config,
+        );
+    };
+
+    return { summary, run };
 };

@@ -104,6 +104,9 @@ app.migrate = () => ({
             fileName: {
                 type: "string",
             },
+            manifest: {
+                type: "string",
+            },
         },
     }),
     action: async (cli: any) => {

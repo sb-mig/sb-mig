@@ -41,6 +41,7 @@ export interface MigrationRunLogRecord {
         resolved?: string[];
     };
     dryRun: boolean;
+    continuedFromManifest?: string;
     migrationConfigs: string[];
     totalItems: number;
     totalChangedItems: number;
@@ -95,6 +96,7 @@ interface SaveMigrationRunLogArgs {
     pipelineResult: MigrationPipelineResult;
     writeResults: PromiseSettledResult<MutationWriteResult>[];
     writeSummary: MutationWriteSummary;
+    continuedFromManifest?: string;
 }
 
 const serializeError = (error: unknown): unknown => {
@@ -150,6 +152,7 @@ export const buildMigrationRunLogRecords = ({
     pipelineResult,
     writeResults,
     writeSummary,
+    continuedFromManifest,
 }: Omit<SaveMigrationRunLogArgs, "artifactBaseName" | "useDatestamp">) => {
     const timestamp = new Date().toISOString();
     const runId = `${itemType}-${timestamp}`;
@@ -176,6 +179,7 @@ export const buildMigrationRunLogRecords = ({
               }
             : {}),
         dryRun: Boolean(dryRun),
+        ...(continuedFromManifest ? { continuedFromManifest } : {}),
         migrationConfigs: pipelineResult.stepReports.map(
             (step) => step.migrationConfig,
         ),
