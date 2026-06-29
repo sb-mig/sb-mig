@@ -64,6 +64,7 @@ vi.mock("../../src/api/managementApi.js", () => ({
 
 import {
     doTheMigration,
+    findArtifactFilename,
     prepareContinueMigration,
     type PreparedMigrationConfig,
 } from "../../src/api/data-migration/component-data-migration.js";
@@ -396,6 +397,39 @@ describe("migrate continue (preserve-layers reconstruction)", () => {
             { publish: false },
             { ...config, spaceId: "space-1" },
         );
+    });
+});
+
+describe("findArtifactFilename (chronological, not lexicographic)", () => {
+    const stem = "dry-run--12345---story-to-migrate";
+
+    it("returns the single non-datestamped match", () => {
+        expect(
+            findArtifactFilename([`${stem}.json`, "unrelated.json"], stem),
+        ).toBe(`${stem}.json`);
+    });
+
+    it("returns null when nothing matches", () => {
+        expect(findArtifactFilename(["other.json"], stem)).toBeNull();
+    });
+
+    it("picks the newest by date, not by lexicographic order (unpadded datestamps)", () => {
+        // "15" sorts before "9" lexicographically, but Jan 15 is newer than Jan 9.
+        const older = `${stem}__2026-1-9_9-30.json`;
+        const newer = `${stem}__2026-1-15_9-30.json`;
+        expect(findArtifactFilename([older, newer], stem)).toBe(newer);
+        expect(findArtifactFilename([newer, older], stem)).toBe(newer);
+    });
+
+    it("orders correctly across month boundaries (9 vs 10)", () => {
+        const older = `${stem}__2026-9-1_0-0.json`;
+        const newer = `${stem}__2026-10-1_0-0.json`;
+        expect(findArtifactFilename([newer, older], stem)).toBe(newer);
+    });
+
+    it("does not match a different stem that shares a prefix", () => {
+        const input = `dry-run--12345---story-input-full__2026-1-9_9-30.json`;
+        expect(findArtifactFilename([input], stem)).toBeNull();
     });
 });
 

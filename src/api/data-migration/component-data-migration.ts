@@ -1755,14 +1755,60 @@ export const finalizeMigration = async (
     }
 };
 
-const findArtifactFilename = (files: string[], stem: string): string | null => {
-    const matches = files
-        .filter(
-            (file) => file === `${stem}.json` || file.startsWith(`${stem}__`),
-        )
-        .sort();
+/**
+ * Sortable key for an artifact's datestamp suffix.
+ *
+ * Datestamps use the non-zero-padded `YYYY-M-D_H-M` format from
+ * generateDatestamp, so a plain string sort is NOT chronological
+ * (e.g. "2026-1-15_9-30" sorts before "2026-1-9_9-30"). Parse the parts and
+ * compare numerically instead. Returns -1 for the non-datestamped variant
+ * (`${stem}.json`), which only exists when --fileName is used (single match,
+ * never mixed with datestamped files for the same stem).
+ */
+const artifactDatestampKey = (filename: string, stem: string): number => {
+    const prefix = `${stem}__`;
+    if (!filename.startsWith(prefix) || !filename.endsWith(".json")) {
+        return -1;
+    }
 
-    return matches.length > 0 ? matches[matches.length - 1]! : null;
+    const stamp = filename.slice(prefix.length, -".json".length);
+    const match = /^(\d+)-(\d+)-(\d+)_(\d+)-(\d+)$/.exec(stamp);
+    if (!match) {
+        return -1;
+    }
+
+    const [, year, month, day, hour, minute] = match;
+    // month/day/hour/minute each fit in two decimal digits, so this packs the
+    // parts into one monotonically increasing key.
+    return (
+        Number(year) * 100_000_000 +
+        Number(month) * 1_000_000 +
+        Number(day) * 10_000 +
+        Number(hour) * 100 +
+        Number(minute)
+    );
+};
+
+export const findArtifactFilename = (
+    files: string[],
+    stem: string,
+): string | null => {
+    const matches = files.filter(
+        (file) => file === `${stem}.json` || file.startsWith(`${stem}__`),
+    );
+
+    if (matches.length === 0) {
+        return null;
+    }
+
+    // Pick the chronologically newest match. Do not lexicographically sort:
+    // the datestamp format is not zero-padded, so string order is not time order.
+    return matches.reduce((newest, candidate) =>
+        artifactDatestampKey(candidate, stem) >=
+        artifactDatestampKey(newest, stem)
+            ? candidate
+            : newest,
+    );
 };
 
 interface SaveContinueManifestArgs {
