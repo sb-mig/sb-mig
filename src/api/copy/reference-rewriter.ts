@@ -46,9 +46,20 @@ const cloneJson = <T>(value: T): T => JSON.parse(JSON.stringify(value));
 
 const rewriteNode = (node: unknown, path: string, state: RewriteState) => {
     if (Array.isArray(node)) {
-        node.forEach((item, index) =>
-            rewriteNode(item, `${path}[${index}]`, state),
-        );
+        node.forEach((item, index) => {
+            if (typeof item === "string") {
+                rewriteBareStoryUuid(
+                    node,
+                    index,
+                    item,
+                    `${path}[${index}]`,
+                    state,
+                );
+                return;
+            }
+
+            rewriteNode(item, `${path}[${index}]`, state);
+        });
         return;
     }
 
@@ -60,6 +71,7 @@ const rewriteNode = (node: unknown, path: string, state: RewriteState) => {
     rewriteStoryLinkObject(node, path, state);
     rewriteRichtextLinkObject(node, path, state);
     rewriteSchemaAwareOptions(node, path, state);
+    rewriteBareStoryUuidValues(node, path, state);
 
     if (
         node.type === "blok" &&
@@ -147,6 +159,20 @@ const rewriteStoryLinkObject = (
         }
     }
 
+    if (typeof node.id === "string") {
+        const targetUuid = state.maps.storyUuids.get(node.id);
+        if (targetUuid !== undefined) {
+            addRecord(state, {
+                type: "story",
+                path: `${path}.id`,
+                sourceValue: node.id,
+                targetValue: targetUuid,
+                field: "id",
+            });
+            node.id = targetUuid;
+        }
+    }
+
     if (typeof node.uuid === "string") {
         const targetUuid = state.maps.storyUuids.get(node.uuid);
         if (targetUuid !== undefined) {
@@ -189,41 +215,119 @@ const rewriteSchemaAwareOptions = (
     }
 
     for (const [fieldName, fieldValue] of Object.entries(node)) {
-        if (
-            RESERVED_CONTENT_KEYS.has(fieldName) ||
-            !Array.isArray(fieldValue)
-        ) {
+        if (RESERVED_CONTENT_KEYS.has(fieldName)) {
             continue;
         }
 
         const fieldSchema = getFieldSchema(schema, fieldName);
-        if (
-            fieldSchema?.type !== "options" ||
-            fieldSchema.source !== "internal_stories"
-        ) {
+        if (fieldSchema?.source !== "internal_stories") {
             continue;
         }
 
-        fieldValue.forEach((item, index) => {
-            if (typeof item !== "number") {
-                return;
-            }
-
-            const targetId = state.maps.storyIds.get(item);
-            if (targetId === undefined) {
-                return;
-            }
-
-            addRecord(state, {
-                type: "story",
-                path: `${path}.${fieldName}[${index}]`,
-                sourceValue: item,
-                targetValue: targetId,
-                field: "id",
+        if (fieldSchema.type === "options" && Array.isArray(fieldValue)) {
+            fieldValue.forEach((item, index) => {
+                rewriteStoryOptionItem(
+                    fieldValue,
+                    index,
+                    item,
+                    `${path}.${fieldName}[${index}]`,
+                    state,
+                );
             });
-            fieldValue[index] = targetId;
-        });
+            continue;
+        }
+
+        if (fieldSchema.type === "option") {
+            rewriteStoryOptionItem(
+                node,
+                fieldName,
+                fieldValue,
+                `${path}.${fieldName}`,
+                state,
+            );
+        }
     }
+};
+
+const rewriteStoryOptionItem = (
+    container: Record<string, any> | unknown[],
+    key: string | number,
+    item: unknown,
+    path: string,
+    state: RewriteState,
+) => {
+    if (typeof item === "number") {
+        const targetId = state.maps.storyIds.get(item);
+        if (targetId === undefined) {
+            return;
+        }
+
+        addRecord(state, {
+            type: "story",
+            path,
+            sourceValue: item,
+            targetValue: targetId,
+            field: "id",
+        });
+        (container as any)[key] = targetId;
+        return;
+    }
+
+    if (typeof item === "string") {
+        const targetUuid = state.maps.storyUuids.get(item);
+        if (targetUuid === undefined) {
+            return;
+        }
+
+        addRecord(state, {
+            type: "story",
+            path,
+            sourceValue: item,
+            targetValue: targetUuid,
+            field: "uuid",
+        });
+        (container as any)[key] = targetUuid;
+    }
+};
+
+// Safety net: any string value that is a key in storyUuids is a known
+// copied-story source uuid (block _uids, space ids and story ids live in other
+// namespaces), so rewriting exact matches is safe and covers custom plugin
+// fields and shared-selector.shared_component without schema knowledge.
+const rewriteBareStoryUuidValues = (
+    node: Record<string, any>,
+    path: string,
+    state: RewriteState,
+) => {
+    for (const [key, value] of Object.entries(node)) {
+        if (RESERVED_CONTENT_KEYS.has(key) || typeof value !== "string") {
+            continue;
+        }
+
+        rewriteBareStoryUuid(node, key, value, `${path}.${key}`, state);
+    }
+};
+
+const rewriteBareStoryUuid = (
+    container: Record<string, any> | unknown[],
+    key: string | number,
+    value: string,
+    path: string,
+    state: RewriteState,
+) => {
+    const targetUuid = state.maps.storyUuids.get(value);
+    if (targetUuid === undefined) {
+        return;
+    }
+
+    addRecord(state, {
+        type: "story",
+        path,
+        sourceValue: value,
+        targetValue: targetUuid,
+        field: "uuid",
+    });
+    (container as any)[key] = targetUuid;
 };
 
 const getFieldSchema = (schema: CopyComponentSchema, fieldName: string) =>
