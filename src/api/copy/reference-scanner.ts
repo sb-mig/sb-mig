@@ -265,6 +265,9 @@ const scanField = ({
         case "options":
             scanOptionsField(fieldValue, fieldSchema, path, state);
             return;
+        case "option":
+            scanOptionField(fieldValue, fieldSchema, path, state);
+            return;
         case "bloks":
             scanBloksField(fieldValue, path, state);
             return;
@@ -347,17 +350,20 @@ const scanMultilinkField = (
         return;
     }
 
-    const referencedStoryId =
-        typeof fieldValue.id === "number" ? fieldValue.id : undefined;
-
-    if (referencedStoryId === undefined) {
+    if (typeof fieldValue.id === "number") {
+        addStoryReference(state, {
+            path: `${path}.id`,
+            referencedStoryId: fieldValue.id,
+        });
         return;
     }
 
-    addStoryReference(state, {
-        path: `${path}.id`,
-        referencedStoryId,
-    });
+    if (typeof fieldValue.id === "string" && isUuidLike(fieldValue.id)) {
+        addStoryReference(state, {
+            path: `${path}.id`,
+            referencedStoryUuid: fieldValue.id,
+        });
+    }
 };
 
 const scanOptionsField = (
@@ -380,8 +386,42 @@ const scanOptionsField = (
                 path: `${path}[${index}]`,
                 referencedStoryId: value,
             });
+            return;
+        }
+
+        if (typeof value === "string" && isUuidLike(value)) {
+            addStoryReference(state, {
+                path: `${path}[${index}]`,
+                referencedStoryUuid: value,
+            });
         }
     });
+};
+
+const scanOptionField = (
+    fieldValue: unknown,
+    fieldSchema: CopyComponentSchemaField,
+    path: string,
+    state: ScannerState,
+) => {
+    if (fieldSchema.source !== "internal_stories") {
+        return;
+    }
+
+    if (typeof fieldValue === "number") {
+        addStoryReference(state, {
+            path,
+            referencedStoryId: fieldValue,
+        });
+        return;
+    }
+
+    if (typeof fieldValue === "string" && isUuidLike(fieldValue)) {
+        addStoryReference(state, {
+            path,
+            referencedStoryUuid: fieldValue,
+        });
+    }
 };
 
 const scanBloksField = (
@@ -489,6 +529,11 @@ const addOpaqueField = (
         path: field.path,
     });
 };
+
+const UUID_PATTERN =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const isUuidLike = (value: string): boolean => UUID_PATTERN.test(value);
 
 const normalizeFieldName = (fieldName: string): string =>
     fieldName.replace(/__i18n__.*/, "");
