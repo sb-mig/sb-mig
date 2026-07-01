@@ -365,6 +365,75 @@ describe("copy stories dry-run", () => {
         await rm(tempDir, { recursive: true, force: true });
     });
 
+    it("flags source components missing from the target space during story dry-run", async () => {
+        const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-copy-"));
+        const outputPath = path.join(tempDir, "plans", "copy-plan.json");
+
+        // The target space (getAllComponents mock) only knows 'page'; this post
+        // nests a component that does not exist there.
+        mocks.getAllStories.mockResolvedValue([
+            {
+                story: {
+                    id: 2,
+                    name: "Post 1",
+                    slug: "post-1",
+                    full_slug: "blog/post-1",
+                    is_folder: false,
+                    parent_id: 1,
+                    uuid: "source-post-uuid",
+                    content: {
+                        component: "page",
+                        body: [
+                            {
+                                component: "sb-content-group",
+                                _uid: "blok-1",
+                            },
+                        ],
+                    },
+                },
+            },
+        ]);
+
+        await copyCommand({
+            input: ["copy", "stories"],
+            flags: {
+                from: "source-space",
+                to: "target-space",
+                source: "blog",
+                destination: "imported",
+                dryRun: true,
+                outputPath,
+            },
+        } as any);
+
+        const report = JSON.parse(await readFile(outputPath, "utf8"));
+
+        expect(report.summary.componentIssues).toBe(1);
+        expect(report.componentCompatibility).toMatchObject({
+            checked: true,
+            missingComponents: ["sb-content-group"],
+        });
+        expect(report.componentCompatibility.findings).toMatchObject([
+            {
+                component: "sb-content-group",
+                reason: "missing_in_target",
+                sourceFullSlug: "blog/post-1",
+                uid: "blok-1",
+                field: "body",
+                parentComponent: "page",
+            },
+        ]);
+        expect(report.warnings).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({
+                    code: "component_missing_in_target",
+                }),
+            ]),
+        );
+
+        await rm(tempDir, { recursive: true, force: true });
+    });
+
     it("reports asset references already mapped by manifests during story dry-run", async () => {
         const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-copy-"));
         const outputPath = path.join(tempDir, "plans", "copy-plan.json");
@@ -1385,6 +1454,42 @@ describe("copy stories dry-run", () => {
         ).rejects.toThrow(
             "Failed to update copied story 'blog' in target space 'target-space'",
         );
+
+        await rm(tempDir, { recursive: true, force: true });
+    });
+
+    it("keeps updating the remaining stories when one story update fails, then reports the failure", async () => {
+        const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-copy-"));
+        const manifestRoot = path.join(tempDir, ".sb-mig");
+
+        // First update (the 'blog' folder shell) is rejected by the target
+        // space schema; the rest of the tree must still be updated.
+        mocks.updateStory
+            .mockResolvedValueOnce({
+                ok: false,
+                status: 422,
+                response:
+                    ": The component(s) sb-content-group are not allowed in the field content",
+            })
+            .mockResolvedValue({ ok: true });
+
+        await expect(
+            copyCommand({
+                input: ["copy", "stories"],
+                flags: {
+                    from: "source-space",
+                    to: "target-space",
+                    source: "blog",
+                    destination: "imported",
+                    manifestRoot,
+                },
+            } as any),
+        ).rejects.toThrow(
+            "Copy finished but 1 story/story shell update(s) failed",
+        );
+
+        // Both stories were attempted even though the first one failed.
+        expect(mocks.updateStory).toHaveBeenCalledTimes(2);
 
         await rm(tempDir, { recursive: true, force: true });
     });

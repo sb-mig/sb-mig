@@ -942,7 +942,7 @@ const assertStoryUpdateSucceeded = ({
     }
 
     throw new Error(
-        `Failed to update copied story '${sourceStory.full_slug ?? sourceStory.slug}' (source id ${sourceStory.id}) in target space '${targetSpace}' (target story id ${targetStoryId}, ${statusLabel}).${responseLabel}${disallowedLabel}`,
+        `Failed to update copied story '${sourceStory.full_slug ?? sourceStory.slug}' in target space '${targetSpace}' (source id ${sourceStory.id}, target story id ${targetStoryId}, ${statusLabel}).${responseLabel}${disallowedLabel}`,
     );
 };
 
@@ -3017,7 +3017,7 @@ const rewriteCopiedStoryContents = async ({
 
     if (failures.length > 0) {
         Logger.error(
-            `Skipped ${failures.length} story/story shell(s) because of errors; the rest of the copy continued. Failed stories:`,
+            `${failures.length} story/story shell update(s) failed; the rest of the copy still completed. Failed stories:`,
         );
         for (const failure of failures) {
             const targetLabel = failure.targetId
@@ -3027,6 +3027,14 @@ const rewriteCopiedStoryContents = async ({
                 `  - ${failure.fullSlug || "<unknown>"} (source id ${failure.sourceId}${targetLabel}) [${failure.stage}]`,
             );
         }
+
+        // Every story was still attempted (no early abort), but surface the
+        // failures so apply mode exits non-zero instead of reporting success.
+        throw new Error(
+            `Copy finished but ${failures.length} story/story shell update(s) failed:\n${failures
+                .map((failure) => failure.message)
+                .join("\n")}`,
+        );
     }
 
     return { updatedStories, rewrittenReferences, failures };
