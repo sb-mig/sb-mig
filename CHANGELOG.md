@@ -1,3 +1,12 @@
+## [6.4.1-beta.1](https://github.com/sb-mig/sb-mig/compare/v6.4.0...v6.4.1-beta.1) (2026-07-01)
+
+
+### Bug Fixes
+
+* **copy:** fail apply mode after processing all stories ([ea8bda6](https://github.com/sb-mig/sb-mig/commit/ea8bda646d7afe923d985e1795d531345289a667))
+* **copy:** resilient story updates and 422 component diagnostics ([8ad29b0](https://github.com/sb-mig/sb-mig/commit/8ad29b04d4b113bc8cf0e5ab6d1002428037f432))
+* **migrate:** stream-read large continue artifacts (ERR_STRING_TOO_LONG) ([06ddea0](https://github.com/sb-mig/sb-mig/commit/06ddea01a3c51459b3887744deef75ca00d4367e))
+
 # [6.4.0](https://github.com/sb-mig/sb-mig/compare/v6.3.0...v6.4.0) (2026-06-29)
 
 
