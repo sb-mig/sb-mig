@@ -160,10 +160,12 @@ type CopyDryRunReport = {
         conflicts: number;
         warnings: number;
         errors: number;
+        componentIssues: number;
     };
     items: CopyPlanItem[];
     graph?: CopyGraph;
     assetReferenceSummary?: CopyDryRunAssetReferenceSummary;
+    componentCompatibility?: CopyDryRunComponentCompatibility;
     warnings: CopyPlanWarning[];
     errors: any[];
     limitations: string[];
@@ -171,6 +173,13 @@ type CopyDryRunReport = {
         dryRun: string;
         apply: string;
     };
+};
+
+type CopyDryRunComponentCompatibility = {
+    checked: boolean;
+    missingComponents: string[];
+    disallowedInFieldComponents: string[];
+    findings: ComponentCompatibilityFinding[];
 };
 
 type CopyAssetsDryRunReport = {
@@ -753,16 +762,148 @@ const getValidMappedTargetStory = async ({
     return undefined;
 };
 
+interface ContentBlokVisit {
+    path: string;
+    uid?: string;
+    component: string;
+    field?: string;
+    parentComponent?: string;
+}
+
+type DisallowedComponentMatch = ContentBlokVisit;
+
+// Walk a story's content blok tree depth-first, invoking `visit` for every blok
+// (object carrying a `component`) with its path, _uid, enclosing field and the
+// component it is nested inside. Shared by the failure diagnostic and the
+// dry-run compatibility check.
+const walkContentBloks = (
+    content: any,
+    visit: (blok: ContentBlokVisit) => void,
+) => {
+    const walk = (
+        value: any,
+        path: string,
+        field: string | undefined,
+        parentComponent: string | undefined,
+    ) => {
+        if (Array.isArray(value)) {
+            value.forEach((item, index) => {
+                walk(item, `${path}[${index}]`, field, parentComponent);
+            });
+            return;
+        }
+
+        if (!value || typeof value !== "object") {
+            return;
+        }
+
+        const component =
+            typeof value.component === "string" ? value.component : undefined;
+
+        if (component) {
+            visit({
+                path,
+                uid: typeof value._uid === "string" ? value._uid : undefined,
+                component,
+                field,
+                parentComponent,
+            });
+        }
+
+        const nextParentComponent = component ?? parentComponent;
+
+        for (const [key, child] of Object.entries(value)) {
+            if (key === "component" || key === "_uid") {
+                continue;
+            }
+
+            walk(
+                child,
+                path ? `${path}.${key}` : key,
+                key,
+                nextParentComponent,
+            );
+        }
+    };
+
+    walk(content, "content", undefined, undefined);
+};
+
+// Storyblok answers a schema violation with a 422 whose body reads like
+// "The component(s) sb-content-group are not allowed in the field content".
+// Parse out the offending component name(s) and the field they were rejected in.
+const parseDisallowedComponentError = (
+    responseText: unknown,
+): { components: string[]; field?: string } | undefined => {
+    if (typeof responseText !== "string") {
+        return undefined;
+    }
+
+    const match = responseText.match(
+        /component\(s\)\s+(.+?)\s+are not allowed in the field\s+([^\s.]+)/i,
+    );
+
+    if (!match || !match[1]) {
+        return undefined;
+    }
+
+    const components = match[1]
+        .split(",")
+        .map((component) => component.trim())
+        .filter(Boolean);
+
+    if (components.length === 0) {
+        return undefined;
+    }
+
+    return { components, field: match[2] };
+};
+
+// Record every place the given component(s) appear in a story's content, with
+// the path, _uid and enclosing field so a failing copy can be traced back to
+// the exact blok in the source story.
+const collectComponentPaths = (
+    content: any,
+    targetComponents: Set<string>,
+): DisallowedComponentMatch[] => {
+    const matches: DisallowedComponentMatch[] = [];
+
+    walkContentBloks(content, (blok) => {
+        if (targetComponents.has(blok.component)) {
+            matches.push(blok);
+        }
+    });
+
+    return matches;
+};
+
+const describeDisallowedComponentMatches = (
+    matches: DisallowedComponentMatch[],
+): string =>
+    matches
+        .map((match) => {
+            const uidLabel = match.uid ? ` (_uid ${match.uid})` : "";
+            const fieldLabel = match.field ? ` in field '${match.field}'` : "";
+            const parentLabel = match.parentComponent
+                ? ` of component '${match.parentComponent}'`
+                : "";
+
+            return `  - '${match.component}' at ${match.path}${fieldLabel}${parentLabel}${uidLabel}`;
+        })
+        .join("\n");
+
 const assertStoryUpdateSucceeded = ({
     result,
     sourceStory,
     targetStoryId,
     targetSpace,
+    content,
 }: {
     result: any;
     sourceStory: any;
     targetStoryId: number;
     targetSpace: string;
+    content?: any;
 }) => {
     if (result?.ok !== false) {
         return;
@@ -775,8 +916,33 @@ const assertStoryUpdateSucceeded = ({
         ? ` Response: ${result.response}`
         : "";
 
+    let disallowedLabel = "";
+    const disallowed = parseDisallowedComponentError(result.response);
+
+    if (disallowed && content) {
+        const matches = collectComponentPaths(
+            content,
+            new Set(disallowed.components),
+        );
+        const fieldLabel = disallowed.field
+            ? ` in field '${disallowed.field}'`
+            : "";
+
+        if (matches.length > 0) {
+            const details = describeDisallowedComponentMatches(matches);
+
+            disallowedLabel = `\nDisallowed component(s) [${disallowed.components.join(", ")}]${fieldLabel} located in source story content at:\n${details}`;
+
+            Logger.warning(
+                `Story '${sourceStory.full_slug ?? sourceStory.slug}' (source id ${sourceStory.id}, target id ${targetStoryId}) rejected because component(s) [${disallowed.components.join(", ")}]${fieldLabel} are not allowed in the target space schema. Found at:\n${details}`,
+            );
+        } else {
+            disallowedLabel = `\nComponent(s) [${disallowed.components.join(", ")}]${fieldLabel} are not allowed in the target space schema, but were not located in the rewritten content (they may live in a nested/published layer).`;
+        }
+    }
+
     throw new Error(
-        `Failed to update copied story '${sourceStory.full_slug ?? sourceStory.slug}' in target space '${targetSpace}' (target story id ${targetStoryId}, ${statusLabel}).${responseLabel}`,
+        `Failed to update copied story '${sourceStory.full_slug ?? sourceStory.slug}' (source id ${sourceStory.id}) in target space '${targetSpace}' (target story id ${targetStoryId}, ${statusLabel}).${responseLabel}${disallowedLabel}`,
     );
 };
 
@@ -910,6 +1076,56 @@ const buildDryRunWarnings = ({
               },
           ]),
 ];
+
+const uniqueSorted = (values: string[]): string[] =>
+    [...new Set(values)].filter(Boolean).sort();
+
+const summarizeComponentCompatibility = (
+    checked: boolean,
+    findings: ComponentCompatibilityFinding[],
+): CopyDryRunComponentCompatibility => ({
+    checked,
+    missingComponents: uniqueSorted(
+        findings
+            .filter((finding) => finding.reason === "missing_in_target")
+            .map((finding) => finding.component),
+    ),
+    disallowedInFieldComponents: uniqueSorted(
+        findings
+            .filter((finding) => finding.reason === "not_allowed_in_field")
+            .map((finding) => finding.component),
+    ),
+    findings,
+});
+
+const buildComponentCompatibilityWarnings = (
+    componentCompatibility?: CopyDryRunComponentCompatibility,
+): CopyPlanWarning[] => {
+    if (
+        !componentCompatibility ||
+        componentCompatibility.findings.length === 0
+    ) {
+        return [];
+    }
+
+    const warnings: CopyPlanWarning[] = [];
+
+    if (componentCompatibility.missingComponents.length > 0) {
+        warnings.push({
+            code: "component_missing_in_target",
+            message: `Component(s) missing from the target space schema (story updates will fail with a 422 until they are synced): ${componentCompatibility.missingComponents.join(", ")}.`,
+        });
+    }
+
+    if (componentCompatibility.disallowedInFieldComponents.length > 0) {
+        warnings.push({
+            code: "component_not_allowed_in_field",
+            message: `Component(s) used in a field the target space schema restricts (story updates will fail with a 422): ${componentCompatibility.disallowedInFieldComponents.join(", ")}.`,
+        });
+    }
+
+    return warnings;
+};
 
 const quoteCommandArg = (value: string): string =>
     /^[a-zA-Z0-9_./:-]+$/.test(value) ? value : JSON.stringify(value);
@@ -1155,6 +1371,7 @@ const buildCopyDryRunReport = ({
     plan,
     conflicts,
     graph,
+    componentCompatibility,
     outputPath,
 }: {
     sourceSpace: string;
@@ -1166,10 +1383,14 @@ const buildCopyDryRunReport = ({
     plan: CopyPlanItem[];
     conflicts: CopyPlanItem[];
     graph?: CopyGraph;
+    componentCompatibility?: CopyDryRunComponentCompatibility;
     outputPath?: string;
 }): CopyDryRunReport => {
     const items = withConflictFlags(plan, conflicts);
-    const warnings = buildDryRunWarnings({ conflicts, withAssets });
+    const warnings = [
+        ...buildDryRunWarnings({ conflicts, withAssets }),
+        ...buildComponentCompatibilityWarnings(componentCompatibility),
+    ];
     const graphSummary = graph ? summarizeCopyGraph(graph) : undefined;
     const assetReferencesMapped =
         graph?.assetReferences.filter(
@@ -1243,10 +1464,12 @@ const buildCopyDryRunReport = ({
             conflicts: conflicts.length,
             warnings: warnings.length + (graphSummary?.warnings ?? 0),
             errors: graphSummary?.errors ?? 0,
+            componentIssues: componentCompatibility?.findings.length ?? 0,
         },
         items,
         ...(graph ? { graph } : {}),
         ...(assetReferenceSummary ? { assetReferenceSummary } : {}),
+        ...(componentCompatibility ? { componentCompatibility } : {}),
         warnings,
         errors: graph?.errors ?? [],
         limitations,
@@ -1835,6 +2058,137 @@ const buildComponentSchemaRegistry = async (
     );
 };
 
+interface ComponentCompatibilityFinding {
+    sourceStoryId: number;
+    sourceFullSlug: string;
+    component: string;
+    path: string;
+    uid?: string;
+    field?: string;
+    parentComponent?: string;
+    reason: "missing_in_target" | "not_allowed_in_field";
+}
+
+// Build a validator from the TARGET space component schemas so the dry-run can
+// predict the "component(s) X are not allowed in the field Y" 422 that the
+// Management API returns at write time. Two problems are detected:
+//   - a component used in a source story does not exist in the target space
+//   - a component sits in a bloks field whose target schema restricts the
+//     allowed components and does not include it
+const buildTargetComponentValidator = async (targetSpace: string) => {
+    const components = await managementApi.components.getAllComponents({
+        ...apiConfig,
+        spaceId: targetSpace,
+    });
+    const list = Array.isArray(components) ? components : [];
+
+    const targetComponentNames = new Set<string>(
+        list.map((component: any) => component?.name).filter(Boolean),
+    );
+    const schemaByName = new Map<string, any>(
+        list
+            .filter((component: any) => component?.name)
+            .map((component: any) => [component.name, component.schema ?? {}]),
+    );
+    const componentsByGroupUuid = new Map<string, Set<string>>();
+    for (const component of list) {
+        const groupUuid = component?.component_group_uuid;
+        if (!component?.name || !groupUuid) {
+            continue;
+        }
+        const existing =
+            componentsByGroupUuid.get(String(groupUuid)) ?? new Set<string>();
+        existing.add(component.name);
+        componentsByGroupUuid.set(String(groupUuid), existing);
+    }
+
+    // Allowed child components for a restricted bloks field, or undefined when
+    // the field is unrestricted or cannot be resolved with confidence (which
+    // keeps the dry-run free of false positives).
+    const resolveAllowedComponents = (
+        parentComponent: string | undefined,
+        field: string | undefined,
+    ): Set<string> | undefined => {
+        if (!parentComponent || !field) {
+            return undefined;
+        }
+
+        const fieldDef = schemaByName.get(parentComponent)?.[field];
+
+        if (!fieldDef || fieldDef.type !== "bloks") {
+            return undefined;
+        }
+
+        if (fieldDef.restrict_components !== true) {
+            return undefined;
+        }
+
+        // Tag-based whitelists reference internal tag ids we do not resolve.
+        if (fieldDef.restrict_type === "tags") {
+            return undefined;
+        }
+
+        const allowed = new Set<string>();
+
+        for (const name of fieldDef.component_whitelist ?? []) {
+            if (typeof name === "string") {
+                allowed.add(name);
+            }
+        }
+
+        for (const groupUuid of fieldDef.component_group_whitelist ?? []) {
+            const names = componentsByGroupUuid.get(String(groupUuid));
+            if (names) {
+                names.forEach((name) => allowed.add(name));
+            }
+        }
+
+        return allowed;
+    };
+
+    return {
+        // With no components fetched we cannot validate anything; skip instead
+        // of reporting every component as missing.
+        canValidate: targetComponentNames.size > 0,
+        validateStory(story: any): ComponentCompatibilityFinding[] {
+            const findings: ComponentCompatibilityFinding[] = [];
+
+            walkContentBloks(story?.content, (blok) => {
+                const base = {
+                    sourceStoryId: Number(story?.id),
+                    sourceFullSlug: String(
+                        story?.full_slug ?? story?.slug ?? "",
+                    ),
+                    component: blok.component,
+                    path: blok.path,
+                    uid: blok.uid,
+                    field: blok.field,
+                    parentComponent: blok.parentComponent,
+                };
+
+                if (!targetComponentNames.has(blok.component)) {
+                    findings.push({ ...base, reason: "missing_in_target" });
+                    return;
+                }
+
+                const allowed = resolveAllowedComponents(
+                    blok.parentComponent,
+                    blok.field,
+                );
+
+                if (allowed && !allowed.has(blok.component)) {
+                    findings.push({
+                        ...base,
+                        reason: "not_allowed_in_field",
+                    });
+                }
+            });
+
+            return findings;
+        },
+    };
+};
+
 const collectAssetFolderAncestors = ({
     assets,
     assetFolders,
@@ -2315,6 +2669,13 @@ const rewriteCopiedStoryContents = async ({
     const schemas = await buildComponentSchemaRegistry(sourceSpace);
     let updatedStories = 0;
     let rewrittenReferences = 0;
+    const failures: Array<{
+        sourceId: number;
+        targetId?: number;
+        fullSlug: string;
+        stage: "create-shell" | "update";
+        message: string;
+    }> = [];
 
     const writeStoryMapping = async ({
         sourceStory,
@@ -2421,11 +2782,28 @@ const rewriteCopiedStoryContents = async ({
 
             let targetStoryId = maps.storyIds.get(Number(sourceStory.id));
             if (!targetStoryId) {
-                targetStoryId = await createOrMatchReplacementShell({
-                    node,
-                    sourceStory,
-                    parentId,
-                });
+                try {
+                    targetStoryId = await createOrMatchReplacementShell({
+                        node,
+                        sourceStory,
+                        parentId,
+                    });
+                } catch (error) {
+                    const message =
+                        error instanceof Error ? error.message : String(error);
+                    Logger.error(message);
+                    failures.push({
+                        sourceId: Number(sourceStory.id),
+                        fullSlug: String(
+                            sourceStory.full_slug ?? sourceStory.slug ?? "",
+                        ),
+                        stage: "create-shell",
+                        message,
+                    });
+                    // No target shell means children cannot be parented; skip
+                    // this branch but keep copying the rest of the tree.
+                    continue;
+                }
             }
 
             const writeStory = async (id: number) => {
@@ -2473,6 +2851,7 @@ const rewriteCopiedStoryContents = async ({
                     if (!publishedUpdateResult?.ok) {
                         return {
                             result: publishedUpdateResult,
+                            content: publishedLayer.payload?.content,
                             rewrittenReferences:
                                 current.rewrittenReferences +
                                 publishedLayer.rewrittenReferences,
@@ -2489,6 +2868,7 @@ const rewriteCopiedStoryContents = async ({
                     if (!publishResult?.ok) {
                         return {
                             result: publishResult,
+                            content: publishedLayer.payload?.content,
                             rewrittenReferences:
                                 current.rewrittenReferences +
                                 publishedLayer.rewrittenReferences,
@@ -2511,6 +2891,7 @@ const rewriteCopiedStoryContents = async ({
 
                     return {
                         result: restoreDraftResult,
+                        content: current.payload?.content,
                         rewrittenReferences:
                             current.rewrittenReferences +
                             publishedLayer.rewrittenReferences,
@@ -2553,6 +2934,7 @@ const rewriteCopiedStoryContents = async ({
                     if (!publishResult?.ok) {
                         return {
                             result: publishResult,
+                            content: current.payload?.content,
                             rewrittenReferences: current.rewrittenReferences,
                         };
                     }
@@ -2560,37 +2942,66 @@ const rewriteCopiedStoryContents = async ({
 
                 return {
                     result,
+                    content: current.payload?.content,
                     rewrittenReferences: current.rewrittenReferences,
                 };
             };
 
-            let update = await writeStory(Number(targetStoryId));
+            // A single broken story (e.g. a component the target space schema
+            // rejects) must not abort the whole run. Record the failure, keep
+            // its already-created shell as the parent for descendants, and move
+            // on to the next story.
+            let targetInvalidated = false;
 
-            if (isStoryUpdateNotFound(update.result)) {
-                Logger.warning(
-                    `Ignoring stale story manifest mapping for '${sourceStory.full_slug ?? sourceStory.slug}' because target story '${targetStoryId}' could not be updated in space '${targetSpace}'.`,
-                );
-                maps.storyIds.delete(Number(sourceStory.id));
-                maps.storyUuids.delete(String(sourceStory.uuid));
-                targetStoryId = await createOrMatchReplacementShell({
-                    node,
+            try {
+                let update = await writeStory(Number(targetStoryId));
+
+                if (isStoryUpdateNotFound(update.result)) {
+                    Logger.warning(
+                        `Ignoring stale story manifest mapping for '${sourceStory.full_slug ?? sourceStory.slug}' because target story '${targetStoryId}' could not be updated in space '${targetSpace}'.`,
+                    );
+                    maps.storyIds.delete(Number(sourceStory.id));
+                    maps.storyUuids.delete(String(sourceStory.uuid));
+                    targetInvalidated = true;
+                    targetStoryId = await createOrMatchReplacementShell({
+                        node,
+                        sourceStory,
+                        parentId,
+                        staleTargetId: Number(targetStoryId),
+                    });
+                    targetInvalidated = false;
+                    update = await writeStory(Number(targetStoryId));
+                }
+
+                assertStoryUpdateSucceeded({
+                    result: update.result,
                     sourceStory,
-                    parentId,
-                    staleTargetId: Number(targetStoryId),
+                    targetStoryId: Number(targetStoryId),
+                    targetSpace,
+                    content: update.content,
                 });
-                update = await writeStory(Number(targetStoryId));
+                updatedStories += 1;
+                rewrittenReferences += update.rewrittenReferences;
+            } catch (error) {
+                const message =
+                    error instanceof Error ? error.message : String(error);
+                Logger.error(message);
+                failures.push({
+                    sourceId: Number(sourceStory.id),
+                    targetId: targetStoryId ? Number(targetStoryId) : undefined,
+                    fullSlug: String(
+                        sourceStory.full_slug ?? sourceStory.slug ?? "",
+                    ),
+                    stage: "update",
+                    message,
+                });
             }
 
-            assertStoryUpdateSucceeded({
-                result: update.result,
-                sourceStory,
-                targetStoryId: Number(targetStoryId),
-                targetSpace,
-            });
-            updatedStories += 1;
-            rewrittenReferences += update.rewrittenReferences;
-
-            await walk(node.children ?? [], Number(targetStoryId));
+            // Only recurse into children when we still have a usable target
+            // shell to parent them under.
+            if (!targetInvalidated && targetStoryId) {
+                await walk(node.children ?? [], Number(targetStoryId));
+            }
         }
     };
 
@@ -2603,6 +3014,22 @@ const rewriteCopiedStoryContents = async ({
             `Updated ${updatedStories} copied story/story shell(s); rewrote ${rewrittenReferences} reference(s).`,
         );
     }
+
+    if (failures.length > 0) {
+        Logger.error(
+            `Skipped ${failures.length} story/story shell(s) because of errors; the rest of the copy continued. Failed stories:`,
+        );
+        for (const failure of failures) {
+            const targetLabel = failure.targetId
+                ? `, target id ${failure.targetId}`
+                : "";
+            Logger.error(
+                `  - ${failure.fullSlug || "<unknown>"} (source id ${failure.sourceId}${targetLabel}) [${failure.stage}]`,
+            );
+        }
+    }
+
+    return { updatedStories, rewrittenReferences, failures };
 };
 
 const createStoriesAndWriteManifests = async ({
@@ -3201,6 +3628,68 @@ const logDryRunCopyPlan = async ({ report }: { report: CopyDryRunReport }) => {
         }
     }
 
+    const compatibility = report.componentCompatibility;
+
+    if (compatibility && !compatibility.checked) {
+        Logger.warning(
+            "[dry-run] Component compatibility check skipped (no target components resolved).",
+        );
+    } else if (compatibility && compatibility.findings.length === 0) {
+        Logger.success(
+            "[dry-run] All source components are accepted by the target space schema.",
+        );
+    } else if (compatibility) {
+        Logger.error(
+            `[dry-run] ${compatibility.findings.length} component compatibility issue(s) would make story updates fail with a 422:`,
+        );
+
+        // Group by component + reason so the output stays readable when the
+        // same component is used across many stories.
+        const grouped = new Map<
+            string,
+            {
+                reason: string;
+                component: string;
+                findings: typeof compatibility.findings;
+            }
+        >();
+
+        for (const finding of compatibility.findings) {
+            const key = `${finding.reason}::${finding.component}`;
+            const bucket = grouped.get(key) ?? {
+                reason: finding.reason,
+                component: finding.component,
+                findings: [],
+            };
+            bucket.findings.push(finding);
+            grouped.set(key, bucket);
+        }
+
+        for (const bucket of grouped.values()) {
+            const reasonLabel =
+                bucket.reason === "missing_in_target"
+                    ? "missing from target space schema"
+                    : "not allowed in the target field";
+            const example = bucket.findings[0];
+            const contextParts = [
+                example?.field ? `field '${example.field}'` : undefined,
+                example?.parentComponent
+                    ? `component '${example.parentComponent}'`
+                    : undefined,
+                example?.uid ? `_uid ${example.uid}` : undefined,
+            ].filter(Boolean);
+            const exampleLabel = example
+                ? ` e.g. '${example.sourceFullSlug}' at ${example.path}${
+                      contextParts.length ? ` (${contextParts.join(", ")})` : ""
+                  }`
+                : "";
+
+            Logger.error(
+                `[dry-run]   ${bucket.component}: ${reasonLabel} — ${bucket.findings.length} occurrence(s).${exampleLabel}`,
+            );
+        }
+    }
+
     report.warnings.forEach((warning) =>
         Logger.warning(`[dry-run] ${warning.message}`),
     );
@@ -3400,6 +3889,26 @@ export const copyCommand = async (props: CLIOptions) => {
 
             if (dryRun) {
                 const conflicts = await findTargetConflicts(plan, targetSpace);
+                Logger.warning(
+                    "Checking source components against the target space schema.",
+                );
+                const componentValidator =
+                    await buildTargetComponentValidator(targetSpace);
+                const componentCompatibility = componentValidator.canValidate
+                    ? summarizeComponentCompatibility(
+                          true,
+                          sourceStories.flatMap((item: any) =>
+                              componentValidator.validateStory(item?.story),
+                          ),
+                      )
+                    : summarizeComponentCompatibility(false, []);
+
+                if (!componentCompatibility.checked) {
+                    Logger.warning(
+                        `Skipped component compatibility check because no components were returned for target space '${targetSpace}'.`,
+                    );
+                }
+
                 Logger.warning("Building dry-run copy report.");
                 const report = buildCopyDryRunReport({
                     sourceSpace,
@@ -3411,6 +3920,7 @@ export const copyCommand = async (props: CLIOptions) => {
                     plan,
                     conflicts,
                     graph: dryRunGraph,
+                    componentCompatibility,
                     outputPath,
                 });
 
