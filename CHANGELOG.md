@@ -1,3 +1,10 @@
+## [6.4.1-beta.2](https://github.com/sb-mig/sb-mig/compare/v6.4.1-beta.1...v6.4.1-beta.2) (2026-07-07)
+
+
+### Bug Fixes
+
+* **copy:** remap uuid-based story references on copy stories ([367e190](https://github.com/sb-mig/sb-mig/commit/367e1902d50605888bb3b76d14962527270fd29a))
+
 ## [6.4.1-beta.1](https://github.com/sb-mig/sb-mig/compare/v6.4.0...v6.4.1-beta.1) (2026-07-01)
 
 
