@@ -243,6 +243,103 @@ describe("migrate continue (save-only round trip)", () => {
     });
 });
 
+describe("migrate continue (bounded memory / batching)", () => {
+    const base = "batch-test";
+
+    const writeSaveOnlyArtifacts = (changedItems: unknown[]) => {
+        writeJson(`dry-run--${base}---story-to-migrate.json`, changedItems);
+        writeJson(`dry-run--${base}---story-migration-pipeline-summary.json`, {
+            totalItems: changedItems.length,
+            steps: [{ migrationConfig: "mark-target" }],
+        });
+        writeJson(`dry-run--${base}---story-continue-manifest.json`, {
+            manifestVersion: 1,
+            kind: "migrate-content-continue-manifest",
+            itemType: "story",
+            from: "space-1",
+            to: "space-1",
+            migrateFrom: "space",
+            fromFilePath: null,
+            publicationMode: "save-only",
+            migrationConfigNames: ["mark-target"],
+            publishLanguages: null,
+            resolvedPublishLanguages: null,
+            artifactBaseName: base,
+            useDatestamp: false,
+            artifacts: {
+                changedItems: `dry-run--${base}---story-to-migrate.json`,
+                pipelineSummary: `dry-run--${base}---story-migration-pipeline-summary.json`,
+                inputFull: null,
+                languageStateMap: null,
+                draftAfterFull: null,
+                publishedAfterFull: null,
+                dirtyPublishedRecords: null,
+            },
+        });
+    };
+
+    it("writes large changed sets in batches instead of one in-memory array", async () => {
+        const changedItems = Array.from({ length: 120 }, (_, index) => ({
+            story: {
+                id: `story-${index}`,
+                name: `Story ${index}`,
+                full_slug: `blog/story-${index}`,
+                content: { component: "page" },
+            },
+        }));
+        writeSaveOnlyArtifacts(changedItems);
+
+        updateStoriesMock.mockImplementation(async ({ stories }: any) =>
+            stories.map((item: any) => ({
+                status: "fulfilled",
+                value: { ok: true, stage: "update", id: item.story.id },
+            })),
+        );
+
+        const plan = await prepareContinueMigration({}, config);
+        expect(plan.summary.changedCount).toBe(120);
+
+        await plan.run();
+
+        // 120 items / batch size 50 => 3 write calls, order preserved.
+        expect(updateStoriesMock).toHaveBeenCalledTimes(3);
+        const batchSizes = updateStoriesMock.mock.calls.map(
+            ([args]: any[]) => args.stories.length,
+        );
+        expect(batchSizes).toEqual([50, 50, 20]);
+        const writtenIds = updateStoriesMock.mock.calls.flatMap(
+            ([args]: any[]) => args.stories.map((item: any) => item.story.id),
+        );
+        expect(writtenIds).toEqual(changedItems.map((item) => item.story.id));
+
+        // Run log sees the real count and per-item labels even though the
+        // changed items were never materialized as one array.
+        const runLogArgs = saveMigrationRunLogMock.mock.calls[0][0];
+        expect(runLogArgs.totalChangedItems).toBe(120);
+        expect(runLogArgs.changedItemLabels).toHaveLength(120);
+        expect(runLogArgs.changedItemLabels[119]).toEqual({
+            id: "story-119",
+            name: "Story 119",
+            slug: "blog/story-119",
+        });
+        expect(runLogArgs.pipelineResult.changedItems).toEqual([]);
+    });
+
+    it("aborts before any write when the changed-items artifact is truncated", async () => {
+        writeSaveOnlyArtifacts([]);
+        // Overwrite with a file cut off mid-element (dry-run killed mid-write).
+        fs.writeFileSync(
+            path.join(migrationsDir(), `dry-run--${base}---story-to-migrate.json`),
+            '[\n  { "story": { "id": "story-0" } },\n  { "story"',
+        );
+
+        await expect(prepareContinueMigration({}, config)).rejects.toThrow(
+            "Truncated JSON array",
+        );
+        expect(updateStoriesMock).not.toHaveBeenCalled();
+    });
+});
+
 describe("migrate continue (preserve-layers reconstruction)", () => {
     const base = "pl-test";
 
@@ -278,12 +375,36 @@ describe("migrate continue (preserve-layers reconstruction)", () => {
             },
         };
 
-        writeJson(`dry-run--${base}---story-to-migrate.json`, [draftMigrated]);
+        const storyItem = (id: string, text: string) => ({
+            story: {
+                id,
+                name: `Story ${id}`,
+                full_slug: `blog/${id}`,
+                content: {
+                    component: "page",
+                    body: [{ component: "target", text }],
+                },
+            },
+        });
+        // story-2: changed but NOT dirty-published; story-3: unchanged.
+        // Both prove that continue only keeps the dirty subset of the
+        // full-space after-full snapshots and still writes correctly.
+        const nonDirtyChanged = storyItem("story-2", "changed-non-dirty");
+        const unchanged = storyItem("story-3", "unchanged");
+
+        writeJson(`dry-run--${base}---story-to-migrate.json`, [
+            draftMigrated,
+            nonDirtyChanged,
+        ]);
         writeJson(`dry-run--${base}---draft-current-after-full.json`, [
             draftMigrated,
+            nonDirtyChanged,
+            unchanged,
         ]);
         writeJson(`dry-run--${base}---published-layer-after-full.json`, [
             publishedMigrated,
+            nonDirtyChanged,
+            unchanged,
         ]);
         writeJson(`dry-run--${base}---story-migration-pipeline-summary.json`, {
             totalItems: 1,
@@ -397,6 +518,22 @@ describe("migrate continue (preserve-layers reconstruction)", () => {
             { publish: false },
             { ...config, spaceId: "space-1" },
         );
+
+        // The non-dirty changed story goes through the regular batched write,
+        // with the dirty story filtered out of the batch.
+        expect(updateStoriesMock).toHaveBeenCalledTimes(1);
+        const [batchArgs] = updateStoriesMock.mock.calls[0];
+        expect(
+            batchArgs.stories.map((item: any) => item.story.id),
+        ).toEqual(["story-2"]);
+
+        // Run-log labels stay aligned with write order: batched non-dirty
+        // writes first, dirty dual-layer writes after.
+        const runLogArgs = saveMigrationRunLogMock.mock.calls[0][0];
+        expect(
+            runLogArgs.changedItemLabels.map((label: any) => label.id),
+        ).toEqual(["story-2", "story-1"]);
+        expect(runLogArgs.totalChangedItems).toBe(2);
     });
 });
 
