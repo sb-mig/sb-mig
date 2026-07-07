@@ -273,6 +273,81 @@ describe("copy reference scanner", () => {
         expect(result.errors).toEqual([]);
     });
 
+    it("scans uuid-based story references (multi-options, single option, multilink string id)", () => {
+        const uuidSchemas: CopyComponentSchemaRegistry = {
+            page: { body: { type: "bloks" } },
+            "blog-articles-section": {
+                categories: { type: "options", source: "internal_stories" },
+                featured: { type: "option", source: "internal_stories" },
+                cta: { type: "multilink" },
+                filter_groups: { type: "bloks" },
+            },
+            "filter-group": {
+                categories: { type: "options", source: "internal_stories" },
+            },
+        };
+
+        const result = scanStoryReferences({
+            story: {
+                id: 200,
+                uuid: "aaaa697c-aaaa-bbbb-cccc-000000000200",
+                full_slug: "blog",
+                content: {
+                    component: "page",
+                    body: [
+                        {
+                            component: "blog-articles-section",
+                            categories: [
+                                "2166697c-aaaa-bbbb-cccc-000000000001",
+                                105,
+                                "not-a-uuid",
+                            ],
+                            featured: "2166697c-aaaa-bbbb-cccc-000000000003",
+                            cta: {
+                                fieldtype: "multilink",
+                                linktype: "story",
+                                id: "2166697c-aaaa-bbbb-cccc-000000000004",
+                                cached_url: "blog/categories/some-category",
+                            },
+                            filter_groups: [
+                                {
+                                    component: "filter-group",
+                                    categories: [
+                                        "2166697c-aaaa-bbbb-cccc-000000000002",
+                                    ],
+                                },
+                            ],
+                        },
+                    ],
+                },
+            },
+            schemas: uuidSchemas,
+        });
+
+        expect(result.storyReferences).toEqual([
+            expect.objectContaining({
+                referencedStoryUuid: "2166697c-aaaa-bbbb-cccc-000000000001",
+                path: "content.body[0].categories[0]",
+            }),
+            expect.objectContaining({
+                referencedStoryId: 105,
+                path: "content.body[0].categories[1]",
+            }),
+            expect.objectContaining({
+                referencedStoryUuid: "2166697c-aaaa-bbbb-cccc-000000000003",
+                path: "content.body[0].featured",
+            }),
+            expect.objectContaining({
+                referencedStoryUuid: "2166697c-aaaa-bbbb-cccc-000000000004",
+                path: "content.body[0].cta.id",
+            }),
+            expect.objectContaining({
+                referencedStoryUuid: "2166697c-aaaa-bbbb-cccc-000000000002",
+                path: "content.body[0].filter_groups[0].categories[0]",
+            }),
+        ]);
+    });
+
     it("marks story references unresolved when reference policy is fail", () => {
         const result = scanStoryReferences({
             story,
