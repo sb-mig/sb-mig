@@ -55,6 +55,7 @@ const runMigratePresets = (flags: Record<string, unknown>) =>
 beforeEach(() => {
     vi.clearAllMocks();
     mocks.migrateAllComponentsDataInStories.mockResolvedValue(undefined);
+    mocks.migrateProvidedComponentsDataInStories.mockResolvedValue(undefined);
     mocks.getAllPresets.mockResolvedValue([]);
     mocks.createAndSaveToFile.mockResolvedValue(undefined);
 });
@@ -109,6 +110,87 @@ describe("migrate presets --migration pipeline", () => {
         ).rejects.toThrow("Pass at least one --migration value");
 
         expect(mocks.migrateAllComponentsDataInStories).not.toHaveBeenCalled();
+    });
+});
+
+describe("migrate presets <component...> (scoped run)", () => {
+    const runScoped = (components: string[], flags: Record<string, unknown>) =>
+        migrate({
+            input: ["migrate", "presets", ...components],
+            flags,
+        } as any);
+
+    it("scopes the migration to the provided component names", async () => {
+        await runScoped(["text-block", "sb-section"], {
+            from: "12345",
+            to: "12345",
+            migration: "migration-a",
+            dryRun: true,
+        });
+
+        expect(
+            mocks.migrateProvidedComponentsDataInStories,
+        ).toHaveBeenCalledTimes(1);
+        const [engineArgs] =
+            mocks.migrateProvidedComponentsDataInStories.mock.calls[0];
+        expect(engineArgs.itemType).toBe("preset");
+        expect(engineArgs.componentsToMigrate).toEqual([
+            "text-block",
+            "sb-section",
+        ]);
+        expect(engineArgs.migrationConfig).toEqual(["migration-a"]);
+        expect(engineArgs.from).toBe("12345");
+        expect(engineArgs.to).toBe("12345");
+        // Mirrors the stories scoped path: always a space run.
+        expect(engineArgs.migrateFrom).toBe("space");
+        expect(mocks.migrateAllComponentsDataInStories).not.toHaveBeenCalled();
+    });
+
+    it("supports multiple --migration values in a scoped run", async () => {
+        await runScoped(["text-block"], {
+            from: "12345",
+            to: "12345",
+            migration: ["migration-a", "migration-b"],
+            dryRun: true,
+        });
+
+        const [engineArgs] =
+            mocks.migrateProvidedComponentsDataInStories.mock.calls[0];
+        expect(engineArgs.migrationConfig).toEqual([
+            "migration-a",
+            "migration-b",
+        ]);
+    });
+
+    it("falls back to the migration's own component scope when none is named", async () => {
+        await runScoped([], {
+            from: "12345",
+            to: "12345",
+            migration: "migration-a",
+            dryRun: true,
+        });
+
+        const [engineArgs] =
+            mocks.migrateProvidedComponentsDataInStories.mock.calls[0];
+        expect(engineArgs.componentsToMigrate).toEqual([]);
+    });
+
+    it("still routes --all through the all-components path", async () => {
+        await runScoped([], {
+            all: true,
+            migrateFrom: "space",
+            from: "12345",
+            to: "12345",
+            migration: "migration-a",
+            dryRun: true,
+        });
+
+        expect(mocks.migrateAllComponentsDataInStories).toHaveBeenCalledTimes(
+            1,
+        );
+        expect(
+            mocks.migrateProvidedComponentsDataInStories,
+        ).not.toHaveBeenCalled();
     });
 });
 

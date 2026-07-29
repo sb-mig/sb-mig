@@ -313,6 +313,7 @@ export const migrateDescription = `
     USAGE
         $ sb-mig migrate content [component-name ...] --from [spaceId] --to [spaceId] --migration [migration-config]
         $ sb-mig migrate content --all --from [spaceId] --to [spaceId] --migration [migration-config]
+        $ sb-mig migrate presets [component-name ...] --from [spaceId] --to [spaceId] --migration [migration-config]
         $ sb-mig migrate presets --all --from [spaceId-or-file] --to [spaceId] --migration [migration-config]
 
     DESCRIPTION
@@ -321,7 +322,7 @@ export const migrateDescription = `
 
     COMMANDS
         content         Migrate story content for all components or provided component names.
-        presets         Migrate presets. Supports --all.
+        presets         Migrate preset data for all components or provided component names.
         continue        Finish a previous --dry-run by writing its already-computed result to
                         Storyblok. Skips pulling stories and re-running the migration, so it is
                         much faster. Requires a content freeze between the dry-run and continue.
@@ -382,6 +383,8 @@ export const migrateDescription = `
         $ sb-mig migrate presets --all --from 12345 --to 12345 --migration preset-migration --dry-run
         $ sb-mig migrate presets --all --from 12345 --to 12345 --migration migration-a --migration migration-b --yes
         $ sb-mig migrate presets --all --migrate-from file --fromFilePath sbmig/presets/presets-backup.json --to 12345 --migration preset-migration
+        $ sb-mig migrate presets text-block --from 12345 --to 12345 --migration preset-migration
+        $ sb-mig migrate presets text-block sb-section --from 12345 --to 12345 --migration preset-migration --dry-run
 `;
 
 export const revertDescription = `

@@ -374,6 +374,8 @@ export const migrate = async (props: CLIOptions) => {
             const languagePublishStatePath = flags[
                 "languagePublishStatePath"
             ] as string | undefined;
+            const dryRun = flags["dryRun"] as boolean | undefined;
+            const fileName = flags["fileName"] as string | undefined;
 
             if (migrationConfigs.length === 0) {
                 throw new Error(
@@ -401,10 +403,50 @@ export const migrate = async (props: CLIOptions) => {
 
             console.log("Migrating with presets");
 
-            if (isIt("all")) {
+            if (isIt("empty")) {
+                const componentsToMigrate = unpackElements(input) || [""];
+
+                const migrateFrom: MigrateFrom = "space";
+
+                const runMigration = async () => {
+                    Logger.warning("Preparing to migrate...");
+
+                    // The pre-migration backup is made by the engine, which
+                    // backs up the actual `from` items into backup/preset.
+                    await migrateProvidedComponentsDataInStories(
+                        {
+                            itemType: "preset",
+                            from,
+                            to,
+                            migrateFrom,
+                            componentsToMigrate,
+                            migrationConfig: migrationConfigs,
+                            migrationComponentAliases,
+                            migrationComponentOverrides,
+                            dryRun,
+                            fromFilePath,
+                            fileName,
+                        },
+                        apiConfig,
+                    );
+                };
+
+                if (dryRun) {
+                    await runMigration();
+                } else {
+                    await askForConfirmation(
+                        "Are you sure you want to MIGRATE presets in your space ? (it will overwrite them)",
+                        runMigration,
+                        () => {
+                            Logger.warning(
+                                "Migration not started, exiting the program...",
+                            );
+                        },
+                        flags["yes"],
+                    );
+                }
+            } else if (isIt("all")) {
                 const migrateFrom: MigrateFrom = flags["migrateFrom"];
-                const dryRun = flags["dryRun"] as boolean | undefined;
-                const fileName = flags["fileName"] as string | undefined;
 
                 const runMigration = async () => {
                     Logger.warning("Preparing to migrate...");

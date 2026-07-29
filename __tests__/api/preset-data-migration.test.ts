@@ -185,6 +185,53 @@ describe("preset migration pipeline (itemType: preset)", () => {
         });
     });
 
+    it("migrates only the components named by a scoped run", () => {
+        // What `migrate presets text-block --migration x` resolves to: the
+        // mapper knows both components, the scope narrows it to one.
+        const scopedMigration: PreparedMigrationConfig = {
+            migrationConfigName: "mark-both",
+            migrationConfigPath: "/test/mark-both.sb.migration.cjs",
+            migrationConfigFileContent: {
+                "text-block": (data: any) => ({
+                    wasReplaced: true,
+                    data: { ...data, migrated: true },
+                }),
+                "sb-section": (data: any) => ({
+                    wasReplaced: true,
+                    data: { ...data, migrated: true },
+                }),
+            },
+            componentsToMigrate: ["text-block"],
+            validator: null,
+        };
+
+        const result = runMigrationPipelineInMemory({
+            itemType: "preset",
+            itemsToMigrate: [
+                {
+                    id: 44,
+                    name: "Mixed preset",
+                    component_id: 15,
+                    preset: {
+                        _uid: "root",
+                        component: "sb-section",
+                        body: [
+                            { _uid: "tb", component: "text-block", text: "A" },
+                        ],
+                    },
+                },
+            ],
+            preparedMigrationConfigs: [scopedMigration],
+        });
+
+        const migratedPreset = result.finalItems[0].preset;
+        expect(migratedPreset.body[0].migrated).toBe(true);
+        expect(migratedPreset).not.toHaveProperty("migrated");
+        expect(
+            result.stepReports[0]?.replacementsByComponent,
+        ).toEqual({ "text-block": 1 });
+    });
+
     it("leaves presets without matching components unchanged", () => {
         const untouched = {
             id: 43,
