@@ -349,6 +349,104 @@ describe("preset migration write path", () => {
     });
 });
 
+describe("presets are exempt from publication machinery", () => {
+    it("normalizes an explicitly requested publication mode to save-only", async () => {
+        await doTheMigration(
+            {
+                itemType: "preset",
+                from: "space-1",
+                to: "space-1",
+                migrateFrom: "space",
+                itemsToMigrate: [createPresetItem()],
+                migrationConfigs: [markTargetMigration],
+                dryRun: true,
+                // Callers cannot pass this via the CLI, but the engine default
+                // is preserve-layers and must not leak into preset runs.
+                publicationMode: "preserve-layers",
+                publicationLanguages: "all",
+                fileName: "preset-mode-test",
+            },
+            config,
+        );
+
+        const manifest = readJson(
+            "dry-run--preset-mode-test---preset-continue-manifest.json",
+        );
+        expect(manifest.publicationMode).toBe("save-only");
+        expect(manifest.publishLanguages).toBeNull();
+        expect(resolvePublishLanguageCodesMock).not.toHaveBeenCalled();
+
+        const pipelineSummary = readJson(
+            "dry-run--preset-mode-test---preset-migration-pipeline-summary.json",
+        );
+        // The manifest now agrees with what savePipelineSummary already recorded.
+        expect(pipelineSummary.publicationMode).toBe("save-only");
+    });
+
+    it("reports progress in presets, not stories", async () => {
+        const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+
+        try {
+            await doTheMigration(
+                {
+                    itemType: "preset",
+                    from: "space-1",
+                    to: "space-1",
+                    migrateFrom: "space",
+                    itemsToMigrate: [createPresetItem()],
+                    migrationConfigs: [markTargetMigration],
+                    dryRun: true,
+                    fileName: "preset-progress-test",
+                },
+                config,
+            );
+
+            const output = logSpy.mock.calls.map((call) => call[0]).join("\n");
+
+            expect(output).toContain("1 preset(s) to migrate");
+            expect(output).toContain("Migration in Hero preset preset:");
+            expect(output).not.toMatch(/stories to migrate/);
+            expect(output).not.toContain("undefined");
+        } finally {
+            logSpy.mockRestore();
+        }
+    });
+
+    it("says '# No preset(s) to update #' when nothing changed", async () => {
+        const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+
+        try {
+            await doTheMigration(
+                {
+                    itemType: "preset",
+                    from: "space-1",
+                    to: "space-1",
+                    migrateFrom: "space",
+                    itemsToMigrate: [
+                        {
+                            id: 43,
+                            name: "Other preset",
+                            component_id: 14,
+                            preset: { _uid: "other", component: "sb-other" },
+                        },
+                    ],
+                    migrationConfigs: [markTargetMigration],
+                    dryRun: true,
+                    fileName: "preset-empty-test",
+                },
+                config,
+            );
+
+            const output = logSpy.mock.calls.map((call) => call[0]).join("\n");
+
+            expect(output).toContain("# No preset(s) to update #");
+            expect(output).not.toContain("No Stories to update");
+        } finally {
+            logSpy.mockRestore();
+        }
+    });
+});
+
 describe("preset dry-run → migrate continue", () => {
     const runPresetDryRun = () =>
         doTheMigration(
@@ -378,6 +476,10 @@ describe("preset dry-run → migrate continue", () => {
         expect(manifest.itemType).toBe("preset");
         expect(manifest.to).toBe("space-1");
         expect(manifest.migrationConfigNames).toEqual(["mark-target"]);
+        // Presets cannot be published: no publication mode, no languages.
+        expect(manifest.publicationMode).toBe("save-only");
+        expect(manifest.publishLanguages).toBeNull();
+        expect(manifest.resolvedPublishLanguages).toBeNull();
         expect(manifest.artifacts.changedItems).toBe(
             "dry-run--preset-cont-test---preset-to-migrate.json",
         );
@@ -396,6 +498,8 @@ describe("preset dry-run → migrate continue", () => {
         const plan = await prepareContinueMigration({}, config);
 
         expect(plan.summary.itemType).toBe("preset");
+        expect(plan.summary.publicationMode).toBe("save-only");
+        expect(plan.summary.resolvedPublishLanguages).toEqual([]);
         expect(plan.summary.to).toBe("space-1");
         expect(plan.summary.changedCount).toBe(1);
         expect(plan.summary.dirtyPublishedCount).toBe(0);

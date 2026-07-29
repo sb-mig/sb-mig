@@ -472,8 +472,8 @@ const applySingleMigrationToItems = ({
                 `Migration in ${chalk.magenta(
                     itemType === "story"
                         ? item[itemType]?.full_slug
-                        : item[itemType]?.name,
-                )} page: `,
+                        : item.name,
+                )} ${itemType === "story" ? "page" : "preset"}: `,
             );
             preparedMigrationConfig.componentsToMigrate.forEach(
                 (component: string) => {
@@ -1952,7 +1952,7 @@ export const doTheMigration = async (
         migrationConfigs,
         to,
         dryRun,
-        publicationMode = DEFAULT_PUBLICATION_MODE,
+        publicationMode: requestedPublicationMode = DEFAULT_PUBLICATION_MODE,
         publicationLanguages,
         migrateFrom,
         fromFilePath,
@@ -1982,6 +1982,11 @@ export const doTheMigration = async (
         });
     const artifactBaseName = resolveOutputFileBaseName({ from, fileName });
     const useDatestamp = shouldUseDatestampForArtifacts(fileName);
+    // Presets have no draft/published layers and no per-language publish state,
+    // so they are exempt from all publication machinery. Normalizing here keeps
+    // the continue manifest and `migrate continue` summary honest.
+    const publicationMode: PublicationMode =
+        itemType === "preset" ? "save-only" : requestedPublicationMode;
     const effectivePublicationLanguages =
         publicationMode === "save-only"
             ? undefined
@@ -2073,9 +2078,11 @@ export const doTheMigration = async (
     }
 
     if (pipelineResult.changedItems.length === 0) {
-        console.log("# No Stories to update #");
+        console.log(`# No ${itemType}(s) to update #`);
     } else {
-        console.log(`${pipelineResult.changedItems.length} stories to migrate`);
+        console.log(
+            `${pipelineResult.changedItems.length} ${itemType}(s) to migrate`,
+        );
     }
 
     if (
