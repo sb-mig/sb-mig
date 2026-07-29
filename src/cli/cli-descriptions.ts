@@ -361,6 +361,7 @@ export const migrateDescription = `
     GOTCHAS
         At least one --migration value is required.
         preserve-layers currently requires --migrate-from space and requires --from and --to to be the same Storyblok space.
+        presets --migrate-from space requires --from and --to to be the same Storyblok space: preset writes reuse the source preset IDs.
         --publicationLanguages cannot be used with --publicationMode save-only.
         --languagePublishStatePath cannot be used with --publicationMode save-only.
         --publicationMode, --publicationLanguages, and --languagePublishStatePath are only supported for migrate content, not migrate presets.

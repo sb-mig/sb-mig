@@ -247,6 +247,90 @@ describe("migrate presets backup", () => {
     });
 });
 
+describe("migrate presets cross-space guard", () => {
+    it("fails fast when --from and --to are different spaces", async () => {
+        await expect(
+            runMigratePresets({
+                all: true,
+                migrateFrom: "space",
+                from: "12345",
+                to: "67890",
+                migration: "migration-a",
+                yes: true,
+            }),
+        ).rejects.toThrow(
+            "requires --from and --to to be the same Storyblok space (got 12345 → 67890)",
+        );
+
+        expect(mocks.migrateAllComponentsDataInStories).not.toHaveBeenCalled();
+    });
+
+    it("fails fast on a cross-space scoped run too", async () => {
+        await expect(
+            migrate({
+                input: ["migrate", "presets", "text-block"],
+                flags: {
+                    from: "12345",
+                    to: "67890",
+                    migration: "migration-a",
+                    yes: true,
+                },
+            } as any),
+        ).rejects.toThrow("the same Storyblok space");
+
+        expect(
+            mocks.migrateProvidedComponentsDataInStories,
+        ).not.toHaveBeenCalled();
+    });
+
+    it("guards dry runs as well, so the plan is never misleading", async () => {
+        await expect(
+            runMigratePresets({
+                all: true,
+                migrateFrom: "space",
+                from: "12345",
+                to: "67890",
+                migration: "migration-a",
+                dryRun: true,
+            }),
+        ).rejects.toThrow("the same Storyblok space");
+    });
+
+    it("leaves same-space runs alone", async () => {
+        await runMigratePresets({
+            all: true,
+            migrateFrom: "space",
+            from: "12345",
+            to: "12345",
+            migration: "migration-a",
+            yes: true,
+        });
+
+        expect(mocks.migrateAllComponentsDataInStories).toHaveBeenCalledTimes(
+            1,
+        );
+    });
+
+    it("does not block --migrate-from file runs, where 'from' is a file name", async () => {
+        await runMigratePresets({
+            all: true,
+            migrateFrom: "file",
+            fromFilePath: "sbmig/presets/presets-backup.json",
+            to: "12345",
+            migration: "migration-a",
+            yes: true,
+        });
+
+        expect(mocks.migrateAllComponentsDataInStories).toHaveBeenCalledTimes(
+            1,
+        );
+        const [engineArgs] =
+            mocks.migrateAllComponentsDataInStories.mock.calls[0];
+        expect(engineArgs.from).toBe("presets-backup");
+        expect(engineArgs.to).toBe("12345");
+    });
+});
+
 describe("migrate presets publication flags", () => {
     it.each([
         ["publicationMode", "save-only"],

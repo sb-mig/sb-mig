@@ -88,6 +88,30 @@ const assertNoLegacyPublicationFlags = (flags: Record<string, unknown>) => {
     }
 };
 
+/**
+ * Preset writes PUT to `spaces/<to>/presets/<id>` reusing the id the preset
+ * has in the source space. Across spaces those ids either do not exist or
+ * belong to unrelated presets, so a cross-space run is rejected until preset
+ * id remapping is deliberately designed.
+ *
+ * File runs are exempt: there `from` is a file name, not a space.
+ */
+const assertSameSpaceForPresets = ({
+    migrateFrom,
+    from,
+    to,
+}: {
+    migrateFrom: MigrateFrom;
+    from: string;
+    to: string;
+}) => {
+    if (migrateFrom === "space" && from !== to) {
+        throw new Error(
+            `'migrate presets' requires --from and --to to be the same Storyblok space (got ${from} → ${to}). Preset writes reuse the source preset IDs, which do not exist in another space.`,
+        );
+    }
+};
+
 export const migrate = async (props: CLIOptions) => {
     const { input, flags } = props;
 
@@ -408,6 +432,8 @@ export const migrate = async (props: CLIOptions) => {
 
                 const migrateFrom: MigrateFrom = "space";
 
+                assertSameSpaceForPresets({ migrateFrom, from, to });
+
                 const runMigration = async () => {
                     Logger.warning("Preparing to migrate...");
 
@@ -447,6 +473,8 @@ export const migrate = async (props: CLIOptions) => {
                 }
             } else if (isIt("all")) {
                 const migrateFrom: MigrateFrom = flags["migrateFrom"];
+
+                assertSameSpaceForPresets({ migrateFrom, from, to });
 
                 const runMigration = async () => {
                     Logger.warning("Preparing to migrate...");
