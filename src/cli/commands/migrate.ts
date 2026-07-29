@@ -379,7 +379,7 @@ export const migrate = async (props: CLIOptions) => {
 
             if (migrationConfigs.length === 0) {
                 throw new Error(
-                    "Missing migration config. Pass exactly one --migration value for presets.",
+                    "Missing migration config. Pass at least one --migration value.",
                 );
             }
 
@@ -398,12 +398,6 @@ export const migrate = async (props: CLIOptions) => {
             if (languagePublishStatePath) {
                 throw new Error(
                     "--languagePublishStatePath is only supported for 'migrate content'. Presets cannot be published.",
-                );
-            }
-
-            if (migrationConfigs.length > 1) {
-                throw new Error(
-                    "Multiple --migration values are currently supported only for 'migrate content'. Presets support a single migration config.",
                 );
             }
 
@@ -438,7 +432,7 @@ export const migrate = async (props: CLIOptions) => {
                             from,
                             to,
                             migrateFrom,
-                            migrationConfig: migrationConfigs[0] as string,
+                            migrationConfig: migrationConfigs,
                             migrationComponentAliases,
                             migrationComponentOverrides,
                             dryRun,

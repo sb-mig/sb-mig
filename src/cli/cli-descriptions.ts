@@ -321,7 +321,7 @@ export const migrateDescription = `
 
     COMMANDS
         content         Migrate story content for all components or provided component names.
-        presets         Migrate presets. Supports --all and exactly one --migration value.
+        presets         Migrate presets. Supports --all.
         continue        Finish a previous --dry-run by writing its already-computed result to
                         Storyblok. Skips pulling stories and re-running the migration, so it is
                         much faster. Requires a content freeze between the dry-run and continue.
@@ -333,7 +333,7 @@ export const migrateDescription = `
         --fromFilePath    Direct path to stories or presets JSON when using --migrate-from file.
         --to              Target Storyblok space ID.
         --migrate-from    Migrate from space or file. Default: space.
-        --migration       Migration file name without extension. Can be repeated for ordered content pipelines. Presets support exactly one.
+        --migration       Migration file name without extension. Can be repeated for ordered migration pipelines.
         --migrationComponentAlias
                           Add extra component aliases for a migration. Repeatable. Format: <migration>:<source>=<alias1>,<alias2>.
         --migrationComponents
@@ -379,6 +379,7 @@ export const migrateDescription = `
         $ sb-mig migrate content --all --migrate-from file --fromFilePath sbmig/migrations/dry-run--123---story-to-migrate.json --to 12345 --migration migration-a --migration migration-b
         $ sb-mig migrate content my-component-1 my-component-2 --from 12345 --to 12345 --migration file-with-migration
         $ sb-mig migrate presets --all --from 12345 --to 12345 --migration preset-migration --dry-run
+        $ sb-mig migrate presets --all --from 12345 --to 12345 --migration migration-a --migration migration-b --yes
         $ sb-mig migrate presets --all --migrate-from file --fromFilePath sbmig/presets/presets-backup.json --to 12345 --migration preset-migration
 `;
 

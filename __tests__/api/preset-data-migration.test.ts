@@ -60,6 +60,7 @@ import {
     runMigrationPipelineInMemory,
     type PreparedMigrationConfig,
 } from "../../src/api/data-migration/component-data-migration.js";
+import { MigrationValidationFailedError } from "../../src/api/data-migration/migration-validation.js";
 
 const markTargetMigration: PreparedMigrationConfig = {
     migrationConfigName: "mark-target",
@@ -222,6 +223,68 @@ describe("preset migration pipeline (itemType: preset)", () => {
         ).toEqual(["mark-target", "rename-target"]);
         expect(result.stepReports[0]?.touchedItems).toBe(1);
         expect(result.stepReports[1]?.touchedItems).toBe(1);
+    });
+
+    it("runs a per-step validator against the presets produced by that step", () => {
+        const seenComponents: string[] = [];
+        const recordComponent = (id: string) => ({
+            id,
+            name: id,
+            sourcePath: `/test/${id}.sb.validation.cjs`,
+            validateData: ({ data }: { data: any }) => {
+                seenComponents.push(data[0].preset.component);
+                return { ok: true, issueCount: 0, issues: [] };
+            },
+        });
+
+        const result = runMigrationPipelineInMemory({
+            itemType: "preset",
+            itemsToMigrate: [createPresetItem()],
+            preparedMigrationConfigs: [
+                { ...markTargetMigration, validator: recordComponent("after-mark") },
+                {
+                    ...renameTargetMigration,
+                    validator: recordComponent("after-rename"),
+                },
+            ],
+        });
+
+        // Each validator sees the preset state as of its own step.
+        expect(seenComponents).toEqual(["target", "target-v2"]);
+        expect(
+            result.stepReports.map((step) => step.validation?.validatorId),
+        ).toEqual(["after-mark", "after-rename"]);
+    });
+
+    it("halts the preset pipeline when a step validator fails", () => {
+        const failingValidator = {
+            id: "no-target-left",
+            name: "no-target-left",
+            sourcePath: "/test/no-target-left.sb.validation.cjs",
+            validateData: () => ({
+                ok: false,
+                issueCount: 1,
+                issues: [
+                    {
+                        componentPath: "preset",
+                        component: "target",
+                        uid: "preset-root",
+                        message: "target is not allowed",
+                    },
+                ],
+            }),
+        };
+
+        expect(() =>
+            runMigrationPipelineInMemory({
+                itemType: "preset",
+                itemsToMigrate: [createPresetItem()],
+                preparedMigrationConfigs: [
+                    { ...markTargetMigration, validator: failingValidator },
+                    renameTargetMigration,
+                ],
+            }),
+        ).toThrow(MigrationValidationFailedError);
     });
 });
 
