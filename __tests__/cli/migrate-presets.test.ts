@@ -112,6 +112,59 @@ describe("migrate presets --migration pipeline", () => {
     });
 });
 
+describe("migrate presets backup", () => {
+    it("does not run its own backup on a real space run — the engine owns it", async () => {
+        await runMigratePresets({
+            all: true,
+            migrateFrom: "space",
+            from: "12345",
+            to: "12345",
+            migration: "migration-a",
+            yes: true,
+        });
+
+        expect(mocks.migrateAllComponentsDataInStories).toHaveBeenCalledTimes(
+            1,
+        );
+        const [engineArgs] =
+            mocks.migrateAllComponentsDataInStories.mock.calls[0];
+        expect(engineArgs.from).toBe("12345");
+
+        // The old CLI-level backup pulled from apiConfig's default space and
+        // wrote a second "presets-backup" file.
+        expect(mocks.getAllPresets).not.toHaveBeenCalled();
+        expect(mocks.createAndSaveToFile).not.toHaveBeenCalled();
+    });
+
+    it("hits no API on a --migrate-from file run", async () => {
+        await runMigratePresets({
+            all: true,
+            migrateFrom: "file",
+            fromFilePath: "sbmig/presets/presets-backup.json",
+            to: "12345",
+            migration: "migration-a",
+            yes: true,
+        });
+
+        expect(mocks.getAllPresets).not.toHaveBeenCalled();
+        expect(mocks.createAndSaveToFile).not.toHaveBeenCalled();
+    });
+
+    it("hits no API on a dry run", async () => {
+        await runMigratePresets({
+            all: true,
+            migrateFrom: "space",
+            from: "12345",
+            to: "12345",
+            migration: "migration-a",
+            dryRun: true,
+        });
+
+        expect(mocks.getAllPresets).not.toHaveBeenCalled();
+        expect(mocks.createAndSaveToFile).not.toHaveBeenCalled();
+    });
+});
+
 describe("migrate presets publication flags", () => {
     it.each([
         ["publicationMode", "save-only"],

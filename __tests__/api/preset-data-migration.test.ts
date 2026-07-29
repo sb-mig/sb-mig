@@ -56,6 +56,7 @@ vi.mock("../../src/api/managementApi.js", () => ({
 
 import {
     doTheMigration,
+    migrateProvidedComponentsDataInStories,
     prepareContinueMigration,
     runMigrationPipelineInMemory,
     type PreparedMigrationConfig,
@@ -345,6 +346,58 @@ describe("preset migration write path", () => {
             config,
         );
 
+        expect(updatePresetsMock).not.toHaveBeenCalled();
+    });
+});
+
+describe("preset pre-migration backup", () => {
+    const backupDir = () => path.join(tmpDir, "backup", "preset");
+    const listBackups = () =>
+        fs.existsSync(backupDir()) ? fs.readdirSync(backupDir()) : [];
+
+    const runFromSpace = (dryRun?: boolean) =>
+        migrateProvidedComponentsDataInStories(
+            {
+                itemType: "preset",
+                from: "space-A",
+                to: "space-A",
+                migrateFrom: "space",
+                migrationConfig: [],
+                preparedMigrationConfigs: [markTargetMigration],
+                dryRun,
+                fileName: "preset-backup-test",
+            },
+            config,
+        );
+
+    it("writes exactly one backup, of the --from space, into backup/preset", async () => {
+        getAllPresetsMock.mockResolvedValue([createPresetItem()]);
+
+        await runFromSpace();
+
+        // Presets are pulled from --from, not from the config's default space.
+        expect(getAllPresetsMock).toHaveBeenCalledTimes(1);
+        expect(getAllPresetsMock).toHaveBeenCalledWith(
+            expect.objectContaining({ spaceId: "space-A" }),
+        );
+
+        const backups = listBackups();
+        expect(backups).toHaveLength(1);
+        expect(backups[0]).toContain("preset-backup-test");
+        expect(backups[0]).toContain(".sb.presets.json");
+        expect(
+            JSON.parse(
+                fs.readFileSync(path.join(backupDir(), backups[0]!), "utf-8"),
+            ),
+        ).toEqual([createPresetItem()]);
+    });
+
+    it("writes no backup on a dry run", async () => {
+        getAllPresetsMock.mockResolvedValue([createPresetItem()]);
+
+        await runFromSpace(true);
+
+        expect(listBackups()).toHaveLength(0);
         expect(updatePresetsMock).not.toHaveBeenCalled();
     });
 });

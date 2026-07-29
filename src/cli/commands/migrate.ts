@@ -16,10 +16,8 @@ import {
     parseMigrationComponentAliasFlags,
     parseMigrationComponentOverrideFlags,
 } from "../../api/data-migration/migration-component-scope.js";
-import { managementApi } from "../../api/managementApi.js";
 import { backupStories } from "../../api/stories/backup.js";
 import { parsePublishLanguagesOption } from "../../api/stories/stories.js";
-import { createAndSaveToFile } from "../../utils/files.js";
 import Logger from "../../utils/logger.js";
 import { apiConfig } from "../api-config.js";
 import { askForConfirmation } from "../helpers.js";
@@ -411,21 +409,8 @@ export const migrate = async (props: CLIOptions) => {
                 const runMigration = async () => {
                     Logger.warning("Preparing to migrate...");
 
-                    if (!dryRun) {
-                        const response =
-                            await managementApi.presets.getAllPresets(
-                                apiConfig,
-                            );
-
-                        await createAndSaveToFile(
-                            {
-                                filename: "presets-backup",
-                                res: response,
-                            },
-                            apiConfig,
-                        );
-                    }
-
+                    // The pre-migration backup is made by the engine, which
+                    // backs up the actual `from` items into backup/preset.
                     await migrateAllComponentsDataInStories(
                         {
                             itemType: "preset",

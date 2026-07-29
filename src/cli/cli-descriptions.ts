@@ -354,7 +354,8 @@ export const migrateDescription = `
         content creates a story backup before provided-component migrations unless --dry-run is passed.
         content --dry-run also writes a continue manifest so the run can later be finished with migrate continue.
         continue writes the dry-run's migrated stories to Storyblok and updates applied-backpack-migrations.json. It does not pull or re-transform stories.
-        presets backs up all remote presets before writing migrated presets unless --dry-run is passed.
+        presets writes migrated presets to Storyblok unless --dry-run is passed.
+        presets backs up the --from space's presets into backup/preset before writing, unless --dry-run or --migrate-from file is used.
 
     GOTCHAS
         At least one --migration value is required.
