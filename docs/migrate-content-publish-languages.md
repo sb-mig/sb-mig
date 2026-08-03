@@ -27,6 +27,8 @@ Publication is now controlled by publication-state modes, not by a generic `--pu
 
 For every selected story and every resolved language, migrate builds a language publish-state map automatically before writing. The old `--languagePublishStatePath` flow is still available as an override/debug input, but it is no longer a required separate pre-step.
 
+Building the map costs two Delivery API reads (published and draft) per story per translated language, so a large space with many languages produces tens of thousands of requests. Those reads use the `deliveryRateLimit` config option, which is separate from the Management API `rateLimit`. Leave `deliveryRateLimit` unset unless you need to throttle: `storyblok-js-client` then derives the limit per request and single-story reads run at up to 50 req/s. See `docs/security.md`.
+
 ## Storyblok API facts
 
 - Story update: `PUT /v1/spaces/:space_id/stories/:story_id`

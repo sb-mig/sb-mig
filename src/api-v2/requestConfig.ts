@@ -28,6 +28,7 @@ export function toRequestConfig(
         cacheDir: overrides?.cacheDir,
         debug: overrides?.debug,
         rateLimit: overrides?.rateLimit,
+        deliveryRateLimit: overrides?.deliveryRateLimit,
         openaiToken: overrides?.openaiToken,
         boilerplateSpaceId: overrides?.boilerplateSpaceId,
         schemaType: overrides?.schemaType,

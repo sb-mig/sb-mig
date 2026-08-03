@@ -14,7 +14,6 @@ import { getAllStories, getStoryBySlug } from "./stories.js";
 
 const DEFAULT_LANGUAGE = "[default]";
 const DELIVERY_CHECK_CONCURRENCY = 5;
-const DELIVERY_API_DEFAULT_RATE_LIMIT = 5;
 const DELIVERY_API_MAX_RETRIES = 10;
 const DELIVERY_API_TIMEOUT_SECONDS = 60;
 
@@ -117,6 +116,17 @@ export const createStatusPreservingFetch =
         }
     };
 
+/**
+ * Describes the Delivery API rate limit for logging.
+ *
+ * An unset limit is not "no limit": `storyblok-js-client` then picks the limit
+ * per request from the `per_page` tier and the `X-RateLimit-Policy` headers.
+ */
+export const describeDeliveryRateLimit = (rateLimit?: number): string =>
+    rateLimit === undefined
+        ? "the rate limit storyblok-js-client derives per request (up to 50 req/s)"
+        : `${rateLimit} req/s`;
+
 const createDeliveryClient = ({
     accessToken,
     deliveryApiUrl,
@@ -129,7 +139,7 @@ const createDeliveryClient = ({
     new StoryblokClient(
         {
             accessToken,
-            rateLimit: rateLimit ?? DELIVERY_API_DEFAULT_RATE_LIMIT,
+            rateLimit,
             maxRetries: DELIVERY_API_MAX_RETRIES,
             timeout: DELIVERY_API_TIMEOUT_SECONDS,
             fetch: createStatusPreservingFetch(),
@@ -542,14 +552,14 @@ export const buildLanguagePublishStateMapFromStories = async (
         ? createDeliveryClient({
               accessToken: deliveryAccessToken,
               deliveryApiUrl,
-              rateLimit: config.rateLimit,
+              rateLimit: config.deliveryRateLimit,
           })
         : null;
     const totalDeliveryChecks = stories.length * translatedLanguages.length * 2;
 
     if (needsDeliveryApi) {
         Logger.log(
-            `Resolving translated language publish state for ${stories.length} stories and ${translatedLanguages.length} language(s). Up to ${totalDeliveryChecks} Delivery API check(s) will run through StoryblokClient at ${config.rateLimit ?? DELIVERY_API_DEFAULT_RATE_LIMIT} req/s.`,
+            `Resolving translated language publish state for ${stories.length} stories and ${translatedLanguages.length} language(s). Up to ${totalDeliveryChecks} Delivery API check(s) will run through StoryblokClient at ${describeDeliveryRateLimit(config.deliveryRateLimit)}.`,
         );
     }
 
