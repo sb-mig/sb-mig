@@ -1,3 +1,10 @@
+# [6.5.0-beta.1](https://github.com/sb-mig/sb-mig/compare/v6.4.1...v6.5.0-beta.1) (2026-08-04)
+
+
+### Features
+
+* **config:** separate Delivery API rate limit from Management API ([b13cf58](https://github.com/sb-mig/sb-mig/commit/b13cf58861e07431bd48d4f2614717c63c6c34e3))
+
 ## [6.4.1](https://github.com/sb-mig/sb-mig/compare/v6.4.0...v6.4.1) (2026-07-07)
 
 
