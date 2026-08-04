@@ -18,6 +18,7 @@ vi.mock("storyblok-js-client", () => ({
 import {
     buildLanguagePublishStateMapFromStories,
     createStatusPreservingFetch,
+    describeDeliveryRateLimit,
 } from "../../src/api/stories/language-publish-state.js";
 
 const createStoryItem = () => ({
@@ -70,7 +71,7 @@ describe("buildLanguagePublishStateMapFromStories", () => {
             {
                 spaceId: "space-1",
                 storyblokDeliveryApiUrl: "https://api.storyblok.com/v2",
-                rateLimit: 6,
+                deliveryRateLimit: 6,
                 sbApi: {} as any,
             },
         );
@@ -106,6 +107,39 @@ describe("buildLanguagePublishStateMapFromStories", () => {
         expect(result.stories?.[
             "translation-migration-testing/test-1/contact-us"
         ].languages?.fr?.state).toBe("published_clean");
+    });
+
+    it("does not apply the Management API rate limit to the delivery client", async () => {
+        storyblokGetMock.mockResolvedValue({
+            data: {
+                story: {
+                    full_slug:
+                        "fr/translation-migration-testing/test-1/contact-us",
+                    published_at: "2026-05-20T10:00:00.000Z",
+                    content: { component: "page", body: [] },
+                },
+            },
+        });
+
+        await buildLanguagePublishStateMapFromStories(
+            {
+                from: "space-1",
+                stories: [createStoryItem()],
+                languages: ["[default]", "fr"],
+                accessToken: "preview-token",
+            },
+            {
+                spaceId: "space-1",
+                storyblokDeliveryApiUrl: "https://api.storyblok.com/v2",
+                rateLimit: 2,
+                sbApi: {} as any,
+            },
+        );
+
+        expect(storyblokClientConstructorMock).toHaveBeenCalledWith(
+            expect.objectContaining({ rateLimit: undefined }),
+            "https://api.storyblok.com/v2",
+        );
     });
 
     it("keeps 404 as a valid draft-or-unpublished signal", async () => {
@@ -307,5 +341,12 @@ describe("buildLanguagePublishStateMapFromStories", () => {
         await expect(response.json()).resolves.toEqual({
             error: "This record could not be found",
         });
+    });
+
+    it("describes an unset delivery rate limit as client-derived", () => {
+        expect(describeDeliveryRateLimit(undefined)).toBe(
+            "the rate limit storyblok-js-client derives per request (up to 50 req/s)",
+        );
+        expect(describeDeliveryRateLimit(6)).toBe("6 req/s");
     });
 });

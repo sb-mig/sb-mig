@@ -38,7 +38,19 @@ export interface IStoryblokConfig {
     flushCache: boolean;
     cacheDir: string;
     debug: boolean;
+    /**
+     * Requests per second for the Management API.
+     */
     rateLimit: number;
+    /**
+     * Requests per second for the Delivery API.
+     *
+     * Leave unset to let `storyblok-js-client` pick the limit per request: it
+     * tiers CDN requests by `per_page` (up to 50 req/s for single stories) and
+     * follows the `X-RateLimit-Policy` response headers. Set a number only to
+     * throttle below that.
+     */
+    deliveryRateLimit?: number;
     sbApi?: () => StoryblokClient;
     resolvers?: SimpleResolver[];
     advancedResolvers?: SchemaGlobalResolvers;

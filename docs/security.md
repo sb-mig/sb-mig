@@ -138,9 +138,9 @@ Content-Type: application/json
 
 sb-mig respects Storyblok's rate limits:
 
-- Default: 2 requests per second
-- Configurable via `rateLimit` config option
-- Uses `storyblok-js-client` built-in rate limiter
+- Management API: 2 requests per second by default, configurable via the `rateLimit` config option
+- Delivery API: configurable via the `deliveryRateLimit` config option. Leave it unset and `storyblok-js-client` derives the limit per request — it tiers CDN requests by `per_page` (up to 50 req/s for single stories) and follows the `X-RateLimit-Policy` response headers
+- Uses `storyblok-js-client` built-in rate limiter, which keeps a separate throttle queue per limit
 
 ---
 
