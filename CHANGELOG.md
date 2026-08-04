@@ -1,3 +1,18 @@
+# [6.5.0-beta.2](https://github.com/sb-mig/sb-mig/compare/v6.5.0-beta.1...v6.5.0-beta.2) (2026-08-04)
+
+
+### Bug Fixes
+
+* **migrate:** drop the duplicate CLI-level preset backup (GCTT-3840) ([55d2e90](https://github.com/sb-mig/sb-mig/commit/55d2e90bcdb2c17c3d5e662db0ed17684c0e507c))
+* **migrate:** stop recording publication metadata for preset runs (GCTT-3839) ([2ac321a](https://github.com/sb-mig/sb-mig/commit/2ac321af5c4e443d32e91d1c111d2a792cd38f0e))
+
+
+### Features
+
+* **migrate:** reject cross-space preset runs (GCTT-3842) ([4459be0](https://github.com/sb-mig/sb-mig/commit/4459be064574f730cee67d279e6be7d94be18213))
+* **migrate:** support multiple --migration values for presets (GCTT-3837) ([22d163f](https://github.com/sb-mig/sb-mig/commit/22d163f9811d10455680c43956479e37b3430041))
+* **migrate:** support scoped component runs for presets (GCTT-3838) ([299c181](https://github.com/sb-mig/sb-mig/commit/299c181e0c93de921ae8184c6fdb549757a3633d))
+
 # [6.5.0-beta.1](https://github.com/sb-mig/sb-mig/compare/v6.4.1...v6.5.0-beta.1) (2026-08-04)
 
 
