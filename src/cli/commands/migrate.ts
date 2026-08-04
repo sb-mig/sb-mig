@@ -16,10 +16,8 @@ import {
     parseMigrationComponentAliasFlags,
     parseMigrationComponentOverrideFlags,
 } from "../../api/data-migration/migration-component-scope.js";
-import { managementApi } from "../../api/managementApi.js";
 import { backupStories } from "../../api/stories/backup.js";
 import { parsePublishLanguagesOption } from "../../api/stories/stories.js";
-import { createAndSaveToFile } from "../../utils/files.js";
 import Logger from "../../utils/logger.js";
 import { apiConfig } from "../api-config.js";
 import { askForConfirmation } from "../helpers.js";
@@ -86,6 +84,30 @@ const assertNoLegacyPublicationFlags = (flags: Record<string, unknown>) => {
     if (flags["preservePublishedLayer"] !== undefined) {
         throw new Error(
             "--preservePublishedLayer has been replaced by --publicationMode preserve-layers.",
+        );
+    }
+};
+
+/**
+ * Preset writes PUT to `spaces/<to>/presets/<id>` reusing the id the preset
+ * has in the source space. Across spaces those ids either do not exist or
+ * belong to unrelated presets, so a cross-space run is rejected until preset
+ * id remapping is deliberately designed.
+ *
+ * File runs are exempt: there `from` is a file name, not a space.
+ */
+const assertSameSpaceForPresets = ({
+    migrateFrom,
+    from,
+    to,
+}: {
+    migrateFrom: MigrateFrom;
+    from: string;
+    to: string;
+}) => {
+    if (migrateFrom === "space" && from !== to) {
+        throw new Error(
+            `'migrate presets' requires --from and --to to be the same Storyblok space (got ${from} → ${to}). Preset writes reuse the source preset IDs, which do not exist in another space.`,
         );
     }
 };
@@ -376,10 +398,12 @@ export const migrate = async (props: CLIOptions) => {
             const languagePublishStatePath = flags[
                 "languagePublishStatePath"
             ] as string | undefined;
+            const dryRun = flags["dryRun"] as boolean | undefined;
+            const fileName = flags["fileName"] as string | undefined;
 
             if (migrationConfigs.length === 0) {
                 throw new Error(
-                    "Missing migration config. Pass exactly one --migration value for presets.",
+                    "Missing migration config. Pass at least one --migration value.",
                 );
             }
 
@@ -401,44 +425,69 @@ export const migrate = async (props: CLIOptions) => {
                 );
             }
 
-            if (migrationConfigs.length > 1) {
-                throw new Error(
-                    "Multiple --migration values are currently supported only for 'migrate content'. Presets support a single migration config.",
-                );
-            }
-
             console.log("Migrating with presets");
 
-            if (isIt("all")) {
-                const migrateFrom: MigrateFrom = flags["migrateFrom"];
-                const dryRun = flags["dryRun"] as boolean | undefined;
-                const fileName = flags["fileName"] as string | undefined;
+            if (isIt("empty")) {
+                const componentsToMigrate = unpackElements(input) || [""];
+
+                const migrateFrom: MigrateFrom = "space";
+
+                assertSameSpaceForPresets({ migrateFrom, from, to });
 
                 const runMigration = async () => {
                     Logger.warning("Preparing to migrate...");
 
-                    if (!dryRun) {
-                        const response =
-                            await managementApi.presets.getAllPresets(
-                                apiConfig,
+                    // The pre-migration backup is made by the engine, which
+                    // backs up the actual `from` items into backup/preset.
+                    await migrateProvidedComponentsDataInStories(
+                        {
+                            itemType: "preset",
+                            from,
+                            to,
+                            migrateFrom,
+                            componentsToMigrate,
+                            migrationConfig: migrationConfigs,
+                            migrationComponentAliases,
+                            migrationComponentOverrides,
+                            dryRun,
+                            fromFilePath,
+                            fileName,
+                        },
+                        apiConfig,
+                    );
+                };
+
+                if (dryRun) {
+                    await runMigration();
+                } else {
+                    await askForConfirmation(
+                        "Are you sure you want to MIGRATE presets in your space ? (it will overwrite them)",
+                        runMigration,
+                        () => {
+                            Logger.warning(
+                                "Migration not started, exiting the program...",
                             );
+                        },
+                        flags["yes"],
+                    );
+                }
+            } else if (isIt("all")) {
+                const migrateFrom: MigrateFrom = flags["migrateFrom"];
 
-                        await createAndSaveToFile(
-                            {
-                                filename: "presets-backup",
-                                res: response,
-                            },
-                            apiConfig,
-                        );
-                    }
+                assertSameSpaceForPresets({ migrateFrom, from, to });
 
+                const runMigration = async () => {
+                    Logger.warning("Preparing to migrate...");
+
+                    // The pre-migration backup is made by the engine, which
+                    // backs up the actual `from` items into backup/preset.
                     await migrateAllComponentsDataInStories(
                         {
                             itemType: "preset",
                             from,
                             to,
                             migrateFrom,
-                            migrationConfig: migrationConfigs[0] as string,
+                            migrationConfig: migrationConfigs,
                             migrationComponentAliases,
                             migrationComponentOverrides,
                             dryRun,
