@@ -46,10 +46,20 @@ vi.mock("../../src/utils/logger.js", () => ({
 
 import { migrate } from "../../src/cli/commands/migrate.js";
 
+/**
+ * meow declares --migrate-from with `default: "space", isRequired: true`, so
+ * `migrateFrom` is present in `flags` on every real invocation. Tests that
+ * omit it do not exercise the routing the CLI actually performs.
+ */
+const cliFlags = (overrides: Record<string, unknown>) => ({
+    migrateFrom: "space",
+    ...overrides,
+});
+
 const runMigratePresets = (flags: Record<string, unknown>) =>
     migrate({
         input: ["migrate", "presets"],
-        flags,
+        flags: cliFlags(flags),
     } as any);
 
 beforeEach(() => {
@@ -117,7 +127,7 @@ describe("migrate presets <component...> (scoped run)", () => {
     const runScoped = (components: string[], flags: Record<string, unknown>) =>
         migrate({
             input: ["migrate", "presets", ...components],
-            flags,
+            flags: cliFlags(flags),
         } as any);
 
     it("scopes the migration to the provided component names", async () => {
@@ -162,7 +172,28 @@ describe("migrate presets <component...> (scoped run)", () => {
         ]);
     });
 
-    it("falls back to the migration's own component scope when none is named", async () => {
+    it("routes on the typed command, not on the presence of the migrateFrom default", async () => {
+        // Regression: --migrate-from is declared with `default: "space"` and
+        // `isRequired: true`, so `migrateFrom` is in `flags` on every real
+        // invocation. Routing this branch through `isIt("empty")` made the
+        // scoped run unreachable from the built CLI.
+        await runScoped(["text-block"], {
+            migrateFrom: "space",
+            from: "12345",
+            to: "12345",
+            migration: "migration-a",
+            dryRun: true,
+        });
+
+        expect(
+            mocks.migrateProvidedComponentsDataInStories,
+        ).toHaveBeenCalledTimes(1);
+        const [engineArgs] =
+            mocks.migrateProvidedComponentsDataInStories.mock.calls[0];
+        expect(engineArgs.componentsToMigrate).toEqual(["text-block"]);
+    });
+
+    it("reports a wrong flag combination when neither --all nor components are given", async () => {
         await runScoped([], {
             from: "12345",
             to: "12345",
@@ -170,9 +201,10 @@ describe("migrate presets <component...> (scoped run)", () => {
             dryRun: true,
         });
 
-        const [engineArgs] =
-            mocks.migrateProvidedComponentsDataInStories.mock.calls[0];
-        expect(engineArgs.componentsToMigrate).toEqual([]);
+        expect(
+            mocks.migrateProvidedComponentsDataInStories,
+        ).not.toHaveBeenCalled();
+        expect(mocks.migrateAllComponentsDataInStories).not.toHaveBeenCalled();
     });
 
     it("still routes --all through the all-components path", async () => {
@@ -269,12 +301,12 @@ describe("migrate presets cross-space guard", () => {
         await expect(
             migrate({
                 input: ["migrate", "presets", "text-block"],
-                flags: {
+                flags: cliFlags({
                     from: "12345",
                     to: "67890",
                     migration: "migration-a",
                     yes: true,
-                },
+                }),
             } as any),
         ).rejects.toThrow("the same Storyblok space");
 
