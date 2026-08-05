@@ -427,8 +427,14 @@ export const migrate = async (props: CLIOptions) => {
 
             console.log("Migrating with presets");
 
-            if (isIt("empty")) {
-                const componentsToMigrate = unpackElements(input) || [""];
+            const presetComponentsToMigrate = unpackElements(input);
+
+            // Not `isIt("empty")`: --migrate-from is declared with a default,
+            // so meow always puts `migrateFrom` in flags, which makes the
+            // `empty` rule impossible to match. Route on what was actually
+            // typed instead.
+            if (!flags["all"] && presetComponentsToMigrate.length > 0) {
+                const componentsToMigrate = presetComponentsToMigrate;
 
                 const migrateFrom: MigrateFrom = "space";
 
