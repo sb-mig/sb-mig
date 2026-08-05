@@ -249,7 +249,11 @@ confirmation output as the rollback source. No new backup step is added.
   require `--manifest <filename>`; never auto-pick newest.
 - **D-2 (confirmation):** always confirm before writing; `--yes` only bypasses the prompt
   (CI parity), never changes what is shown/logged.
-- **D-3 (presets):** v1 is stories only; presets deferred.
+- **D-3 (presets):** v1 was stories only; presets deferred. Superseded by DT-319 — the preset
+  dry-run → continue path is now covered by tests (`__tests__/api/preset-data-migration.test.ts`).
+  A preset dry-run writes a `preset-continue-manifest`, `prepareContinueMigration` reconstructs
+  it, and `finalizeMigration` replays the write through `presets.updatePresets`. Preset manifests
+  always record `save-only` with no publication languages, since presets cannot be published.
 - **D-4 (dirty records, F3):** dry-run serializes the exact `dirtyPublishedRecords` to a new
   machine artifact; `continue` references and loads it as-is. (Chosen over reconstructing from
   the human summary, which is fragile.)
