@@ -5,6 +5,7 @@ import path from "path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import {
+    iterateJsonArrayStreamed,
     readJsonArrayStreamed,
     writeJsonArrayStreamed,
 } from "../../src/utils/files.js";
@@ -92,5 +93,46 @@ describe("readJsonArrayStreamed", () => {
         await expect(readJsonArrayStreamed(p)).rejects.toThrow(
             "Empty or non-JSON file",
         );
+    });
+
+    it("rejects a truncated array instead of returning a partial set", async () => {
+        // Simulates a dry-run killed mid-write: no closing `]`.
+        const p = write(
+            "truncated.json",
+            '[\n  { "id": 1 },\n  { "id": 2 },\n  { "id"',
+        );
+        await expect(readJsonArrayStreamed(p)).rejects.toThrow(
+            "Truncated JSON array",
+        );
+    });
+});
+
+describe("iterateJsonArrayStreamed", () => {
+    it("yields elements one at a time in file order", async () => {
+        const p = write(
+            "iterate.json",
+            JSON.stringify([{ id: 1 }, { id: 2 }, { id: 3 }], null, 2),
+        );
+
+        const seen: number[] = [];
+        for await (const item of iterateJsonArrayStreamed(p)) {
+            seen.push(item.id);
+        }
+
+        expect(seen).toEqual([1, 2, 3]);
+    });
+
+    it("throws on truncated input once the end of the file is reached", async () => {
+        const p = write("iterate-truncated.json", '[\n  { "id": 1 },\n  { "i');
+
+        const consume = async () => {
+            const seen: any[] = [];
+            for await (const item of iterateJsonArrayStreamed(p)) {
+                seen.push(item);
+            }
+            return seen;
+        };
+
+        await expect(consume()).rejects.toThrow("Truncated JSON array");
     });
 });

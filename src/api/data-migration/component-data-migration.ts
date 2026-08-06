@@ -16,9 +16,9 @@ import {
     createAndSaveToFile,
     getFileContentWithRequire,
     getFilesContentWithRequire,
+    iterateJsonArrayStreamed,
     listFilesInDir,
     readFile,
-    readJsonArrayStreamed,
 } from "../../utils/files.js";
 import Logger from "../../utils/logger.js";
 import { modifyOrCreateAppliedMigrationsFile } from "../../utils/migrations.js";
@@ -1329,6 +1329,7 @@ const writeDirtyPublishedLayerStories = async (
         context,
         draftPipelineResult,
         publishedPipelineResult,
+        draftChangedIds,
         to,
         resolvedPublishLanguages,
         languagePublishStateMap,
@@ -1336,12 +1337,18 @@ const writeDirtyPublishedLayerStories = async (
         context: PublishedLayerContext;
         draftPipelineResult: MigrationPipelineResult;
         publishedPipelineResult: MigrationPipelineResult;
+        // Draft changed-membership when the changed items are streamed instead
+        // of held in draftPipelineResult.changedItems (migrate continue).
+        draftChangedIds?: Set<string>;
         to: string;
         resolvedPublishLanguages?: string[];
         languagePublishStateMap?: LanguagePublishStateMap;
     },
     config: RequestBaseConfig,
-) => {
+): Promise<{
+    results: PromiseSettledResult<any>[];
+    records: PublishedLayerRecord[];
+}> => {
     const draftFinalById = indexStoriesById(draftPipelineResult.finalItems);
     const draftChangedById = indexStoriesById(draftPipelineResult.changedItems);
     const publishedFinalById = indexStoriesById(
@@ -1350,12 +1357,14 @@ const writeDirtyPublishedLayerStories = async (
     const publishedChangedById = indexStoriesById(
         publishedPipelineResult.changedItems,
     );
+    const isDraftChanged = (id: string) =>
+        draftChangedIds ? draftChangedIds.has(id) : draftChangedById.has(id);
     const recordsToWrite = context.dirtyPublishedRecords.filter((record) => {
         const id = String(record.storyId);
-        return draftChangedById.has(id) || publishedChangedById.has(id);
+        return isDraftChanged(id) || publishedChangedById.has(id);
     });
 
-    return Promise.allSettled(
+    const results = await Promise.allSettled(
         recordsToWrite.map((record) => {
             const id = String(record.storyId);
 
@@ -1363,7 +1372,7 @@ const writeDirtyPublishedLayerStories = async (
                 {
                     record,
                     draftFinalItem: draftFinalById.get(id),
-                    draftChanged: draftChangedById.has(id),
+                    draftChanged: isDraftChanged(id),
                     publishedFinalItem: publishedFinalById.get(id),
                     publishedLayerChanged: publishedChangedById.has(id),
                     to,
@@ -1374,6 +1383,8 @@ const writeDirtyPublishedLayerStories = async (
             );
         }),
     );
+
+    return { results, records: recordsToWrite };
 };
 
 const loadItemsToMigrate = async (
@@ -1554,6 +1565,44 @@ export interface ContinueManifest {
     };
 }
 
+/**
+ * Batched supply of changed items for the write phase. `migrate continue` uses
+ * this to stream items from the dry-run artifact in bounded batches instead of
+ * materializing the whole changed set in memory (heap OOM on large spaces).
+ */
+export interface ChangedItemsSource {
+    count: number;
+    batches: () => AsyncIterable<any[]>;
+}
+
+const CONTINUE_WRITE_BATCH_SIZE = 50;
+
+async function* batchAsyncItems(
+    source: AsyncIterable<any>,
+    size: number,
+): AsyncGenerator<any[], void, undefined> {
+    let batch: any[] = [];
+    for await (const item of source) {
+        batch.push(item);
+        if (batch.length >= size) {
+            yield batch;
+            batch = [];
+        }
+    }
+    if (batch.length > 0) {
+        yield batch;
+    }
+}
+
+const labelOfChangedItem = (item: any) => {
+    const payload = item?.story || item;
+    return {
+        id: payload?.id,
+        name: payload?.name,
+        slug: payload?.full_slug || payload?.slug,
+    };
+};
+
 interface FinalizeMigrationArgs {
     itemType: "story" | "preset";
     from: string;
@@ -1572,6 +1621,8 @@ interface FinalizeMigrationArgs {
     artifactBaseName: string;
     useDatestamp: boolean;
     continuedFromManifest?: string;
+    changedItemsSource?: ChangedItemsSource;
+    draftChangedIds?: Set<string>;
 }
 
 /**
@@ -1599,6 +1650,8 @@ export const finalizeMigration = async (
         artifactBaseName,
         useDatestamp,
         continuedFromManifest,
+        changedItemsSource,
+        draftChangedIds,
     }: FinalizeMigrationArgs,
     config: RequestBaseConfig,
 ) => {
@@ -1609,95 +1662,117 @@ export const finalizeMigration = async (
         );
     }
 
+    const changedCount =
+        changedItemsSource?.count ?? pipelineResult.changedItems.length;
     const publishedLayerChangedCount =
         publishedLayerPipelineResult?.changedItems.length ?? 0;
 
-    if (
-        pipelineResult.changedItems.length === 0 &&
-        publishedLayerChangedCount === 0
-    ) {
+    if (changedCount === 0 && publishedLayerChangedCount === 0) {
         return;
     }
 
-    let writeResults: PromiseSettledResult<any>[] = [];
+    const isPreserveLayersWrite =
+        itemType === "story" &&
+        shouldUsePublishedLayerMode(publicationMode) &&
+        Boolean(publishedLayerContext);
+    const dirtyStoryIds = isPreserveLayersWrite
+        ? new Set(
+              publishedLayerContext!.dirtyPublishedRecords.map((record) =>
+                  String(record.storyId),
+              ),
+          )
+        : new Set<string>();
 
-    if (itemType === "story") {
-        if (
-            shouldUsePublishedLayerMode(publicationMode) &&
-            publishedLayerContext
-        ) {
-            const dirtyStoryIds = new Set(
-                publishedLayerContext.dirtyPublishedRecords.map((record) =>
-                    String(record.storyId),
-                ),
-            );
-            const nonDirtyChangedItems = pipelineResult.changedItems.filter(
-                (item) => !dirtyStoryIds.has(storyIdOf(item)),
-            );
-            const nonDirtyWriteResults =
-                nonDirtyChangedItems.length > 0
-                    ? await managementApi.stories.updateStories(
-                          {
-                              stories: nonDirtyChangedItems,
-                              spaceId: to,
-                              options: {
-                                  publish:
-                                      shouldPublishForPublicationMode(
-                                          publicationMode,
-                                      ),
-                                  publishLanguages: resolvedPublishLanguages,
-                                  preservePublishState:
-                                      shouldPublishForPublicationMode(
-                                          publicationMode,
-                                      ),
-                                  languagePublishStateMap,
-                              },
-                          },
-                          config,
-                      )
-                    : [];
-            const dirtyWriteResults = publishedLayerPipelineResult
-                ? await writeDirtyPublishedLayerStories(
+    // Without a source, the in-memory changed set goes through as one batch,
+    // keeping the write behavior of a regular run byte-identical.
+    const changedItemBatches: AsyncIterable<any[]> = changedItemsSource
+        ? changedItemsSource.batches()
+        : (async function* () {
+              if (pipelineResult.changedItems.length > 0) {
+                  yield pipelineResult.changedItems;
+              }
+          })();
+
+    const writeResults: PromiseSettledResult<any>[] = [];
+    const changedItemLabels: Array<{
+        id?: number | string;
+        name?: string;
+        slug?: string;
+    }> = [];
+
+    for await (const batch of changedItemBatches) {
+        const itemsToWrite = isPreserveLayersWrite
+            ? batch.filter((item) => !dirtyStoryIds.has(storyIdOf(item)))
+            : batch;
+
+        if (itemsToWrite.length === 0) {
+            continue;
+        }
+
+        const batchResults =
+            itemType === "story"
+                ? await managementApi.stories.updateStories(
                       {
-                          context: publishedLayerContext,
-                          draftPipelineResult: pipelineResult,
-                          publishedPipelineResult: publishedLayerPipelineResult,
-                          to,
-                          resolvedPublishLanguages,
-                          languagePublishStateMap,
+                          stories: itemsToWrite,
+                          spaceId: to,
+                          options: {
+                              publish:
+                                  shouldPublishForPublicationMode(
+                                      publicationMode,
+                                  ),
+                              publishLanguages: resolvedPublishLanguages,
+                              preservePublishState:
+                                  shouldPublishForPublicationMode(
+                                      publicationMode,
+                                  ),
+                              ...(isPreserveLayersWrite
+                                  ? {}
+                                  : {
+                                        publishDirtyPublishedStories:
+                                            shouldPublishDirtyDrafts(
+                                                publicationMode,
+                                            ),
+                                    }),
+                              languagePublishStateMap,
+                          },
                       },
                       config,
                   )
-                : [];
+                : await managementApi.presets.updatePresets(
+                      {
+                          presets: itemsToWrite,
+                          spaceId: to,
+                          options: {},
+                      },
+                      config,
+                  );
 
-            writeResults = [...nonDirtyWriteResults, ...dirtyWriteResults];
-        } else {
-            writeResults = await managementApi.stories.updateStories(
+        writeResults.push(...batchResults);
+        changedItemLabels.push(...itemsToWrite.map(labelOfChangedItem));
+    }
+
+    if (isPreserveLayersWrite && publishedLayerPipelineResult) {
+        const { results: dirtyWriteResults, records: dirtyWrittenRecords } =
+            await writeDirtyPublishedLayerStories(
                 {
-                    stories: pipelineResult.changedItems,
-                    spaceId: to,
-                    options: {
-                        publish:
-                            shouldPublishForPublicationMode(publicationMode),
-                        publishLanguages: resolvedPublishLanguages,
-                        preservePublishState:
-                            shouldPublishForPublicationMode(publicationMode),
-                        publishDirtyPublishedStories:
-                            shouldPublishDirtyDrafts(publicationMode),
-                        languagePublishStateMap,
-                    },
+                    context: publishedLayerContext!,
+                    draftPipelineResult: pipelineResult,
+                    publishedPipelineResult: publishedLayerPipelineResult,
+                    draftChangedIds,
+                    to,
+                    resolvedPublishLanguages,
+                    languagePublishStateMap,
                 },
                 config,
             );
-        }
-    } else if (itemType === "preset") {
-        writeResults = await managementApi.presets.updatePresets(
-            {
-                presets: pipelineResult.changedItems,
-                spaceId: to,
-                options: {},
-            },
-            config,
+
+        writeResults.push(...dirtyWriteResults);
+        changedItemLabels.push(
+            ...dirtyWrittenRecords.map((record) => ({
+                id: record.storyId,
+                name: record.name,
+                slug: record.full_slug,
+            })),
         );
     }
 
@@ -1719,6 +1794,8 @@ export const finalizeMigration = async (
                 fromFilePath,
                 languagePublishStatePath,
                 pipelineResult,
+                totalChangedItems: changedCount,
+                changedItemLabels,
                 writeResults,
                 writeSummary,
                 continuedFromManifest,
@@ -2378,16 +2455,17 @@ const readMigrationJson = async (
 };
 
 /**
- * Read a migration artifact that is a JSON array (e.g. the changed-items or
- * after-full snapshots). These can exceed V8's ~512 MB max string length on
- * large spaces, so they are streamed element by element instead of read into a
- * single string (which would throw ERR_STRING_TOO_LONG).
+ * Iterate a migration artifact that is a JSON array (e.g. the changed-items or
+ * after-full snapshots) one element at a time. These can exceed both V8's
+ * ~512 MB max string length AND the process heap on large spaces, so they are
+ * never read into a single string or materialized as one array. Callers keep
+ * only what they need per element.
  */
-const readMigrationJsonArray = (
+const iterateMigrationJsonArray = (
     config: RequestBaseConfig,
     filename: string,
-): Promise<any[]> =>
-    readJsonArrayStreamed(
+): AsyncGenerator<any, void, undefined> =>
+    iterateJsonArrayStreamed(
         `${config.sbmigWorkingDirectory}/migrations/${filename}`,
     );
 
@@ -2469,10 +2547,23 @@ export const prepareContinueMigration = async (
         );
     }
 
-    const changedItems = await readMigrationJsonArray(
+    // Counting pass: the changed-items artifact can be larger than the heap on
+    // big spaces, so it is never materialized. This pass keeps only the count
+    // and the story ids (for dirty-write membership); the items themselves are
+    // re-streamed in batches at write time. Failing here (e.g. on a truncated
+    // artifact) aborts before anything is written.
+    let changedCount = 0;
+    const changedIds = new Set<string>();
+    for await (const item of iterateMigrationJsonArray(
         config,
         artifacts.changedItems,
-    );
+    )) {
+        changedCount++;
+        const id = storyIdOf(item);
+        if (id) {
+            changedIds.add(id);
+        }
+    }
 
     const pipelineSummary = artifacts.pipelineSummary
         ? await readMigrationJson(config, artifacts.pipelineSummary)
@@ -2491,6 +2582,7 @@ export const prepareContinueMigration = async (
 
     let publishedLayerContext: PublishedLayerContext | undefined;
     let publishedLayerPipelineResult: MigrationPipelineResult | null = null;
+    const draftFinalDirtyItems: any[] = [];
 
     if (isPreserveLayers && artifacts.dirtyPublishedRecords) {
         const dirty = (await readMigrationJson(
@@ -2501,44 +2593,79 @@ export const prepareContinueMigration = async (
             publishedChangedIds: string[];
         };
 
+        const dirtyPublishedRecords = dirty.dirtyPublishedRecords ?? [];
+        const dirtyIdSet = new Set(
+            dirtyPublishedRecords.map((record) => String(record.storyId)),
+        );
+
         publishedLayerContext = {
             records: [],
             publishedLayerInputItems: [],
-            dirtyPublishedRecords: dirty.dirtyPublishedRecords ?? [],
+            dirtyPublishedRecords,
             missingPublishedLayerRecords: [],
         };
 
-        const publishedFinalItems = artifacts.publishedAfterFull
-            ? await readMigrationJsonArray(config, artifacts.publishedAfterFull)
-            : [];
+        // The after-full snapshots hold the ENTIRE space; the dual-layer
+        // writer only ever looks up dirty stories in them. Stream-filter to
+        // the dirty subset so continue never holds a full-space copy in heap.
+        const publishedFinalDirtyItems: any[] = [];
+        if (artifacts.publishedAfterFull) {
+            for await (const item of iterateMigrationJsonArray(
+                config,
+                artifacts.publishedAfterFull,
+            )) {
+                if (dirtyIdSet.has(storyIdOf(item))) {
+                    publishedFinalDirtyItems.push(item);
+                }
+            }
+        }
+
+        if (artifacts.draftAfterFull) {
+            for await (const item of iterateMigrationJsonArray(
+                config,
+                artifacts.draftAfterFull,
+            )) {
+                if (dirtyIdSet.has(storyIdOf(item))) {
+                    draftFinalDirtyItems.push(item);
+                }
+            }
+        }
+
         const publishedChangedIdSet = new Set(
             (dirty.publishedChangedIds ?? []).map(String),
         );
 
         publishedLayerPipelineResult = {
-            changedItems: publishedFinalItems.filter((item) =>
+            changedItems: publishedFinalDirtyItems.filter((item) =>
                 publishedChangedIdSet.has(storyIdOf(item)),
             ),
-            finalItems: publishedFinalItems,
+            finalItems: publishedFinalDirtyItems,
             stepReports: [],
-            totalItems: publishedFinalItems.length,
+            totalItems: publishedFinalDirtyItems.length,
         };
     }
 
-    const draftFinalItems = artifacts.draftAfterFull
-        ? await readMigrationJsonArray(config, artifacts.draftAfterFull)
-        : changedItems;
-
     const pipelineResult: MigrationPipelineResult = {
-        changedItems,
-        finalItems: draftFinalItems,
+        // Streamed in batches at write time via changedItemsSource; never
+        // materialized here.
+        changedItems: [],
+        finalItems: draftFinalDirtyItems,
         stepReports: Array.isArray(pipelineSummary?.steps)
             ? pipelineSummary.steps
             : [],
         totalItems:
             typeof pipelineSummary?.totalItems === "number"
                 ? pipelineSummary.totalItems
-                : changedItems.length,
+                : changedCount,
+    };
+
+    const changedItemsSource: ChangedItemsSource = {
+        count: changedCount,
+        batches: () =>
+            batchAsyncItems(
+                iterateMigrationJsonArray(config, artifacts.changedItems),
+                CONTINUE_WRITE_BATCH_SIZE,
+            ),
     };
 
     const resolvedPublishLanguages =
@@ -2563,7 +2690,7 @@ export const prepareContinueMigration = async (
         publicationMode: manifest.publicationMode,
         migrationConfigNames: manifest.migrationConfigNames ?? [],
         resolvedPublishLanguages: resolvedPublishLanguages ?? [],
-        changedCount: changedItems.length,
+        changedCount,
         dirtyPublishedCount:
             publishedLayerContext?.dirtyPublishedRecords.length ?? 0,
         artifactFiles,
@@ -2588,6 +2715,8 @@ export const prepareContinueMigration = async (
                 artifactBaseName: manifest.artifactBaseName,
                 useDatestamp: manifest.useDatestamp,
                 continuedFromManifest: chosen,
+                changedItemsSource,
+                draftChangedIds: changedIds,
             },
             config,
         );
