@@ -4,8 +4,8 @@ import type { SyncProgressCallback, SyncResult } from "./types.js";
 import { syncComponentsData } from "../../api/components/components.sync.js";
 import { syncDatasourcesData } from "../../api/datasources/datasources.js";
 import { syncPluginsData } from "../../api/plugins/plugins.js";
-import { syncRolesData } from "../../api/roles/roles.js";
 import { toRequestConfig } from "../requestConfig.js";
+import { syncRoles as syncRolesV2 } from "../roles/index.js";
 
 export async function syncComponents(
     client: ApiClient,
@@ -45,10 +45,7 @@ export async function syncRoles(
     client: ApiClient,
     args: { roles: any[]; dryRun?: boolean },
 ): Promise<SyncResult> {
-    return (await syncRolesData(
-        { roles: args.roles, dryRun: args.dryRun },
-        toRequestConfig(client),
-    )) as any;
+    return syncRolesV2(client, { roles: args.roles, dryRun: args.dryRun });
 }
 
 export async function syncPlugins(
