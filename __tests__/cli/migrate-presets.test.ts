@@ -46,10 +46,26 @@ vi.mock("../../src/utils/logger.js", () => ({
 
 import { migrate } from "../../src/cli/commands/migrate.js";
 
+/**
+ * What `meow` actually hands the command. Every flag declared with `default:`
+ * or `isMultiple: true` is present on every invocation, typed or not. Tests
+ * that omit these do not exercise the routing the CLI really performs — that
+ * is how the scoped form shipped dead in v6.5.0-beta.2 (GCTT-3879).
+ */
+const cliFlags = (overrides: Record<string, unknown>) => ({
+    migrateFrom: "space",
+    migration: [] as string[],
+    migrationComponentAlias: [] as string[],
+    migrationComponents: [] as string[],
+    withSlug: [] as string[],
+    dryRun: false,
+    ...overrides,
+});
+
 const runMigratePresets = (flags: Record<string, unknown>) =>
     migrate({
         input: ["migrate", "presets"],
-        flags,
+        flags: cliFlags(flags),
     } as any);
 
 beforeEach(() => {
@@ -117,7 +133,7 @@ describe("migrate presets <component...> (scoped run)", () => {
     const runScoped = (components: string[], flags: Record<string, unknown>) =>
         migrate({
             input: ["migrate", "presets", ...components],
-            flags,
+            flags: cliFlags(flags),
         } as any);
 
     it("scopes the migration to the provided component names", async () => {
@@ -269,12 +285,12 @@ describe("migrate presets cross-space guard", () => {
         await expect(
             migrate({
                 input: ["migrate", "presets", "text-block"],
-                flags: {
+                flags: cliFlags({
                     from: "12345",
                     to: "67890",
                     migration: "migration-a",
                     yes: true,
-                },
+                }),
             } as any),
         ).rejects.toThrow("the same Storyblok space");
 
