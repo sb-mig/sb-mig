@@ -116,8 +116,15 @@ export const migrate = async (props: CLIOptions) => {
     const { input, flags } = props;
 
     const command = input[1];
+    // `empty` (the scoped `migrate <command> <component...>` form) has to
+    // consume `migrateFrom`: it is declared with a default, so meow puts it in
+    // `flags` on every invocation. A rule only matches when every present flag
+    // is either whitelisted or consumed by the rule, so leaving it out here
+    // made `isIt("empty")` unconditionally false and the scoped form dead.
+    // It cannot be whitelisted instead — `all` requires it, and the whitelist
+    // is checked first, which would stop `all` from ever matching.
     const rules = {
-        empty: [],
+        empty: ["migrateFrom"],
         all: ["all", "migrateFrom"],
     };
     const isIt = isItFactory<keyof typeof rules>(flags, rules, [
