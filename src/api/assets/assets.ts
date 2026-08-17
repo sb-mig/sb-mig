@@ -205,11 +205,20 @@ export const finishAssetUpload: FinishAssetUpload = async (
 const getDownloadUniqueSegment = (fileUrl: string): string => {
     try {
         const url = new URL(fileUrl);
-        const parts = url.pathname.split("/").filter(Boolean);
-        const fIndex = parts.indexOf("f");
-        const assetHash = fIndex >= 0 ? parts[fIndex + 3] : undefined;
-        if (assetHash) {
-            return assetHash;
+
+        if (url.hostname === "a.storyblok.com") {
+            const parts = url.pathname.split("/").filter(Boolean);
+            const fIndex = parts.indexOf("f");
+            const assetHash = fIndex >= 0 ? parts[fIndex + 3] : undefined;
+            // A filename segment must follow the hash -- without this check,
+            // a 4-segment path (.../f/<space>/<name>) reads its own bare
+            // filename as the "hash", so two such assets sharing a basename
+            // still collide (parts[fIndex + 4] is undefined otherwise).
+            const hasNameSegment = parts.length > fIndex + 4;
+
+            if (assetHash && hasNameSegment) {
+                return assetHash;
+            }
         }
     } catch {
         // Not a parseable URL -- fall through to the generic fallback below.

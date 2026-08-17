@@ -4880,11 +4880,29 @@ export const copyCommand = async (props: CLIOptions) => {
                 // checkpoint).
                 const contentBySourceId = new Map<number, any>();
                 const contentFetchFailures: ContentFetchFailure[] = [];
+                // Populated instead of contentFetchFailures when a fetch
+                // comes back empty because the run was interrupted, not
+                // because it failed (see the mapper below). These stories
+                // must be excluded from the tree exactly like a real
+                // failure -- otherwise they fall through step 4 with no
+                // content and no fast-path stub, and normalizeStoriesForTree
+                // throws on the resulting `undefined` entry.
+                const abortSkippedSourceIds = new Set<number>();
 
                 await mapWithConcurrency(
                     [...partition.needsContentIds],
                     STORY_CONTENT_FETCH_CONCURRENCY,
                     async (sourceId: number) => {
+                        if (limiter.aborted()) {
+                            // Skip the call entirely once aborted, rather
+                            // than letting getStoryById make it and log its
+                            // own "Failed to fetch" line for the resulting
+                            // CopyAbortedError -- avoids one error log per
+                            // still-queued story on an interrupt.
+                            abortSkippedSourceIds.add(sourceId);
+                            return;
+                        }
+
                         const fullStory =
                             await managementApi.stories.getStoryById(
                                 String(sourceId),
@@ -4907,6 +4925,7 @@ export const copyCommand = async (props: CLIOptions) => {
                             // Treat it as "not yet fetched" so a resumed run
                             // retries it, instead of reporting an interrupted
                             // story as a content-fetch failure.
+                            abortSkippedSourceIds.add(sourceId);
                             return;
                         }
 
@@ -4933,17 +4952,19 @@ export const copyCommand = async (props: CLIOptions) => {
 
                 // Step 4: fast-path stories join the tree as stubs; everything
                 // else gets its freshly-fetched full content merged in. A
-                // story whose content fetch failed is excluded entirely (see
-                // the comment above step 3).
+                // story whose content fetch failed, or was skipped because
+                // the run was interrupted, is excluded entirely (see the
+                // comment above step 3).
                 const sourceStories = [
                     rootStubItem,
                     ...childStubItems
-                        .filter(
-                            (item: any) =>
-                                !failedContentFetchSourceIds.has(
-                                    Number(item.story.id),
-                                ),
-                        )
+                        .filter((item: any) => {
+                            const sourceId = Number(item.story.id);
+                            return (
+                                !failedContentFetchSourceIds.has(sourceId) &&
+                                !abortSkippedSourceIds.has(sourceId)
+                            );
+                        })
                         .map((item: any) => {
                             const sourceId = Number(item.story.id);
 
@@ -4961,6 +4982,20 @@ export const copyCommand = async (props: CLIOptions) => {
                 const rootsToCreate = prepareTreeForCreate(
                     selectTreeRoots(tree, selection),
                 );
+
+                // Set as soon as the tree exists, not after the phases that
+                // follow (reference scanning, asset copy, prefetch) -- those
+                // all go through the limiter, so an interrupt during any of
+                // them throws before reaching the assignment that used to
+                // sit right before the shell phase, leaving the "pending"
+                // count in the abort message truthfully at 0 regardless of
+                // how much work was actually left. Every LevelNode (folder
+                // or story) in the tree ticks exactly once per phase (see
+                // collectTreeLevels), so the total is the full node count,
+                // not just leaf stories.
+                treeNodeTotal =
+                    countTreeStories(rootsToCreate).folders +
+                    countTreeStories(rootsToCreate).stories;
 
                 if (rootsToCreate.length === 0) {
                     Logger.warning("No stories matched the copy selection.");
@@ -5271,13 +5306,6 @@ export const copyCommand = async (props: CLIOptions) => {
                     },
                 });
 
-                // Every LevelNode (folder or story) in the tree ticks exactly
-                // once per phase (see collectTreeLevels), so the shell/rewrite
-                // progress totals are the full node count, not just leaf
-                // stories.
-                treeNodeTotal =
-                    countTreeStories(rootsToCreate).folders +
-                    countTreeStories(rootsToCreate).stories;
                 const shellProgress = createProgressTracker({
                     label: "Story shells",
                     total: treeNodeTotal,
