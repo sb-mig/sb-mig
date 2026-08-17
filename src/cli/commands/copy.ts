@@ -1519,6 +1519,7 @@ const buildCopyStoriesApplyReport = ({
     graph,
     assetCopyReport,
     manifestRoot,
+    shellFailures,
 }: {
     sourceSpace: string;
     targetSpace: string;
@@ -1531,6 +1532,7 @@ const buildCopyStoriesApplyReport = ({
     graph?: CopyGraph;
     assetCopyReport?: CopyAssetsApplyReport;
     manifestRoot?: string;
+    shellFailures?: ShellFailure[];
 }): CopyStoriesApplyReport => {
     const manifestPaths = getDefaultCopyManifestPaths({
         sourceSpaceId: sourceSpace,
@@ -1538,6 +1540,11 @@ const buildCopyStoriesApplyReport = ({
         rootDir: manifestRoot,
     });
     const graphSummary = graph ? summarizeCopyGraph(graph) : undefined;
+    const shellFailureWarnings = (shellFailures ?? []).map((failure) => ({
+        code: "shell_create_failed_retried",
+        message: failure.message,
+        sourceFullSlug: failure.fullSlug,
+    }));
 
     return {
         schemaVersion: 1,
@@ -1567,7 +1574,8 @@ const buildCopyStoriesApplyReport = ({
                 : {}),
             warnings:
                 (graphSummary?.warnings ?? 0) +
-                (assetCopyReport?.summary.warnings ?? 0),
+                (assetCopyReport?.summary.warnings ?? 0) +
+                shellFailureWarnings.length,
             errors:
                 (graphSummary?.errors ?? 0) +
                 (assetCopyReport?.summary.errors ?? 0),
@@ -1584,6 +1592,7 @@ const buildCopyStoriesApplyReport = ({
         warnings: [
             ...(graph?.warnings ?? []),
             ...(assetCopyReport?.warnings ?? []),
+            ...shellFailureWarnings,
         ],
         errors: [...(graph?.errors ?? []), ...(assetCopyReport?.errors ?? [])],
     };
@@ -3910,7 +3919,7 @@ export const copyCommand = async (props: CLIOptions) => {
 
             if (dryRun) {
                 const targetStoriesBySlug = await prefetchTargetStories({
-                    destination: destination ?? "",
+                    destination: normalizeDestination(destination),
                     config: { spaceId: targetSpace, sbApi: apiConfig.sbApi },
                 });
                 const conflicts = findTargetConflicts(
@@ -4010,35 +4019,41 @@ export const copyCommand = async (props: CLIOptions) => {
             }
 
             const targetStoriesBySlug = await prefetchTargetStories({
-                destination: destination ?? "",
+                destination: normalizeDestination(destination),
                 config: { spaceId: targetSpace, sbApi: apiConfig.sbApi },
             });
 
-            const storySummary = await createStoriesAndWriteManifests({
-                tree: rootsToCreate,
-                realParentId: destinationParentId,
-                sourceStoryById: buildSourceStoryById(sourceStories),
-                targetSlugBySourceSlug: buildTargetSlugBySourceSlug(plan),
-                sourceSpace,
-                targetSpace,
-                manifestRoot,
-                targetStoriesBySlug,
-                verify: Boolean(flags["verify"]),
-                writeConcurrency: 12,
-                apiConfig,
-            });
+            const { failures: shellFailures, ...storySummary } =
+                await createStoriesAndWriteManifests({
+                    tree: rootsToCreate,
+                    realParentId: destinationParentId,
+                    sourceStoryById: buildSourceStoryById(sourceStories),
+                    targetSlugBySourceSlug: buildTargetSlugBySourceSlug(plan),
+                    sourceSpace,
+                    targetSpace,
+                    manifestRoot,
+                    targetStoriesBySlug,
+                    verify: Boolean(flags["verify"]),
+                    writeConcurrency: 12,
+                    apiConfig,
+                });
 
-            if (storySummary.failures.length > 0) {
+            if (shellFailures.length > 0) {
                 Logger.error(
-                    `${storySummary.failures.length} story shell creation(s) failed; the rest of the copy still completed. Failed stories:`,
+                    `${shellFailures.length} story shell creation(s) failed; the rest of the copy still completed. Failed stories:`,
                 );
-                for (const failure of storySummary.failures) {
+                for (const failure of shellFailures) {
                     Logger.error(
                         `  - ${failure.fullSlug || "<unknown>"} (source id ${failure.sourceId}) [${failure.stage}]`,
                     );
                 }
             }
 
+            // A shell-creation failure alone does not fail the run: the
+            // rewrite phase below retries unmapped stories via
+            // createOrMatchReplacementShell. If that retry succeeds the copy
+            // genuinely succeeded; if it fails again, rewriteCopiedStoryContents
+            // throws its own aggregate error and that propagates from here.
             await rewriteCopiedStoryContents({
                 tree: rootsToCreate,
                 realParentId: destinationParentId,
@@ -4050,14 +4065,6 @@ export const copyCommand = async (props: CLIOptions) => {
                 targetSpace,
                 manifestRoot,
             });
-
-            if (storySummary.failures.length > 0) {
-                throw new Error(
-                    `Copy finished but ${storySummary.failures.length} story shell creation(s) failed:\n${storySummary.failures
-                        .map((failure) => failure.message)
-                        .join("\n")}`,
-                );
-            }
 
             if (outputPath) {
                 const report = buildCopyStoriesApplyReport({
@@ -4072,6 +4079,7 @@ export const copyCommand = async (props: CLIOptions) => {
                     graph: withAssetsGraph,
                     assetCopyReport,
                     manifestRoot,
+                    shellFailures,
                 });
 
                 await writeJsonReport(outputPath, report);

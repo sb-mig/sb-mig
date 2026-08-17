@@ -116,6 +116,53 @@ describe("createStoriesAndWriteManifests (parallel shell phase)", () => {
         expect(createStory).not.toHaveBeenCalled();
     });
 
+    it("trusts a verified mapping matching the prefetch map without creating a new story", async () => {
+        const src = story(1, "src");
+        const paths = getDefaultCopyManifestPaths({
+            sourceSpaceId: "1",
+            targetSpaceId: "2",
+            rootDir: manifestRoot,
+        });
+        await fs.mkdir(path.dirname(paths.combined), { recursive: true });
+        await fs.writeFile(
+            paths.combined,
+            JSON.stringify({
+                type: "story",
+                source_space_id: "1",
+                target_space_id: "2",
+                source_id: 1,
+                target_id: 77,
+                source_uuid: "uuid-1",
+                target_uuid: "t-77",
+                source_full_slug: "src",
+                target_full_slug: "src",
+                action: "created",
+                created_at: new Date().toISOString(),
+            }) + "\n",
+            "utf8",
+        );
+
+        const summary = await createStoriesAndWriteManifests({
+            tree: [treeNode(src)],
+            realParentId: null,
+            sourceStoryById: new Map([[1, src]]),
+            targetSlugBySourceSlug: new Map([["src", "src"]]),
+            sourceSpace: "1",
+            targetSpace: "2",
+            manifestRoot,
+            targetStoriesBySlug: new Map([
+                ["src", { id: 77, uuid: "t-77", full_slug: "src" }],
+            ]),
+            verify: true,
+            writeConcurrency: 4,
+            apiConfig: { spaceId: "2", sbApi: {} },
+        });
+
+        expect(createStory).not.toHaveBeenCalled();
+        expect(summary.storiesMatched).toBe(1);
+        expect(summary.failures).toHaveLength(0);
+    });
+
     it("a failed parent skips its branch but the run continues", async () => {
         createStory.mockRejectedValueOnce(new Error("boom"));
         const badParent = story(1, "bad", true);

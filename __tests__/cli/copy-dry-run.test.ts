@@ -361,6 +361,66 @@ describe("copy stories dry-run", () => {
         await rm(tempDir, { recursive: true, force: true });
     });
 
+    it("reports a conflict when a story already exists at a planned target path", async () => {
+        const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-copy-"));
+        const outputPath = path.join(tempDir, "plans", "copy-plan.json");
+
+        mocks.sbApiGet.mockImplementation((url: string) => {
+            if (url === "spaces/target-space/stories/") {
+                return Promise.resolve({
+                    data: {
+                        stories: [
+                            {
+                                id: 5000,
+                                uuid: "existing-target-blog-uuid",
+                                full_slug: "imported/blog",
+                            },
+                        ],
+                    },
+                    total: 1,
+                    perPage: 100,
+                });
+            }
+
+            return Promise.resolve({
+                data: { space: { languages: [] } },
+            });
+        });
+
+        await copyCommand({
+            input: ["copy", "stories"],
+            flags: {
+                from: "source-space",
+                to: "target-space",
+                source: "blog",
+                destination: "imported",
+                dryRun: true,
+                outputPath,
+            },
+        } as any);
+
+        const report = JSON.parse(await readFile(outputPath, "utf8"));
+
+        expect(report.summary).toMatchObject({
+            plannedCreates: 2,
+            conflicts: 1,
+        });
+        expect(report.items).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({
+                    targetFullSlug: "imported/blog",
+                    conflict: true,
+                }),
+            ]),
+        );
+        const postItem = report.items.find(
+            (item: any) => item.targetFullSlug === "imported/blog/post-1",
+        );
+        expect(postItem?.conflict).toBeUndefined();
+
+        await rm(tempDir, { recursive: true, force: true });
+    });
+
     it("flags source components missing from the target space during story dry-run", async () => {
         const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-copy-"));
         const outputPath = path.join(tempDir, "plans", "copy-plan.json");
@@ -1114,6 +1174,103 @@ describe("copy stories dry-run", () => {
             { force_update: true, publish: false },
             expect.objectContaining({ spaceId: "target-space" }),
         );
+
+        await rm(tempDir, { recursive: true, force: true });
+    });
+
+    it("does not fail the run when a shell-phase creation failure is retried and recovered by the rewrite phase", async () => {
+        const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-copy-"));
+        const manifestRoot = path.join(tempDir, ".sb-mig");
+        const outputPath = path.join(tempDir, "reports", "copy-report.json");
+
+        mocks.getStoryBySlug.mockImplementation((slug: string) => {
+            if (slug === "imported") {
+                return Promise.resolve({
+                    story: {
+                        id: 900,
+                        name: "Imported",
+                        slug: "imported",
+                        full_slug: "imported",
+                        is_folder: true,
+                        uuid: "target-imported-uuid",
+                    },
+                });
+            }
+
+            if (slug === "plain") {
+                return Promise.resolve({
+                    story: {
+                        id: 3,
+                        name: "Plain Story",
+                        slug: "plain",
+                        full_slug: "plain",
+                        is_folder: false,
+                        parent_id: 0,
+                        uuid: "source-plain-uuid",
+                        content: {
+                            component: "page",
+                            headline: "No references here",
+                        },
+                    },
+                });
+            }
+
+            return Promise.resolve(undefined);
+        });
+        mocks.createTree.mockImplementationOnce((stories: any[]) => [
+            {
+                id: stories[0].id,
+                story: stories[0],
+                children: [],
+            },
+        ]);
+        // The shell phase's first (and only) createStory attempt fails; the
+        // rewrite phase's own createOrMatchReplacementShell retry succeeds.
+        mocks.createStory
+            .mockRejectedValueOnce(new Error("boom-shell"))
+            .mockResolvedValueOnce({
+                story: {
+                    id: 1003,
+                    uuid: "target-plain-uuid",
+                    full_slug: "imported/plain",
+                },
+            });
+
+        await copyCommand({
+            input: ["copy", "stories"],
+            flags: {
+                from: "source-space",
+                to: "target-space",
+                source: "plain",
+                destination: "imported",
+                manifestRoot,
+                outputPath,
+            },
+        } as any);
+
+        expect(mocks.createStory).toHaveBeenCalledTimes(2);
+        expect(mocks.updateStory).toHaveBeenCalledTimes(1);
+        expect(mocks.updateStory).toHaveBeenCalledWith(
+            expect.objectContaining({
+                name: "Plain Story",
+                parent_id: 900,
+                slug: "plain",
+            }),
+            "1003",
+            { force_update: true, publish: false },
+            expect.objectContaining({ spaceId: "target-space" }),
+        );
+
+        const report = JSON.parse(await readFile(outputPath, "utf8"));
+        expect(report.warnings).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({
+                    code: "shell_create_failed_retried",
+                    sourceFullSlug: "plain",
+                }),
+            ]),
+        );
+        expect(report.summary.failures).toBeUndefined();
 
         await rm(tempDir, { recursive: true, force: true });
     });
