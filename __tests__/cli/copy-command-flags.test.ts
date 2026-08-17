@@ -3,8 +3,12 @@ import { describe, it, expect, vi } from "vitest";
 import Logger from "../../src/utils/logger.js";
 
 // Unit-test the flag resolution helpers, exported from copy.ts.
-const { resolveCopyRuntimeOptions, printCopySummary } =
-    await import("../../src/cli/commands/copy.js");
+const {
+    resolveCopyRuntimeOptions,
+    printCopySummary,
+    buildCopyCommand,
+    buildCopyAssetsCommand,
+} = await import("../../src/cli/commands/copy.js");
 
 describe("resolveCopyRuntimeOptions", () => {
     it("defaults to rate 6, no verify, no forceContent", () => {
@@ -44,6 +48,76 @@ describe("resolveCopyRuntimeOptions", () => {
         expect(
             resolveCopyRuntimeOptions({ forceContent: true }, {}).forceContent,
         ).toBe(true);
+    });
+
+    it("throws on a non-numeric --rateLimit instead of silently defaulting to 6", () => {
+        expect(() =>
+            resolveCopyRuntimeOptions({ rateLimit: "abc" }, {}),
+        ).toThrow("--rateLimit must be a positive number.");
+    });
+
+    it("throws on a non-positive --rateLimit", () => {
+        expect(() =>
+            resolveCopyRuntimeOptions({ rateLimit: "0" }, {}),
+        ).toThrow("--rateLimit must be a positive number.");
+        expect(() =>
+            resolveCopyRuntimeOptions({ rateLimit: "-3" }, {}),
+        ).toThrow("--rateLimit must be a positive number.");
+    });
+});
+
+describe("buildCopyCommand", () => {
+    const baseArgs = {
+        sourceSpace: "111",
+        targetSpace: "222",
+        selection: { source: "home", mode: "single" } as any,
+        destination: undefined,
+        dryRun: false,
+    };
+
+    it("round-trips manifestRoot, publicationMode, publicationLanguages and rateLimit on the resume line", () => {
+        const command = buildCopyCommand({
+            ...baseArgs,
+            manifestRoot: "custom-manifests",
+            publicationMode: "save-only",
+            rateLimit: 12,
+        });
+
+        expect(command).toContain("--manifestRoot custom-manifests");
+        expect(command).toContain("--publicationMode save-only");
+        expect(command).toContain("--rateLimit 12");
+    });
+
+    it("serializes an array of publishLanguages as a comma-separated list", () => {
+        const command = buildCopyCommand({
+            ...baseArgs,
+            publishLanguages: ["en", "fr"],
+        });
+
+        expect(command).toContain('--publicationLanguages "en,fr"');
+    });
+
+    it("omits --verify and --force-content even though they are runtime options", () => {
+        const command = buildCopyCommand(baseArgs);
+
+        expect(command).not.toContain("--verify");
+        expect(command).not.toContain("--force-content");
+    });
+});
+
+describe("buildCopyAssetsCommand", () => {
+    it("round-trips manifestRoot and rateLimit on the resume line", () => {
+        const command = buildCopyAssetsCommand({
+            sourceSpace: "111",
+            targetSpace: "222",
+            selection: { type: "all" } as any,
+            dryRun: false,
+            manifestRoot: "custom-manifests",
+            rateLimit: 9,
+        });
+
+        expect(command).toContain("--manifestRoot custom-manifests");
+        expect(command).toContain("--rateLimit 9");
     });
 });
 

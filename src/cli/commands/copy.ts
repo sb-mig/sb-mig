@@ -381,7 +381,7 @@ export const resolveCopyRuntimeOptions = (
     forceContent: boolean;
     writeConcurrency: number;
 } => {
-    const flagRate = Number(readStringFlag(flags, ["rateLimit"]) ?? "");
+    const rateLimitFlag = readStringFlag(flags, ["rateLimit"]);
     // `config.rateLimit` (storyblokConfig's global `rateLimit`, default 2 --
     // see src/config/defaultConfig.ts) is a legacy default for the plain
     // storyblok-js-client used by every OTHER command, not a copy-specific
@@ -389,7 +389,17 @@ export const resolveCopyRuntimeOptions = (
     // 6 false whenever a project's config set its own rateLimit, and made
     // the flag only able to raise the rate, never lower it back to the
     // documented default. Copy's own rate is `--rateLimit` or 6, full stop.
-    const rateLimit = Number.isFinite(flagRate) && flagRate > 0 ? flagRate : 6;
+    let rateLimit = 6;
+
+    if (rateLimitFlag !== undefined) {
+        const flagRate = Number(rateLimitFlag);
+
+        if (!Number.isFinite(flagRate) || flagRate <= 0) {
+            throw new Error("--rateLimit must be a positive number.");
+        }
+
+        rateLimit = flagRate;
+    }
 
     return {
         rateLimit,
@@ -890,9 +900,13 @@ const getValidMappedTargetStory = ({
     targetSpace: string;
     targetStoriesBySlug: Map<string, any>;
 }) => {
-    const targetStory = targetFullSlug
-        ? targetStoriesBySlug.get(targetFullSlug)
-        : undefined;
+    if (!targetFullSlug) {
+        // No expected target path to check the mapping against -- trust it,
+        // same as when the mapping predates this branch's slug lookup.
+        return { id: targetStoryId };
+    }
+
+    const targetStory = targetStoriesBySlug.get(targetFullSlug);
 
     if (targetStory?.id && Number(targetStory.id) === targetStoryId) {
         return targetStory;
@@ -1244,7 +1258,7 @@ const buildComponentCompatibilityWarnings = (
 const quoteCommandArg = (value: string): string =>
     /^[a-zA-Z0-9_./:-]+$/.test(value) ? value : JSON.stringify(value);
 
-const buildCopyCommand = ({
+export const buildCopyCommand = ({
     sourceSpace,
     targetSpace,
     selection,
@@ -1252,6 +1266,10 @@ const buildCopyCommand = ({
     withAssets,
     dryRun,
     outputPath,
+    manifestRoot,
+    publicationMode,
+    publishLanguages,
+    rateLimit,
 }: {
     sourceSpace: string;
     targetSpace: string;
@@ -1260,6 +1278,10 @@ const buildCopyCommand = ({
     withAssets?: boolean;
     dryRun: boolean;
     outputPath?: string;
+    manifestRoot?: string;
+    publicationMode?: PublicationMode;
+    publishLanguages?: PublishLanguagesOption;
+    rateLimit?: number;
 }): string => {
     const args = [
         "sb-mig",
@@ -1291,21 +1313,46 @@ const buildCopyCommand = ({
         args.push("--outputPath", outputPath);
     }
 
+    if (manifestRoot) {
+        args.push("--manifestRoot", manifestRoot);
+    }
+
+    if (publicationMode) {
+        args.push("--publicationMode", publicationMode);
+    }
+
+    if (publishLanguages) {
+        args.push(
+            "--publicationLanguages",
+            Array.isArray(publishLanguages)
+                ? publishLanguages.join(",")
+                : publishLanguages,
+        );
+    }
+
+    if (rateLimit !== undefined) {
+        args.push("--rateLimit", String(rateLimit));
+    }
+
     return args.map(quoteCommandArg).join(" ");
 };
 
-const buildCopyAssetsCommand = ({
+export const buildCopyAssetsCommand = ({
     sourceSpace,
     targetSpace,
     selection,
     dryRun,
     outputPath,
+    manifestRoot,
+    rateLimit,
 }: {
     sourceSpace: string;
     targetSpace: string;
     selection: CopyAssetsSelection;
     dryRun: boolean;
     outputPath?: string;
+    manifestRoot?: string;
+    rateLimit?: number;
 }): string => {
     const args = [
         "sb-mig",
@@ -1343,6 +1390,14 @@ const buildCopyAssetsCommand = ({
 
     if (outputPath) {
         args.push("--outputPath", outputPath);
+    }
+
+    if (manifestRoot) {
+        args.push("--manifestRoot", manifestRoot);
+    }
+
+    if (rateLimit !== undefined) {
+        args.push("--rateLimit", String(rateLimit));
     }
 
     return args.map(quoteCommandArg).join(" ");
@@ -4844,6 +4899,17 @@ export const copyCommand = async (props: CLIOptions) => {
                             return;
                         }
 
+                        if (limiter.aborted()) {
+                            // The run was interrupted (SIGINT), not failed --
+                            // getStoryById swallows the resulting
+                            // CopyAbortedError and returns undefined
+                            // indistinguishably from a real fetch failure.
+                            // Treat it as "not yet fetched" so a resumed run
+                            // retries it, instead of reporting an interrupted
+                            // story as a content-fetch failure.
+                            return;
+                        }
+
                         contentFetchFailures.push({
                             sourceId,
                             fullSlug:
@@ -5341,8 +5407,33 @@ export const copyCommand = async (props: CLIOptions) => {
             } finally {
                 process.removeListener("SIGINT", onSigint);
 
+                const aborted = limiter.aborted();
+
+                if (aborted) {
+                    const storiesPending = Math.max(
+                        0,
+                        treeNodeTotal -
+                            (storiesCreated + storiesMatched + storiesSkipped),
+                    );
+                    const assetsPending = withAssets
+                        ? Math.max(
+                              0,
+                              withAssetsAssetsTotal +
+                                  withAssetsAssetFoldersTotal -
+                                  (assetsCreatedCount +
+                                      assetsMatchedCount +
+                                      assetFoldersCreatedCount +
+                                      assetFoldersMatchedCount),
+                          )
+                        : 0;
+                    const pending = storiesPending + assetsPending;
+                    Logger.warning(
+                        `Copy interrupted: ${pending} item(s) pending. Run the same command again to resume.`,
+                    );
+                    process.exitCode = 130;
+                }
+
                 if (!dryRun) {
-                    const aborted = limiter.aborted();
                     const hasFailure =
                         storiesFailed > 0 ||
                         assetFoldersFailedCount > 0 ||
@@ -5357,33 +5448,11 @@ export const copyCommand = async (props: CLIOptions) => {
                             destination,
                             withAssets,
                             dryRun: false,
+                            manifestRoot,
+                            publicationMode: publication.mode,
+                            publishLanguages: publication.publishLanguages,
+                            rateLimit: runtime.rateLimit,
                         });
-                    }
-
-                    if (aborted) {
-                        const storiesPending = Math.max(
-                            0,
-                            treeNodeTotal -
-                                (storiesCreated +
-                                    storiesMatched +
-                                    storiesSkipped),
-                        );
-                        const assetsPending = withAssets
-                            ? Math.max(
-                                  0,
-                                  withAssetsAssetsTotal +
-                                      withAssetsAssetFoldersTotal -
-                                      (assetsCreatedCount +
-                                          assetsMatchedCount +
-                                          assetFoldersCreatedCount +
-                                          assetFoldersMatchedCount),
-                              )
-                            : 0;
-                        const pending = storiesPending + assetsPending;
-                        Logger.warning(
-                            `Copy interrupted: ${pending} item(s) pending. Run the same command again to resume.`,
-                        );
-                        process.exitCode = 130;
                     }
 
                     printCopySummary({
@@ -5654,8 +5723,25 @@ export const copyCommand = async (props: CLIOptions) => {
             } finally {
                 process.removeListener("SIGINT", onSigint);
 
+                const aborted = limiter.aborted();
+
+                if (aborted) {
+                    const pending = Math.max(
+                        0,
+                        assetsTotal +
+                            assetFoldersTotal -
+                            (assetsCreatedCount +
+                                assetsMatchedCount +
+                                assetFoldersCreatedCount +
+                                assetFoldersMatchedCount),
+                    );
+                    Logger.warning(
+                        `Copy interrupted: ${pending} item(s) pending. Run the same command again to resume.`,
+                    );
+                    process.exitCode = 130;
+                }
+
                 if (!dryRun) {
-                    const aborted = limiter.aborted();
                     const hasFailure =
                         assetFoldersFailedCount > 0 || assetsFailedCount > 0;
                     let resumeCommand: string | undefined;
@@ -5667,23 +5753,9 @@ export const copyCommand = async (props: CLIOptions) => {
                             selection,
                             dryRun: false,
                             outputPath,
+                            manifestRoot,
+                            rateLimit: runtime.rateLimit,
                         });
-                    }
-
-                    if (aborted) {
-                        const pending = Math.max(
-                            0,
-                            assetsTotal +
-                                assetFoldersTotal -
-                                (assetsCreatedCount +
-                                    assetsMatchedCount +
-                                    assetFoldersCreatedCount +
-                                    assetFoldersMatchedCount),
-                        );
-                        Logger.warning(
-                            `Copy interrupted: ${pending} item(s) pending. Run the same command again to resume.`,
-                        );
-                        process.exitCode = 130;
                     }
 
                     printCopySummary({
