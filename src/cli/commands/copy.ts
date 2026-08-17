@@ -2610,88 +2610,73 @@ const publishCopiedStory = async ({
     );
 };
 
-// Counts references in a single story's content that Task 10's resume fast
-// path should NOT trust yet. Uses the reference *scanner*
+// Counts references in a story's content (and, for the preserve-layers
+// dance, its published-layer content too — see the call site) that Task
+// 10's resume fast path should NOT trust yet. Uses the reference *scanner*
 // (`scanStoriesReferences`), not `rewriteCopyReferences`'s records: the
 // rewriter only ever records a reference once it has already found a
 // mapping (see reference-rewriter.ts), so it has nothing to say about
 // misses. The scanner sees every reference regardless of outcome.
 //
-// The scanner's own `status` field is policy-driven, not maps-driven: with
-// `referencePolicy: "preserve"` every story reference it finds is tagged
-// "preserved_external" and every asset reference is tagged "planned" (see
-// reference-scanner.ts's `addStoryReference` / `scanAssetField`) — neither
-// value reflects whether the reference actually already has a mapping, and
-// the scanner never emits "unsupported" or "foreign" itself (those exist
-// only as later, graph-level annotations this helper doesn't have). So a
-// literal "exclude preserved_external" read would exclude every story
-// reference unconditionally and this would always return 0 — exactly the
-// failure mode this helper must avoid.
+// Direction rule: overcounting is tolerated (a story merely loses the fast
+// path and falls back to a full, free hash-compare on the next run);
+// undercounting is forbidden. In particular, a reference is counted as
+// unresolved purely on whether it currently has a mapping in `maps` —
+// regardless of whether its target is inside or outside *this* copy's own
+// selection. A target outside today's selection can easily become mappable
+// via a LATER, separate copy run that copies that other subtree; if this
+// count only looked at maps.storyIds/storyUuids resolvability, that's
+// already correctly captured (out-of-selection == unmapped == counted). An
+// earlier version of this helper additionally required the reference's
+// target to be present in this run's own `sourceStoryById`/known uuids
+// before counting it as unresolved — that undercounts: it let an
+// out-of-selection content reference report `unresolved_refs: 0` forever,
+// so once a *different* later copy mapped that target, Task 10's fast path
+// (unchanged updated_at + unresolved_refs 0) would skip re-checking the
+// story and the reference would stay frozen on the source id/uuid
+// permanently. Removed that scope check entirely.
 //
-// Instead, resolvability is decided directly against `maps` (mirroring
-// `annotateReferencesWithManifestMaps`, which the dry-run graph already uses
-// for the same purpose): an asset reference is resolved when its assetId is
-// in `maps.assetIds` or its filename is in `maps.assetFilenames`; a story
-// reference is resolved when its referencedStoryId is in `maps.storyIds` or
-// its referencedStoryUuid is in `maps.storyUuids`. A story reference also
-// only counts as unresolved when it points at a story that is actually part
-// of this copy's selection (`sourceStoryById` / `sourceUuidsInScope`) — by
-// the time the rewrite phase runs, every in-scope story already has a shell
-// (the shell phase created them all first), so an in-scope-but-unmapped
-// reference means its shell genuinely failed and is worth re-checking on a
-// future run. A reference to something outside the selection is a
-// deliberately preserved external link (policy "preserve") that will never
-// resolve via this copy, so it must not be counted or a checkpoint would be
-// permanently denied the fast path for no reason. Asset references have no
-// equivalent "in scope" signal available here, so any unmapped asset
-// reference counts — direction rule: overcounting is tolerated (a story
-// merely loses the fast path and falls back to a full hash-compare on
-// resume), undercounting is forbidden (it would let a resumed run skip
-// re-checking a reference that was genuinely unresolved at write time).
+// The only refs excluded are the ones that can never appear in the written
+// payload at all, so resolvability is moot for them: `parent_id` and
+// `alternates[i].id` / `alternates[i].parent_id` are stripped by
+// `stripGeneratedStoryFields` (used by `buildFinalStoryPayload`) before the
+// story is ever sent to the target space, so the scanner's own metadata
+// references at those paths (see `scanStoryMetadata` in
+// reference-scanner.ts) don't describe anything that will actually be
+// written.
+const isNonContentRefPath = (path: string): boolean =>
+    path === "parent_id" || path.startsWith("alternates[");
+
 const countUnresolvedRefs = ({
-    sourceStory,
+    stories,
     maps,
     schemas,
-    sourceStoryById,
-    sourceUuidsInScope,
 }: {
-    sourceStory: any;
+    stories: any[];
     maps: CopyMaps;
     schemas: CopyComponentSchemaRegistry;
-    sourceStoryById: Map<number, any>;
-    sourceUuidsInScope: Set<string>;
 }): number => {
     const scanResult = scanStoriesReferences({
-        stories: [sourceStory],
+        stories,
         schemas,
         options: { referencePolicy: "preserve" },
     });
 
     const unresolvedAssetReferences = scanResult.assetReferences.filter(
         (reference) =>
+            !isNonContentRefPath(reference.path) &&
             !hasMappedAssetReference({ ...reference, copyMaps: maps }),
     ).length;
 
     const unresolvedStoryReferences = scanResult.storyReferences.filter(
-        (reference) => {
-            const inScope =
-                (reference.referencedStoryId !== undefined &&
-                    sourceStoryById.has(reference.referencedStoryId)) ||
-                (reference.referencedStoryUuid !== undefined &&
-                    sourceUuidsInScope.has(reference.referencedStoryUuid));
-
-            if (!inScope) {
-                return false;
-            }
-
-            const resolved =
+        (reference) =>
+            !isNonContentRefPath(reference.path) &&
+            !(
                 (reference.referencedStoryId !== undefined &&
                     maps.storyIds.has(reference.referencedStoryId)) ||
                 (reference.referencedStoryUuid !== undefined &&
-                    maps.storyUuids.has(reference.referencedStoryUuid));
-
-            return !resolved;
-        },
+                    maps.storyUuids.has(reference.referencedStoryUuid))
+            ),
     ).length;
 
     return unresolvedAssetReferences + unresolvedStoryReferences;
@@ -2755,12 +2740,6 @@ export const rewriteCopiedStoryContents = async ({
     let rewrittenReferences = 0;
     let skippedStories = 0;
     const failures: RewriteFailure[] = [];
-    const sourceUuidsInScope = new Set<string>();
-    for (const candidate of sourceStoryById.values()) {
-        if (typeof candidate?.uuid === "string") {
-            sourceUuidsInScope.add(candidate.uuid);
-        }
-    }
 
     const writeStoryMapping = async ({
         sourceStory,
@@ -2874,6 +2853,12 @@ export const rewriteCopiedStoryContents = async ({
             levelNodesToProcess,
             writeConcurrency,
             async (levelNode) => {
+                if (levelNode.parent?.skippedBranch) {
+                    levelNode.skippedBranch = true;
+                    progress?.tick(0, { skipped: 1 });
+                    return;
+                }
+
                 const node = levelNode.node;
                 const sourceStory = sourceStoryById.get(
                     Number(node.id ?? node.story?.id),
@@ -2914,9 +2899,12 @@ export const rewriteCopiedStoryContents = async ({
                             message,
                         });
                         progress?.tick(1, { failed: 1 });
-                        // No target shell means descendants cannot resolve this
-                        // node as a parent; they will fall back to their own
-                        // mapping or realParentId when processed.
+                        // No target shell means descendants cannot be
+                        // reparented under this node at all; skip the whole
+                        // branch (mirrors the shell phase) instead of
+                        // silently falling back to realParentId, which would
+                        // create/reparent them at the destination root.
+                        levelNode.skippedBranch = true;
                         return;
                     }
                 }
@@ -3165,6 +3153,29 @@ export const rewriteCopiedStoryContents = async ({
                     updatedStories += 1;
                     rewrittenReferences += update.rewrittenReferences;
 
+                    // The preserve-layers dance writes the published-layer
+                    // content to the target too (see writeStory above), so
+                    // references that only exist in that published-layer
+                    // content — not in sourceStory's own current content —
+                    // must also be counted, or they'd silently escape
+                    // unresolved_refs entirely.
+                    const publishedLayerRecordForCheckpoint =
+                        publishedLayerRecordBySourceId.get(
+                            String(sourceStory.id),
+                        );
+                    const storiesToScanForUnresolvedRefs =
+                        shouldUsePublishedLayerCopy(
+                            publication,
+                            sourceStory,
+                            publishedLayerRecordForCheckpoint,
+                        )
+                            ? [
+                                  sourceStory,
+                                  publishedLayerRecordForCheckpoint
+                                      ?.publishedLayerItem?.story,
+                              ].filter(Boolean)
+                            : [sourceStory];
+
                     const checkpointEntry: CopyStoryContentManifestEntry = {
                         type: "story_content",
                         schema_version: 1,
@@ -3175,11 +3186,9 @@ export const rewriteCopiedStoryContents = async ({
                         source_updated_at: sourceStory.updated_at,
                         content_hash: hash,
                         unresolved_refs: countUnresolvedRefs({
-                            sourceStory,
+                            stories: storiesToScanForUnresolvedRefs,
                             maps,
                             schemas,
-                            sourceStoryById,
-                            sourceUuidsInScope,
                         }),
                         created_at: new Date().toISOString(),
                     };
