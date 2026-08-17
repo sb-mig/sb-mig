@@ -28,6 +28,7 @@ export type CopyError = {
     message: string;
     path?: string;
     sourceValue?: unknown;
+    sourceId?: number;
 };
 
 type CopyManifestEntryBase = {

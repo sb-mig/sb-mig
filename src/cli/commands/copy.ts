@@ -3592,7 +3592,7 @@ export const createStoriesAndWriteManifests = async ({
     };
 };
 
-const copyAssetsAndWriteManifests = async ({
+export const copyAssetsAndWriteManifests = async ({
     sourceSpace,
     targetSpace,
     selection,
@@ -3602,6 +3602,9 @@ const copyAssetsAndWriteManifests = async ({
     sourceAssetFolders,
     outputPath,
     manifestRoot,
+    writeConcurrency,
+    progress,
+    apiConfig: apiConfigOverride = apiConfig,
 }: {
     sourceSpace: string;
     targetSpace: string;
@@ -3612,6 +3615,9 @@ const copyAssetsAndWriteManifests = async ({
     sourceAssetFolders: any[];
     outputPath?: string;
     manifestRoot?: string;
+    writeConcurrency: number;
+    progress?: ProgressTracker;
+    apiConfig?: any;
 }): Promise<CopyAssetsApplyReport> => {
     const manifestPaths = getDefaultCopyManifestPaths({
         sourceSpaceId: sourceSpace,
@@ -3620,37 +3626,59 @@ const copyAssetsAndWriteManifests = async ({
     });
     const existingManifestEntries = await loadManifest(manifestPaths.combined);
     const copyMaps = buildCopyMaps(existingManifestEntries);
-    const targetAssetFoldersResult =
-        await managementApi.assets.getAllAssetFolders(
+    const graphFolderBySourceId = new Map(
+        graph.assetFolders.map((folder) => [folder.sourceId, folder] as const),
+    );
+
+    // Behavior 4: skip the target-space fetch entirely when every graph
+    // asset and folder already has a manifest mapping. The manifest is
+    // loaded above, before this check, so the decision reflects any prior
+    // run's progress.
+    const allAssetsMapped = graph.assets.every((asset) =>
+        copyMaps.assetIds.has(asset.sourceId),
+    );
+    const allFoldersMapped = graph.assetFolders.every((folder) =>
+        copyMaps.assetFolderIds.has(folder.sourceId),
+    );
+    const skipTargetFetch = allAssetsMapped && allFoldersMapped;
+    let targetAssetFolders: any[] = [];
+    let targetAssets: any[] = [];
+
+    if (skipTargetFetch) {
+        Logger.success(
+            "All selected assets already mapped; skipping target asset fetch.",
+        );
+    } else {
+        const targetAssetFoldersResult =
+            await managementApi.assets.getAllAssetFolders(
+                { spaceId: targetSpace },
+                {
+                    ...apiConfigOverride,
+                    spaceId: targetSpace,
+                },
+            );
+        const targetAssetsResult = await managementApi.assets.getAllAssets(
             { spaceId: targetSpace },
             {
-                ...apiConfig,
+                ...apiConfigOverride,
                 spaceId: targetSpace,
             },
         );
-    const targetAssetsResult = await managementApi.assets.getAllAssets(
-        { spaceId: targetSpace },
-        {
-            ...apiConfig,
-            spaceId: targetSpace,
-        },
-    );
-    const targetAssetFolders = Array.isArray(
-        targetAssetFoldersResult?.asset_folders,
-    )
-        ? targetAssetFoldersResult.asset_folders
-        : [];
-    const targetAssets = Array.isArray(targetAssetsResult?.assets)
-        ? targetAssetsResult.assets
-        : [];
+        targetAssetFolders = Array.isArray(
+            targetAssetFoldersResult?.asset_folders,
+        )
+            ? targetAssetFoldersResult.asset_folders
+            : [];
+        targetAssets = Array.isArray(targetAssetsResult?.assets)
+            ? targetAssetsResult.assets
+            : [];
+    }
+
     const targetFolderByPath = buildAssetFolderPathMap(targetAssetFolders);
     const sourceFolderById = new Map(
         sourceAssetFolders.map(
             (folder) => [Number(folder.id), folder] as const,
         ),
-    );
-    const graphFolderBySourceId = new Map(
-        graph.assetFolders.map((folder) => [folder.sourceId, folder] as const),
     );
     const graphAssetBySourceId = new Map(
         graph.assets.map((asset) => [asset.sourceId, asset] as const),
@@ -3659,256 +3687,346 @@ const copyAssetsAndWriteManifests = async ({
     let assetFoldersMatched = 0;
     let assetsCreated = 0;
     let assetsMatched = 0;
+    let assetsFailed = 0;
 
     Logger.warning(
         `Copying assets from space '${sourceSpace}' to space '${targetSpace}'.`,
     );
 
+    // Behavior 1: group asset folders by parent depth (computed by walking
+    // sourceParentId chains through graphFolderBySourceId) and process one
+    // depth level at a time so parents are always created -- and their
+    // copyMaps.assetFolderIds mapping recorded -- before any child folder
+    // in the next level needs to resolve its targetParentId.
+    const folderDepth = (folder: (typeof graph.assetFolders)[number]) => {
+        let depth = 0;
+        let current = folder;
+        const seen = new Set<number>([current.sourceId]);
+
+        while (
+            current.sourceParentId !== null &&
+            current.sourceParentId !== undefined
+        ) {
+            const parent = graphFolderBySourceId.get(current.sourceParentId);
+
+            if (!parent || seen.has(parent.sourceId)) {
+                break;
+            }
+
+            seen.add(parent.sourceId);
+            current = parent;
+            depth += 1;
+        }
+
+        return depth;
+    };
+
+    const foldersByDepth = new Map<
+        number,
+        Array<(typeof graph.assetFolders)[number]>
+    >();
+
     for (const folderNode of graph.assetFolders) {
-        const sourceFolder = sourceFolderById.get(folderNode.sourceId);
-
-        if (!sourceFolder) {
-            continue;
-        }
-
-        const sourceParentId = normalizeAssetFolderParentId(
-            sourceFolder.parent_id,
-        );
-
-        const mappedTargetFolderId = copyMaps.assetFolderIds.get(
-            folderNode.sourceId,
-        );
-
-        if (mappedTargetFolderId) {
-            folderNode.targetParentId =
-                sourceParentId === null
-                    ? null
-                    : (copyMaps.assetFolderIds.get(sourceParentId) ?? null);
-            folderNode.action = "match";
-            assetFoldersMatched += 1;
-            continue;
-        }
-
-        const existingTargetFolder = folderNode.sourcePath
-            ? targetFolderByPath.get(folderNode.sourcePath)
-            : undefined;
-        const createdAt = new Date().toISOString();
-
-        if (existingTargetFolder) {
-            const entry: CopyAssetFolderManifestEntry = {
-                type: "asset_folder",
-                source_space_id: sourceSpace,
-                target_space_id: targetSpace,
-                source_id: folderNode.sourceId,
-                target_id: Number(existingTargetFolder.id),
-                source_name: String(sourceFolder.name ?? ""),
-                target_name: String(existingTargetFolder.name ?? ""),
-                source_parent_id: sourceParentId,
-                target_parent_id: normalizeAssetFolderParentId(
-                    existingTargetFolder.parent_id,
-                ),
-                source_path: folderNode.sourcePath,
-                target_path: folderNode.sourcePath,
-                action: "matched_by_target_key",
-                created_at: createdAt,
-            };
-
-            await appendCopyManifestEntry({
-                combinedPath: manifestPaths.combined,
-                resourcePath: manifestPaths.assetFolders,
-                entry,
-            });
-            copyMaps.assetFolderIds.set(entry.source_id, entry.target_id);
-            folderNode.targetParentId = entry.target_parent_id;
-            folderNode.action = "match";
-            assetFoldersMatched += 1;
-            continue;
-        }
-
-        const targetParentId =
-            sourceParentId === null
-                ? null
-                : (copyMaps.assetFolderIds.get(sourceParentId) ?? null);
-        const createdFolder = await managementApi.assets.createAssetFolder(
-            {
-                spaceId: targetSpace,
-                payload: {
-                    name: String(sourceFolder.name),
-                    parent_id: targetParentId,
-                },
-            },
-            {
-                ...apiConfig,
-                spaceId: targetSpace,
-            },
-        );
-        const targetFolder = createdFolder.asset_folder;
-        const entry: CopyAssetFolderManifestEntry = {
-            type: "asset_folder",
-            source_space_id: sourceSpace,
-            target_space_id: targetSpace,
-            source_id: folderNode.sourceId,
-            target_id: Number(targetFolder.id),
-            source_name: String(sourceFolder.name ?? ""),
-            target_name: String(targetFolder.name ?? ""),
-            source_parent_id: sourceParentId,
-            target_parent_id: normalizeAssetFolderParentId(
-                targetFolder.parent_id,
-            ),
-            source_path: folderNode.sourcePath,
-            target_path: folderNode.sourcePath,
-            action: "created",
-            created_at: createdAt,
-        };
-
-        await appendCopyManifestEntry({
-            combinedPath: manifestPaths.combined,
-            resourcePath: manifestPaths.assetFolders,
-            entry,
-        });
-        copyMaps.assetFolderIds.set(entry.source_id, entry.target_id);
-        folderNode.targetParentId = entry.target_parent_id;
-        folderNode.action = "create";
-        assetFoldersCreated += 1;
+        const depth = folderDepth(folderNode);
+        const bucket = foldersByDepth.get(depth) ?? [];
+        bucket.push(folderNode);
+        foldersByDepth.set(depth, bucket);
     }
 
-    for (const asset of sourceAssets) {
-        const graphAsset = graphAssetBySourceId.get(Number(asset.id));
+    const sortedDepths = [...foldersByDepth.keys()].sort((a, b) => a - b);
 
-        if (!graphAsset) {
-            continue;
-        }
+    for (const depth of sortedDepths) {
+        await mapWithConcurrency(
+            foldersByDepth.get(depth) ?? [],
+            writeConcurrency,
+            async (folderNode) => {
+                const sourceFolder = sourceFolderById.get(folderNode.sourceId);
 
-        const mappedTargetAsset = copyMaps.assetIds.get(Number(asset.id));
+                if (!sourceFolder) {
+                    return;
+                }
 
-        if (mappedTargetAsset) {
-            graphAsset.targetFilename = mappedTargetAsset.filename;
-            graphAsset.targetAssetFolderId =
-                asset.asset_folder_id === null ||
-                asset.asset_folder_id === undefined
-                    ? null
-                    : (copyMaps.assetFolderIds.get(
-                          Number(asset.asset_folder_id),
-                      ) ?? null);
-            graphAsset.action = "match";
-            assetsMatched += 1;
-            continue;
-        }
+                const sourceParentId = normalizeAssetFolderParentId(
+                    sourceFolder.parent_id,
+                );
 
-        const fileName = getFileName(asset.filename);
-        const existingTargetAsset = findUniqueTargetAssetByFileName(
-            targetAssets,
-            fileName,
-        );
-        const targetAssetFolderId =
-            asset.asset_folder_id === null ||
-            asset.asset_folder_id === undefined
-                ? null
-                : (copyMaps.assetFolderIds.get(Number(asset.asset_folder_id)) ??
-                  null);
-        const createdAt = new Date().toISOString();
+                const mappedTargetFolderId = copyMaps.assetFolderIds.get(
+                    folderNode.sourceId,
+                );
 
-        if (existingTargetAsset) {
-            const entry: CopyAssetManifestEntry = {
-                type: "asset",
-                source_space_id: sourceSpace,
-                target_space_id: targetSpace,
-                source_id: Number(asset.id),
-                target_id: Number(existingTargetAsset.id),
-                source_filename: asset.filename,
-                target_filename: existingTargetAsset.filename,
-                source_asset_folder_id: asset.asset_folder_id ?? null,
-                target_asset_folder_id:
-                    existingTargetAsset.asset_folder_id ?? null,
-                action: "matched_by_target_key",
-                created_at: createdAt,
-            };
+                if (mappedTargetFolderId) {
+                    folderNode.targetParentId =
+                        sourceParentId === null
+                            ? null
+                            : (copyMaps.assetFolderIds.get(sourceParentId) ??
+                              null);
+                    folderNode.action = "match";
+                    assetFoldersMatched += 1;
+                    return;
+                }
 
-            await appendCopyManifestEntry({
-                combinedPath: manifestPaths.combined,
-                resourcePath: manifestPaths.assets,
-                entry,
-            });
-            copyMaps.assetIds.set(entry.source_id, {
-                id: entry.target_id,
-                filename: entry.target_filename,
-            });
-            copyMaps.assetFilenames.set(
-                entry.source_filename,
-                entry.target_filename,
-            );
-            graphAsset.targetFilename = entry.target_filename;
-            graphAsset.targetAssetFolderId = entry.target_asset_folder_id;
-            graphAsset.action = "match";
-            assetsMatched += 1;
-            continue;
-        }
+                const existingTargetFolder = folderNode.sourcePath
+                    ? targetFolderByPath.get(folderNode.sourcePath)
+                    : undefined;
+                const createdAt = new Date().toISOString();
 
-        const pathToFile = await managementApi.assets.downloadAsset(
-            { payload: asset },
-            apiConfig,
-        );
-        const targetAsset = await managementApi.assets.createAssetAndFinalize(
-            {
-                spaceId: targetSpace,
-                pathToFile,
-                payload: {
-                    filename: asset.filename,
-                    asset_folder_id: targetAssetFolderId,
-                },
+                if (existingTargetFolder) {
+                    const entry: CopyAssetFolderManifestEntry = {
+                        type: "asset_folder",
+                        source_space_id: sourceSpace,
+                        target_space_id: targetSpace,
+                        source_id: folderNode.sourceId,
+                        target_id: Number(existingTargetFolder.id),
+                        source_name: String(sourceFolder.name ?? ""),
+                        target_name: String(existingTargetFolder.name ?? ""),
+                        source_parent_id: sourceParentId,
+                        target_parent_id: normalizeAssetFolderParentId(
+                            existingTargetFolder.parent_id,
+                        ),
+                        source_path: folderNode.sourcePath,
+                        target_path: folderNode.sourcePath,
+                        action: "matched_by_target_key",
+                        created_at: createdAt,
+                    };
+
+                    await appendCopyManifestEntry({
+                        combinedPath: manifestPaths.combined,
+                        resourcePath: manifestPaths.assetFolders,
+                        entry,
+                    });
+                    copyMaps.assetFolderIds.set(
+                        entry.source_id,
+                        entry.target_id,
+                    );
+                    folderNode.targetParentId = entry.target_parent_id;
+                    folderNode.action = "match";
+                    assetFoldersMatched += 1;
+                    return;
+                }
+
+                const targetParentId =
+                    sourceParentId === null
+                        ? null
+                        : (copyMaps.assetFolderIds.get(sourceParentId) ??
+                          null);
+                const createdFolder =
+                    await managementApi.assets.createAssetFolder(
+                        {
+                            spaceId: targetSpace,
+                            payload: {
+                                name: String(sourceFolder.name),
+                                parent_id: targetParentId,
+                            },
+                        },
+                        {
+                            ...apiConfigOverride,
+                            spaceId: targetSpace,
+                        },
+                    );
+                const targetFolder = createdFolder.asset_folder;
+                const entry: CopyAssetFolderManifestEntry = {
+                    type: "asset_folder",
+                    source_space_id: sourceSpace,
+                    target_space_id: targetSpace,
+                    source_id: folderNode.sourceId,
+                    target_id: Number(targetFolder.id),
+                    source_name: String(sourceFolder.name ?? ""),
+                    target_name: String(targetFolder.name ?? ""),
+                    source_parent_id: sourceParentId,
+                    target_parent_id: normalizeAssetFolderParentId(
+                        targetFolder.parent_id,
+                    ),
+                    source_path: folderNode.sourcePath,
+                    target_path: folderNode.sourcePath,
+                    action: "created",
+                    created_at: createdAt,
+                };
+
+                await appendCopyManifestEntry({
+                    combinedPath: manifestPaths.combined,
+                    resourcePath: manifestPaths.assetFolders,
+                    entry,
+                });
+                copyMaps.assetFolderIds.set(entry.source_id, entry.target_id);
+                folderNode.targetParentId = entry.target_parent_id;
+                folderNode.action = "create";
+                assetFoldersCreated += 1;
             },
-            {
-                ...apiConfig,
-                spaceId: targetSpace,
-            },
         );
-
-        if (Object.keys(getAssetMetadataPayload(asset)).length > 0) {
-            await managementApi.assets.updateAsset(
-                {
-                    spaceId: targetSpace,
-                    assetId: Number(targetAsset.id),
-                    payload: getAssetMetadataPayload(asset),
-                },
-                {
-                    ...apiConfig,
-                    spaceId: targetSpace,
-                },
-            );
-        }
-
-        const entry: CopyAssetManifestEntry = {
-            type: "asset",
-            source_space_id: sourceSpace,
-            target_space_id: targetSpace,
-            source_id: Number(asset.id),
-            target_id: Number(targetAsset.id),
-            source_filename: asset.filename,
-            target_filename: targetAsset.filename,
-            source_asset_folder_id: asset.asset_folder_id ?? null,
-            target_asset_folder_id: targetAssetFolderId,
-            action: "created",
-            created_at: createdAt,
-        };
-
-        await appendCopyManifestEntry({
-            combinedPath: manifestPaths.combined,
-            resourcePath: manifestPaths.assets,
-            entry,
-        });
-        copyMaps.assetIds.set(entry.source_id, {
-            id: entry.target_id,
-            filename: entry.target_filename,
-        });
-        copyMaps.assetFilenames.set(
-            entry.source_filename,
-            entry.target_filename,
-        );
-        graphAsset.targetFilename = entry.target_filename;
-        graphAsset.targetAssetFolderId = entry.target_asset_folder_id;
-        graphAsset.action = "create";
-        assetsCreated += 1;
     }
+
+    // Behavior 2/3/5: copy assets with bounded parallelism. Each asset's
+    // full sequence (mapped-check / filename-match / download -> create +
+    // finalize -> metadata update -> manifest append + copyMaps update +
+    // graph mutation + counters) runs inside a single mapper call, and
+    // counters/copyMaps/graph mutations are synchronous with no `await`
+    // between their read and write. A per-asset failure is isolated: it is
+    // recorded in graph.errors and counted, but does not abort the other
+    // assets or this function -- the aggregate failure is only thrown
+    // after the manifest dedupe and report write below, preserving a
+    // non-zero exit code.
+    const assetsToProcess = sourceAssets.filter((asset) =>
+        graphAssetBySourceId.has(Number(asset.id)),
+    );
+
+    await mapWithConcurrency(
+        assetsToProcess,
+        writeConcurrency,
+        async (asset) => {
+            const graphAsset = graphAssetBySourceId.get(Number(asset.id))!;
+
+            try {
+                const mappedTargetAsset = copyMaps.assetIds.get(
+                    Number(asset.id),
+                );
+
+                if (mappedTargetAsset) {
+                    graphAsset.targetFilename = mappedTargetAsset.filename;
+                    graphAsset.targetAssetFolderId =
+                        asset.asset_folder_id === null ||
+                        asset.asset_folder_id === undefined
+                            ? null
+                            : (copyMaps.assetFolderIds.get(
+                                  Number(asset.asset_folder_id),
+                              ) ?? null);
+                    graphAsset.action = "match";
+                    assetsMatched += 1;
+                    progress?.tick(1);
+                    return;
+                }
+
+                const fileName = getFileName(asset.filename);
+                const existingTargetAsset = findUniqueTargetAssetByFileName(
+                    targetAssets,
+                    fileName,
+                );
+                const targetAssetFolderId =
+                    asset.asset_folder_id === null ||
+                    asset.asset_folder_id === undefined
+                        ? null
+                        : (copyMaps.assetFolderIds.get(
+                              Number(asset.asset_folder_id),
+                          ) ?? null);
+                const createdAt = new Date().toISOString();
+
+                if (existingTargetAsset) {
+                    const entry: CopyAssetManifestEntry = {
+                        type: "asset",
+                        source_space_id: sourceSpace,
+                        target_space_id: targetSpace,
+                        source_id: Number(asset.id),
+                        target_id: Number(existingTargetAsset.id),
+                        source_filename: asset.filename,
+                        target_filename: existingTargetAsset.filename,
+                        source_asset_folder_id: asset.asset_folder_id ?? null,
+                        target_asset_folder_id:
+                            existingTargetAsset.asset_folder_id ?? null,
+                        action: "matched_by_target_key",
+                        created_at: createdAt,
+                    };
+
+                    await appendCopyManifestEntry({
+                        combinedPath: manifestPaths.combined,
+                        resourcePath: manifestPaths.assets,
+                        entry,
+                    });
+                    copyMaps.assetIds.set(entry.source_id, {
+                        id: entry.target_id,
+                        filename: entry.target_filename,
+                    });
+                    copyMaps.assetFilenames.set(
+                        entry.source_filename,
+                        entry.target_filename,
+                    );
+                    graphAsset.targetFilename = entry.target_filename;
+                    graphAsset.targetAssetFolderId =
+                        entry.target_asset_folder_id;
+                    graphAsset.action = "match";
+                    assetsMatched += 1;
+                    progress?.tick(1);
+                    return;
+                }
+
+                const pathToFile = await managementApi.assets.downloadAsset(
+                    { payload: asset },
+                    apiConfigOverride,
+                );
+                const targetAsset =
+                    await managementApi.assets.createAssetAndFinalize(
+                        {
+                            spaceId: targetSpace,
+                            pathToFile,
+                            payload: {
+                                filename: asset.filename,
+                                asset_folder_id: targetAssetFolderId,
+                            },
+                        },
+                        {
+                            ...apiConfigOverride,
+                            spaceId: targetSpace,
+                        },
+                    );
+
+                if (Object.keys(getAssetMetadataPayload(asset)).length > 0) {
+                    await managementApi.assets.updateAsset(
+                        {
+                            spaceId: targetSpace,
+                            assetId: Number(targetAsset.id),
+                            payload: getAssetMetadataPayload(asset),
+                        },
+                        {
+                            ...apiConfigOverride,
+                            spaceId: targetSpace,
+                        },
+                    );
+                }
+
+                const entry: CopyAssetManifestEntry = {
+                    type: "asset",
+                    source_space_id: sourceSpace,
+                    target_space_id: targetSpace,
+                    source_id: Number(asset.id),
+                    target_id: Number(targetAsset.id),
+                    source_filename: asset.filename,
+                    target_filename: targetAsset.filename,
+                    source_asset_folder_id: asset.asset_folder_id ?? null,
+                    target_asset_folder_id: targetAssetFolderId,
+                    action: "created",
+                    created_at: createdAt,
+                };
+
+                await appendCopyManifestEntry({
+                    combinedPath: manifestPaths.combined,
+                    resourcePath: manifestPaths.assets,
+                    entry,
+                });
+                copyMaps.assetIds.set(entry.source_id, {
+                    id: entry.target_id,
+                    filename: entry.target_filename,
+                });
+                copyMaps.assetFilenames.set(
+                    entry.source_filename,
+                    entry.target_filename,
+                );
+                graphAsset.targetFilename = entry.target_filename;
+                graphAsset.targetAssetFolderId = entry.target_asset_folder_id;
+                graphAsset.action = "create";
+                assetsCreated += 1;
+                progress?.tick(1);
+            } catch (error) {
+                const message =
+                    error instanceof Error ? error.message : String(error);
+                Logger.error(message);
+                graph.errors.push({
+                    code: "asset_copy_failed",
+                    message,
+                    sourceId: graphAsset.sourceId,
+                });
+                assetsFailed += 1;
+                progress?.tick(1, { failed: 1 });
+            }
+        },
+    );
 
     await dedupeManifestFile(manifestPaths.assetFolders);
     await dedupeManifestFile(manifestPaths.assets);
@@ -3939,6 +4057,12 @@ const copyAssetsAndWriteManifests = async ({
     Logger.success(
         `Asset folder manifest written to ${manifestPaths.assetFolders}`,
     );
+
+    if (assetsFailed > 0) {
+        throw new Error(
+            `Asset copy finished but ${assetsFailed} asset(s) failed.`,
+        );
+    }
 
     return report;
 };
@@ -4583,6 +4707,7 @@ export const copyCommand = async (props: CLIOptions) => {
                     sourceAssets,
                     sourceAssetFolders,
                     manifestRoot,
+                    writeConcurrency: 12,
                 });
             }
 
@@ -4853,6 +4978,7 @@ export const copyCommand = async (props: CLIOptions) => {
                 sourceAssetFolders: scopedSource.assetFolders,
                 outputPath,
                 manifestRoot,
+                writeConcurrency: 12,
             });
 
             break;
