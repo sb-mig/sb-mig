@@ -421,6 +421,74 @@ describe("copy stories dry-run", () => {
         await rm(tempDir, { recursive: true, force: true });
     });
 
+    it.each(["root", "/"])(
+        "prefetches the target list without starts_with when destination is %j",
+        async (destination) => {
+            const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-copy-"));
+            const outputPath = path.join(tempDir, "plans", "copy-plan.json");
+
+            mocks.sbApiGet.mockImplementation((url: string) => {
+                if (url === "spaces/target-space/stories/") {
+                    return Promise.resolve({
+                        data: {
+                            stories: [
+                                {
+                                    id: 5000,
+                                    uuid: "existing-target-blog-uuid",
+                                    full_slug: "blog",
+                                },
+                            ],
+                        },
+                        total: 1,
+                        perPage: 100,
+                    });
+                }
+
+                return Promise.resolve({
+                    data: { space: { languages: [] } },
+                });
+            });
+
+            await copyCommand({
+                input: ["copy", "stories"],
+                flags: {
+                    from: "source-space",
+                    to: "target-space",
+                    source: "blog",
+                    destination,
+                    dryRun: true,
+                    outputPath,
+                },
+            } as any);
+
+            const [, targetListParams] = mocks.sbApiGet.mock.calls.find(
+                ([url]) => url === "spaces/target-space/stories/",
+            )!;
+
+            expect("starts_with" in targetListParams).toBe(false);
+
+            // The prefetch map is actually populated for a root destination:
+            // the existing "blog" story (planned target path for a root
+            // copy) is reported as a conflict.
+            const report = JSON.parse(await readFile(outputPath, "utf8"));
+
+            expect(report.summary).toMatchObject({
+                plannedCreates: 2,
+                conflicts: 1,
+            });
+            expect(report.items).toEqual(
+                expect.arrayContaining([
+                    expect.objectContaining({
+                        targetFullSlug: "blog",
+                        conflict: true,
+                    }),
+                ]),
+            );
+
+            await rm(tempDir, { recursive: true, force: true });
+        },
+    );
+
     it("flags source components missing from the target space during story dry-run", async () => {
         const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-copy-"));
         const outputPath = path.join(tempDir, "plans", "copy-plan.json");
