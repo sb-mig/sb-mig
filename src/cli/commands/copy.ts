@@ -5,6 +5,7 @@ import type {
     CopyAssetManifestEntry,
     CopyComponentSchemaRegistry,
     CopyManifestEntry,
+    CopyStoryContentManifestEntry,
     CopyStoryManifestEntry,
 } from "../../api/copy/index.js";
 import type { PublicationMode } from "../../api/data-migration/component-data-migration.js";
@@ -18,9 +19,11 @@ import path from "path";
 
 import {
     appendManifestEntry,
+    buildContentCheckpointMap,
     buildCopyAssetsGraph,
     buildCopyMaps,
     collectTreeLevels,
+    computeContentHash,
     createCopyGraph,
     dedupeManifestFile,
     getDefaultCopyManifestPaths,
@@ -2007,9 +2010,10 @@ const countTreeStories = (nodes: any[]): { folders: number; stories: number } =>
 
 const buildComponentSchemaRegistry = async (
     sourceSpace: string,
+    apiConfigOverride: any = apiConfig,
 ): Promise<Record<string, any>> => {
     const components = await managementApi.components.getAllComponents({
-        ...apiConfig,
+        ...apiConfigOverride,
         spaceId: sourceSpace,
     });
 
@@ -2579,11 +2583,13 @@ const publishCopiedStory = async ({
     story,
     publication,
     targetSpace,
+    apiConfig: apiConfigOverride = apiConfig,
 }: {
     storyId: number;
     story: any;
     publication: CopyPublicationOptions;
     targetSpace: string;
+    apiConfig?: any;
 }) => {
     const languages = publication.resolvedPublishLanguages;
 
@@ -2598,13 +2604,108 @@ const publishCopiedStory = async ({
             languages,
         },
         {
-            ...apiConfig,
+            ...apiConfigOverride,
             spaceId: targetSpace,
         },
     );
 };
 
-const rewriteCopiedStoryContents = async ({
+// Counts references in a single story's content that Task 10's resume fast
+// path should NOT trust yet. Uses the reference *scanner*
+// (`scanStoriesReferences`), not `rewriteCopyReferences`'s records: the
+// rewriter only ever records a reference once it has already found a
+// mapping (see reference-rewriter.ts), so it has nothing to say about
+// misses. The scanner sees every reference regardless of outcome.
+//
+// The scanner's own `status` field is policy-driven, not maps-driven: with
+// `referencePolicy: "preserve"` every story reference it finds is tagged
+// "preserved_external" and every asset reference is tagged "planned" (see
+// reference-scanner.ts's `addStoryReference` / `scanAssetField`) — neither
+// value reflects whether the reference actually already has a mapping, and
+// the scanner never emits "unsupported" or "foreign" itself (those exist
+// only as later, graph-level annotations this helper doesn't have). So a
+// literal "exclude preserved_external" read would exclude every story
+// reference unconditionally and this would always return 0 — exactly the
+// failure mode this helper must avoid.
+//
+// Instead, resolvability is decided directly against `maps` (mirroring
+// `annotateReferencesWithManifestMaps`, which the dry-run graph already uses
+// for the same purpose): an asset reference is resolved when its assetId is
+// in `maps.assetIds` or its filename is in `maps.assetFilenames`; a story
+// reference is resolved when its referencedStoryId is in `maps.storyIds` or
+// its referencedStoryUuid is in `maps.storyUuids`. A story reference also
+// only counts as unresolved when it points at a story that is actually part
+// of this copy's selection (`sourceStoryById` / `sourceUuidsInScope`) — by
+// the time the rewrite phase runs, every in-scope story already has a shell
+// (the shell phase created them all first), so an in-scope-but-unmapped
+// reference means its shell genuinely failed and is worth re-checking on a
+// future run. A reference to something outside the selection is a
+// deliberately preserved external link (policy "preserve") that will never
+// resolve via this copy, so it must not be counted or a checkpoint would be
+// permanently denied the fast path for no reason. Asset references have no
+// equivalent "in scope" signal available here, so any unmapped asset
+// reference counts — direction rule: overcounting is tolerated (a story
+// merely loses the fast path and falls back to a full hash-compare on
+// resume), undercounting is forbidden (it would let a resumed run skip
+// re-checking a reference that was genuinely unresolved at write time).
+const countUnresolvedRefs = ({
+    sourceStory,
+    maps,
+    schemas,
+    sourceStoryById,
+    sourceUuidsInScope,
+}: {
+    sourceStory: any;
+    maps: CopyMaps;
+    schemas: CopyComponentSchemaRegistry;
+    sourceStoryById: Map<number, any>;
+    sourceUuidsInScope: Set<string>;
+}): number => {
+    const scanResult = scanStoriesReferences({
+        stories: [sourceStory],
+        schemas,
+        options: { referencePolicy: "preserve" },
+    });
+
+    const unresolvedAssetReferences = scanResult.assetReferences.filter(
+        (reference) =>
+            !hasMappedAssetReference({ ...reference, copyMaps: maps }),
+    ).length;
+
+    const unresolvedStoryReferences = scanResult.storyReferences.filter(
+        (reference) => {
+            const inScope =
+                (reference.referencedStoryId !== undefined &&
+                    sourceStoryById.has(reference.referencedStoryId)) ||
+                (reference.referencedStoryUuid !== undefined &&
+                    sourceUuidsInScope.has(reference.referencedStoryUuid));
+
+            if (!inScope) {
+                return false;
+            }
+
+            const resolved =
+                (reference.referencedStoryId !== undefined &&
+                    maps.storyIds.has(reference.referencedStoryId)) ||
+                (reference.referencedStoryUuid !== undefined &&
+                    maps.storyUuids.has(reference.referencedStoryUuid));
+
+            return !resolved;
+        },
+    ).length;
+
+    return unresolvedAssetReferences + unresolvedStoryReferences;
+};
+
+export type RewriteFailure = {
+    sourceId: number;
+    targetId?: number;
+    fullSlug: string;
+    stage: "create-shell" | "update";
+    message: string;
+};
+
+export const rewriteCopiedStoryContents = async ({
     tree,
     realParentId,
     sourceStoryById,
@@ -2614,6 +2715,10 @@ const rewriteCopiedStoryContents = async ({
     sourceSpace,
     targetSpace,
     manifestRoot,
+    forceContent,
+    writeConcurrency,
+    progress,
+    apiConfig: apiConfigOverride = apiConfig,
 }: {
     tree: any[];
     realParentId: number | null;
@@ -2624,7 +2729,16 @@ const rewriteCopiedStoryContents = async ({
     sourceSpace: string;
     targetSpace: string;
     manifestRoot?: string;
-}) => {
+    forceContent: boolean;
+    writeConcurrency: number;
+    progress?: ProgressTracker;
+    apiConfig?: any;
+}): Promise<{
+    updatedStories: number;
+    rewrittenReferences: number;
+    skippedStories: number;
+    failures: RewriteFailure[];
+}> => {
     const manifestPaths = getDefaultCopyManifestPaths({
         sourceSpaceId: sourceSpace,
         targetSpaceId: targetSpace,
@@ -2632,16 +2746,21 @@ const rewriteCopiedStoryContents = async ({
     });
     const manifestEntries = await loadManifest(manifestPaths.combined);
     const maps = buildCopyMaps(manifestEntries);
-    const schemas = await buildComponentSchemaRegistry(sourceSpace);
+    const checkpoints = buildContentCheckpointMap(manifestEntries);
+    const schemas = await buildComponentSchemaRegistry(
+        sourceSpace,
+        apiConfigOverride,
+    );
     let updatedStories = 0;
     let rewrittenReferences = 0;
-    const failures: Array<{
-        sourceId: number;
-        targetId?: number;
-        fullSlug: string;
-        stage: "create-shell" | "update";
-        message: string;
-    }> = [];
+    let skippedStories = 0;
+    const failures: RewriteFailure[] = [];
+    const sourceUuidsInScope = new Set<string>();
+    for (const candidate of sourceStoryById.values()) {
+        if (typeof candidate?.uuid === "string") {
+            sourceUuidsInScope.add(candidate.uuid);
+        }
+    }
 
     const writeStoryMapping = async ({
         sourceStory,
@@ -2694,7 +2813,7 @@ const rewriteCopiedStoryContents = async ({
         const targetFullSlug = targetSlugBySourceSlug.get(sourceFullSlug);
         const existingTargetStory = targetFullSlug
             ? await managementApi.stories.getStoryBySlug(targetFullSlug, {
-                  ...apiConfig,
+                  ...apiConfigOverride,
                   spaceId: targetSpace,
               })
             : undefined;
@@ -2714,7 +2833,7 @@ const rewriteCopiedStoryContents = async ({
         const createdStoryResult = await managementApi.stories.createStory(
             buildStoryShellPayload(node.story ?? sourceStory, parentId),
             {
-                ...apiConfig,
+                ...apiConfigOverride,
                 spaceId: targetSpace,
             },
             {
@@ -2737,241 +2856,360 @@ const rewriteCopiedStoryContents = async ({
         });
     };
 
-    const walk = async (nodes: any[], parentId: number | null) => {
-        for (const node of nodes) {
-            const sourceId = Number(node.id ?? node.story?.id);
-            const sourceStory = sourceStoryById.get(sourceId);
+    // Level-by-level (not a single flattened pass across the whole tree):
+    // siblings within a level run concurrently, but every level fully
+    // settles — including any 404 stale-mapping recovery — before the next
+    // level (its children) starts. A child reading its parent's targetId via
+    // maps.storyIds must see the parent's *final*, corrected mapping, not a
+    // stale one racing a concurrent recovery in the same pass.
+    for (const level of collectTreeLevels(tree)) {
+        const levelNodesToProcess = level.filter((levelNode) => {
+            const sourceId = Number(
+                levelNode.node.id ?? levelNode.node.story?.id,
+            );
+            return sourceStoryById.get(sourceId)?.id !== undefined;
+        });
 
-            if (!sourceStory?.id) {
-                continue;
-            }
+        await mapWithConcurrency(
+            levelNodesToProcess,
+            writeConcurrency,
+            async (levelNode) => {
+                const node = levelNode.node;
+                const sourceStory = sourceStoryById.get(
+                    Number(node.id ?? node.story?.id),
+                );
+                const parentSourceId = levelNode.parent
+                    ? Number(
+                          levelNode.parent.node.id ??
+                              levelNode.parent.node.story?.id,
+                      )
+                    : undefined;
+                const parentId: number | null =
+                    levelNode.parent?.targetId ??
+                    (parentSourceId !== undefined
+                        ? (maps.storyIds.get(parentSourceId) ?? null)
+                        : null) ??
+                    realParentId;
 
-            let targetStoryId = maps.storyIds.get(Number(sourceStory.id));
-            if (!targetStoryId) {
-                try {
-                    targetStoryId = await createOrMatchReplacementShell({
-                        node,
+                let targetStoryId = maps.storyIds.get(Number(sourceStory.id));
+                if (!targetStoryId) {
+                    try {
+                        targetStoryId = await createOrMatchReplacementShell({
+                            node,
+                            sourceStory,
+                            parentId,
+                        });
+                    } catch (error) {
+                        const message =
+                            error instanceof Error
+                                ? error.message
+                                : String(error);
+                        Logger.error(message);
+                        failures.push({
+                            sourceId: Number(sourceStory.id),
+                            fullSlug: String(
+                                sourceStory.full_slug ?? sourceStory.slug ?? "",
+                            ),
+                            stage: "create-shell",
+                            message,
+                        });
+                        progress?.tick(1, { failed: 1 });
+                        // No target shell means descendants cannot resolve this
+                        // node as a parent; they will fall back to their own
+                        // mapping or realParentId when processed.
+                        return;
+                    }
+                }
+
+                levelNode.targetId = Number(targetStoryId);
+
+                const writeStory = async (id: number) => {
+                    const current = buildRewrittenStoryPayload({
                         sourceStory,
-                        parentId,
+                        content: sourceStory.content,
+                        targetParentId: parentId,
+                        maps,
+                        schemas,
                     });
+                    const publishedLayerRecord =
+                        publishedLayerRecordBySourceId.get(
+                            String(sourceStory.id),
+                        );
+
+                    if (
+                        shouldUsePublishedLayerCopy(
+                            publication,
+                            sourceStory,
+                            publishedLayerRecord,
+                        )
+                    ) {
+                        const publishedLayerStory =
+                            publishedLayerRecord?.publishedLayerItem?.story;
+                        const publishedLayer = buildRewrittenStoryPayload({
+                            sourceStory: publishedLayerStory,
+                            content: publishedLayerStory?.content,
+                            targetParentId: parentId,
+                            maps,
+                            schemas,
+                        });
+                        const publishedUpdateResult =
+                            await managementApi.stories.updateStory(
+                                publishedLayer.payload,
+                                String(id),
+                                {
+                                    force_update: true,
+                                    publish: false,
+                                },
+                                {
+                                    ...apiConfigOverride,
+                                    spaceId: targetSpace,
+                                },
+                            );
+
+                        if (!publishedUpdateResult?.ok) {
+                            return {
+                                result: publishedUpdateResult,
+                                content: publishedLayer.payload?.content,
+                                rewrittenReferences:
+                                    current.rewrittenReferences +
+                                    publishedLayer.rewrittenReferences,
+                            };
+                        }
+
+                        const publishResult = await publishCopiedStory({
+                            storyId: id,
+                            story: publishedLayer.payload,
+                            publication,
+                            targetSpace,
+                            apiConfig: apiConfigOverride,
+                        });
+
+                        if (!publishResult?.ok) {
+                            return {
+                                result: publishResult,
+                                content: publishedLayer.payload?.content,
+                                rewrittenReferences:
+                                    current.rewrittenReferences +
+                                    publishedLayer.rewrittenReferences,
+                            };
+                        }
+
+                        const restoreDraftResult =
+                            await managementApi.stories.updateStory(
+                                current.payload,
+                                String(id),
+                                {
+                                    force_update: true,
+                                    publish: false,
+                                },
+                                {
+                                    ...apiConfigOverride,
+                                    spaceId: targetSpace,
+                                },
+                            );
+
+                        return {
+                            result: restoreDraftResult,
+                            content: current.payload?.content,
+                            rewrittenReferences:
+                                current.rewrittenReferences +
+                                publishedLayer.rewrittenReferences,
+                        };
+                    }
+
+                    if (
+                        publication.mode === "preserve-layers" &&
+                        resolveStoryLayerState(sourceStory) ===
+                            "dirty-published"
+                    ) {
+                        Logger.warning(
+                            `Skipping publish for copied story '${sourceStory.full_slug ?? sourceStory.slug}' because source story has unpublished changes and no published layer could be resolved.`,
+                        );
+                    }
+
+                    const result = await managementApi.stories.updateStory(
+                        current.payload,
+                        String(id),
+                        {
+                            force_update: true,
+                            publish: false,
+                        },
+                        {
+                            ...apiConfigOverride,
+                            spaceId: targetSpace,
+                        },
+                    );
+
+                    if (
+                        result?.ok &&
+                        shouldPublishCopiedCurrentStory(
+                            publication,
+                            sourceStory,
+                        )
+                    ) {
+                        const publishResult = await publishCopiedStory({
+                            storyId: id,
+                            story: current.payload,
+                            publication,
+                            targetSpace,
+                            apiConfig: apiConfigOverride,
+                        });
+
+                        if (!publishResult?.ok) {
+                            return {
+                                result: publishResult,
+                                content: current.payload?.content,
+                                rewrittenReferences:
+                                    current.rewrittenReferences,
+                            };
+                        }
+                    }
+
+                    return {
+                        result,
+                        content: current.payload?.content,
+                        rewrittenReferences: current.rewrittenReferences,
+                    };
+                };
+
+                // The checkpoint hash must be known before deciding whether to
+                // write at all, so it is computed independently of writeStory
+                // (which recomputes the same rewritten payload(s) once it
+                // actually runs). Cheap and side-effect free: no API calls.
+                const computeCheckpointHash = () => {
+                    const current = buildRewrittenStoryPayload({
+                        sourceStory,
+                        content: sourceStory.content,
+                        targetParentId: parentId,
+                        maps,
+                        schemas,
+                    });
+                    const publishedLayerRecord =
+                        publishedLayerRecordBySourceId.get(
+                            String(sourceStory.id),
+                        );
+
+                    if (
+                        shouldUsePublishedLayerCopy(
+                            publication,
+                            sourceStory,
+                            publishedLayerRecord,
+                        )
+                    ) {
+                        const publishedLayerStory =
+                            publishedLayerRecord?.publishedLayerItem?.story;
+                        const publishedLayer = buildRewrittenStoryPayload({
+                            sourceStory: publishedLayerStory,
+                            content: publishedLayerStory?.content,
+                            targetParentId: parentId,
+                            maps,
+                            schemas,
+                        });
+
+                        return computeContentHash({
+                            payload: {
+                                current: current.payload,
+                                publishedLayer: publishedLayer.payload ?? null,
+                            },
+                            publicationMode: publication.mode,
+                            publishLanguages:
+                                publication.resolvedPublishLanguages,
+                        });
+                    }
+
+                    return computeContentHash({
+                        payload: current.payload,
+                        publicationMode: publication.mode,
+                        publishLanguages: publication.resolvedPublishLanguages,
+                    });
+                };
+
+                const hash = computeCheckpointHash();
+
+                if (
+                    !forceContent &&
+                    checkpoints.get(Number(sourceStory.id))?.content_hash ===
+                        hash
+                ) {
+                    skippedStories += 1;
+                    progress?.tick(1, { skipped: 1 });
+                    return;
+                }
+
+                try {
+                    let update = await writeStory(Number(targetStoryId));
+
+                    if (isStoryUpdateNotFound(update.result)) {
+                        Logger.warning(
+                            `Ignoring stale story manifest mapping for '${sourceStory.full_slug ?? sourceStory.slug}' because target story '${targetStoryId}' could not be updated in space '${targetSpace}'.`,
+                        );
+                        maps.storyIds.delete(Number(sourceStory.id));
+                        maps.storyUuids.delete(String(sourceStory.uuid));
+                        targetStoryId = await createOrMatchReplacementShell({
+                            node,
+                            sourceStory,
+                            parentId,
+                            staleTargetId: Number(targetStoryId),
+                        });
+                        levelNode.targetId = Number(targetStoryId);
+                        update = await writeStory(Number(targetStoryId));
+                    }
+
+                    assertStoryUpdateSucceeded({
+                        result: update.result,
+                        sourceStory,
+                        targetStoryId: Number(targetStoryId),
+                        targetSpace,
+                        content: update.content,
+                    });
+                    updatedStories += 1;
+                    rewrittenReferences += update.rewrittenReferences;
+
+                    const checkpointEntry: CopyStoryContentManifestEntry = {
+                        type: "story_content",
+                        schema_version: 1,
+                        source_space_id: sourceSpace,
+                        target_space_id: targetSpace,
+                        source_id: Number(sourceStory.id),
+                        target_id: Number(targetStoryId),
+                        source_updated_at: sourceStory.updated_at,
+                        content_hash: hash,
+                        unresolved_refs: countUnresolvedRefs({
+                            sourceStory,
+                            maps,
+                            schemas,
+                            sourceStoryById,
+                            sourceUuidsInScope,
+                        }),
+                        created_at: new Date().toISOString(),
+                    };
+                    await appendCopyManifestEntry({
+                        combinedPath: manifestPaths.combined,
+                        resourcePath: manifestPaths.stories,
+                        entry: checkpointEntry,
+                    });
+                    progress?.tick(1);
                 } catch (error) {
                     const message =
                         error instanceof Error ? error.message : String(error);
                     Logger.error(message);
                     failures.push({
                         sourceId: Number(sourceStory.id),
+                        targetId: targetStoryId
+                            ? Number(targetStoryId)
+                            : undefined,
                         fullSlug: String(
                             sourceStory.full_slug ?? sourceStory.slug ?? "",
                         ),
-                        stage: "create-shell",
+                        stage: "update",
                         message,
                     });
-                    // No target shell means children cannot be parented; skip
-                    // this branch but keep copying the rest of the tree.
-                    continue;
+                    progress?.tick(1, { failed: 1 });
                 }
-            }
+            },
+        );
+    }
 
-            const writeStory = async (id: number) => {
-                const current = buildRewrittenStoryPayload({
-                    sourceStory,
-                    content: sourceStory.content,
-                    targetParentId: parentId,
-                    maps,
-                    schemas,
-                });
-                const publishedLayerRecord = publishedLayerRecordBySourceId.get(
-                    String(sourceStory.id),
-                );
-
-                if (
-                    shouldUsePublishedLayerCopy(
-                        publication,
-                        sourceStory,
-                        publishedLayerRecord,
-                    )
-                ) {
-                    const publishedLayerStory =
-                        publishedLayerRecord?.publishedLayerItem?.story;
-                    const publishedLayer = buildRewrittenStoryPayload({
-                        sourceStory: publishedLayerStory,
-                        content: publishedLayerStory?.content,
-                        targetParentId: parentId,
-                        maps,
-                        schemas,
-                    });
-                    const publishedUpdateResult =
-                        await managementApi.stories.updateStory(
-                            publishedLayer.payload,
-                            String(id),
-                            {
-                                force_update: true,
-                                publish: false,
-                            },
-                            {
-                                ...apiConfig,
-                                spaceId: targetSpace,
-                            },
-                        );
-
-                    if (!publishedUpdateResult?.ok) {
-                        return {
-                            result: publishedUpdateResult,
-                            content: publishedLayer.payload?.content,
-                            rewrittenReferences:
-                                current.rewrittenReferences +
-                                publishedLayer.rewrittenReferences,
-                        };
-                    }
-
-                    const publishResult = await publishCopiedStory({
-                        storyId: id,
-                        story: publishedLayer.payload,
-                        publication,
-                        targetSpace,
-                    });
-
-                    if (!publishResult?.ok) {
-                        return {
-                            result: publishResult,
-                            content: publishedLayer.payload?.content,
-                            rewrittenReferences:
-                                current.rewrittenReferences +
-                                publishedLayer.rewrittenReferences,
-                        };
-                    }
-
-                    const restoreDraftResult =
-                        await managementApi.stories.updateStory(
-                            current.payload,
-                            String(id),
-                            {
-                                force_update: true,
-                                publish: false,
-                            },
-                            {
-                                ...apiConfig,
-                                spaceId: targetSpace,
-                            },
-                        );
-
-                    return {
-                        result: restoreDraftResult,
-                        content: current.payload?.content,
-                        rewrittenReferences:
-                            current.rewrittenReferences +
-                            publishedLayer.rewrittenReferences,
-                    };
-                }
-
-                if (
-                    publication.mode === "preserve-layers" &&
-                    resolveStoryLayerState(sourceStory) === "dirty-published"
-                ) {
-                    Logger.warning(
-                        `Skipping publish for copied story '${sourceStory.full_slug ?? sourceStory.slug}' because source story has unpublished changes and no published layer could be resolved.`,
-                    );
-                }
-
-                const result = await managementApi.stories.updateStory(
-                    current.payload,
-                    String(id),
-                    {
-                        force_update: true,
-                        publish: false,
-                    },
-                    {
-                        ...apiConfig,
-                        spaceId: targetSpace,
-                    },
-                );
-
-                if (
-                    result?.ok &&
-                    shouldPublishCopiedCurrentStory(publication, sourceStory)
-                ) {
-                    const publishResult = await publishCopiedStory({
-                        storyId: id,
-                        story: current.payload,
-                        publication,
-                        targetSpace,
-                    });
-
-                    if (!publishResult?.ok) {
-                        return {
-                            result: publishResult,
-                            content: current.payload?.content,
-                            rewrittenReferences: current.rewrittenReferences,
-                        };
-                    }
-                }
-
-                return {
-                    result,
-                    content: current.payload?.content,
-                    rewrittenReferences: current.rewrittenReferences,
-                };
-            };
-
-            // A single broken story (e.g. a component the target space schema
-            // rejects) must not abort the whole run. Record the failure, keep
-            // its already-created shell as the parent for descendants, and move
-            // on to the next story.
-            let targetInvalidated = false;
-
-            try {
-                let update = await writeStory(Number(targetStoryId));
-
-                if (isStoryUpdateNotFound(update.result)) {
-                    Logger.warning(
-                        `Ignoring stale story manifest mapping for '${sourceStory.full_slug ?? sourceStory.slug}' because target story '${targetStoryId}' could not be updated in space '${targetSpace}'.`,
-                    );
-                    maps.storyIds.delete(Number(sourceStory.id));
-                    maps.storyUuids.delete(String(sourceStory.uuid));
-                    targetInvalidated = true;
-                    targetStoryId = await createOrMatchReplacementShell({
-                        node,
-                        sourceStory,
-                        parentId,
-                        staleTargetId: Number(targetStoryId),
-                    });
-                    targetInvalidated = false;
-                    update = await writeStory(Number(targetStoryId));
-                }
-
-                assertStoryUpdateSucceeded({
-                    result: update.result,
-                    sourceStory,
-                    targetStoryId: Number(targetStoryId),
-                    targetSpace,
-                    content: update.content,
-                });
-                updatedStories += 1;
-                rewrittenReferences += update.rewrittenReferences;
-            } catch (error) {
-                const message =
-                    error instanceof Error ? error.message : String(error);
-                Logger.error(message);
-                failures.push({
-                    sourceId: Number(sourceStory.id),
-                    targetId: targetStoryId ? Number(targetStoryId) : undefined,
-                    fullSlug: String(
-                        sourceStory.full_slug ?? sourceStory.slug ?? "",
-                    ),
-                    stage: "update",
-                    message,
-                });
-            }
-
-            // Only recurse into children when we still have a usable target
-            // shell to parent them under.
-            if (!targetInvalidated && targetStoryId) {
-                await walk(node.children ?? [], Number(targetStoryId));
-            }
-        }
-    };
-
-    await walk(tree, realParentId);
     await dedupeManifestFile(manifestPaths.stories);
     await dedupeManifestFile(manifestPaths.combined);
 
@@ -3003,7 +3241,7 @@ const rewriteCopiedStoryContents = async ({
         );
     }
 
-    return { updatedStories, rewrittenReferences, failures };
+    return { updatedStories, rewrittenReferences, skippedStories, failures };
 };
 
 export type ShellFailure = {
@@ -4064,6 +4302,10 @@ export const copyCommand = async (props: CLIOptions) => {
                 sourceSpace,
                 targetSpace,
                 manifestRoot,
+                forceContent: Boolean(
+                    flags["forceContent"] ?? flags["force-content"],
+                ),
+                writeConcurrency: 12,
             });
 
             if (outputPath) {

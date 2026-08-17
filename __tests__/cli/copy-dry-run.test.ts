@@ -1053,7 +1053,11 @@ describe("copy stories dry-run", () => {
         )
             .trim()
             .split("\n")
-            .map((line) => JSON.parse(line));
+            .map((line) => JSON.parse(line))
+            // Only the "story" shell entries are relevant here; the rewrite
+            // phase also appends "story_content" checkpoint entries once the
+            // content update succeeds.
+            .filter((entry: any) => entry.type === "story");
         const combinedManifest = (
             await readFile(
                 path.join(manifestDirectory, "manifest.jsonl"),
@@ -1752,19 +1756,21 @@ describe("copy stories dry-run", () => {
             },
         });
         const getStoryBySlug = mocks.getStoryBySlug.getMockImplementation();
-        mocks.getStoryBySlug.mockImplementation((slug: string, options: any) => {
-            if (slug === "imported/blog") {
-                return Promise.resolve({
-                    story: {
-                        id: 9999,
-                        uuid: "stale-target-blog-uuid",
-                        full_slug: "imported/blog",
-                    },
-                });
-            }
+        mocks.getStoryBySlug.mockImplementation(
+            (slug: string, options: any) => {
+                if (slug === "imported/blog") {
+                    return Promise.resolve({
+                        story: {
+                            id: 9999,
+                            uuid: "stale-target-blog-uuid",
+                            full_slug: "imported/blog",
+                        },
+                    });
+                }
 
-            return getStoryBySlug?.(slug, options);
-        });
+                return getStoryBySlug?.(slug, options);
+            },
+        );
         mocks.updateStory
             .mockResolvedValueOnce({
                 ok: false,
@@ -1989,7 +1995,11 @@ describe("copy stories dry-run", () => {
         )
             .trim()
             .split("\n")
-            .map((line) => JSON.parse(line));
+            .map((line) => JSON.parse(line))
+            // Only the "story" shell entries are relevant here; the rewrite
+            // phase also appends "story_content" checkpoint entries once the
+            // content update succeeds.
+            .filter((entry: any) => entry.type === "story");
 
         expect(assetManifest).toMatchObject([
             {
