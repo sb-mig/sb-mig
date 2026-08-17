@@ -24,6 +24,7 @@ const { createStoriesAndWriteManifests } = await import(
 const { loadManifest, getDefaultCopyManifestPaths } = await import(
     "../../src/api/copy/index.js"
 );
+const { CopyAbortedError } = await import("../../src/utils/rate-limiter.js");
 
 const story = (id: number, slug: string, isFolder = false) => ({
     id,
@@ -198,5 +199,37 @@ describe("createStoriesAndWriteManifests (parallel shell phase)", () => {
         const slugs = createStory.mock.calls.map((call) => call[0].slug);
         expect(slugs).toContain("ok");
         expect(slugs).not.toContain("child");
+    });
+
+    it("treats a CopyAbortedError as a skip, not a failure, and skips descendants", async () => {
+        createStory.mockRejectedValueOnce(new CopyAbortedError());
+        const parent = story(1, "src", true);
+        const child = story(2, "src/page");
+        const result = await createStoriesAndWriteManifests({
+            tree: [treeNode(parent, [treeNode(child)])],
+            realParentId: null,
+            sourceStoryById: new Map([
+                [1, parent],
+                [2, child],
+            ]),
+            targetSlugBySourceSlug: new Map([
+                ["src", "src"],
+                ["src/page", "src/page"],
+            ]),
+            sourceSpace: "1",
+            targetSpace: "2",
+            manifestRoot,
+            targetStoriesBySlug: new Map(),
+            verify: false,
+            writeConcurrency: 4,
+            apiConfig: { spaceId: "2", sbApi: {} },
+        });
+
+        expect(result.failures).toHaveLength(0);
+        expect(result.storiesAborted).toBe(1);
+        // The child is never attempted because the parent's branch was
+        // skipped (no target shell to parent it under).
+        const slugs = createStory.mock.calls.map((call) => call[0].slug);
+        expect(slugs).not.toContain("page");
     });
 });

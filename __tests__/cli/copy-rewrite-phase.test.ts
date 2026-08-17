@@ -26,6 +26,7 @@ const { rewriteCopiedStoryContents } =
     await import("../../src/cli/commands/copy.js");
 const { appendManifestEntry, getDefaultCopyManifestPaths, loadManifest } =
     await import("../../src/api/copy/index.js");
+const { CopyAbortedError } = await import("../../src/utils/rate-limiter.js");
 
 const story = (id: number) => ({
     id,
@@ -237,6 +238,22 @@ describe("rewriteCopiedStoryContents (checkpointed)", () => {
             (entry: any) => entry.type === "story_content",
         );
         expect(checkpoints).toHaveLength(1);
+    });
+
+    it("treats a CopyAbortedError as a skip, not a failure, and does not throw", async () => {
+        const stories = [story(1), story(2)];
+        for (const s of stories) await seedShellMapping(manifestRoot, s);
+        updateStory
+            .mockRejectedValueOnce(new CopyAbortedError())
+            .mockResolvedValue({ ok: true });
+
+        const result = await rewriteCopiedStoryContents(
+            baseArgs(manifestRoot, stories),
+        );
+
+        expect(result.failures).toHaveLength(0);
+        expect(result.abortedStories).toBe(1);
+        expect(result.updatedStories).toBe(1);
     });
 
     it("reports zero unresolved_refs when the story's only reference is already mapped", async () => {

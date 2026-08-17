@@ -75,6 +75,7 @@ vi.mock("../../src/utils/logger.js", () => ({
 }));
 
 import { copyCommand } from "../../src/cli/commands/copy.js";
+import Logger from "../../src/utils/logger.js";
 
 describe("copy stories dry-run", () => {
     const sourceAsset = {
@@ -1173,6 +1174,34 @@ describe("copy stories dry-run", () => {
             { force_update: true, publish: false },
             expect.objectContaining({ spaceId: "target-space" }),
         );
+
+        await rm(tempDir, { recursive: true, force: true });
+    });
+
+    it("prints an exit summary at the end of an apply-mode run (Task 12)", async () => {
+        const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-copy-"));
+        const manifestRoot = path.join(tempDir, ".sb-mig");
+
+        await copyCommand({
+            input: ["copy", "stories"],
+            flags: {
+                from: "source-space",
+                to: "target-space",
+                source: "blog",
+                destination: "imported",
+                manifestRoot,
+            },
+        } as any);
+
+        const summaryCall = (Logger.log as any).mock.calls.find((call: any[]) =>
+            String(call[0]).startsWith("Copy summary"),
+        );
+        expect(summaryCall).toBeDefined();
+        expect(summaryCall[0]).toMatch(
+            /stories:\s+created 2\s+matched 0\s+skipped 0\s+failed 0/,
+        );
+        // No failures and no abort, so no Resume line is printed.
+        expect(summaryCall[0]).not.toMatch(/Resume:/);
 
         await rm(tempDir, { recursive: true, force: true });
     });

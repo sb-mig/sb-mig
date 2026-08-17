@@ -35,6 +35,7 @@ const { copyAssetsAndWriteManifests } = await import(
 const { buildCopyAssetsGraph } = await import(
     "../../src/api/copy/index.js"
 );
+const { CopyAbortedError } = await import("../../src/utils/rate-limiter.js");
 
 const asset = (id: number) => ({
     id,
@@ -197,6 +198,31 @@ describe("copyAssetsAndWriteManifests (parallel)", () => {
             writeConcurrency: 4,
         });
         expect(getAllAssets).not.toHaveBeenCalled();
+    });
+
+    it("treats a CopyAbortedError as a skip, not a failure, and does not throw", async () => {
+        createAssetAndFinalize.mockRejectedValueOnce(new CopyAbortedError());
+        const sourceAssets = [asset(1), asset(2)];
+        const graph = buildCopyAssetsGraph({
+            sourceSpaceId: "1",
+            targetSpaceId: "2",
+            assets: sourceAssets,
+            assetFolders: [],
+        });
+        const report = await copyAssetsAndWriteManifests({
+            sourceSpace: "1",
+            targetSpace: "2",
+            selection: { type: "all" },
+            input: {},
+            graph,
+            sourceAssets,
+            sourceAssetFolders: [],
+            manifestRoot,
+            writeConcurrency: 4,
+        });
+
+        expect(report.summary.assetsFailed).toBe(0);
+        expect(report.assetsAborted).toBe(1);
     });
 });
 

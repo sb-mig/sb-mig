@@ -35,6 +35,7 @@ import {
     scanStoriesReferences,
     summarizeCopyGraph,
 } from "../../api/copy/index.js";
+import { wrapSbApiWithLimiter } from "../../api/copy/limited-client.js";
 import {
     buildPublishedLayerContext,
     resolveStoryLayerState,
@@ -47,6 +48,11 @@ import {
 import { createTree } from "../../api/stories/tree.js";
 import { mapWithConcurrency } from "../../utils/async-utils.js";
 import Logger from "../../utils/logger.js";
+import { createProgressTracker } from "../../utils/progress.js";
+import {
+    createAdaptiveLimiter,
+    CopyAbortedError,
+} from "../../utils/rate-limiter.js";
 import { getFileName } from "../../utils/string-utils.js";
 import { apiConfig } from "../api-config.js";
 
@@ -259,6 +265,10 @@ type CopyStoriesApplySummary = {
     storiesPlanned: number;
     storiesCreated: number;
     storiesMatched: number;
+    // Additive: stories the rewrite phase skipped writing (resume fast-path
+    // hits and unchanged-checkpoint hits). See rewriteCopiedStoryContents'
+    // own `skippedStories` counter.
+    storiesSkipped: number;
 };
 
 type CopyStoriesApplyReport = {
@@ -355,6 +365,29 @@ const getCopySpace = (
     names: string[],
     fallback: string,
 ): string => readStringFlag(flags, names) ?? fallback;
+
+export const resolveCopyRuntimeOptions = (
+    flags: Record<string, any>,
+    config: { rateLimit?: number },
+): {
+    rateLimit: number;
+    verify: boolean;
+    forceContent: boolean;
+    writeConcurrency: number;
+} => {
+    const flagRate = Number(readStringFlag(flags, ["rateLimit"]) ?? "");
+    const rateLimit =
+        (Number.isFinite(flagRate) && flagRate > 0 ? flagRate : 0) ||
+        (config.rateLimit && config.rateLimit > 0 ? config.rateLimit : 0) ||
+        6;
+
+    return {
+        rateLimit,
+        verify: Boolean(flags["verify"]),
+        forceContent: Boolean(flags["forceContent"] ?? flags["force-content"]),
+        writeConcurrency: Math.max(2, Math.ceil(rateLimit * 2)),
+    };
+};
 
 const parseCopyPublicationMode = (
     publicationModeFlag: string | undefined,
@@ -1254,6 +1287,64 @@ const buildCopyAssetsCommand = ({
     }
 
     return args.map(quoteCommandArg).join(" ");
+};
+
+// Aligned exit-summary lines printed at the end of an apply-mode copy run
+// (stories or assets), regardless of success, failure, or SIGINT abort. Each
+// "name value" field is padEnd'd to a fixed width so the columns line up
+// across rows.
+const formatSummaryField = (name: string, value: number): string =>
+    `${name} ${value}`.padEnd(name.length + 6);
+
+const printCopySummary = ({
+    stories,
+    assetFolders,
+    assets,
+    resumeCommand,
+}: {
+    stories?: {
+        created: number;
+        matched: number;
+        skipped: number;
+        failed: number;
+    };
+    assetFolders?: { created: number; matched: number; failed: number };
+    assets?: { created: number; matched: number; failed: number };
+    resumeCommand?: string;
+}): void => {
+    const lines: string[] = ["Copy summary"];
+
+    if (stories) {
+        lines.push(
+            `  ${"stories:".padEnd(16)}${formatSummaryField("created", stories.created)}${formatSummaryField("matched", stories.matched)}${formatSummaryField("skipped", stories.skipped)}failed ${stories.failed}`,
+        );
+    }
+
+    if (assetFolders) {
+        lines.push(
+            `  ${"asset folders:".padEnd(16)}${formatSummaryField("created", assetFolders.created)}${
+                assetFolders.failed > 0
+                    ? `${formatSummaryField("matched", assetFolders.matched)}failed ${assetFolders.failed}`
+                    : `matched ${assetFolders.matched}`
+            }`,
+        );
+    }
+
+    if (assets) {
+        lines.push(
+            `  ${"assets:".padEnd(16)}${formatSummaryField("created", assets.created)}${
+                assets.failed > 0
+                    ? `${formatSummaryField("matched", assets.matched)}failed ${assets.failed}`
+                    : `matched ${assets.matched}`
+            }`,
+        );
+    }
+
+    if (resumeCommand) {
+        lines.push(`Resume: ${resumeCommand}`);
+    }
+
+    Logger.log(lines.join("\n"));
 };
 
 const parseStoryblokAssetUrl = (
@@ -2830,6 +2921,7 @@ export const rewriteCopiedStoryContents = async ({
     rewrittenReferences: number;
     skippedStories: number;
     failures: RewriteFailure[];
+    abortedStories: number;
 }> => {
     const manifestPaths = getDefaultCopyManifestPaths({
         sourceSpaceId: sourceSpace,
@@ -2846,6 +2938,7 @@ export const rewriteCopiedStoryContents = async ({
     let updatedStories = 0;
     let rewrittenReferences = 0;
     let skippedStories = 0;
+    let abortedStories = 0;
     const failures: RewriteFailure[] = [];
 
     const writeStoryMapping = async ({
@@ -3004,6 +3097,17 @@ export const rewriteCopiedStoryContents = async ({
                             parentId,
                         });
                     } catch (error) {
+                        if (error instanceof CopyAbortedError) {
+                            // Skip-silently: the run was interrupted, not
+                            // failed. No target shell means descendants
+                            // cannot be reparented; skip the branch and keep
+                            // draining the rest of the tree.
+                            abortedStories += 1;
+                            progress?.tick(0, { skipped: 1 });
+                            levelNode.skippedBranch = true;
+                            return;
+                        }
+
                         const message =
                             error instanceof Error
                                 ? error.message
@@ -3328,6 +3432,15 @@ export const rewriteCopiedStoryContents = async ({
                     });
                     progress?.tick(1);
                 } catch (error) {
+                    if (error instanceof CopyAbortedError) {
+                        // Skip-silently: the run was interrupted, not
+                        // failed. This story's content write is left
+                        // pending for a resumed run.
+                        abortedStories += 1;
+                        progress?.tick(0, { skipped: 1 });
+                        return;
+                    }
+
                     const message =
                         error instanceof Error ? error.message : String(error);
                     Logger.error(message);
@@ -3372,14 +3485,29 @@ export const rewriteCopiedStoryContents = async ({
 
         // Every story was still attempted (no early abort), but surface the
         // failures so apply mode exits non-zero instead of reporting success.
-        throw new Error(
+        // The partial counts are attached to the error (not just the
+        // message) so a caller that needs them for an exit summary printed
+        // in a `finally` block does not lose them when this throws.
+        const aggregateError: any = new Error(
             `Copy finished but ${failures.length} story/story shell update(s) failed:\n${failures
                 .map((failure) => failure.message)
                 .join("\n")}`,
         );
+        aggregateError.updatedStories = updatedStories;
+        aggregateError.rewrittenReferences = rewrittenReferences;
+        aggregateError.skippedStories = skippedStories;
+        aggregateError.abortedStories = abortedStories;
+        aggregateError.failures = failures;
+        throw aggregateError;
     }
 
-    return { updatedStories, rewrittenReferences, skippedStories, failures };
+    return {
+        updatedStories,
+        rewrittenReferences,
+        skippedStories,
+        failures,
+        abortedStories,
+    };
 };
 
 export type ShellFailure = {
@@ -3415,7 +3543,12 @@ export const createStoriesAndWriteManifests = async ({
     writeConcurrency: number;
     apiConfig: any;
     progress?: ProgressTracker;
-}): Promise<CopyStoriesApplySummary & { failures: ShellFailure[] }> => {
+}): Promise<
+    Omit<CopyStoriesApplySummary, "storiesSkipped"> & {
+        failures: ShellFailure[];
+        storiesAborted: number;
+    }
+> => {
     const manifestPaths = getDefaultCopyManifestPaths({
         sourceSpaceId: sourceSpace,
         targetSpaceId: targetSpace,
@@ -3425,6 +3558,7 @@ export const createStoriesAndWriteManifests = async ({
     const copyMaps = buildCopyMaps(existingManifestEntries);
     let storiesCreated = 0;
     let storiesMatched = 0;
+    let storiesAborted = 0;
     const failures: ShellFailure[] = [];
 
     const levels = collectTreeLevels(tree);
@@ -3568,6 +3702,19 @@ export const createStoriesAndWriteManifests = async ({
                 }
                 progress?.tick();
             } catch (error) {
+                if (error instanceof CopyAbortedError) {
+                    // The run was interrupted (SIGINT): this is a
+                    // skip-silently case, not a failure. No target shell
+                    // means children cannot be parented; skip this branch
+                    // but keep draining the rest of the tree (every
+                    // remaining item will hit this same short-circuit
+                    // quickly once the limiter is aborted).
+                    levelNode.skippedBranch = true;
+                    storiesAborted += 1;
+                    progress?.tick(0, { skipped: 1 });
+                    return;
+                }
+
                 const message =
                     error instanceof Error ? error.message : String(error);
                 Logger.error(message);
@@ -3597,6 +3744,7 @@ export const createStoriesAndWriteManifests = async ({
         storiesCreated,
         storiesMatched,
         failures,
+        storiesAborted,
     };
 };
 
@@ -3626,7 +3774,12 @@ export const copyAssetsAndWriteManifests = async ({
     writeConcurrency: number;
     progress?: ProgressTracker;
     apiConfig?: any;
-}): Promise<CopyAssetsApplyReport> => {
+}): Promise<
+    CopyAssetsApplyReport & {
+        assetsAborted: number;
+        assetFoldersAborted: number;
+    }
+> => {
     const manifestPaths = getDefaultCopyManifestPaths({
         sourceSpaceId: sourceSpace,
         targetSpaceId: targetSpace,
@@ -3694,9 +3847,11 @@ export const copyAssetsAndWriteManifests = async ({
     let assetFoldersCreated = 0;
     let assetFoldersMatched = 0;
     let assetFoldersFailed = 0;
+    let assetFoldersAborted = 0;
     let assetsCreated = 0;
     let assetsMatched = 0;
     let assetsFailed = 0;
+    let assetsAborted = 0;
     const folderFailures: Array<{
         sourceId: number;
         name: string;
@@ -3886,6 +4041,15 @@ export const copyAssetsAndWriteManifests = async ({
                     folderNode.action = "create";
                     assetFoldersCreated += 1;
                 } catch (error) {
+                    if (error instanceof CopyAbortedError) {
+                        // Skip-silently: the run was interrupted, not
+                        // failed. Descendants fall back to targetParentId
+                        // null, same as any other unmapped ancestor.
+                        folderNode.action = "unknown";
+                        assetFoldersAborted += 1;
+                        return;
+                    }
+
                     const message =
                         error instanceof Error ? error.message : String(error);
                     Logger.error(
@@ -4067,6 +4231,18 @@ export const copyAssetsAndWriteManifests = async ({
                 assetsCreated += 1;
                 progress?.tick(1);
             } catch (error) {
+                if (error instanceof CopyAbortedError) {
+                    // Skip-silently: the run was interrupted, not failed.
+                    // Undo the graph defaults (see the truthful-reporting
+                    // comment below) and leave this asset pending for a
+                    // resumed run.
+                    graphAsset.action = "unknown";
+                    graphAsset.targetFilename = undefined;
+                    assetsAborted += 1;
+                    progress?.tick(0, { skipped: 1 });
+                    return;
+                }
+
                 const message =
                     error instanceof Error ? error.message : String(error);
                 Logger.error(
@@ -4147,12 +4323,21 @@ export const copyAssetsAndWriteManifests = async ({
             );
         }
 
-        throw new Error(
+        const aggregateError: any = new Error(
             `Asset copy finished but ${failedParts.join(" and ")} failed.`,
         );
+        aggregateError.assetFoldersCreated = assetFoldersCreated;
+        aggregateError.assetFoldersMatched = assetFoldersMatched;
+        aggregateError.assetFoldersFailed = assetFoldersFailed;
+        aggregateError.assetFoldersAborted = assetFoldersAborted;
+        aggregateError.assetsCreated = assetsCreated;
+        aggregateError.assetsMatched = assetsMatched;
+        aggregateError.assetsFailed = assetsFailed;
+        aggregateError.assetsAborted = assetsAborted;
+        throw aggregateError;
     }
 
-    return report;
+    return { ...report, assetsAborted, assetFoldersAborted };
 };
 
 const logDryRunCopyPlan = async ({ report }: { report: CopyDryRunReport }) => {
@@ -4392,450 +4577,573 @@ export const copyCommand = async (props: CLIOptions) => {
                 `Source '${selection.source}', mode '${selection.mode}', destination '${destination ?? "root"}'.`,
             );
 
-            const verify = Boolean(flags["verify"]);
-            const forceContent = Boolean(
-                flags["forceContent"] ?? flags["force-content"],
-            );
+            const runtime = resolveCopyRuntimeOptions(flags, apiConfig);
+            const verify = runtime.verify;
+            const forceContent = runtime.forceContent;
+            const writeConcurrency = runtime.writeConcurrency;
 
-            // The manifest is loaded once, up front, so the resume
-            // checkpoints (Task 10) and the story/asset maps below share a
-            // single read.
-            const manifestPaths = getDefaultCopyManifestPaths({
-                sourceSpaceId: sourceSpace,
-                targetSpaceId: targetSpace,
-                rootDir: manifestRoot,
+            // One limiter + wrapped client per invocation: every Management
+            // API call made through copyApiConfig below is rate-limited and
+            // aborts cleanly on SIGINT (see onSigint below).
+            const limiter = createAdaptiveLimiter({
+                targetRatePerSecond: runtime.rateLimit,
             });
-            const manifestEntries = await loadManifest(manifestPaths.combined);
-            const copyMaps = buildCopyMaps(manifestEntries);
-            const checkpoints = buildContentCheckpointMap(manifestEntries);
+            const copyApiConfig = {
+                ...apiConfig,
+                sbApi: wrapSbApiWithLimiter(apiConfig.sbApi, limiter),
+            };
 
-            // Resume fast path (Task 10), step 1: list stubs for the
-            // selection. The root is always fetched fully via
-            // getStoryBySlug (see getStoriesForSelection); children come
-            // back as list stubs -- no `content`.
-            const stubSourceStories = await getStoriesForSelection(
-                selection,
-                sourceSpace,
-                { contentFor: "none" },
-            );
-            const [rootStubItem, ...childStubItems] = stubSourceStories;
+            const onSigint = () => {
+                Logger.warning(
+                    "Interrupt received. Finishing in-flight requests, then stopping. Run the same command again to resume.",
+                );
+                limiter.abort();
+            };
+            process.once("SIGINT", onSigint);
 
-            // Gate hardening: the resume fast path must also verify the
-            // story's PLANNED target slug hasn't changed (a destination
-            // change invalidates it). Computing that slug only needs
-            // id/parent_id/slug/full_slug -- all present on stubs -- so
-            // this "pre-plan" pass runs on stub data alone, entirely
-            // before any content is fetched. It is discarded once
-            // targetFullSlugBySourceId is extracted from it; the real
-            // tree/plan used for everything else is built later, once
-            // failed content fetches have been excluded (see step 3).
-            const preNormalizedStories = normalizeStoriesForTree(
-                stubSourceStories,
-                selection,
-            );
-            const preTree = buildStubTreeForSlugPlanning(preNormalizedStories);
-            const preRootsToCreate = prepareTreeForCreate(
-                selectTreeRoots(preTree, selection),
-            );
-            const prePlan = buildCopyPlan(preRootsToCreate, destination);
-            const stubStoryByFullSlug = new Map(
-                stubSourceStories.map(
-                    (item: any) =>
-                        [
-                            String(item.story.full_slug ?? ""),
-                            item.story,
-                        ] as const,
-                ),
-            );
-            const targetFullSlugBySourceId = new Map<number, string>();
+            // Exit-summary accumulators (Task 12). Populated as each phase
+            // completes below, whether it resolves normally or throws (the
+            // phase functions attach their partial counts onto the thrown
+            // aggregate error precisely so this code can still recover
+            // them). Always printed in the `finally` block for apply mode.
+            let storiesCreated = 0;
+            let storiesMatched = 0;
+            let storiesSkipped = 0;
+            let storiesFailed = 0;
+            let storiesAborted = 0;
+            let assetFoldersCreatedCount = 0;
+            let assetFoldersMatchedCount = 0;
+            let assetFoldersFailedCount = 0;
+            let assetFoldersAbortedCount = 0;
+            let assetsCreatedCount = 0;
+            let assetsMatchedCount = 0;
+            let assetsFailedCount = 0;
+            let assetsAbortedCount = 0;
 
-            for (const planItem of prePlan) {
-                const stubStory = stubStoryByFullSlug.get(
-                    planItem.sourceFullSlug,
+            try {
+                // The manifest is loaded once, up front, so the resume
+                // checkpoints (Task 10) and the story/asset maps below share a
+                // single read.
+                const manifestPaths = getDefaultCopyManifestPaths({
+                    sourceSpaceId: sourceSpace,
+                    targetSpaceId: targetSpace,
+                    rootDir: manifestRoot,
+                });
+                const manifestEntries = await loadManifest(
+                    manifestPaths.combined,
+                );
+                const copyMaps = buildCopyMaps(manifestEntries);
+                const checkpoints = buildContentCheckpointMap(manifestEntries);
+
+                // Resume fast path (Task 10), step 1: list stubs for the
+                // selection. The root is always fetched fully via
+                // getStoryBySlug (see getStoriesForSelection); children come
+                // back as list stubs -- no `content`.
+                const stubSourceStories = await getStoriesForSelection(
+                    selection,
+                    sourceSpace,
+                    { contentFor: "none" },
+                );
+                const [rootStubItem, ...childStubItems] = stubSourceStories;
+
+                // Gate hardening: the resume fast path must also verify the
+                // story's PLANNED target slug hasn't changed (a destination
+                // change invalidates it). Computing that slug only needs
+                // id/parent_id/slug/full_slug -- all present on stubs -- so
+                // this "pre-plan" pass runs on stub data alone, entirely
+                // before any content is fetched. It is discarded once
+                // targetFullSlugBySourceId is extracted from it; the real
+                // tree/plan used for everything else is built later, once
+                // failed content fetches have been excluded (see step 3).
+                const preNormalizedStories = normalizeStoriesForTree(
+                    stubSourceStories,
+                    selection,
+                );
+                const preTree =
+                    buildStubTreeForSlugPlanning(preNormalizedStories);
+                const preRootsToCreate = prepareTreeForCreate(
+                    selectTreeRoots(preTree, selection),
+                );
+                const prePlan = buildCopyPlan(preRootsToCreate, destination);
+                const stubStoryByFullSlug = new Map(
+                    stubSourceStories.map(
+                        (item: any) =>
+                            [
+                                String(item.story.full_slug ?? ""),
+                                item.story,
+                            ] as const,
+                    ),
+                );
+                const targetFullSlugBySourceId = new Map<number, string>();
+
+                for (const planItem of prePlan) {
+                    const stubStory = stubStoryByFullSlug.get(
+                        planItem.sourceFullSlug,
+                    );
+
+                    if (stubStory) {
+                        targetFullSlugBySourceId.set(
+                            Number(stubStory.id),
+                            planItem.targetFullSlug,
+                        );
+                    }
+                }
+
+                // The list endpoint's own updated_at (not a later per-story
+                // fetch's value) is what the next run's gate must compare
+                // against, so it is captured here straight from the stubs.
+                const listUpdatedAtBySourceId = new Map<
+                    number,
+                    string | undefined
+                >(
+                    childStubItems.map(
+                        (item: any) =>
+                            [
+                                Number(item.story.id),
+                                item.story.updated_at,
+                            ] as const,
+                    ),
+                );
+                const childFullSlugBySourceId = new Map<number, string>(
+                    childStubItems.map(
+                        (item: any) =>
+                            [
+                                Number(item.story.id),
+                                String(item.story.full_slug ?? ""),
+                            ] as const,
+                    ),
                 );
 
-                if (stubStory) {
-                    targetFullSlugBySourceId.set(
-                        Number(stubStory.id),
-                        planItem.targetFullSlug,
+                // A checkpoint without its own "story" shell mapping must
+                // never fast-path -- otherwise the shell would stay empty
+                // forever, since the fast path never writes content.
+                const mappedSourceIds = new Set(copyMaps.storyIds.keys());
+
+                // Step 2: partition children against the resume checkpoints.
+                const partition = partitionStoriesForResume({
+                    listStories: childStubItems.map((item: any) => item.story),
+                    checkpoints,
+                    verify,
+                    forceContent,
+                    publicationMode: publication.mode,
+                    publishLanguages: publication.resolvedPublishLanguages,
+                    targetFullSlugBySourceId,
+                    mappedSourceIds,
+                });
+
+                // Step 3: fetch full content only for stories that need it.
+                // Fast-path stories (checkpointed, unresolved_refs 0, unchanged
+                // updated_at) skip this fetch entirely and rejoin the tree as
+                // stubs below. A story whose content fetch fails must NEVER
+                // silently join the tree as a bare stub: rewriteCopiedStoryContents
+                // would then write `content: {}` over its real target content
+                // and checkpoint that corruption as if it were legitimate,
+                // permanently fast-pathing the destroyed story on every later
+                // run. It is instead recorded as a failure and excluded from
+                // the tree entirely (no shell write, no content write, no
+                // checkpoint).
+                const contentBySourceId = new Map<number, any>();
+                const contentFetchFailures: ContentFetchFailure[] = [];
+
+                await mapWithConcurrency(
+                    [...partition.needsContentIds],
+                    STORY_CONTENT_FETCH_CONCURRENCY,
+                    async (sourceId: number) => {
+                        const fullStory =
+                            await managementApi.stories.getStoryById(
+                                String(sourceId),
+                                {
+                                    ...copyApiConfig,
+                                    spaceId: sourceSpace,
+                                },
+                            );
+
+                        if (fullStory) {
+                            contentBySourceId.set(sourceId, fullStory);
+                            return;
+                        }
+
+                        contentFetchFailures.push({
+                            sourceId,
+                            fullSlug:
+                                childFullSlugBySourceId.get(sourceId) ?? "",
+                        });
+                    },
+                );
+
+                if (contentFetchFailures.length > 0) {
+                    Logger.error(
+                        `${contentFetchFailures.length} story content fetch(es) failed; the rest of the copy still completed for the other stories. Failed stories:`,
                     );
+                    for (const failure of contentFetchFailures) {
+                        Logger.error(describeContentFetchFailure(failure));
+                    }
                 }
-            }
 
-            // The list endpoint's own updated_at (not a later per-story
-            // fetch's value) is what the next run's gate must compare
-            // against, so it is captured here straight from the stubs.
-            const listUpdatedAtBySourceId = new Map<number, string | undefined>(
-                childStubItems.map(
+                const failedContentFetchSourceIds = new Set(
+                    contentFetchFailures.map((failure) => failure.sourceId),
+                );
+
+                // Step 4: fast-path stories join the tree as stubs; everything
+                // else gets its freshly-fetched full content merged in. A
+                // story whose content fetch failed is excluded entirely (see
+                // the comment above step 3).
+                const sourceStories = [
+                    rootStubItem,
+                    ...childStubItems
+                        .filter(
+                            (item: any) =>
+                                !failedContentFetchSourceIds.has(
+                                    Number(item.story.id),
+                                ),
+                        )
+                        .map((item: any) => {
+                            const sourceId = Number(item.story.id);
+
+                            return partition.fastPathSourceIds.has(sourceId)
+                                ? item
+                                : contentBySourceId.get(sourceId);
+                        }),
+                ];
+
+                const normalizedStories = normalizeStoriesForTree(
+                    sourceStories,
+                    selection,
+                );
+                const tree = createTree(normalizedStories);
+                const rootsToCreate = prepareTreeForCreate(
+                    selectTreeRoots(tree, selection),
+                );
+
+                if (rootsToCreate.length === 0) {
+                    Logger.warning("No stories matched the copy selection.");
+                    break;
+                }
+
+                const plan = buildCopyPlan(rootsToCreate, destination);
+
+                // Content consumers below (reference scanning, component
+                // compatibility, buildPublishedLayerContext) must never be fed
+                // a fast-path stub: it has no `content` field. Folders can
+                // legitimately have no content of their own, so the exclusion
+                // predicate is "is this a fast-path story", not "does it have
+                // a content field" -- every story that survives step 3 (any
+                // story not in fastPathSourceIds) is guaranteed to have real
+                // content merged in above. Fast-path stories were already
+                // scanned/validated when their checkpoint was written by a
+                // prior run, so excluding them here is correct, not a gap.
+                const contentFetchedStories = sourceStories.filter(
                     (item: any) =>
-                        [Number(item.story.id), item.story.updated_at] as const,
-                ),
-            );
-            const childFullSlugBySourceId = new Map<number, string>(
-                childStubItems.map(
-                    (item: any) =>
-                        [
-                            Number(item.story.id),
-                            String(item.story.full_slug ?? ""),
-                        ] as const,
-                ),
-            );
+                        !partition.fastPathSourceIds.has(Number(item.story.id)),
+                );
+                let dryRunGraph: CopyGraph | undefined;
+                let withAssetsGraph: CopyGraph | undefined;
+                let sourceAssets: any[] = [];
+                let sourceAssetFolders: any[] = [];
 
-            // A checkpoint without its own "story" shell mapping must
-            // never fast-path -- otherwise the shell would stay empty
-            // forever, since the fast path never writes content.
-            const mappedSourceIds = new Set(copyMaps.storyIds.keys());
-
-            // Step 2: partition children against the resume checkpoints.
-            const partition = partitionStoriesForResume({
-                listStories: childStubItems.map((item: any) => item.story),
-                checkpoints,
-                verify,
-                forceContent,
-                publicationMode: publication.mode,
-                publishLanguages: publication.resolvedPublishLanguages,
-                targetFullSlugBySourceId,
-                mappedSourceIds,
-            });
-
-            // Step 3: fetch full content only for stories that need it.
-            // Fast-path stories (checkpointed, unresolved_refs 0, unchanged
-            // updated_at) skip this fetch entirely and rejoin the tree as
-            // stubs below. A story whose content fetch fails must NEVER
-            // silently join the tree as a bare stub: rewriteCopiedStoryContents
-            // would then write `content: {}` over its real target content
-            // and checkpoint that corruption as if it were legitimate,
-            // permanently fast-pathing the destroyed story on every later
-            // run. It is instead recorded as a failure and excluded from
-            // the tree entirely (no shell write, no content write, no
-            // checkpoint).
-            const contentBySourceId = new Map<number, any>();
-            const contentFetchFailures: ContentFetchFailure[] = [];
-
-            await mapWithConcurrency(
-                [...partition.needsContentIds],
-                STORY_CONTENT_FETCH_CONCURRENCY,
-                async (sourceId: number) => {
-                    const fullStory = await managementApi.stories.getStoryById(
-                        String(sourceId),
-                        {
-                            ...apiConfig,
-                            spaceId: sourceSpace,
-                        },
+                if (dryRun || withAssets) {
+                    const schemasPromise = buildComponentSchemaRegistry(
+                        sourceSpace,
+                        copyApiConfig,
                     );
 
-                    if (fullStory) {
-                        contentBySourceId.set(sourceId, fullStory);
-                        return;
+                    if (withAssets) {
+                        const [schemas, assetsResult, assetFoldersResult] =
+                            await Promise.all([
+                                schemasPromise,
+                                managementApi.assets.getAllAssets(
+                                    { spaceId: sourceSpace },
+                                    {
+                                        ...copyApiConfig,
+                                        spaceId: sourceSpace,
+                                    },
+                                ),
+                                managementApi.assets.getAllAssetFolders(
+                                    { spaceId: sourceSpace },
+                                    {
+                                        ...copyApiConfig,
+                                        spaceId: sourceSpace,
+                                    },
+                                ),
+                            ]);
+
+                        sourceAssets = Array.isArray(assetsResult?.assets)
+                            ? assetsResult.assets
+                            : [];
+                        sourceAssetFolders = Array.isArray(
+                            assetFoldersResult?.asset_folders,
+                        )
+                            ? assetFoldersResult.asset_folders
+                            : [];
+                        Logger.warning(
+                            `Planning referenced assets from ${contentFetchedStories.length} stories against ${sourceAssets.length} source asset(s).`,
+                        );
+                        // The reference scan (inside buildReferencedAssetsGraph)
+                        // runs over content-fetched stories only
+                        // (contentFetchedStories), not the full `sourceStories`
+                        // list. This is still correct with resume fast-path
+                        // stubs in the mix: a fast-path story's asset
+                        // references were already resolved, and its referenced
+                        // assets already copied, when its checkpoint was
+                        // written by a prior run -- so its assets are already
+                        // in the manifest and don't need rediscovering here.
+                        withAssetsGraph = buildReferencedAssetsGraph({
+                            sourceSpace,
+                            targetSpace,
+                            selection,
+                            destination,
+                            plan,
+                            sourceStories,
+                            contentStories: contentFetchedStories,
+                            sourceAssets,
+                            sourceAssetFolders,
+                            schemas,
+                            copyMaps,
+                            onScanProgress: logReferenceScanProgress,
+                        });
+                        Logger.success(
+                            `Reference planning complete. Found ${withAssetsGraph.assets.length} referenced asset(s), ${withAssetsGraph.assetFolders.length} asset folder(s), ${withAssetsGraph.assetReferences.length} asset reference occurrence(s), and ${withAssetsGraph.storyReferences.length} story reference occurrence(s).`,
+                        );
+                        dryRunGraph = withAssetsGraph;
+                    } else if (dryRun) {
+                        const schemas = await schemasPromise;
+                        Logger.warning(
+                            `Scanning ${contentFetchedStories.length} stories for copy references.`,
+                        );
+                        // Same reasoning as the --with-assets scan above: this
+                        // scan runs over content-fetched stories only, since
+                        // resume fast-path stubs have no content and were
+                        // already scanned when their checkpoint was written.
+                        dryRunGraph = buildStoryReferenceDryRunGraph({
+                            sourceSpace,
+                            targetSpace,
+                            selection,
+                            destination,
+                            plan,
+                            sourceStories,
+                            contentStories: contentFetchedStories,
+                            schemas,
+                            copyMaps,
+                            onScanProgress: logReferenceScanProgress,
+                        });
+                        Logger.success(
+                            `Reference planning complete. Found ${dryRunGraph.assetReferences.length} asset reference occurrence(s) and ${dryRunGraph.storyReferences.length} story reference occurrence(s).`,
+                        );
+                    }
+                }
+
+                if (dryRun) {
+                    const targetStoriesBySlug = await prefetchTargetStories({
+                        destination: normalizeDestination(destination),
+                        config: {
+                            spaceId: targetSpace,
+                            sbApi: copyApiConfig.sbApi,
+                        },
+                    });
+                    const conflicts = findTargetConflicts(
+                        plan,
+                        targetStoriesBySlug,
+                    );
+                    Logger.warning(
+                        "Checking source components against the target space schema.",
+                    );
+                    const componentValidator =
+                        await buildTargetComponentValidator(targetSpace);
+                    // Fast-path stubs have no content to walk, so this check
+                    // (like the reference scans above) runs over
+                    // content-fetched stories only -- fast-path stories were
+                    // already validated when they were originally copied.
+                    const componentCompatibility =
+                        componentValidator.canValidate
+                            ? summarizeComponentCompatibility(
+                                  true,
+                                  contentFetchedStories.flatMap((item: any) =>
+                                      componentValidator.validateStory(
+                                          item?.story,
+                                      ),
+                                  ),
+                              )
+                            : summarizeComponentCompatibility(false, []);
+
+                    if (!componentCompatibility.checked) {
+                        Logger.warning(
+                            `Skipped component compatibility check because no components were returned for target space '${targetSpace}'.`,
+                        );
                     }
 
-                    contentFetchFailures.push({
-                        sourceId,
-                        fullSlug: childFullSlugBySourceId.get(sourceId) ?? "",
-                    });
-                },
-            );
+                    if (partition.fastPathSourceIds.size > 0) {
+                        Logger.success(
+                            `Resume: ${partition.fastPathSourceIds.size} stories already up to date (checkpointed).`,
+                        );
+                    }
 
-            if (contentFetchFailures.length > 0) {
-                Logger.error(
-                    `${contentFetchFailures.length} story content fetch(es) failed; the rest of the copy still completed for the other stories. Failed stories:`,
-                );
-                for (const failure of contentFetchFailures) {
-                    Logger.error(describeContentFetchFailure(failure));
-                }
-            }
-
-            const failedContentFetchSourceIds = new Set(
-                contentFetchFailures.map((failure) => failure.sourceId),
-            );
-
-            // Step 4: fast-path stories join the tree as stubs; everything
-            // else gets its freshly-fetched full content merged in. A
-            // story whose content fetch failed is excluded entirely (see
-            // the comment above step 3).
-            const sourceStories = [
-                rootStubItem,
-                ...childStubItems
-                    .filter(
-                        (item: any) =>
-                            !failedContentFetchSourceIds.has(
-                                Number(item.story.id),
-                            ),
-                    )
-                    .map((item: any) => {
-                        const sourceId = Number(item.story.id);
-
-                        return partition.fastPathSourceIds.has(sourceId)
-                            ? item
-                            : contentBySourceId.get(sourceId);
-                    }),
-            ];
-
-            const normalizedStories = normalizeStoriesForTree(
-                sourceStories,
-                selection,
-            );
-            const tree = createTree(normalizedStories);
-            const rootsToCreate = prepareTreeForCreate(
-                selectTreeRoots(tree, selection),
-            );
-
-            if (rootsToCreate.length === 0) {
-                Logger.warning("No stories matched the copy selection.");
-                break;
-            }
-
-            const plan = buildCopyPlan(rootsToCreate, destination);
-
-            // Content consumers below (reference scanning, component
-            // compatibility, buildPublishedLayerContext) must never be fed
-            // a fast-path stub: it has no `content` field. Folders can
-            // legitimately have no content of their own, so the exclusion
-            // predicate is "is this a fast-path story", not "does it have
-            // a content field" -- every story that survives step 3 (any
-            // story not in fastPathSourceIds) is guaranteed to have real
-            // content merged in above. Fast-path stories were already
-            // scanned/validated when their checkpoint was written by a
-            // prior run, so excluding them here is correct, not a gap.
-            const contentFetchedStories = sourceStories.filter(
-                (item: any) =>
-                    !partition.fastPathSourceIds.has(Number(item.story.id)),
-            );
-            let dryRunGraph: CopyGraph | undefined;
-            let withAssetsGraph: CopyGraph | undefined;
-            let sourceAssets: any[] = [];
-            let sourceAssetFolders: any[] = [];
-
-            if (dryRun || withAssets) {
-                const schemasPromise =
-                    buildComponentSchemaRegistry(sourceSpace);
-
-                if (withAssets) {
-                    const [schemas, assetsResult, assetFoldersResult] =
-                        await Promise.all([
-                            schemasPromise,
-                            managementApi.assets.getAllAssets(
-                                { spaceId: sourceSpace },
-                                {
-                                    ...apiConfig,
-                                    spaceId: sourceSpace,
-                                },
-                            ),
-                            managementApi.assets.getAllAssetFolders(
-                                { spaceId: sourceSpace },
-                                {
-                                    ...apiConfig,
-                                    spaceId: sourceSpace,
-                                },
-                            ),
-                        ]);
-
-                    sourceAssets = Array.isArray(assetsResult?.assets)
-                        ? assetsResult.assets
-                        : [];
-                    sourceAssetFolders = Array.isArray(
-                        assetFoldersResult?.asset_folders,
-                    )
-                        ? assetFoldersResult.asset_folders
-                        : [];
-                    Logger.warning(
-                        `Planning referenced assets from ${contentFetchedStories.length} stories against ${sourceAssets.length} source asset(s).`,
-                    );
-                    // The reference scan (inside buildReferencedAssetsGraph)
-                    // runs over content-fetched stories only
-                    // (contentFetchedStories), not the full `sourceStories`
-                    // list. This is still correct with resume fast-path
-                    // stubs in the mix: a fast-path story's asset
-                    // references were already resolved, and its referenced
-                    // assets already copied, when its checkpoint was
-                    // written by a prior run -- so its assets are already
-                    // in the manifest and don't need rediscovering here.
-                    withAssetsGraph = buildReferencedAssetsGraph({
+                    Logger.warning("Building dry-run copy report.");
+                    const report = buildCopyDryRunReport({
                         sourceSpace,
                         targetSpace,
                         selection,
                         destination,
+                        withAssets,
+                        input: { ...flags },
                         plan,
-                        sourceStories,
-                        contentStories: contentFetchedStories,
-                        sourceAssets,
-                        sourceAssetFolders,
-                        schemas,
-                        copyMaps,
-                        onScanProgress: logReferenceScanProgress,
+                        conflicts,
+                        graph: dryRunGraph,
+                        componentCompatibility,
+                        outputPath,
+                        storiesSkipped: partition.fastPathSourceIds.size,
                     });
-                    Logger.success(
-                        `Reference planning complete. Found ${withAssetsGraph.assets.length} referenced asset(s), ${withAssetsGraph.assetFolders.length} asset folder(s), ${withAssetsGraph.assetReferences.length} asset reference occurrence(s), and ${withAssetsGraph.storyReferences.length} story reference occurrence(s).`,
-                    );
-                    dryRunGraph = withAssetsGraph;
-                } else if (dryRun) {
-                    const schemas = await schemasPromise;
-                    Logger.warning(
-                        `Scanning ${contentFetchedStories.length} stories for copy references.`,
-                    );
-                    // Same reasoning as the --with-assets scan above: this
-                    // scan runs over content-fetched stories only, since
-                    // resume fast-path stubs have no content and were
-                    // already scanned when their checkpoint was written.
-                    dryRunGraph = buildStoryReferenceDryRunGraph({
-                        sourceSpace,
-                        targetSpace,
-                        selection,
-                        destination,
-                        plan,
-                        sourceStories,
-                        contentStories: contentFetchedStories,
-                        schemas,
-                        copyMaps,
-                        onScanProgress: logReferenceScanProgress,
-                    });
-                    Logger.success(
-                        `Reference planning complete. Found ${dryRunGraph.assetReferences.length} asset reference occurrence(s) and ${dryRunGraph.storyReferences.length} story reference occurrence(s).`,
-                    );
-                }
-            }
 
-            if (dryRun) {
+                    await logDryRunCopyPlan({ report });
+
+                    if (outputPath) {
+                        Logger.warning(
+                            `Writing dry-run copy report to ${outputPath}.`,
+                        );
+                        await writeDryRunReport(outputPath, report);
+                    }
+
+                    // The plan was still produced for every story that could
+                    // be fetched, but a content-fetch failure means the plan
+                    // (and, on apply, the copy itself) cannot be trusted for
+                    // the affected stories -- surface it as a non-zero exit
+                    // rather than silently reporting a shorter plan.
+                    if (contentFetchFailures.length > 0) {
+                        throw new Error(
+                            `Copy planning finished but ${contentFetchFailures.length} story content fetch(es) failed:\n${contentFetchFailures
+                                .map(describeContentFetchFailure)
+                                .join("\n")}`,
+                        );
+                    }
+
+                    break;
+                }
+
+                let assetCopyReport:
+                    | (CopyAssetsApplyReport & {
+                          assetsAborted: number;
+                          assetFoldersAborted: number;
+                      })
+                    | undefined;
+
+                if (withAssetsGraph) {
+                    Logger.warning(
+                        "Copying referenced assets before stories because --with-assets was passed.",
+                    );
+                    const assetProgress = createProgressTracker({
+                        label: "Assets",
+                        total: withAssetsGraph.assets.length,
+                        ratePerSecond: () => limiter.currentRate(),
+                    });
+                    try {
+                        assetCopyReport = await copyAssetsAndWriteManifests({
+                            sourceSpace,
+                            targetSpace,
+                            selection: {
+                                type: "asset",
+                                values: withAssetsGraph.assets.map((asset) =>
+                                    String(asset.sourceId),
+                                ),
+                            },
+                            input: { ...flags },
+                            graph: withAssetsGraph,
+                            sourceAssets,
+                            sourceAssetFolders,
+                            manifestRoot,
+                            writeConcurrency,
+                            progress: assetProgress,
+                            apiConfig: copyApiConfig,
+                        });
+                        assetFoldersCreatedCount =
+                            assetCopyReport.summary.assetFoldersCreated;
+                        assetFoldersMatchedCount =
+                            assetCopyReport.summary.assetFoldersMatched;
+                        assetFoldersFailedCount =
+                            assetCopyReport.summary.assetFoldersFailed;
+                        assetFoldersAbortedCount =
+                            assetCopyReport.assetFoldersAborted;
+                        assetsCreatedCount =
+                            assetCopyReport.summary.assetsCreated;
+                        assetsMatchedCount =
+                            assetCopyReport.summary.assetsMatched;
+                        assetsFailedCount =
+                            assetCopyReport.summary.assetsFailed;
+                        assetsAbortedCount = assetCopyReport.assetsAborted;
+                    } catch (error) {
+                        const anyError = error as any;
+                        assetFoldersCreatedCount =
+                            anyError?.assetFoldersCreated ?? 0;
+                        assetFoldersMatchedCount =
+                            anyError?.assetFoldersMatched ?? 0;
+                        assetFoldersFailedCount =
+                            anyError?.assetFoldersFailed ?? 0;
+                        assetFoldersAbortedCount =
+                            anyError?.assetFoldersAborted ?? 0;
+                        assetsCreatedCount = anyError?.assetsCreated ?? 0;
+                        assetsMatchedCount = anyError?.assetsMatched ?? 0;
+                        assetsFailedCount = anyError?.assetsFailed ?? 0;
+                        assetsAbortedCount = anyError?.assetsAborted ?? 0;
+                        throw error;
+                    } finally {
+                        assetProgress.finish();
+                    }
+                }
+
+                const publishedLayerRecordBySourceId = new Map<
+                    string,
+                    PublishedLayerRecord
+                >();
+
+                if (publication.mode === "preserve-layers") {
+                    // buildPublishedLayerContext unconditionally hashes
+                    // `story.content` (draftCurrentContentHash), regardless of
+                    // layer state, so -- unlike resolveStoryLayerState's own
+                    // published/unpublished_changes flags, which stubs do carry
+                    // -- it cannot tolerate a fast-path stub with no content.
+                    // Fast-path stories never reach rewriteCopiedStoryContents'
+                    // published-layer logic anyway (they return early), so
+                    // excluding them here is safe.
+                    const publishedLayerContext =
+                        await buildPublishedLayerContext(
+                            {
+                                items: contentFetchedStories,
+                                from: sourceSpace,
+                            },
+                            copyApiConfig,
+                        );
+
+                    for (const record of publishedLayerContext.records) {
+                        publishedLayerRecordBySourceId.set(
+                            String(record.storyId),
+                            record,
+                        );
+                    }
+                }
+
                 const targetStoriesBySlug = await prefetchTargetStories({
                     destination: normalizeDestination(destination),
-                    config: { spaceId: targetSpace, sbApi: apiConfig.sbApi },
-                });
-                const conflicts = findTargetConflicts(
-                    plan,
-                    targetStoriesBySlug,
-                );
-                Logger.warning(
-                    "Checking source components against the target space schema.",
-                );
-                const componentValidator =
-                    await buildTargetComponentValidator(targetSpace);
-                // Fast-path stubs have no content to walk, so this check
-                // (like the reference scans above) runs over
-                // content-fetched stories only -- fast-path stories were
-                // already validated when they were originally copied.
-                const componentCompatibility = componentValidator.canValidate
-                    ? summarizeComponentCompatibility(
-                          true,
-                          contentFetchedStories.flatMap((item: any) =>
-                              componentValidator.validateStory(item?.story),
-                          ),
-                      )
-                    : summarizeComponentCompatibility(false, []);
-
-                if (!componentCompatibility.checked) {
-                    Logger.warning(
-                        `Skipped component compatibility check because no components were returned for target space '${targetSpace}'.`,
-                    );
-                }
-
-                if (partition.fastPathSourceIds.size > 0) {
-                    Logger.success(
-                        `Resume: ${partition.fastPathSourceIds.size} stories already up to date (checkpointed).`,
-                    );
-                }
-
-                Logger.warning("Building dry-run copy report.");
-                const report = buildCopyDryRunReport({
-                    sourceSpace,
-                    targetSpace,
-                    selection,
-                    destination,
-                    withAssets,
-                    input: { ...flags },
-                    plan,
-                    conflicts,
-                    graph: dryRunGraph,
-                    componentCompatibility,
-                    outputPath,
-                    storiesSkipped: partition.fastPathSourceIds.size,
-                });
-
-                await logDryRunCopyPlan({ report });
-
-                if (outputPath) {
-                    Logger.warning(
-                        `Writing dry-run copy report to ${outputPath}.`,
-                    );
-                    await writeDryRunReport(outputPath, report);
-                }
-
-                // The plan was still produced for every story that could
-                // be fetched, but a content-fetch failure means the plan
-                // (and, on apply, the copy itself) cannot be trusted for
-                // the affected stories -- surface it as a non-zero exit
-                // rather than silently reporting a shorter plan.
-                if (contentFetchFailures.length > 0) {
-                    throw new Error(
-                        `Copy planning finished but ${contentFetchFailures.length} story content fetch(es) failed:\n${contentFetchFailures
-                            .map(describeContentFetchFailure)
-                            .join("\n")}`,
-                    );
-                }
-
-                break;
-            }
-
-            let assetCopyReport: CopyAssetsApplyReport | undefined;
-
-            if (withAssetsGraph) {
-                Logger.warning(
-                    "Copying referenced assets before stories because --with-assets was passed.",
-                );
-                assetCopyReport = await copyAssetsAndWriteManifests({
-                    sourceSpace,
-                    targetSpace,
-                    selection: {
-                        type: "asset",
-                        values: withAssetsGraph.assets.map((asset) =>
-                            String(asset.sourceId),
-                        ),
+                    config: {
+                        spaceId: targetSpace,
+                        sbApi: copyApiConfig.sbApi,
                     },
-                    input: { ...flags },
-                    graph: withAssetsGraph,
-                    sourceAssets,
-                    sourceAssetFolders,
-                    manifestRoot,
-                    writeConcurrency: 12,
                 });
-            }
 
-            const publishedLayerRecordBySourceId = new Map<
-                string,
-                PublishedLayerRecord
-            >();
-
-            if (publication.mode === "preserve-layers") {
-                // buildPublishedLayerContext unconditionally hashes
-                // `story.content` (draftCurrentContentHash), regardless of
-                // layer state, so -- unlike resolveStoryLayerState's own
-                // published/unpublished_changes flags, which stubs do carry
-                // -- it cannot tolerate a fast-path stub with no content.
-                // Fast-path stories never reach rewriteCopiedStoryContents'
-                // published-layer logic anyway (they return early), so
-                // excluding them here is safe.
-                const publishedLayerContext = await buildPublishedLayerContext(
-                    {
-                        items: contentFetchedStories,
-                        from: sourceSpace,
-                    },
-                    apiConfig,
-                );
-
-                for (const record of publishedLayerContext.records) {
-                    publishedLayerRecordBySourceId.set(
-                        String(record.storyId),
-                        record,
-                    );
-                }
-            }
-
-            const targetStoriesBySlug = await prefetchTargetStories({
-                destination: normalizeDestination(destination),
-                config: { spaceId: targetSpace, sbApi: apiConfig.sbApi },
-            });
-
-            const { failures: shellFailures, ...storySummary } =
-                await createStoriesAndWriteManifests({
+                // Every LevelNode (folder or story) in the tree ticks exactly
+                // once per phase (see collectTreeLevels), so the shell/rewrite
+                // progress totals are the full node count, not just leaf
+                // stories.
+                const treeNodeTotal =
+                    countTreeStories(rootsToCreate).folders +
+                    countTreeStories(rootsToCreate).stories;
+                const shellProgress = createProgressTracker({
+                    label: "Story shells",
+                    total: treeNodeTotal,
+                    ratePerSecond: () => limiter.currentRate(),
+                });
+                const {
+                    failures: shellFailures,
+                    storiesAborted: shellAborted,
+                    ...storySummaryRest
+                } = await createStoriesAndWriteManifests({
                     tree: rootsToCreate,
                     realParentId: destinationParentId,
                     sourceStoryById: buildSourceStoryById(sourceStories),
@@ -4845,71 +5153,168 @@ export const copyCommand = async (props: CLIOptions) => {
                     manifestRoot,
                     targetStoriesBySlug,
                     verify,
-                    writeConcurrency: 12,
-                    apiConfig,
+                    writeConcurrency,
+                    apiConfig: copyApiConfig,
+                    progress: shellProgress,
                 });
+                shellProgress.finish();
+                storiesCreated = storySummaryRest.storiesCreated;
+                storiesMatched = storySummaryRest.storiesMatched;
+                storiesAborted += shellAborted;
 
-            if (shellFailures.length > 0) {
-                Logger.error(
-                    `${shellFailures.length} story shell creation(s) failed; the rest of the copy still completed. Failed stories:`,
-                );
-                for (const failure of shellFailures) {
+                if (shellFailures.length > 0) {
                     Logger.error(
-                        `  - ${failure.fullSlug || "<unknown>"} (source id ${failure.sourceId}) [${failure.stage}]`,
+                        `${shellFailures.length} story shell creation(s) failed; the rest of the copy still completed. Failed stories:`,
+                    );
+                    for (const failure of shellFailures) {
+                        Logger.error(
+                            `  - ${failure.fullSlug || "<unknown>"} (source id ${failure.sourceId}) [${failure.stage}]`,
+                        );
+                    }
+                }
+
+                // A shell-creation failure alone does not fail the run: the
+                // rewrite phase below retries unmapped stories via
+                // createOrMatchReplacementShell. If that retry succeeds the copy
+                // genuinely succeeded; if it fails again, rewriteCopiedStoryContents
+                // throws its own aggregate error and that propagates from here.
+                // The partial counts are attached to that error (see
+                // rewriteCopiedStoryContents) so they are not lost here.
+                const rewriteProgress = createProgressTracker({
+                    label: "Story content",
+                    total: treeNodeTotal,
+                    ratePerSecond: () => limiter.currentRate(),
+                });
+                try {
+                    const rewriteResult = await rewriteCopiedStoryContents({
+                        tree: rootsToCreate,
+                        realParentId: destinationParentId,
+                        sourceStoryById: buildSourceStoryById(sourceStories),
+                        targetSlugBySourceSlug:
+                            buildTargetSlugBySourceSlug(plan),
+                        publication,
+                        publishedLayerRecordBySourceId,
+                        sourceSpace,
+                        targetSpace,
+                        manifestRoot,
+                        forceContent,
+                        writeConcurrency,
+                        fastPathSourceIds: partition.fastPathSourceIds,
+                        listUpdatedAtBySourceId,
+                        apiConfig: copyApiConfig,
+                        progress: rewriteProgress,
+                    });
+                    storiesSkipped = rewriteResult.skippedStories;
+                    storiesFailed = rewriteResult.failures.length;
+                    storiesAborted += rewriteResult.abortedStories;
+                } catch (error) {
+                    const anyError = error as any;
+                    storiesSkipped = anyError?.skippedStories ?? 0;
+                    storiesFailed = Array.isArray(anyError?.failures)
+                        ? anyError.failures.length
+                        : 0;
+                    storiesAborted += anyError?.abortedStories ?? 0;
+                    throw error;
+                } finally {
+                    rewriteProgress.finish();
+                }
+
+                const storySummary: CopyStoriesApplySummary = {
+                    ...storySummaryRest,
+                    storiesSkipped,
+                };
+
+                if (outputPath) {
+                    const report = buildCopyStoriesApplyReport({
+                        sourceSpace,
+                        targetSpace,
+                        selection,
+                        destination,
+                        withAssets,
+                        input: { ...flags },
+                        plan,
+                        storySummary,
+                        graph: withAssetsGraph,
+                        assetCopyReport,
+                        manifestRoot,
+                        shellFailures,
+                    });
+
+                    await writeJsonReport(outputPath, report);
+                }
+
+                // The rest of the copy still completed for every story whose
+                // content could be fetched; a content-fetch failure surfaces
+                // here as a non-zero exit, same as rewriteCopiedStoryContents'
+                // own aggregate failure above.
+                if (contentFetchFailures.length > 0) {
+                    throw new Error(
+                        `Copy finished but ${contentFetchFailures.length} story content fetch(es) failed:\n${contentFetchFailures
+                            .map(describeContentFetchFailure)
+                            .join("\n")}`,
                     );
                 }
-            }
+            } catch (error) {
+                if (!limiter.aborted()) {
+                    throw error;
+                }
+            } finally {
+                process.removeListener("SIGINT", onSigint);
 
-            // A shell-creation failure alone does not fail the run: the
-            // rewrite phase below retries unmapped stories via
-            // createOrMatchReplacementShell. If that retry succeeds the copy
-            // genuinely succeeded; if it fails again, rewriteCopiedStoryContents
-            // throws its own aggregate error and that propagates from here.
-            await rewriteCopiedStoryContents({
-                tree: rootsToCreate,
-                realParentId: destinationParentId,
-                sourceStoryById: buildSourceStoryById(sourceStories),
-                targetSlugBySourceSlug: buildTargetSlugBySourceSlug(plan),
-                publication,
-                publishedLayerRecordBySourceId,
-                sourceSpace,
-                targetSpace,
-                manifestRoot,
-                forceContent,
-                writeConcurrency: 12,
-                fastPathSourceIds: partition.fastPathSourceIds,
-                listUpdatedAtBySourceId,
-            });
+                if (!dryRun) {
+                    const aborted = limiter.aborted();
+                    const hasFailure =
+                        storiesFailed > 0 ||
+                        assetFoldersFailedCount > 0 ||
+                        assetsFailedCount > 0;
+                    let resumeCommand: string | undefined;
 
-            if (outputPath) {
-                const report = buildCopyStoriesApplyReport({
-                    sourceSpace,
-                    targetSpace,
-                    selection,
-                    destination,
-                    withAssets,
-                    input: { ...flags },
-                    plan,
-                    storySummary,
-                    graph: withAssetsGraph,
-                    assetCopyReport,
-                    manifestRoot,
-                    shellFailures,
-                });
+                    if (aborted || hasFailure) {
+                        resumeCommand = buildCopyCommand({
+                            sourceSpace,
+                            targetSpace,
+                            selection,
+                            destination,
+                            withAssets,
+                            dryRun: false,
+                        });
+                    }
 
-                await writeJsonReport(outputPath, report);
-            }
+                    if (aborted) {
+                        const pending =
+                            storiesAborted +
+                            assetFoldersAbortedCount +
+                            assetsAbortedCount;
+                        Logger.warning(
+                            `Copy interrupted: ${pending} item(s) pending. Run the same command again to resume.`,
+                        );
+                        process.exitCode = 130;
+                    }
 
-            // The rest of the copy still completed for every story whose
-            // content could be fetched; a content-fetch failure surfaces
-            // here as a non-zero exit, same as rewriteCopiedStoryContents'
-            // own aggregate failure above.
-            if (contentFetchFailures.length > 0) {
-                throw new Error(
-                    `Copy finished but ${contentFetchFailures.length} story content fetch(es) failed:\n${contentFetchFailures
-                        .map(describeContentFetchFailure)
-                        .join("\n")}`,
-                );
+                    printCopySummary({
+                        stories: {
+                            created: storiesCreated,
+                            matched: storiesMatched,
+                            skipped: storiesSkipped + storiesAborted,
+                            failed: storiesFailed,
+                        },
+                        assetFolders: withAssets
+                            ? {
+                                  created: assetFoldersCreatedCount,
+                                  matched: assetFoldersMatchedCount,
+                                  failed: assetFoldersFailedCount,
+                              }
+                            : undefined,
+                        assets: withAssets
+                            ? {
+                                  created: assetsCreatedCount,
+                                  matched: assetsMatchedCount,
+                                  failed: assetsFailedCount,
+                              }
+                            : undefined,
+                        resumeCommand,
+                    });
+                }
             }
 
             break;
@@ -4930,144 +5335,262 @@ export const copyCommand = async (props: CLIOptions) => {
             const manifestRoot = readStringFlag(flags, ["manifestRoot"]);
             const selection = resolveCopyAssetsSelection(flags);
 
-            Logger.warning(
-                dryRun
-                    ? `Planning asset copy from space '${sourceSpace}' to space '${targetSpace}'.`
-                    : `Preparing asset copy from space '${sourceSpace}' to space '${targetSpace}'.`,
-            );
+            const runtime = resolveCopyRuntimeOptions(flags, apiConfig);
+            const writeConcurrency = runtime.writeConcurrency;
 
-            const [assetsResult, assetFoldersResult] = await Promise.all([
-                managementApi.assets.getAllAssets(
-                    { spaceId: sourceSpace },
-                    {
-                        ...apiConfig,
-                        spaceId: sourceSpace,
-                    },
-                ),
-                managementApi.assets.getAllAssetFolders(
-                    { spaceId: sourceSpace },
-                    {
-                        ...apiConfig,
-                        spaceId: sourceSpace,
-                    },
-                ),
-            ]);
+            // One limiter + wrapped client per invocation, mirroring the
+            // stories case above.
+            const limiter = createAdaptiveLimiter({
+                targetRatePerSecond: runtime.rateLimit,
+            });
+            const copyApiConfig = {
+                ...apiConfig,
+                sbApi: wrapSbApiWithLimiter(apiConfig.sbApi, limiter),
+            };
 
-            const sourceAssets = Array.isArray(assetsResult?.assets)
-                ? assetsResult.assets
-                : [];
-            const sourceAssetFolders = Array.isArray(
-                assetFoldersResult?.asset_folders,
-            )
-                ? assetFoldersResult.asset_folders
-                : [];
-            let graph: ReturnType<typeof buildCopyAssetsGraph>;
-            let scopedSource: { assets: any[]; assetFolders: any[] };
-
-            if (selection.type === "referenced_by_stories") {
-                const storySelection = selection.storySelection;
-                const [schemas, sourceStories] = await Promise.all([
-                    buildComponentSchemaRegistry(sourceSpace),
-                    getStoriesForSelection(storySelection, sourceSpace),
-                ]);
-                const normalizedStories = normalizeStoriesForTree(
-                    sourceStories,
-                    storySelection,
-                );
-                const tree = createTree(normalizedStories);
-                const rootsToCreate = prepareTreeForCreate(
-                    selectTreeRoots(tree, storySelection),
-                );
-                const plan = buildCopyPlan(rootsToCreate, undefined);
-                const manifestPaths = getDefaultCopyManifestPaths({
-                    sourceSpaceId: sourceSpace,
-                    targetSpaceId: targetSpace,
-                    rootDir: manifestRoot,
-                });
-                const manifestEntries = await loadManifest(
-                    manifestPaths.combined,
-                );
-                const copyMaps = buildCopyMaps(manifestEntries);
-
+            const onSigint = () => {
                 Logger.warning(
-                    `Planning referenced assets from ${countStoryItems(sourceStories)} stories against ${sourceAssets.length} source asset(s).`,
+                    "Interrupt received. Finishing in-flight requests, then stopping. Run the same command again to resume.",
                 );
-                graph = buildReferencedAssetsGraph({
-                    sourceSpace,
-                    targetSpace,
-                    selection: storySelection,
-                    destination: undefined,
-                    plan,
-                    sourceStories,
-                    // This selector always fetches full content (default
-                    // contentFor "all"), so there are no fast-path stubs to
-                    // exclude here.
-                    contentStories: sourceStories,
-                    sourceAssets,
-                    sourceAssetFolders,
-                    schemas,
-                    copyMaps,
-                    onScanProgress: logReferenceScanProgress,
-                });
-                Logger.success(
-                    `Reference planning complete. Found ${graph.assets.length} referenced asset(s), ${graph.assetFolders.length} asset folder(s), ${graph.assetReferences.length} asset reference occurrence(s), and ${graph.storyReferences.length} story reference occurrence(s).`,
+                limiter.abort();
+            };
+            process.once("SIGINT", onSigint);
+
+            let assetFoldersCreatedCount = 0;
+            let assetFoldersMatchedCount = 0;
+            let assetFoldersFailedCount = 0;
+            let assetFoldersAbortedCount = 0;
+            let assetsCreatedCount = 0;
+            let assetsMatchedCount = 0;
+            let assetsFailedCount = 0;
+            let assetsAbortedCount = 0;
+
+            try {
+                Logger.warning(
+                    dryRun
+                        ? `Planning asset copy from space '${sourceSpace}' to space '${targetSpace}'.`
+                        : `Preparing asset copy from space '${sourceSpace}' to space '${targetSpace}'.`,
                 );
-                graph.scope = {
-                    command: "copy assets",
-                    source: storySelection.source,
-                    mode: storySelection.mode,
-                    referencePolicy: "preserve",
-                };
-                scopedSource = selectSourceAssetsFromGraph({
-                    graph,
-                    sourceAssets,
-                    sourceAssetFolders,
-                });
-            } else {
-                scopedSource = selectSourceAssetsForCopy({
-                    selection,
-                    sourceAssets,
-                    sourceAssetFolders,
-                });
-                graph = buildCopyAssetsGraph({
-                    sourceSpaceId: sourceSpace,
-                    targetSpaceId: targetSpace,
-                    assets: scopedSource.assets,
-                    assetFolders: scopedSource.assetFolders,
-                });
-            }
 
-            if (dryRun) {
-                const report = buildCopyAssetsDryRunReport({
-                    sourceSpace,
-                    targetSpace,
-                    selection,
-                    input: { ...flags },
-                    outputPath,
-                    graph,
-                });
+                const [assetsResult, assetFoldersResult] = await Promise.all([
+                    managementApi.assets.getAllAssets(
+                        { spaceId: sourceSpace },
+                        {
+                            ...copyApiConfig,
+                            spaceId: sourceSpace,
+                        },
+                    ),
+                    managementApi.assets.getAllAssetFolders(
+                        { spaceId: sourceSpace },
+                        {
+                            ...copyApiConfig,
+                            spaceId: sourceSpace,
+                        },
+                    ),
+                ]);
 
-                await logDryRunCopyAssetsPlan({ report });
+                const sourceAssets = Array.isArray(assetsResult?.assets)
+                    ? assetsResult.assets
+                    : [];
+                const sourceAssetFolders = Array.isArray(
+                    assetFoldersResult?.asset_folders,
+                )
+                    ? assetFoldersResult.asset_folders
+                    : [];
+                let graph: ReturnType<typeof buildCopyAssetsGraph>;
+                let scopedSource: { assets: any[]; assetFolders: any[] };
 
-                if (outputPath) {
-                    await writeDryRunReport(outputPath, report);
+                if (selection.type === "referenced_by_stories") {
+                    const storySelection = selection.storySelection;
+                    const [schemas, sourceStories] = await Promise.all([
+                        buildComponentSchemaRegistry(
+                            sourceSpace,
+                            copyApiConfig,
+                        ),
+                        getStoriesForSelection(storySelection, sourceSpace),
+                    ]);
+                    const normalizedStories = normalizeStoriesForTree(
+                        sourceStories,
+                        storySelection,
+                    );
+                    const tree = createTree(normalizedStories);
+                    const rootsToCreate = prepareTreeForCreate(
+                        selectTreeRoots(tree, storySelection),
+                    );
+                    const plan = buildCopyPlan(rootsToCreate, undefined);
+                    const manifestPaths = getDefaultCopyManifestPaths({
+                        sourceSpaceId: sourceSpace,
+                        targetSpaceId: targetSpace,
+                        rootDir: manifestRoot,
+                    });
+                    const manifestEntries = await loadManifest(
+                        manifestPaths.combined,
+                    );
+                    const copyMaps = buildCopyMaps(manifestEntries);
+
+                    Logger.warning(
+                        `Planning referenced assets from ${countStoryItems(sourceStories)} stories against ${sourceAssets.length} source asset(s).`,
+                    );
+                    graph = buildReferencedAssetsGraph({
+                        sourceSpace,
+                        targetSpace,
+                        selection: storySelection,
+                        destination: undefined,
+                        plan,
+                        sourceStories,
+                        // This selector always fetches full content (default
+                        // contentFor "all"), so there are no fast-path stubs to
+                        // exclude here.
+                        contentStories: sourceStories,
+                        sourceAssets,
+                        sourceAssetFolders,
+                        schemas,
+                        copyMaps,
+                        onScanProgress: logReferenceScanProgress,
+                    });
+                    Logger.success(
+                        `Reference planning complete. Found ${graph.assets.length} referenced asset(s), ${graph.assetFolders.length} asset folder(s), ${graph.assetReferences.length} asset reference occurrence(s), and ${graph.storyReferences.length} story reference occurrence(s).`,
+                    );
+                    graph.scope = {
+                        command: "copy assets",
+                        source: storySelection.source,
+                        mode: storySelection.mode,
+                        referencePolicy: "preserve",
+                    };
+                    scopedSource = selectSourceAssetsFromGraph({
+                        graph,
+                        sourceAssets,
+                        sourceAssetFolders,
+                    });
+                } else {
+                    scopedSource = selectSourceAssetsForCopy({
+                        selection,
+                        sourceAssets,
+                        sourceAssetFolders,
+                    });
+                    graph = buildCopyAssetsGraph({
+                        sourceSpaceId: sourceSpace,
+                        targetSpaceId: targetSpace,
+                        assets: scopedSource.assets,
+                        assetFolders: scopedSource.assetFolders,
+                    });
                 }
 
-                break;
-            }
+                if (dryRun) {
+                    const report = buildCopyAssetsDryRunReport({
+                        sourceSpace,
+                        targetSpace,
+                        selection,
+                        input: { ...flags },
+                        outputPath,
+                        graph,
+                    });
 
-            await copyAssetsAndWriteManifests({
-                sourceSpace,
-                targetSpace,
-                selection,
-                input: { ...flags },
-                graph,
-                sourceAssets: scopedSource.assets,
-                sourceAssetFolders: scopedSource.assetFolders,
-                outputPath,
-                manifestRoot,
-                writeConcurrency: 12,
-            });
+                    await logDryRunCopyAssetsPlan({ report });
+
+                    if (outputPath) {
+                        await writeDryRunReport(outputPath, report);
+                    }
+
+                    break;
+                }
+
+                const assetProgress = createProgressTracker({
+                    label: "Assets",
+                    total: graph.assets.length,
+                    ratePerSecond: () => limiter.currentRate(),
+                });
+                try {
+                    const assetCopyReport = await copyAssetsAndWriteManifests({
+                        sourceSpace,
+                        targetSpace,
+                        selection,
+                        input: { ...flags },
+                        graph,
+                        sourceAssets: scopedSource.assets,
+                        sourceAssetFolders: scopedSource.assetFolders,
+                        outputPath,
+                        manifestRoot,
+                        writeConcurrency,
+                        progress: assetProgress,
+                        apiConfig: copyApiConfig,
+                    });
+                    assetFoldersCreatedCount =
+                        assetCopyReport.summary.assetFoldersCreated;
+                    assetFoldersMatchedCount =
+                        assetCopyReport.summary.assetFoldersMatched;
+                    assetFoldersFailedCount =
+                        assetCopyReport.summary.assetFoldersFailed;
+                    assetFoldersAbortedCount =
+                        assetCopyReport.assetFoldersAborted;
+                    assetsCreatedCount = assetCopyReport.summary.assetsCreated;
+                    assetsMatchedCount = assetCopyReport.summary.assetsMatched;
+                    assetsFailedCount = assetCopyReport.summary.assetsFailed;
+                    assetsAbortedCount = assetCopyReport.assetsAborted;
+                } catch (error) {
+                    const anyError = error as any;
+                    assetFoldersCreatedCount =
+                        anyError?.assetFoldersCreated ?? 0;
+                    assetFoldersMatchedCount =
+                        anyError?.assetFoldersMatched ?? 0;
+                    assetFoldersFailedCount = anyError?.assetFoldersFailed ?? 0;
+                    assetFoldersAbortedCount =
+                        anyError?.assetFoldersAborted ?? 0;
+                    assetsCreatedCount = anyError?.assetsCreated ?? 0;
+                    assetsMatchedCount = anyError?.assetsMatched ?? 0;
+                    assetsFailedCount = anyError?.assetsFailed ?? 0;
+                    assetsAbortedCount = anyError?.assetsAborted ?? 0;
+                    throw error;
+                } finally {
+                    assetProgress.finish();
+                }
+            } catch (error) {
+                if (!limiter.aborted()) {
+                    throw error;
+                }
+            } finally {
+                process.removeListener("SIGINT", onSigint);
+
+                if (!dryRun) {
+                    const aborted = limiter.aborted();
+                    const hasFailure =
+                        assetFoldersFailedCount > 0 || assetsFailedCount > 0;
+                    let resumeCommand: string | undefined;
+
+                    if (aborted || hasFailure) {
+                        resumeCommand = buildCopyAssetsCommand({
+                            sourceSpace,
+                            targetSpace,
+                            selection,
+                            dryRun: false,
+                            outputPath,
+                        });
+                    }
+
+                    if (aborted) {
+                        const pending =
+                            assetFoldersAbortedCount + assetsAbortedCount;
+                        Logger.warning(
+                            `Copy interrupted: ${pending} item(s) pending. Run the same command again to resume.`,
+                        );
+                        process.exitCode = 130;
+                    }
+
+                    printCopySummary({
+                        assetFolders: {
+                            created: assetFoldersCreatedCount,
+                            matched: assetFoldersMatchedCount,
+                            failed: assetFoldersFailedCount,
+                        },
+                        assets: {
+                            created: assetsCreatedCount,
+                            matched: assetsMatchedCount,
+                            failed: assetsFailedCount,
+                        },
+                        resumeCommand,
+                    });
+                }
+            }
 
             break;
         }
