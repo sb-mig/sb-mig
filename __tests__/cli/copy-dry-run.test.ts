@@ -291,13 +291,9 @@ describe("copy stories dry-run", () => {
             "blog",
             expect.objectContaining({ spaceId: "source-space" }),
         );
-        expect(mocks.getStoryBySlug).toHaveBeenCalledWith(
-            "imported/blog",
-            expect.objectContaining({ spaceId: "target-space" }),
-        );
-        expect(mocks.getStoryBySlug).toHaveBeenCalledWith(
-            "imported/blog/post-1",
-            expect.objectContaining({ spaceId: "target-space" }),
+        expect(mocks.sbApiGet).toHaveBeenCalledWith(
+            "spaces/target-space/stories/",
+            expect.objectContaining({ starts_with: "imported" }),
         );
         expect(mocks.getAllStories).toHaveBeenCalledWith(
             {
@@ -1646,8 +1642,6 @@ describe("copy stories dry-run", () => {
             "utf8",
         );
 
-        mocks.getStoryById.mockResolvedValueOnce(undefined);
-
         await copyCommand({
             input: ["copy", "stories"],
             flags: {
@@ -1656,12 +1650,16 @@ describe("copy stories dry-run", () => {
                 source: "blog",
                 destination: "imported",
                 manifestRoot,
+                verify: true,
             },
         } as any);
 
-        expect(mocks.getStoryById).toHaveBeenCalledWith(
-            "9999",
-            expect.objectContaining({ spaceId: "target-space" }),
+        // Verification is now done against the bulk target-story prefetch
+        // (no more per-id lookups); the prefetch here returns no stories, so
+        // the stale mapping to id 9999 is treated as not found and repaired.
+        expect(mocks.sbApiGet).toHaveBeenCalledWith(
+            "spaces/target-space/stories/",
+            expect.objectContaining({ starts_with: "imported" }),
         );
         expect(mocks.createStory).toHaveBeenNthCalledWith(
             1,

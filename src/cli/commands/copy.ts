@@ -11,6 +11,7 @@ import type { PublicationMode } from "../../api/data-migration/component-data-mi
 import type { PublishedLayerRecord } from "../../api/data-migration/published-layer.js";
 import type { PublishLanguagesOption } from "../../api/stories/stories.types.js";
 import type { CLIOptions } from "../../utils/interfaces.js";
+import type { ProgressTracker } from "../../utils/progress.js";
 
 import fs from "fs/promises";
 import path from "path";
@@ -19,11 +20,13 @@ import {
     appendManifestEntry,
     buildCopyAssetsGraph,
     buildCopyMaps,
+    collectTreeLevels,
     createCopyGraph,
     dedupeManifestFile,
     getDefaultCopyManifestPaths,
     loadManifest,
     normalizeAssetFolderParentId,
+    prefetchTargetStories,
     rewriteCopyReferences,
     scanStoriesReferences,
     summarizeCopyGraph,
@@ -49,7 +52,6 @@ const COPY_COMMANDS = {
 };
 
 const COPY_MODES = ["subtree", "children", "self"] as const;
-const TARGET_CONFLICT_CHECK_CONCURRENCY = 10;
 
 type CopyMode = (typeof COPY_MODES)[number];
 
@@ -718,41 +720,25 @@ const buildFinalStoryPayload = ({
     return payload;
 };
 
-const getValidMappedTargetStory = async ({
+const getValidMappedTargetStory = ({
     sourceStory,
     targetStoryId,
     targetFullSlug,
     targetSpace,
+    targetStoriesBySlug,
 }: {
     sourceStory: any;
     targetStoryId: number;
     targetFullSlug?: string;
     targetSpace: string;
+    targetStoriesBySlug: Map<string, any>;
 }) => {
-    const targetStory = await managementApi.stories.getStoryById(
-        String(targetStoryId),
-        {
-            ...apiConfig,
-            spaceId: targetSpace,
-        },
-    );
+    const targetStory = targetFullSlug
+        ? targetStoriesBySlug.get(targetFullSlug)
+        : undefined;
 
-    if (targetStory?.story?.id) {
-        if (!targetFullSlug) {
-            return targetStory.story;
-        }
-
-        const targetStoryBySlug = await managementApi.stories.getStoryBySlug(
-            targetFullSlug,
-            {
-                ...apiConfig,
-                spaceId: targetSpace,
-            },
-        );
-
-        if (Number(targetStoryBySlug?.story?.id) === targetStoryId) {
-            return targetStory.story;
-        }
+    if (targetStory?.id && Number(targetStory.id) === targetStoryId) {
+        return targetStory;
     }
 
     Logger.warning(
@@ -983,12 +969,10 @@ const buildCopyPlan = (
     return plan;
 };
 
-const findTargetConflicts = async (
+const findTargetConflicts = (
     plan: CopyPlanItem[],
-    targetSpace: string,
-): Promise<CopyPlanItem[]> => {
-    let checked = 0;
-
+    targetStoriesBySlug: Map<string, any>,
+): CopyPlanItem[] => {
     if (plan.length === 0) {
         return [];
     }
@@ -997,35 +981,8 @@ const findTargetConflicts = async (
         `Checking ${plan.length} planned target path(s) for existing stories/folders.`,
     );
 
-    const results = await mapWithConcurrency(
-        plan,
-        TARGET_CONFLICT_CHECK_CONCURRENCY,
-        async (item) => {
-            const existingStory = await managementApi.stories.getStoryBySlug(
-                item.targetFullSlug,
-                {
-                    ...apiConfig,
-                    spaceId: targetSpace,
-                },
-            );
-
-            checked += 1;
-            if (
-                checked === plan.length ||
-                checked % 25 === 0 ||
-                plan.length <= 25
-            ) {
-                Logger.success(
-                    `Checked ${checked} of ${plan.length} target path(s) for conflicts.`,
-                );
-            }
-
-            return existingStory ? item : null;
-        },
-    );
-
-    const conflicts = results.filter(
-        (item): item is CopyPlanItem => item !== null,
+    const conflicts = plan.filter((item) =>
+        targetStoriesBySlug.has(item.targetFullSlug),
     );
 
     Logger.success(
@@ -3040,7 +2997,14 @@ const rewriteCopiedStoryContents = async ({
     return { updatedStories, rewrittenReferences, failures };
 };
 
-const createStoriesAndWriteManifests = async ({
+export type ShellFailure = {
+    sourceId: number;
+    fullSlug: string;
+    stage: "create-shell";
+    message: string;
+};
+
+export const createStoriesAndWriteManifests = async ({
     tree,
     realParentId,
     sourceStoryById,
@@ -3048,6 +3012,11 @@ const createStoriesAndWriteManifests = async ({
     sourceSpace,
     targetSpace,
     manifestRoot,
+    targetStoriesBySlug,
+    verify,
+    writeConcurrency,
+    apiConfig: apiConfigOverride,
+    progress,
 }: {
     tree: any[];
     realParentId: number | null;
@@ -3056,7 +3025,12 @@ const createStoriesAndWriteManifests = async ({
     sourceSpace: string;
     targetSpace: string;
     manifestRoot?: string;
-}) => {
+    targetStoriesBySlug: Map<string, any>;
+    verify: boolean;
+    writeConcurrency: number;
+    apiConfig: any;
+    progress?: ProgressTracker;
+}): Promise<CopyStoriesApplySummary & { failures: ShellFailure[] }> => {
     const manifestPaths = getDefaultCopyManifestPaths({
         sourceSpaceId: sourceSpace,
         targetSpaceId: targetSpace,
@@ -3066,9 +3040,20 @@ const createStoriesAndWriteManifests = async ({
     const copyMaps = buildCopyMaps(existingManifestEntries);
     let storiesCreated = 0;
     let storiesMatched = 0;
+    const failures: ShellFailure[] = [];
 
-    const walk = async (nodes: any[], parentId: number | null) => {
-        for (const node of nodes) {
+    const levels = collectTreeLevels(tree);
+
+    for (const level of levels) {
+        await mapWithConcurrency(level, writeConcurrency, async (levelNode) => {
+            if (levelNode.parent?.skippedBranch) {
+                levelNode.skippedBranch = true;
+                progress?.tick(0, { skipped: 1 });
+                return;
+            }
+
+            const parentTargetId = levelNode.parent?.targetId ?? realParentId;
+            const node = levelNode.node;
             const sourceStory = sourceStoryById.get(
                 Number(node.id ?? node.story.id),
             );
@@ -3088,17 +3073,23 @@ const createStoriesAndWriteManifests = async ({
             );
 
             if (mappedTargetId) {
-                const mappedTargetStory = await getValidMappedTargetStory({
-                    sourceStory,
-                    targetStoryId: mappedTargetId,
-                    targetFullSlug,
-                    targetSpace,
-                });
+                const trustMapping =
+                    !verify ||
+                    Boolean(
+                        getValidMappedTargetStory({
+                            sourceStory,
+                            targetStoryId: mappedTargetId,
+                            targetFullSlug,
+                            targetSpace,
+                            targetStoriesBySlug,
+                        }),
+                    );
 
-                if (mappedTargetStory) {
+                if (trustMapping) {
                     storiesMatched += 1;
-                    await walk(node.children ?? [], mappedTargetId);
-                    continue;
+                    levelNode.targetId = mappedTargetId;
+                    progress?.tick();
+                    return;
                 }
 
                 copyMaps.storyIds.delete(Number(sourceStory.id));
@@ -3106,15 +3097,12 @@ const createStoriesAndWriteManifests = async ({
             }
 
             const existingTargetStory = targetFullSlug
-                ? await managementApi.stories.getStoryBySlug(targetFullSlug, {
-                      ...apiConfig,
-                      spaceId: targetSpace,
-                  })
+                ? targetStoriesBySlug.get(targetFullSlug)
                 : undefined;
             const createdAt = new Date().toISOString();
 
-            if (existingTargetStory?.story) {
-                const targetStory = existingTargetStory.story;
+            if (existingTargetStory?.id) {
+                const targetStory = existingTargetStory;
                 const entry: CopyStoryManifestEntry = {
                     type: "story",
                     source_space_id: sourceSpace,
@@ -3137,57 +3125,81 @@ const createStoriesAndWriteManifests = async ({
                 copyMaps.storyIds.set(entry.source_id, entry.target_id);
                 copyMaps.storyUuids.set(entry.source_uuid, entry.target_uuid);
                 storiesMatched += 1;
-
-                await walk(node.children ?? [], entry.target_id);
-                continue;
+                levelNode.targetId = entry.target_id;
+                progress?.tick();
+                return;
             }
 
-            const createdStoryResult = await managementApi.stories.createStory(
-                buildStoryShellPayload(node.story, parentId),
-                {
-                    ...apiConfig,
-                    spaceId: targetSpace,
-                },
-                {
-                    publish: false,
-                },
-            );
-            const targetStory = createdStoryResult?.story;
+            try {
+                const createdStoryResult =
+                    await managementApi.stories.createStory(
+                        buildStoryShellPayload(node.story, parentTargetId),
+                        {
+                            ...apiConfigOverride,
+                            spaceId: targetSpace,
+                        },
+                        {
+                            publish: false,
+                        },
+                    );
+                const targetStory = createdStoryResult?.story;
 
-            if (!targetStory?.id || !targetStory?.uuid) {
-                throw new Error(
-                    `Failed to create target story for '${sourceFullSlug}'.`,
-                );
+                if (!targetStory?.id || !targetStory?.uuid) {
+                    throw new Error(
+                        `Failed to create target story for '${sourceFullSlug}'.`,
+                    );
+                }
+
+                const entry: CopyStoryManifestEntry = {
+                    type: "story",
+                    source_space_id: sourceSpace,
+                    target_space_id: targetSpace,
+                    source_id: Number(sourceStory.id),
+                    target_id: Number(targetStory.id),
+                    source_uuid: String(sourceStory.uuid),
+                    target_uuid: String(targetStory.uuid),
+                    source_full_slug: sourceFullSlug,
+                    target_full_slug: targetStory.full_slug ?? targetFullSlug,
+                    action: "created",
+                    created_at: createdAt,
+                };
+
+                await appendCopyManifestEntry({
+                    combinedPath: manifestPaths.combined,
+                    resourcePath: manifestPaths.stories,
+                    entry,
+                });
+                copyMaps.storyIds.set(entry.source_id, entry.target_id);
+                copyMaps.storyUuids.set(entry.source_uuid, entry.target_uuid);
+                storiesCreated += 1;
+                levelNode.targetId = entry.target_id;
+
+                if (targetFullSlug) {
+                    targetStoriesBySlug.set(targetFullSlug, {
+                        id: targetStory.id,
+                        uuid: targetStory.uuid,
+                        full_slug: targetStory.full_slug ?? targetFullSlug,
+                    });
+                }
+                progress?.tick();
+            } catch (error) {
+                const message =
+                    error instanceof Error ? error.message : String(error);
+                Logger.error(message);
+                failures.push({
+                    sourceId: Number(sourceStory.id),
+                    fullSlug: sourceFullSlug,
+                    stage: "create-shell",
+                    message,
+                });
+                // No target shell means children cannot be parented; skip
+                // this branch but keep copying the rest of the tree.
+                levelNode.skippedBranch = true;
+                progress?.tick(0, { failed: 1 });
             }
+        });
+    }
 
-            const entry: CopyStoryManifestEntry = {
-                type: "story",
-                source_space_id: sourceSpace,
-                target_space_id: targetSpace,
-                source_id: Number(sourceStory.id),
-                target_id: Number(targetStory.id),
-                source_uuid: String(sourceStory.uuid),
-                target_uuid: String(targetStory.uuid),
-                source_full_slug: sourceFullSlug,
-                target_full_slug: targetStory.full_slug ?? targetFullSlug,
-                action: "created",
-                created_at: createdAt,
-            };
-
-            await appendCopyManifestEntry({
-                combinedPath: manifestPaths.combined,
-                resourcePath: manifestPaths.stories,
-                entry,
-            });
-            copyMaps.storyIds.set(entry.source_id, entry.target_id);
-            copyMaps.storyUuids.set(entry.source_uuid, entry.target_uuid);
-            storiesCreated += 1;
-
-            await walk(node.children ?? [], entry.target_id);
-        }
-    };
-
-    await walk(tree, realParentId);
     await dedupeManifestFile(manifestPaths.stories);
     await dedupeManifestFile(manifestPaths.combined);
 
@@ -3199,6 +3211,7 @@ const createStoriesAndWriteManifests = async ({
         storiesPlanned: plannedCounts.stories,
         storiesCreated,
         storiesMatched,
+        failures,
     };
 };
 
@@ -3896,7 +3909,14 @@ export const copyCommand = async (props: CLIOptions) => {
             }
 
             if (dryRun) {
-                const conflicts = await findTargetConflicts(plan, targetSpace);
+                const targetStoriesBySlug = await prefetchTargetStories({
+                    destination: destination ?? "",
+                    config: { spaceId: targetSpace, sbApi: apiConfig.sbApi },
+                });
+                const conflicts = findTargetConflicts(
+                    plan,
+                    targetStoriesBySlug,
+                );
                 Logger.warning(
                     "Checking source components against the target space schema.",
                 );
@@ -3989,6 +4009,11 @@ export const copyCommand = async (props: CLIOptions) => {
                 }
             }
 
+            const targetStoriesBySlug = await prefetchTargetStories({
+                destination: destination ?? "",
+                config: { spaceId: targetSpace, sbApi: apiConfig.sbApi },
+            });
+
             const storySummary = await createStoriesAndWriteManifests({
                 tree: rootsToCreate,
                 realParentId: destinationParentId,
@@ -3997,7 +4022,23 @@ export const copyCommand = async (props: CLIOptions) => {
                 sourceSpace,
                 targetSpace,
                 manifestRoot,
+                targetStoriesBySlug,
+                verify: Boolean(flags["verify"]),
+                writeConcurrency: 12,
+                apiConfig,
             });
+
+            if (storySummary.failures.length > 0) {
+                Logger.error(
+                    `${storySummary.failures.length} story shell creation(s) failed; the rest of the copy still completed. Failed stories:`,
+                );
+                for (const failure of storySummary.failures) {
+                    Logger.error(
+                        `  - ${failure.fullSlug || "<unknown>"} (source id ${failure.sourceId}) [${failure.stage}]`,
+                    );
+                }
+            }
+
             await rewriteCopiedStoryContents({
                 tree: rootsToCreate,
                 realParentId: destinationParentId,
@@ -4009,6 +4050,14 @@ export const copyCommand = async (props: CLIOptions) => {
                 targetSpace,
                 manifestRoot,
             });
+
+            if (storySummary.failures.length > 0) {
+                throw new Error(
+                    `Copy finished but ${storySummary.failures.length} story shell creation(s) failed:\n${storySummary.failures
+                        .map((failure) => failure.message)
+                        .join("\n")}`,
+                );
+            }
 
             if (outputPath) {
                 const report = buildCopyStoriesApplyReport({
