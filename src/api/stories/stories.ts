@@ -433,7 +433,10 @@ export const removeAllStories: RemoveAllStories = async (config) => {
 };
 
 // GET
-export const getAllStories: GetAllStories = async (args, config) => {
+export const getAllStoriesWithoutContent: GetAllStories = async (
+    args,
+    config,
+) => {
     const { options } = args;
     const { spaceId, sbApi } = config;
     Logger.log(`Trying to get all Stories from: ${spaceId}`);
@@ -462,6 +465,16 @@ export const getAllStories: GetAllStories = async (args, config) => {
 
     Logger.success(
         `Successfully pre-fetched ${allStoriesWithoutContent.length} stories.`,
+    );
+
+    return allStoriesWithoutContent;
+};
+
+// GET
+export const getAllStories: GetAllStories = async (args, config) => {
+    const allStoriesWithoutContent = await getAllStoriesWithoutContent(
+        args,
+        config,
     );
 
     let heartBeat = 0;

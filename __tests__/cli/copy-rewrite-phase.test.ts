@@ -113,6 +113,70 @@ describe("rewriteCopiedStoryContents (checkpointed)", () => {
         expect(checkpoints).toHaveLength(2);
     });
 
+    it("skips a fast-path story with no content access, still resolving its child's parent", async () => {
+        // Task 10 resume fast path: fastPathSourceIds identifies stories
+        // whose checkpoint already matched at partition time. The parent
+        // here is a bare stub (no `content` at all) -- if the mapper ever
+        // touched it before the fastPathSourceIds check, this would throw.
+        const parent = story(1);
+        const child = story(2);
+        await seedShellMapping(manifestRoot, parent);
+        await seedShellMapping(manifestRoot, child);
+
+        const args = {
+            tree: [
+                {
+                    id: parent.id,
+                    story: {
+                        id: parent.id,
+                        uuid: parent.uuid,
+                        full_slug: parent.full_slug,
+                    },
+                    children: [{ id: child.id, story: child, children: [] }],
+                },
+            ],
+            realParentId: null,
+            sourceStoryById: new Map<number, any>([
+                [
+                    parent.id,
+                    {
+                        id: parent.id,
+                        uuid: parent.uuid,
+                        full_slug: parent.full_slug,
+                    },
+                ],
+                [child.id, child],
+            ]),
+            targetSlugBySourceSlug: new Map([
+                [parent.full_slug, parent.full_slug],
+                [child.full_slug, child.full_slug],
+            ]),
+            publication: { mode: "save-only" as const },
+            publishedLayerRecordBySourceId: new Map(),
+            sourceSpace: "1",
+            targetSpace: "2",
+            manifestRoot,
+            forceContent: false,
+            writeConcurrency: 4,
+            fastPathSourceIds: new Set([parent.id]),
+        };
+
+        const result = await rewriteCopiedStoryContents(args);
+
+        expect(result.skippedStories).toBe(1);
+        expect(result.updatedStories).toBe(1);
+        expect(updateStory).toHaveBeenCalledTimes(1);
+        // The child's parent_id resolves to the fast-path parent's existing
+        // target mapping (parent.id + 1000 from seedShellMapping), proving
+        // the parent chain still works for a non-fast-path child.
+        expect(updateStory).toHaveBeenCalledWith(
+            expect.objectContaining({ parent_id: parent.id + 1000 }),
+            String(child.id + 1000),
+            expect.anything(),
+            expect.anything(),
+        );
+    });
+
     it("skips checkpointed stories on the second run with zero api calls", async () => {
         const stories = [story(1)];
         await seedShellMapping(manifestRoot, stories[0]);

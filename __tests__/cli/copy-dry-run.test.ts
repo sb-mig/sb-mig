@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
     getStoryById: vi.fn(),
     getStoryBySlug: vi.fn(),
     getAllStories: vi.fn(),
+    getAllStoriesWithoutContent: vi.fn(),
     getStoryVersions: vi.fn(),
     createStory: vi.fn(),
     updateStory: vi.fn(),
@@ -39,6 +40,7 @@ vi.mock("../../src/api/managementApi.js", () => ({
             getStoryById: mocks.getStoryById,
             getStoryBySlug: mocks.getStoryBySlug,
             getAllStories: mocks.getAllStories,
+            getAllStoriesWithoutContent: mocks.getAllStoriesWithoutContent,
             getStoryVersions: mocks.getStoryVersions,
             createStory: mocks.createStory,
             updateStory: mocks.updateStory,
@@ -93,6 +95,28 @@ describe("copy stories dry-run", () => {
             parent_id: 20,
         },
     ];
+
+    // copyCommand now fetches the child story list as content-less stubs
+    // (getAllStoriesWithoutContent) and selectively fetches full content
+    // per id (getStoryById) instead of the old combined getAllStories call.
+    // This test file has no resume-checkpoint manifests, so every child
+    // always lands in `needsContentIds` and gets its full content fetched
+    // -- this helper just wires the same fixed `{story: {...}}` arrays the
+    // tests already use through that new two-step call pattern.
+    const mockChildStories = (items: any[]) => {
+        mocks.getAllStoriesWithoutContent.mockResolvedValue(
+            items.map((item) => {
+                const { content: _content, ...stub } = item.story;
+                return { updated_at: "2026-01-01T00:00:00.000Z", ...stub };
+            }),
+        );
+        mocks.getStoryById.mockImplementation((id: any) => {
+            const match = items.find(
+                (item) => Number(item.story.id) === Number(id),
+            );
+            return Promise.resolve(match);
+        });
+    };
 
     beforeEach(() => {
         vi.clearAllMocks();
@@ -150,7 +174,7 @@ describe("copy stories dry-run", () => {
             return Promise.resolve(undefined);
         });
 
-        mocks.getAllStories.mockResolvedValue([
+        mockChildStories([
             {
                 story: {
                     id: 2,
@@ -295,7 +319,7 @@ describe("copy stories dry-run", () => {
             "spaces/target-space/stories/",
             expect.objectContaining({ starts_with: "imported" }),
         );
-        expect(mocks.getAllStories).toHaveBeenCalledWith(
+        expect(mocks.getAllStoriesWithoutContent).toHaveBeenCalledWith(
             {
                 options: {
                     starts_with: "blog/",
@@ -495,7 +519,7 @@ describe("copy stories dry-run", () => {
 
         // The target space (getAllComponents mock) only knows 'page'; this post
         // nests a component that does not exist there.
-        mocks.getAllStories.mockResolvedValue([
+        mockChildStories([
             {
                 story: {
                     id: 2,
@@ -904,7 +928,7 @@ describe("copy stories dry-run", () => {
 
             return Promise.resolve(undefined);
         });
-        mocks.getAllStories.mockResolvedValue([]);
+        mockChildStories([]);
         mocks.createTree.mockImplementation((stories: any[]) => [
             {
                 id: stories[0].id,
@@ -1748,13 +1772,6 @@ describe("copy stories dry-run", () => {
             "utf8",
         );
 
-        mocks.getStoryById.mockResolvedValueOnce({
-            story: {
-                id: 9999,
-                uuid: "stale-target-blog-uuid",
-                full_slug: "imported/blog",
-            },
-        });
         const getStoryBySlug = mocks.getStoryBySlug.getMockImplementation();
         mocks.getStoryBySlug.mockImplementation(
             (slug: string, options: any) => {

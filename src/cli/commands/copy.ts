@@ -29,6 +29,7 @@ import {
     getDefaultCopyManifestPaths,
     loadManifest,
     normalizeAssetFolderParentId,
+    partitionStoriesForResume,
     prefetchTargetStories,
     rewriteCopyReferences,
     scanStoriesReferences,
@@ -53,6 +54,11 @@ const COPY_COMMANDS = {
     stories: "stories",
     assets: "assets",
 };
+
+// Concurrency for the Task 10 resume fast path's selective per-story
+// content fetch (getStoryById), mirroring stories.ts's own
+// STORY_CONTENT_FETCH_CONCURRENCY for the equivalent full fetch.
+const STORY_CONTENT_FETCH_CONCURRENCY = 10;
 
 const COPY_MODES = ["subtree", "children", "self"] as const;
 
@@ -166,6 +172,10 @@ type CopyDryRunReport = {
         warnings: number;
         errors: number;
         componentIssues: number;
+        // Task 10 resume fast path: stories whose checkpoint already
+        // matched (unchanged since last copy, no unresolved refs) and were
+        // never fetched or re-scanned this run.
+        storiesSkipped: number;
     };
     items: CopyPlanItem[];
     graph?: CopyGraph;
@@ -570,10 +580,19 @@ const getStoryBySlugOrThrow = async (slug: string, sourceSpace: string) => {
     return entryStory;
 };
 
+// Task 10 resume fast path: `contentFor` lets callers skip the per-story
+// content fetch for children whose source id is not in the set (they join
+// the result as list stubs -- id/uuid/full_slug/updated_at/etc, no
+// `content`). The root is always fetched fully via getStoryBySlug
+// regardless of `contentFor`, matching pre-resume behavior. Default "all"
+// preserves the original behavior (every child fully fetched via the
+// combined list+content `getAllStories`) for callers that don't opt in.
 const getStoriesForSelection = async (
     selection: CopySelection,
     sourceSpace: string,
+    options?: { contentFor?: Set<number> | "all" },
 ) => {
+    const contentFor = options?.contentFor ?? "all";
     const rootStory = await getStoryBySlugOrThrow(
         selection.source,
         sourceSpace,
@@ -594,7 +613,23 @@ const getStoriesForSelection = async (
         return [rootStory];
     }
 
-    const children = await managementApi.stories.getAllStories(
+    if (contentFor === "all") {
+        const children = await managementApi.stories.getAllStories(
+            {
+                options: {
+                    starts_with: `${selection.source}/`,
+                },
+            },
+            {
+                ...apiConfig,
+                spaceId: sourceSpace,
+            },
+        );
+
+        return [rootStory, ...children];
+    }
+
+    const childStubs = await managementApi.stories.getAllStoriesWithoutContent(
         {
             options: {
                 starts_with: `${selection.source}/`,
@@ -603,6 +638,26 @@ const getStoriesForSelection = async (
         {
             ...apiConfig,
             spaceId: sourceSpace,
+        },
+    );
+
+    const children = await mapWithConcurrency(
+        childStubs,
+        STORY_CONTENT_FETCH_CONCURRENCY,
+        async (stub: any) => {
+            if (!contentFor.has(Number(stub.id))) {
+                return { story: stub };
+            }
+
+            const fullStory = await managementApi.stories.getStoryById(
+                stub.id,
+                {
+                    ...apiConfig,
+                    spaceId: sourceSpace,
+                },
+            );
+
+            return fullStory ?? { story: stub };
         },
     );
 
@@ -1333,6 +1388,7 @@ const buildCopyDryRunReport = ({
     graph,
     componentCompatibility,
     outputPath,
+    storiesSkipped,
 }: {
     sourceSpace: string;
     targetSpace: string;
@@ -1345,6 +1401,7 @@ const buildCopyDryRunReport = ({
     graph?: CopyGraph;
     componentCompatibility?: CopyDryRunComponentCompatibility;
     outputPath?: string;
+    storiesSkipped: number;
 }): CopyDryRunReport => {
     const items = withConflictFlags(plan, conflicts);
     const warnings = [
@@ -1425,6 +1482,7 @@ const buildCopyDryRunReport = ({
             warnings: warnings.length + (graphSummary?.warnings ?? 0),
             errors: graphSummary?.errors ?? 0,
             componentIssues: componentCompatibility?.findings.length ?? 0,
+            storiesSkipped,
         },
         items,
         ...(graph ? { graph } : {}),
@@ -2295,6 +2353,7 @@ const buildStoryReferenceDryRunGraph = ({
     destination,
     plan,
     sourceStories,
+    contentStories,
     schemas,
     copyMaps,
     onScanProgress,
@@ -2305,6 +2364,10 @@ const buildStoryReferenceDryRunGraph = ({
     destination: string | undefined;
     plan: CopyPlanItem[];
     sourceStories: any[];
+    // Task 10 resume fast path: same story identities as `sourceStories`
+    // (used below only for id/uuid lookups, which stubs have), but with any
+    // fast-path stub filtered out -- see the reasoning at the call site.
+    contentStories: any[];
     schemas: Record<string, any>;
     copyMaps: CopyMaps;
     onScanProgress?: (progress: {
@@ -2320,7 +2383,7 @@ const buildStoryReferenceDryRunGraph = ({
             .map((story) => [String(story.full_slug ?? ""), story] as const),
     );
     const scanResult = scanStoriesReferences({
-        stories: sourceStories.map((item) => item?.story).filter(Boolean),
+        stories: contentStories.map((item) => item?.story).filter(Boolean),
         schemas,
         options: {
             referencePolicy: "preserve",
@@ -2373,6 +2436,7 @@ const buildReferencedAssetsGraph = ({
     destination,
     plan,
     sourceStories,
+    contentStories,
     sourceAssets,
     sourceAssetFolders,
     schemas,
@@ -2385,6 +2449,10 @@ const buildReferencedAssetsGraph = ({
     destination: string | undefined;
     plan: CopyPlanItem[];
     sourceStories: any[];
+    // Task 10 resume fast path: same story identities as `sourceStories`
+    // (used below only for id/uuid lookups, which stubs have), but with any
+    // fast-path stub filtered out -- see the reasoning at the call site.
+    contentStories: any[];
     sourceAssets: any[];
     sourceAssetFolders: any[];
     schemas: Record<string, any>;
@@ -2396,7 +2464,7 @@ const buildReferencedAssetsGraph = ({
     }) => void;
 }): CopyGraph => {
     const scanResult = scanStoriesReferences({
-        stories: sourceStories.map((item) => item?.story).filter(Boolean),
+        stories: contentStories.map((item) => item?.story).filter(Boolean),
         schemas,
         options: {
             referencePolicy: "preserve",
@@ -2703,6 +2771,7 @@ export const rewriteCopiedStoryContents = async ({
     forceContent,
     writeConcurrency,
     progress,
+    fastPathSourceIds,
     apiConfig: apiConfigOverride = apiConfig,
 }: {
     tree: any[];
@@ -2717,6 +2786,11 @@ export const rewriteCopiedStoryContents = async ({
     forceContent: boolean;
     writeConcurrency: number;
     progress?: ProgressTracker;
+    // Task 10 resume fast path: source ids whose checkpoint already
+    // matched (unchanged updated_at, zero unresolved refs) at partition
+    // time. These stories rejoin the tree as list stubs with no content,
+    // so they must be skipped before any hash/content logic runs.
+    fastPathSourceIds?: Set<number>;
     apiConfig?: any;
 }): Promise<{
     updatedStories: number;
@@ -2860,9 +2934,21 @@ export const rewriteCopiedStoryContents = async ({
                 }
 
                 const node = levelNode.node;
-                const sourceStory = sourceStoryById.get(
-                    Number(node.id ?? node.story?.id),
-                );
+                const sourceId = Number(node.id ?? node.story?.id);
+
+                // Resume fast path (Task 10): this story's checkpoint
+                // already matched at partition time, so it rejoined the
+                // tree as a stub (no content). No hash computation, no
+                // writes -- just carry its existing target mapping forward
+                // so any non-fast-path children still resolve their parent.
+                if (fastPathSourceIds?.has(sourceId)) {
+                    levelNode.targetId = maps.storyIds.get(sourceId) ?? null;
+                    skippedStories += 1;
+                    progress?.tick(1, { skipped: 1 });
+                    return;
+                }
+
+                const sourceStory = sourceStoryById.get(sourceId);
                 const parentSourceId = levelNode.parent
                     ? Number(
                           levelNode.parent.node.id ??
@@ -4059,10 +4145,77 @@ export const copyCommand = async (props: CLIOptions) => {
                 `Source '${selection.source}', mode '${selection.mode}', destination '${destination ?? "root"}'.`,
             );
 
-            const sourceStories = await getStoriesForSelection(
+            const verify = Boolean(flags["verify"]);
+            const forceContent = Boolean(
+                flags["forceContent"] ?? flags["force-content"],
+            );
+
+            // The manifest is loaded once, up front, so the resume
+            // checkpoints (Task 10) and the story/asset maps below share a
+            // single read.
+            const manifestPaths = getDefaultCopyManifestPaths({
+                sourceSpaceId: sourceSpace,
+                targetSpaceId: targetSpace,
+                rootDir: manifestRoot,
+            });
+            const manifestEntries = await loadManifest(manifestPaths.combined);
+            const copyMaps = buildCopyMaps(manifestEntries);
+            const checkpoints = buildContentCheckpointMap(manifestEntries);
+
+            // Resume fast path (Task 10), step 1: list stubs for the
+            // selection. The root is always fetched fully via
+            // getStoryBySlug (see getStoriesForSelection); children come
+            // back as list stubs -- no `content` -- since `contentFor` is
+            // empty here.
+            const stubSourceStories = await getStoriesForSelection(
                 selection,
                 sourceSpace,
+                { contentFor: new Set() },
             );
+            const [rootStubItem, ...childStubItems] = stubSourceStories;
+
+            // Step 2: partition children against the resume checkpoints.
+            const partition = partitionStoriesForResume({
+                listStories: childStubItems.map((item: any) => item.story),
+                checkpoints,
+                verify,
+                forceContent,
+            });
+
+            // Step 3: fetch full content only for stories that need it.
+            // Fast-path stories (checkpointed, unresolved_refs 0, unchanged
+            // updated_at) skip this fetch entirely and rejoin the tree as
+            // stubs below.
+            const contentBySourceId = new Map<number, any>();
+
+            await mapWithConcurrency(
+                [...partition.needsContentIds],
+                STORY_CONTENT_FETCH_CONCURRENCY,
+                async (sourceId: number) => {
+                    const fullStory = await managementApi.stories.getStoryById(
+                        String(sourceId),
+                        {
+                            ...apiConfig,
+                            spaceId: sourceSpace,
+                        },
+                    );
+
+                    if (fullStory) {
+                        contentBySourceId.set(sourceId, fullStory);
+                    }
+                },
+            );
+
+            // Step 4: fast-path stories join the tree as stubs; everything
+            // else gets its freshly-fetched full content merged in.
+            const sourceStories = [
+                rootStubItem,
+                ...childStubItems.map(
+                    (item: any) =>
+                        contentBySourceId.get(Number(item.story.id)) ?? item,
+                ),
+            ];
+
             const normalizedStories = normalizeStoriesForTree(
                 sourceStories,
                 selection,
@@ -4078,13 +4231,16 @@ export const copyCommand = async (props: CLIOptions) => {
             }
 
             const plan = buildCopyPlan(rootsToCreate, destination);
-            const manifestPaths = getDefaultCopyManifestPaths({
-                sourceSpaceId: sourceSpace,
-                targetSpaceId: targetSpace,
-                rootDir: manifestRoot,
-            });
-            const manifestEntries = await loadManifest(manifestPaths.combined);
-            const copyMaps = buildCopyMaps(manifestEntries);
+
+            // Content consumers below (reference scanning, component
+            // compatibility) must never be fed a fast-path stub: it has no
+            // `content` field, so scanning it would silently find nothing
+            // rather than crash. Fast-path stories were already
+            // scanned/validated when their checkpoint was written by a
+            // prior run, so excluding them here is correct, not a gap.
+            const contentFetchedStories = sourceStories.filter(
+                (item: any) => item?.story?.content !== undefined,
+            );
             let dryRunGraph: CopyGraph | undefined;
             let withAssetsGraph: CopyGraph | undefined;
             let sourceAssets: any[] = [];
@@ -4125,6 +4281,15 @@ export const copyCommand = async (props: CLIOptions) => {
                     Logger.warning(
                         `Planning referenced assets from ${countStoryItems(sourceStories)} stories against ${sourceAssets.length} source asset(s).`,
                     );
+                    // The reference scan (inside buildReferencedAssetsGraph)
+                    // runs over content-fetched stories only
+                    // (contentFetchedStories), not the full `sourceStories`
+                    // list. This is still correct with resume fast-path
+                    // stubs in the mix: a fast-path story's asset
+                    // references were already resolved, and its referenced
+                    // assets already copied, when its checkpoint was
+                    // written by a prior run -- so its assets are already
+                    // in the manifest and don't need rediscovering here.
                     withAssetsGraph = buildReferencedAssetsGraph({
                         sourceSpace,
                         targetSpace,
@@ -4132,6 +4297,7 @@ export const copyCommand = async (props: CLIOptions) => {
                         destination,
                         plan,
                         sourceStories,
+                        contentStories: contentFetchedStories,
                         sourceAssets,
                         sourceAssetFolders,
                         schemas,
@@ -4147,6 +4313,10 @@ export const copyCommand = async (props: CLIOptions) => {
                     Logger.warning(
                         `Scanning ${countStoryItems(sourceStories)} stories for copy references.`,
                     );
+                    // Same reasoning as the --with-assets scan above: this
+                    // scan runs over content-fetched stories only, since
+                    // resume fast-path stubs have no content and were
+                    // already scanned when their checkpoint was written.
                     dryRunGraph = buildStoryReferenceDryRunGraph({
                         sourceSpace,
                         targetSpace,
@@ -4154,6 +4324,7 @@ export const copyCommand = async (props: CLIOptions) => {
                         destination,
                         plan,
                         sourceStories,
+                        contentStories: contentFetchedStories,
                         schemas,
                         copyMaps,
                         onScanProgress: logReferenceScanProgress,
@@ -4178,10 +4349,14 @@ export const copyCommand = async (props: CLIOptions) => {
                 );
                 const componentValidator =
                     await buildTargetComponentValidator(targetSpace);
+                // Fast-path stubs have no content to walk, so this check
+                // (like the reference scans above) runs over
+                // content-fetched stories only -- fast-path stories were
+                // already validated when they were originally copied.
                 const componentCompatibility = componentValidator.canValidate
                     ? summarizeComponentCompatibility(
                           true,
-                          sourceStories.flatMap((item: any) =>
+                          contentFetchedStories.flatMap((item: any) =>
                               componentValidator.validateStory(item?.story),
                           ),
                       )
@@ -4190,6 +4365,12 @@ export const copyCommand = async (props: CLIOptions) => {
                 if (!componentCompatibility.checked) {
                     Logger.warning(
                         `Skipped component compatibility check because no components were returned for target space '${targetSpace}'.`,
+                    );
+                }
+
+                if (partition.fastPathSourceIds.size > 0) {
+                    Logger.success(
+                        `Resume: ${partition.fastPathSourceIds.size} stories already up to date (checkpointed).`,
                     );
                 }
 
@@ -4206,6 +4387,7 @@ export const copyCommand = async (props: CLIOptions) => {
                     graph: dryRunGraph,
                     componentCompatibility,
                     outputPath,
+                    storiesSkipped: partition.fastPathSourceIds.size,
                 });
 
                 await logDryRunCopyPlan({ report });
@@ -4249,9 +4431,17 @@ export const copyCommand = async (props: CLIOptions) => {
             >();
 
             if (publication.mode === "preserve-layers") {
+                // buildPublishedLayerContext unconditionally hashes
+                // `story.content` (draftCurrentContentHash), regardless of
+                // layer state, so -- unlike resolveStoryLayerState's own
+                // published/unpublished_changes flags, which stubs do carry
+                // -- it cannot tolerate a fast-path stub with no content.
+                // Fast-path stories never reach rewriteCopiedStoryContents'
+                // published-layer logic anyway (they return early), so
+                // excluding them here is safe.
                 const publishedLayerContext = await buildPublishedLayerContext(
                     {
-                        items: sourceStories,
+                        items: contentFetchedStories,
                         from: sourceSpace,
                     },
                     apiConfig,
@@ -4280,7 +4470,7 @@ export const copyCommand = async (props: CLIOptions) => {
                     targetSpace,
                     manifestRoot,
                     targetStoriesBySlug,
-                    verify: Boolean(flags["verify"]),
+                    verify,
                     writeConcurrency: 12,
                     apiConfig,
                 });
@@ -4311,10 +4501,9 @@ export const copyCommand = async (props: CLIOptions) => {
                 sourceSpace,
                 targetSpace,
                 manifestRoot,
-                forceContent: Boolean(
-                    flags["forceContent"] ?? flags["force-content"],
-                ),
+                forceContent,
                 writeConcurrency: 12,
+                fastPathSourceIds: partition.fastPathSourceIds,
             });
 
             if (outputPath) {
@@ -4423,6 +4612,10 @@ export const copyCommand = async (props: CLIOptions) => {
                     destination: undefined,
                     plan,
                     sourceStories,
+                    // This selector always fetches full content (default
+                    // contentFor "all"), so there are no fast-path stubs to
+                    // exclude here.
+                    contentStories: sourceStories,
                     sourceAssets,
                     sourceAssetFolders,
                     schemas,
