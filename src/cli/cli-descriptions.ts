@@ -249,7 +249,7 @@ export const copyDescription = `
                        Select assets referenced by a story/folder scope. Requires --source. [assets only]
         --dry-run       Preview story paths, manifest-mapped references, and likely target conflicts without writing to Storyblok.
         --outputPath    Optional JSON file path for a dry-run copy plan artifact. Only writes locally when passed.
-        --rateLimit     Target Management API requests per second for apply-mode writes. Adapts down on 429s and back up over time. Default: 6, or the configured rateLimit.
+        --rateLimit     Target Management API requests per second for apply-mode writes. Adapts down on 429s and back up over time. Default: 6.
         --verify        Re-check existing manifest-mapped target stories against the target space before trusting them, instead of trusting the manifest as-is. [stories only]
         --force-content Rewrite and re-checkpoint a copied story's content even when its checkpoint hash is unchanged. [stories only]
 

@@ -30,6 +30,16 @@ vi.mock("../../src/cli/api-config.js", () => ({
     },
 }));
 
+// copyCommand now constructs its OWN rate-limited StoryblokClient (Task 12
+// fix) instead of reusing apiConfig.sbApi directly, so prefetchTargetStories'
+// direct sbApi.get calls must be intercepted here too, not just via the
+// api-config.js mock above.
+vi.mock("storyblok-js-client", () => ({
+    default: vi.fn().mockImplementation(() => ({
+        get: mocks.sbApiGet,
+    })),
+}));
+
 vi.mock("../../src/api/managementApi.js", () => ({
     managementApi: {
         stories: {

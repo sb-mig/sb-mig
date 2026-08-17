@@ -17,6 +17,8 @@ import type { ProgressTracker } from "../../utils/progress.js";
 import fs from "fs/promises";
 import path from "path";
 
+import StoryblokClient from "storyblok-js-client";
+
 import {
     appendManifestEntry,
     buildContentCheckpointMap,
@@ -46,6 +48,7 @@ import {
     resolvePublishLanguageCodes,
 } from "../../api/stories/stories.js";
 import { createTree } from "../../api/stories/tree.js";
+import storyblokConfig from "../../config/config.js";
 import { mapWithConcurrency } from "../../utils/async-utils.js";
 import Logger from "../../utils/logger.js";
 import { createProgressTracker } from "../../utils/progress.js";
@@ -368,7 +371,10 @@ const getCopySpace = (
 
 export const resolveCopyRuntimeOptions = (
     flags: Record<string, any>,
-    config: { rateLimit?: number },
+    // `_config.rateLimit` is intentionally NOT consulted (see below): the
+    // parameter is kept so callers can still pass `apiConfig` without a type
+    // error, but its value is ignored -- hence the `_` prefix.
+    _config: { rateLimit?: number },
 ): {
     rateLimit: number;
     verify: boolean;
@@ -376,10 +382,14 @@ export const resolveCopyRuntimeOptions = (
     writeConcurrency: number;
 } => {
     const flagRate = Number(readStringFlag(flags, ["rateLimit"]) ?? "");
-    const rateLimit =
-        (Number.isFinite(flagRate) && flagRate > 0 ? flagRate : 0) ||
-        (config.rateLimit && config.rateLimit > 0 ? config.rateLimit : 0) ||
-        6;
+    // `config.rateLimit` (storyblokConfig's global `rateLimit`, default 2 --
+    // see src/config/defaultConfig.ts) is a legacy default for the plain
+    // storyblok-js-client used by every OTHER command, not a copy-specific
+    // setting. Honoring it here made the documented `--rateLimit` default of
+    // 6 false whenever a project's config set its own rateLimit, and made
+    // the flag only able to raise the rate, never lower it back to the
+    // documented default. Copy's own rate is `--rateLimit` or 6, full stop.
+    const rateLimit = Number.isFinite(flagRate) && flagRate > 0 ? flagRate : 6;
 
     return {
         rateLimit,
@@ -387,6 +397,44 @@ export const resolveCopyRuntimeOptions = (
         forceContent: Boolean(flags["forceContent"] ?? flags["force-content"]),
         writeConcurrency: Math.max(2, Math.ceil(rateLimit * 2)),
     };
+};
+
+// `apiConfig.sbApi` (src/cli/api-config.ts) is a StoryblokClient built with
+// storyblokConfig's global `rateLimit` (default 2, see
+// src/config/defaultConfig.ts). storyblok-js-client throttles every
+// management post/put/delete at ITS OWN internal rate, so wrapping that
+// already-2-req/s-capped client with our adaptive limiter is a no-op above
+// 2 req/s -- our limiter's tokens would be meaningless, and `--rateLimit 12`
+// would only ever queue further inside the client underneath it. Copy must
+// therefore construct its OWN StoryblokClient at the runtime rate, mirroring
+// api-config.ts's construction exactly except for the rate.
+//
+// If a custom `sbApi` factory is configured (storyblokConfig.sbApi), that
+// factory is authoritative: we cannot safely rebuild an unknown custom
+// client at a different rate, so it is used as-is and `--rateLimit` has no
+// effect on it (a warning is logged once per invocation).
+export const buildCopyRateLimitedSbApi = (rateLimit: number): any => {
+    if (storyblokConfig.sbApi) {
+        Logger.warning(
+            "A custom sbApi factory is configured; --rateLimit cannot be applied to it and will have no effect this run.",
+        );
+        return storyblokConfig.sbApi();
+    }
+
+    const { accessToken, oauthToken, storyblokApiUrl } = storyblokConfig;
+
+    return new StoryblokClient(
+        {
+            accessToken,
+            oauthToken,
+            rateLimit,
+            cache: {
+                clear: "auto",
+                type: "none",
+            },
+        },
+        storyblokApiUrl,
+    );
 };
 
 const parseCopyPublicationMode = (
@@ -628,9 +676,20 @@ const getStoryBySlugOrThrow = async (slug: string, sourceSpace: string) => {
 const getStoriesForSelection = async (
     selection: CopySelection,
     sourceSpace: string,
-    options?: { contentFor?: "all" | "none" },
+    options?: {
+        contentFor?: "all" | "none";
+        // The bulk list pagination below (getAllStories /
+        // getAllStoriesWithoutContent) can be ~200 requests at 20k stories --
+        // it must go through the rate-limited, SIGINT-abortable client, not
+        // the bare module apiConfig. The root lookup just above
+        // (getStoryBySlugOrThrow) is a single request and is left on the
+        // module apiConfig, matching every other 1-2-request helper in this
+        // file.
+        apiConfig?: any;
+    },
 ) => {
     const contentFor = options?.contentFor ?? "all";
+    const apiConfigOverride = options?.apiConfig ?? apiConfig;
     const rootStory = await getStoryBySlugOrThrow(
         selection.source,
         sourceSpace,
@@ -659,7 +718,7 @@ const getStoriesForSelection = async (
                 },
             },
             {
-                ...apiConfig,
+                ...apiConfigOverride,
                 spaceId: sourceSpace,
             },
         );
@@ -674,7 +733,7 @@ const getStoriesForSelection = async (
             },
         },
         {
-            ...apiConfig,
+            ...apiConfigOverride,
             spaceId: sourceSpace,
         },
     );
@@ -1291,12 +1350,16 @@ const buildCopyAssetsCommand = ({
 
 // Aligned exit-summary lines printed at the end of an apply-mode copy run
 // (stories or assets), regardless of success, failure, or SIGINT abort. Each
-// "name value" field is padEnd'd to a fixed width so the columns line up
-// across rows.
-const formatSummaryField = (name: string, value: number): string =>
-    `${name} ${value}`.padEnd(name.length + 6);
+// "name value" field is padEnd'd to a fixed, VALUE-INDEPENDENT column width
+// so the columns still line up across rows at real-world (5-digit+) counts --
+// padding by `name.length + 6` collapsed to zero separator once a value hit
+// 5 digits (e.g. "matched 19880" is already 13 chars).
+const SUMMARY_FIELD_WIDTH = 16;
 
-const printCopySummary = ({
+const formatSummaryField = (name: string, value: number): string =>
+    `${name} ${value}`.padEnd(SUMMARY_FIELD_WIDTH);
+
+export const printCopySummary = ({
     stories,
     assetFolders,
     assets,
@@ -4590,7 +4653,10 @@ export const copyCommand = async (props: CLIOptions) => {
             });
             const copyApiConfig = {
                 ...apiConfig,
-                sbApi: wrapSbApiWithLimiter(apiConfig.sbApi, limiter),
+                sbApi: wrapSbApiWithLimiter(
+                    buildCopyRateLimitedSbApi(runtime.rateLimit),
+                    limiter,
+                ),
             };
 
             const onSigint = () => {
@@ -4614,11 +4680,26 @@ export const copyCommand = async (props: CLIOptions) => {
             let assetFoldersCreatedCount = 0;
             let assetFoldersMatchedCount = 0;
             let assetFoldersFailedCount = 0;
-            let assetFoldersAbortedCount = 0;
             let assetsCreatedCount = 0;
             let assetsMatchedCount = 0;
             let assetsFailedCount = 0;
-            let assetsAbortedCount = 0;
+            // Plan-derived totals for the "pending" count on abort (see the
+            // `finally` block below) -- summing per-phase `*Aborted`
+            // counters double-counts a story aborted in the shell phase and
+            // then re-attempted in the rewrite phase, while a descendant
+            // skipped via `skippedBranch`'s early return increments no
+            // counter at all (an undercount). `pending` is instead derived
+            // from the plan's own totals minus whatever got a definitive
+            // outcome, which is correct either way.
+            let treeNodeTotal = 0;
+            let withAssetsAssetsTotal = 0;
+            let withAssetsAssetFoldersTotal = 0;
+            // Set in the outer catch below whenever any error reaches it,
+            // aborted or not -- a genuine thrown error (e.g. the
+            // content-fetch-failure aggregate, or anything thrown before/
+            // between phases) must still print a Resume: line even when
+            // every per-item failure counter above is 0.
+            let errorEscaped = false;
 
             try {
                 // The manifest is loaded once, up front, so the resume
@@ -4642,7 +4723,7 @@ export const copyCommand = async (props: CLIOptions) => {
                 const stubSourceStories = await getStoriesForSelection(
                     selection,
                     sourceSpace,
-                    { contentFor: "none" },
+                    { contentFor: "none", apiConfig: copyApiConfig },
                 );
                 const [rootStubItem, ...childStubItems] = stubSourceStories;
 
@@ -5029,6 +5110,9 @@ export const copyCommand = async (props: CLIOptions) => {
                     Logger.warning(
                         "Copying referenced assets before stories because --with-assets was passed.",
                     );
+                    withAssetsAssetsTotal = withAssetsGraph.assets.length;
+                    withAssetsAssetFoldersTotal =
+                        withAssetsGraph.assetFolders.length;
                     const assetProgress = createProgressTracker({
                         label: "Assets",
                         total: withAssetsGraph.assets.length,
@@ -5059,15 +5143,12 @@ export const copyCommand = async (props: CLIOptions) => {
                             assetCopyReport.summary.assetFoldersMatched;
                         assetFoldersFailedCount =
                             assetCopyReport.summary.assetFoldersFailed;
-                        assetFoldersAbortedCount =
-                            assetCopyReport.assetFoldersAborted;
                         assetsCreatedCount =
                             assetCopyReport.summary.assetsCreated;
                         assetsMatchedCount =
                             assetCopyReport.summary.assetsMatched;
                         assetsFailedCount =
                             assetCopyReport.summary.assetsFailed;
-                        assetsAbortedCount = assetCopyReport.assetsAborted;
                     } catch (error) {
                         const anyError = error as any;
                         assetFoldersCreatedCount =
@@ -5076,12 +5157,9 @@ export const copyCommand = async (props: CLIOptions) => {
                             anyError?.assetFoldersMatched ?? 0;
                         assetFoldersFailedCount =
                             anyError?.assetFoldersFailed ?? 0;
-                        assetFoldersAbortedCount =
-                            anyError?.assetFoldersAborted ?? 0;
                         assetsCreatedCount = anyError?.assetsCreated ?? 0;
                         assetsMatchedCount = anyError?.assetsMatched ?? 0;
                         assetsFailedCount = anyError?.assetsFailed ?? 0;
-                        assetsAbortedCount = anyError?.assetsAborted ?? 0;
                         throw error;
                     } finally {
                         assetProgress.finish();
@@ -5131,7 +5209,7 @@ export const copyCommand = async (props: CLIOptions) => {
                 // once per phase (see collectTreeLevels), so the shell/rewrite
                 // progress totals are the full node count, not just leaf
                 // stories.
-                const treeNodeTotal =
+                treeNodeTotal =
                     countTreeStories(rootsToCreate).folders +
                     countTreeStories(rootsToCreate).stories;
                 const shellProgress = createProgressTracker({
@@ -5255,6 +5333,8 @@ export const copyCommand = async (props: CLIOptions) => {
                     );
                 }
             } catch (error) {
+                errorEscaped = true;
+
                 if (!limiter.aborted()) {
                     throw error;
                 }
@@ -5269,7 +5349,7 @@ export const copyCommand = async (props: CLIOptions) => {
                         assetsFailedCount > 0;
                     let resumeCommand: string | undefined;
 
-                    if (aborted || hasFailure) {
+                    if (aborted || hasFailure || errorEscaped) {
                         resumeCommand = buildCopyCommand({
                             sourceSpace,
                             targetSpace,
@@ -5281,10 +5361,25 @@ export const copyCommand = async (props: CLIOptions) => {
                     }
 
                     if (aborted) {
-                        const pending =
-                            storiesAborted +
-                            assetFoldersAbortedCount +
-                            assetsAbortedCount;
+                        const storiesPending = Math.max(
+                            0,
+                            treeNodeTotal -
+                                (storiesCreated +
+                                    storiesMatched +
+                                    storiesSkipped),
+                        );
+                        const assetsPending = withAssets
+                            ? Math.max(
+                                  0,
+                                  withAssetsAssetsTotal +
+                                      withAssetsAssetFoldersTotal -
+                                      (assetsCreatedCount +
+                                          assetsMatchedCount +
+                                          assetFoldersCreatedCount +
+                                          assetFoldersMatchedCount),
+                              )
+                            : 0;
+                        const pending = storiesPending + assetsPending;
                         Logger.warning(
                             `Copy interrupted: ${pending} item(s) pending. Run the same command again to resume.`,
                         );
@@ -5345,7 +5440,10 @@ export const copyCommand = async (props: CLIOptions) => {
             });
             const copyApiConfig = {
                 ...apiConfig,
-                sbApi: wrapSbApiWithLimiter(apiConfig.sbApi, limiter),
+                sbApi: wrapSbApiWithLimiter(
+                    buildCopyRateLimitedSbApi(runtime.rateLimit),
+                    limiter,
+                ),
             };
 
             const onSigint = () => {
@@ -5359,11 +5457,15 @@ export const copyCommand = async (props: CLIOptions) => {
             let assetFoldersCreatedCount = 0;
             let assetFoldersMatchedCount = 0;
             let assetFoldersFailedCount = 0;
-            let assetFoldersAbortedCount = 0;
             let assetsCreatedCount = 0;
             let assetsMatchedCount = 0;
             let assetsFailedCount = 0;
-            let assetsAbortedCount = 0;
+            // Plan-derived totals for the "pending" count on abort -- see
+            // the matching comment in the stories case above for why this
+            // replaces summing per-item `*Aborted` counters.
+            let assetsTotal = 0;
+            let assetFoldersTotal = 0;
+            let errorEscaped = false;
 
             try {
                 Logger.warning(
@@ -5407,7 +5509,9 @@ export const copyCommand = async (props: CLIOptions) => {
                             sourceSpace,
                             copyApiConfig,
                         ),
-                        getStoriesForSelection(storySelection, sourceSpace),
+                        getStoriesForSelection(storySelection, sourceSpace, {
+                            apiConfig: copyApiConfig,
+                        }),
                     ]);
                     const normalizedStories = normalizeStoriesForTree(
                         sourceStories,
@@ -5476,6 +5580,9 @@ export const copyCommand = async (props: CLIOptions) => {
                     });
                 }
 
+                assetsTotal = graph.assets.length;
+                assetFoldersTotal = graph.assetFolders.length;
+
                 if (dryRun) {
                     const report = buildCopyAssetsDryRunReport({
                         sourceSpace,
@@ -5521,12 +5628,9 @@ export const copyCommand = async (props: CLIOptions) => {
                         assetCopyReport.summary.assetFoldersMatched;
                     assetFoldersFailedCount =
                         assetCopyReport.summary.assetFoldersFailed;
-                    assetFoldersAbortedCount =
-                        assetCopyReport.assetFoldersAborted;
                     assetsCreatedCount = assetCopyReport.summary.assetsCreated;
                     assetsMatchedCount = assetCopyReport.summary.assetsMatched;
                     assetsFailedCount = assetCopyReport.summary.assetsFailed;
-                    assetsAbortedCount = assetCopyReport.assetsAborted;
                 } catch (error) {
                     const anyError = error as any;
                     assetFoldersCreatedCount =
@@ -5534,17 +5638,16 @@ export const copyCommand = async (props: CLIOptions) => {
                     assetFoldersMatchedCount =
                         anyError?.assetFoldersMatched ?? 0;
                     assetFoldersFailedCount = anyError?.assetFoldersFailed ?? 0;
-                    assetFoldersAbortedCount =
-                        anyError?.assetFoldersAborted ?? 0;
                     assetsCreatedCount = anyError?.assetsCreated ?? 0;
                     assetsMatchedCount = anyError?.assetsMatched ?? 0;
                     assetsFailedCount = anyError?.assetsFailed ?? 0;
-                    assetsAbortedCount = anyError?.assetsAborted ?? 0;
                     throw error;
                 } finally {
                     assetProgress.finish();
                 }
             } catch (error) {
+                errorEscaped = true;
+
                 if (!limiter.aborted()) {
                     throw error;
                 }
@@ -5557,7 +5660,7 @@ export const copyCommand = async (props: CLIOptions) => {
                         assetFoldersFailedCount > 0 || assetsFailedCount > 0;
                     let resumeCommand: string | undefined;
 
-                    if (aborted || hasFailure) {
+                    if (aborted || hasFailure || errorEscaped) {
                         resumeCommand = buildCopyAssetsCommand({
                             sourceSpace,
                             targetSpace,
@@ -5568,8 +5671,15 @@ export const copyCommand = async (props: CLIOptions) => {
                     }
 
                     if (aborted) {
-                        const pending =
-                            assetFoldersAbortedCount + assetsAbortedCount;
+                        const pending = Math.max(
+                            0,
+                            assetsTotal +
+                                assetFoldersTotal -
+                                (assetsCreatedCount +
+                                    assetsMatchedCount +
+                                    assetFoldersCreatedCount +
+                                    assetFoldersMatchedCount),
+                        );
                         Logger.warning(
                             `Copy interrupted: ${pending} item(s) pending. Run the same command again to resume.`,
                         );
