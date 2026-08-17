@@ -320,10 +320,18 @@ describe("copy stories: end-to-end resume scenarios", () => {
             expect(mocks.updateStory).toHaveBeenCalledTimes(6);
 
             const entries = await readCombinedManifest(manifestRoot);
+            const storyEntries = entries.filter(
+                (entry: any) => entry.type === "story",
+            );
             const checkpointEntries = entries.filter(
                 (entry: any) => entry.type === "story_content",
             );
 
+            // Precondition for scenario 3's "all shells mapped, zero
+            // creates" claim: the crashed run must have persisted all 6
+            // shell mappings even though only 3 of the content writes
+            // succeeded.
+            expect(storyEntries).toHaveLength(6);
             expect(checkpointEntries).toHaveLength(3);
         });
 
@@ -334,6 +342,17 @@ describe("copy stories: end-to-end resume scenarios", () => {
             expect(mocks.createStory).not.toHaveBeenCalled();
             // Only the 3 stories left without a checkpoint get a content write.
             expect(mocks.updateStory).toHaveBeenCalledTimes(3);
+            // Pins that the SKIP is actually caused by the resume fast path
+            // (partitionStoriesForResume's fastPathSourceIds), not merely by
+            // the rewrite phase's own content-hash compare: of the docs
+            // tree's 5 children (a, sub, b, c, d -- the root is always
+            // fetched separately via getStoryBySlug, never getStoryById),
+            // "a" and "sub" already had a valid checkpoint from the crashed
+            // run and must never reach getStoryById at all. If
+            // partitionStoriesForResume regressed to always-empty, this
+            // count would be 5 instead of 3 even though the hash-compare
+            // skip below would still make updateStory's count look right.
+            expect(mocks.getStoryById).toHaveBeenCalledTimes(3);
 
             const summaryCall = (Logger.log as any).mock.calls.find(
                 (call: any[]) => String(call[0]).startsWith("Copy summary"),
