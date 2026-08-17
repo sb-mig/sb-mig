@@ -1,3 +1,8 @@
+import * as fs from "fs";
+import * as os from "os";
+import * as path from "path";
+import { PassThrough } from "stream";
+
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const formDataMock = vi.hoisted(() => ({
@@ -6,6 +11,17 @@ const formDataMock = vi.hoisted(() => ({
         submitUrl?: string;
     }>,
     statusCode: 204,
+}));
+
+vi.mock("https", () => ({
+    default: {
+        get: (url: string, callback: (response: any) => void) => {
+            const response = new PassThrough();
+            callback(response);
+            response.end(url);
+            return { on: () => {} };
+        },
+    },
 }));
 
 vi.mock("form-data", () => {
@@ -51,6 +67,7 @@ import {
     createAsset,
     createAssetAndFinalize,
     createAssetFolder,
+    downloadAsset,
     finishAssetUpload,
     getAllAssets,
     getAllAssetFolders,
@@ -442,5 +459,30 @@ describe("Assets API", () => {
             },
             publish_at: "2026-05-31T11:52:00.000Z",
         });
+    });
+
+    it("downloads concurrent assets that share a base filename to distinct files", async () => {
+        const sbmigWorkingDirectory = fs.mkdtempSync(
+            path.join(os.tmpdir(), "sb-mig-download-"),
+        );
+        const urlA =
+            "https://a.storyblok.com/f/999/100x100/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/logo.png";
+        const urlB =
+            "https://a.storyblok.com/f/999/100x100/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/logo.png";
+
+        const [pathA, pathB] = await Promise.all([
+            downloadAsset(
+                { payload: { filename: urlA } as any },
+                { sbmigWorkingDirectory } as any,
+            ),
+            downloadAsset(
+                { payload: { filename: urlB } as any },
+                { sbmigWorkingDirectory } as any,
+            ),
+        ]);
+
+        expect(pathA).not.toBe(pathB);
+        expect(fs.readFileSync(pathA, "utf-8")).toBe(urlA);
+        expect(fs.readFileSync(pathB, "utf-8")).toBe(urlB);
     });
 });
