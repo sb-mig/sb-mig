@@ -69,10 +69,24 @@ export type CopyAssetFolderManifestEntry = CopyManifestEntryBase & {
     target_path?: string;
 };
 
+export type CopyStoryContentManifestEntry = {
+    type: "story_content";
+    schema_version: 1;
+    source_space_id: string;
+    target_space_id: string;
+    source_id: number;
+    target_id: number;
+    source_updated_at?: string;
+    content_hash: string;
+    unresolved_refs: number;
+    created_at: string;
+};
+
 export type CopyManifestEntry =
     | CopyStoryManifestEntry
     | CopyAssetManifestEntry
-    | CopyAssetFolderManifestEntry;
+    | CopyAssetFolderManifestEntry
+    | CopyStoryContentManifestEntry;
 
 export type CopyMaps = {
     storyIds: Map<number, number>;
