@@ -9,6 +9,17 @@ import type {
 import fs from "fs/promises";
 import path from "path";
 
+// Per-file promise chain so parallel workers never interleave partial lines
+// and temp-file renames never race an append.
+const fileQueues = new Map<string, Promise<unknown>>();
+
+const enqueue = <T>(filePath: string, task: () => Promise<T>): Promise<T> => {
+    const previous = fileQueues.get(filePath) ?? Promise.resolve();
+    const next = previous.then(task, task);
+    fileQueues.set(filePath, next);
+    return next;
+};
+
 export type CopyManifestPaths = {
     rootDir: string;
     combined: string;
@@ -83,39 +94,42 @@ export const parseManifestJsonl = <T extends CopyManifestEntry>(
 export const appendManifestEntry = async (
     filePath: string,
     entry: CopyManifestEntry,
-): Promise<void> => {
-    await fs.mkdir(path.dirname(filePath), { recursive: true });
-    await fs.appendFile(filePath, `${JSON.stringify(entry)}\n`, "utf8");
-};
+): Promise<void> =>
+    enqueue(filePath, async () => {
+        await fs.mkdir(path.dirname(filePath), { recursive: true });
+        await fs.appendFile(filePath, `${JSON.stringify(entry)}\n`, "utf8");
+    });
 
 export const appendManifestEntries = async (
     filePath: string,
     entries: CopyManifestEntry[],
 ): Promise<void> => {
-    if (entries.length === 0) {
-        return;
-    }
-
-    await fs.mkdir(path.dirname(filePath), { recursive: true });
-    await fs.appendFile(
-        filePath,
-        entries.map((entry) => JSON.stringify(entry)).join("\n") + "\n",
-        "utf8",
-    );
+    if (entries.length === 0) return;
+    return enqueue(filePath, async () => {
+        await fs.mkdir(path.dirname(filePath), { recursive: true });
+        await fs.appendFile(
+            filePath,
+            entries.map((entry) => JSON.stringify(entry)).join("\n") + "\n",
+            "utf8",
+        );
+    });
 };
 
 export const writeManifest = async (
     filePath: string,
     entries: CopyManifestEntry[],
-): Promise<void> => {
-    await fs.mkdir(path.dirname(filePath), { recursive: true });
-    const content =
-        entries.length > 0
-            ? entries.map((entry) => JSON.stringify(entry)).join("\n") + "\n"
-            : "";
-
-    await fs.writeFile(filePath, content, "utf8");
-};
+): Promise<void> =>
+    enqueue(filePath, async () => {
+        await fs.mkdir(path.dirname(filePath), { recursive: true });
+        const content =
+            entries.length > 0
+                ? entries.map((entry) => JSON.stringify(entry)).join("\n") +
+                  "\n"
+                : "";
+        const tempPath = `${filePath}.tmp-${process.pid}`;
+        await fs.writeFile(tempPath, content, "utf8");
+        await fs.rename(tempPath, filePath);
+    });
 
 export const dedupeManifestEntries = <T extends CopyManifestEntry>(
     entries: T[],
