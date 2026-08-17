@@ -80,6 +80,14 @@ export type CopyStoryContentManifestEntry = {
     content_hash: string;
     unresolved_refs: number;
     created_at: string;
+    // Resume fast-path gate identity (Task 10 hardening): a checkpoint is
+    // only trustworthy for skipping a re-copy if the publication mode,
+    // publish languages, and destination (target slug) it was written
+    // under still match the current run -- otherwise a mode/destination
+    // change could silently be skipped.
+    publication_mode?: string;
+    publish_languages?: string[];
+    target_full_slug?: string;
 };
 
 export type CopyManifestEntry =

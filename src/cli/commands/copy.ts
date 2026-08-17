@@ -580,17 +580,20 @@ const getStoryBySlugOrThrow = async (slug: string, sourceSpace: string) => {
     return entryStory;
 };
 
-// Task 10 resume fast path: `contentFor` lets callers skip the per-story
-// content fetch for children whose source id is not in the set (they join
-// the result as list stubs -- id/uuid/full_slug/updated_at/etc, no
-// `content`). The root is always fetched fully via getStoryBySlug
-// regardless of `contentFor`, matching pre-resume behavior. Default "all"
-// preserves the original behavior (every child fully fetched via the
-// combined list+content `getAllStories`) for callers that don't opt in.
+// Task 10 resume fast path: `contentFor: "none"` returns children as list
+// stubs -- id/uuid/full_slug/updated_at/etc, no `content` -- instead of
+// fully fetching every one. The root is always fetched fully via
+// getStoryBySlug regardless of `contentFor`, matching pre-resume behavior.
+// Default "all" preserves the original behavior (every child fully
+// fetched via the combined list+content `getAllStories`) for callers that
+// don't opt in. The selective per-id content fetch for a "none" result
+// lives ONLY in copyCommand's own step 3 (mapWithConcurrency +
+// getStoryById there) -- there is no per-id variant here, so there is
+// nothing here to silently paper over a failed fetch with a bare stub.
 const getStoriesForSelection = async (
     selection: CopySelection,
     sourceSpace: string,
-    options?: { contentFor?: Set<number> | "all" },
+    options?: { contentFor?: "all" | "none" },
 ) => {
     const contentFor = options?.contentFor ?? "all";
     const rootStory = await getStoryBySlugOrThrow(
@@ -641,27 +644,7 @@ const getStoriesForSelection = async (
         },
     );
 
-    const children = await mapWithConcurrency(
-        childStubs,
-        STORY_CONTENT_FETCH_CONCURRENCY,
-        async (stub: any) => {
-            if (!contentFor.has(Number(stub.id))) {
-                return { story: stub };
-            }
-
-            const fullStory = await managementApi.stories.getStoryById(
-                stub.id,
-                {
-                    ...apiConfig,
-                    spaceId: sourceSpace,
-                },
-            );
-
-            return fullStory ?? { story: stub };
-        },
-    );
-
-    return [rootStory, ...children];
+    return [rootStory, ...childStubs.map((stub: any) => ({ story: stub }))];
 };
 
 const stripGeneratedStoryFields = (story: any) => {
@@ -703,6 +686,28 @@ const normalizeStoriesForTree = (
             parent_id: story.parent_id === 0 ? null : story.parent_id,
         };
     });
+
+// A minimal, local mirror of createTree's own buildTree algorithm (see
+// ../../api/stories/tree.js: matches nodes by parent_id, recurses into
+// children). Used ONLY to plan each story's target slug (see
+// targetFullSlugBySourceId in copyCommand) before content is fetched. It
+// deliberately does not go through the real createTree/tree.js import:
+// tests mock that module to return a fixed tree per call, so invoking the
+// real (mocked) createTree a second time here would silently consume that
+// queued response and starve the "official" tree build later in the same
+// run.
+const buildStubTreeForSlugPlanning = (
+    nodes: any[],
+    parentId: number | null = null,
+): any[] =>
+    nodes
+        .filter((node) => node.parent_id === parentId)
+        .map((node) => ({
+            id: node.id,
+            parent_id: node.parent_id,
+            story: node,
+            children: buildStubTreeForSlugPlanning(nodes, node.id),
+        }));
 
 const selectTreeRoots = (tree: any[], selection: CopySelection): any[] => {
     if (selection.mode === "children") {
@@ -2758,6 +2763,17 @@ export type RewriteFailure = {
     message: string;
 };
 
+// Task 10 resume fast path hardening (C1): a story in needsContentIds
+// whose content fetch fails is recorded here and excluded from the copy
+// entirely, rather than silently rejoining as a content-less stub.
+type ContentFetchFailure = {
+    sourceId: number;
+    fullSlug: string;
+};
+
+const describeContentFetchFailure = (failure: ContentFetchFailure): string =>
+    `  - ${failure.fullSlug || "<unknown>"} (source id ${failure.sourceId})`;
+
 export const rewriteCopiedStoryContents = async ({
     tree,
     realParentId,
@@ -2772,6 +2788,7 @@ export const rewriteCopiedStoryContents = async ({
     writeConcurrency,
     progress,
     fastPathSourceIds,
+    listUpdatedAtBySourceId,
     apiConfig: apiConfigOverride = apiConfig,
 }: {
     tree: any[];
@@ -2791,6 +2808,14 @@ export const rewriteCopiedStoryContents = async ({
     // time. These stories rejoin the tree as list stubs with no content,
     // so they must be skipped before any hash/content logic runs.
     fastPathSourceIds?: Set<number>;
+    // Gate hardening: the list endpoint's own updated_at per source id,
+    // captured before any per-story content fetch. The checkpoint must
+    // record THIS value (not sourceStory.updated_at, which for a
+    // freshly-fetched story comes from a separate, later API call) so the
+    // next run's gate compares the list endpoint against itself. Root
+    // stories (never listed, only fetched via getStoryBySlug) fall back to
+    // sourceStory.updated_at.
+    listUpdatedAtBySourceId?: Map<number, string | undefined>;
     apiConfig?: any;
 }): Promise<{
     updatedStories: number;
@@ -3269,7 +3294,10 @@ export const rewriteCopiedStoryContents = async ({
                         target_space_id: targetSpace,
                         source_id: Number(sourceStory.id),
                         target_id: Number(targetStoryId),
-                        source_updated_at: sourceStory.updated_at,
+                        source_updated_at:
+                            listUpdatedAtBySourceId?.get(
+                                Number(sourceStory.id),
+                            ) ?? sourceStory.updated_at,
                         content_hash: hash,
                         unresolved_refs: countUnresolvedRefs({
                             stories: storiesToScanForUnresolvedRefs,
@@ -3277,6 +3305,13 @@ export const rewriteCopiedStoryContents = async ({
                             schemas,
                         }),
                         created_at: new Date().toISOString(),
+                        publication_mode: publication.mode,
+                        publish_languages: publication.resolvedPublishLanguages
+                            ? [...publication.resolvedPublishLanguages].sort()
+                            : undefined,
+                        target_full_slug: targetSlugBySourceSlug.get(
+                            String(sourceStory.full_slug ?? ""),
+                        ),
                     };
                     await appendCopyManifestEntry({
                         combinedPath: manifestPaths.combined,
@@ -4165,14 +4200,79 @@ export const copyCommand = async (props: CLIOptions) => {
             // Resume fast path (Task 10), step 1: list stubs for the
             // selection. The root is always fetched fully via
             // getStoryBySlug (see getStoriesForSelection); children come
-            // back as list stubs -- no `content` -- since `contentFor` is
-            // empty here.
+            // back as list stubs -- no `content`.
             const stubSourceStories = await getStoriesForSelection(
                 selection,
                 sourceSpace,
-                { contentFor: new Set() },
+                { contentFor: "none" },
             );
             const [rootStubItem, ...childStubItems] = stubSourceStories;
+
+            // Gate hardening: the resume fast path must also verify the
+            // story's PLANNED target slug hasn't changed (a destination
+            // change invalidates it). Computing that slug only needs
+            // id/parent_id/slug/full_slug -- all present on stubs -- so
+            // this "pre-plan" pass runs on stub data alone, entirely
+            // before any content is fetched. It is discarded once
+            // targetFullSlugBySourceId is extracted from it; the real
+            // tree/plan used for everything else is built later, once
+            // failed content fetches have been excluded (see step 3).
+            const preNormalizedStories = normalizeStoriesForTree(
+                stubSourceStories,
+                selection,
+            );
+            const preTree = buildStubTreeForSlugPlanning(preNormalizedStories);
+            const preRootsToCreate = prepareTreeForCreate(
+                selectTreeRoots(preTree, selection),
+            );
+            const prePlan = buildCopyPlan(preRootsToCreate, destination);
+            const stubStoryByFullSlug = new Map(
+                stubSourceStories.map(
+                    (item: any) =>
+                        [
+                            String(item.story.full_slug ?? ""),
+                            item.story,
+                        ] as const,
+                ),
+            );
+            const targetFullSlugBySourceId = new Map<number, string>();
+
+            for (const planItem of prePlan) {
+                const stubStory = stubStoryByFullSlug.get(
+                    planItem.sourceFullSlug,
+                );
+
+                if (stubStory) {
+                    targetFullSlugBySourceId.set(
+                        Number(stubStory.id),
+                        planItem.targetFullSlug,
+                    );
+                }
+            }
+
+            // The list endpoint's own updated_at (not a later per-story
+            // fetch's value) is what the next run's gate must compare
+            // against, so it is captured here straight from the stubs.
+            const listUpdatedAtBySourceId = new Map<number, string | undefined>(
+                childStubItems.map(
+                    (item: any) =>
+                        [Number(item.story.id), item.story.updated_at] as const,
+                ),
+            );
+            const childFullSlugBySourceId = new Map<number, string>(
+                childStubItems.map(
+                    (item: any) =>
+                        [
+                            Number(item.story.id),
+                            String(item.story.full_slug ?? ""),
+                        ] as const,
+                ),
+            );
+
+            // A checkpoint without its own "story" shell mapping must
+            // never fast-path -- otherwise the shell would stay empty
+            // forever, since the fast path never writes content.
+            const mappedSourceIds = new Set(copyMaps.storyIds.keys());
 
             // Step 2: partition children against the resume checkpoints.
             const partition = partitionStoriesForResume({
@@ -4180,13 +4280,25 @@ export const copyCommand = async (props: CLIOptions) => {
                 checkpoints,
                 verify,
                 forceContent,
+                publicationMode: publication.mode,
+                publishLanguages: publication.resolvedPublishLanguages,
+                targetFullSlugBySourceId,
+                mappedSourceIds,
             });
 
             // Step 3: fetch full content only for stories that need it.
             // Fast-path stories (checkpointed, unresolved_refs 0, unchanged
             // updated_at) skip this fetch entirely and rejoin the tree as
-            // stubs below.
+            // stubs below. A story whose content fetch fails must NEVER
+            // silently join the tree as a bare stub: rewriteCopiedStoryContents
+            // would then write `content: {}` over its real target content
+            // and checkpoint that corruption as if it were legitimate,
+            // permanently fast-pathing the destroyed story on every later
+            // run. It is instead recorded as a failure and excluded from
+            // the tree entirely (no shell write, no content write, no
+            // checkpoint).
             const contentBySourceId = new Map<number, any>();
+            const contentFetchFailures: ContentFetchFailure[] = [];
 
             await mapWithConcurrency(
                 [...partition.needsContentIds],
@@ -4202,18 +4314,49 @@ export const copyCommand = async (props: CLIOptions) => {
 
                     if (fullStory) {
                         contentBySourceId.set(sourceId, fullStory);
+                        return;
                     }
+
+                    contentFetchFailures.push({
+                        sourceId,
+                        fullSlug: childFullSlugBySourceId.get(sourceId) ?? "",
+                    });
                 },
             );
 
+            if (contentFetchFailures.length > 0) {
+                Logger.error(
+                    `${contentFetchFailures.length} story content fetch(es) failed; the rest of the copy still completed for the other stories. Failed stories:`,
+                );
+                for (const failure of contentFetchFailures) {
+                    Logger.error(describeContentFetchFailure(failure));
+                }
+            }
+
+            const failedContentFetchSourceIds = new Set(
+                contentFetchFailures.map((failure) => failure.sourceId),
+            );
+
             // Step 4: fast-path stories join the tree as stubs; everything
-            // else gets its freshly-fetched full content merged in.
+            // else gets its freshly-fetched full content merged in. A
+            // story whose content fetch failed is excluded entirely (see
+            // the comment above step 3).
             const sourceStories = [
                 rootStubItem,
-                ...childStubItems.map(
-                    (item: any) =>
-                        contentBySourceId.get(Number(item.story.id)) ?? item,
-                ),
+                ...childStubItems
+                    .filter(
+                        (item: any) =>
+                            !failedContentFetchSourceIds.has(
+                                Number(item.story.id),
+                            ),
+                    )
+                    .map((item: any) => {
+                        const sourceId = Number(item.story.id);
+
+                        return partition.fastPathSourceIds.has(sourceId)
+                            ? item
+                            : contentBySourceId.get(sourceId);
+                    }),
             ];
 
             const normalizedStories = normalizeStoriesForTree(
@@ -4233,13 +4376,18 @@ export const copyCommand = async (props: CLIOptions) => {
             const plan = buildCopyPlan(rootsToCreate, destination);
 
             // Content consumers below (reference scanning, component
-            // compatibility) must never be fed a fast-path stub: it has no
-            // `content` field, so scanning it would silently find nothing
-            // rather than crash. Fast-path stories were already
+            // compatibility, buildPublishedLayerContext) must never be fed
+            // a fast-path stub: it has no `content` field. Folders can
+            // legitimately have no content of their own, so the exclusion
+            // predicate is "is this a fast-path story", not "does it have
+            // a content field" -- every story that survives step 3 (any
+            // story not in fastPathSourceIds) is guaranteed to have real
+            // content merged in above. Fast-path stories were already
             // scanned/validated when their checkpoint was written by a
             // prior run, so excluding them here is correct, not a gap.
             const contentFetchedStories = sourceStories.filter(
-                (item: any) => item?.story?.content !== undefined,
+                (item: any) =>
+                    !partition.fastPathSourceIds.has(Number(item.story.id)),
             );
             let dryRunGraph: CopyGraph | undefined;
             let withAssetsGraph: CopyGraph | undefined;
@@ -4279,7 +4427,7 @@ export const copyCommand = async (props: CLIOptions) => {
                         ? assetFoldersResult.asset_folders
                         : [];
                     Logger.warning(
-                        `Planning referenced assets from ${countStoryItems(sourceStories)} stories against ${sourceAssets.length} source asset(s).`,
+                        `Planning referenced assets from ${contentFetchedStories.length} stories against ${sourceAssets.length} source asset(s).`,
                     );
                     // The reference scan (inside buildReferencedAssetsGraph)
                     // runs over content-fetched stories only
@@ -4311,7 +4459,7 @@ export const copyCommand = async (props: CLIOptions) => {
                 } else if (dryRun) {
                     const schemas = await schemasPromise;
                     Logger.warning(
-                        `Scanning ${countStoryItems(sourceStories)} stories for copy references.`,
+                        `Scanning ${contentFetchedStories.length} stories for copy references.`,
                     );
                     // Same reasoning as the --with-assets scan above: this
                     // scan runs over content-fetched stories only, since
@@ -4397,6 +4545,19 @@ export const copyCommand = async (props: CLIOptions) => {
                         `Writing dry-run copy report to ${outputPath}.`,
                     );
                     await writeDryRunReport(outputPath, report);
+                }
+
+                // The plan was still produced for every story that could
+                // be fetched, but a content-fetch failure means the plan
+                // (and, on apply, the copy itself) cannot be trusted for
+                // the affected stories -- surface it as a non-zero exit
+                // rather than silently reporting a shorter plan.
+                if (contentFetchFailures.length > 0) {
+                    throw new Error(
+                        `Copy planning finished but ${contentFetchFailures.length} story content fetch(es) failed:\n${contentFetchFailures
+                            .map(describeContentFetchFailure)
+                            .join("\n")}`,
+                    );
                 }
 
                 break;
@@ -4504,6 +4665,7 @@ export const copyCommand = async (props: CLIOptions) => {
                 forceContent,
                 writeConcurrency: 12,
                 fastPathSourceIds: partition.fastPathSourceIds,
+                listUpdatedAtBySourceId,
             });
 
             if (outputPath) {
@@ -4523,6 +4685,18 @@ export const copyCommand = async (props: CLIOptions) => {
                 });
 
                 await writeJsonReport(outputPath, report);
+            }
+
+            // The rest of the copy still completed for every story whose
+            // content could be fetched; a content-fetch failure surfaces
+            // here as a non-zero exit, same as rewriteCopiedStoryContents'
+            // own aggregate failure above.
+            if (contentFetchFailures.length > 0) {
+                throw new Error(
+                    `Copy finished but ${contentFetchFailures.length} story content fetch(es) failed:\n${contentFetchFailures
+                        .map(describeContentFetchFailure)
+                        .join("\n")}`,
+                );
             }
 
             break;

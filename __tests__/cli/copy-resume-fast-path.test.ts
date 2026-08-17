@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, writeFile } from "fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "fs/promises";
 import { tmpdir } from "os";
 import path from "path";
 
@@ -17,6 +17,8 @@ const mocks = vi.hoisted(() => ({
     updateStory: vi.fn(),
     getAllComponents: vi.fn(),
     sbApiGet: vi.fn(),
+    logSuccess: vi.fn(),
+    logError: vi.fn(),
 }));
 
 vi.mock("../../src/cli/api-config.js", () => ({
@@ -51,9 +53,9 @@ vi.mock("../../src/api/managementApi.js", () => ({
 vi.mock("../../src/utils/logger.js", () => ({
     default: {
         log: vi.fn(),
-        success: vi.fn(),
+        success: mocks.logSuccess,
         warning: vi.fn(),
-        error: vi.fn(),
+        error: mocks.logError,
     },
 }));
 
@@ -122,6 +124,15 @@ describe("copy stories resume fast path (Task 10)", () => {
                 content_hash: "sha256:does-not-matter-for-fast-path",
                 unresolved_refs: 0,
                 created_at: "2026-08-16T00:00:00.000Z",
+                // Gate identity (Task 10 hardening): must match the
+                // current run's publication mode/languages and this
+                // story's planned target slug. copyCommand defaults to
+                // "preserve-layers" mode with no explicit
+                // --publicationLanguages, which resolves to ["[default]"]
+                // given the mocked (empty) target-space language list.
+                publication_mode: "preserve-layers",
+                publish_languages: ["[default]"],
+                target_full_slug: "imported/blog/a",
             },
         ];
         await writeFile(
@@ -331,5 +342,150 @@ describe("copy stories resume fast path (Task 10)", () => {
             "2",
             expect.anything(),
         );
+    });
+
+    it("dry-run reports the resume fast path and does not fetch content for it (I6)", async () => {
+        // Dry-run never resolves publish languages (to avoid an extra API
+        // call while merely planning), so the gate can only match when
+        // both sides have no languages at all -- i.e. save-only mode. The
+        // shared checkpoint above is written for "preserve-layers", so it
+        // is patched here to a save-only checkpoint instead.
+        const manifestPath = path.join(manifestDirectory, "manifest.jsonl");
+        const existingEntries = (await readFile(manifestPath, "utf8"))
+            .trim()
+            .split("\n")
+            .map((line) => JSON.parse(line));
+        const patchedEntries = existingEntries.map((entry: any) =>
+            entry.type === "story_content"
+                ? {
+                      ...entry,
+                      publication_mode: "save-only",
+                      publish_languages: undefined,
+                  }
+                : entry,
+        );
+        await writeFile(
+            manifestPath,
+            patchedEntries.map((entry: any) => JSON.stringify(entry)).join(
+                "\n",
+            ) + "\n",
+            "utf8",
+        );
+
+        mocks.getStoryById.mockImplementation((id: any) => {
+            if (String(id) === "2") {
+                throw new Error(
+                    "dry-run resume fast path must not fetch content for a checkpointed story",
+                );
+            }
+
+            if (String(id) === "3") {
+                return Promise.resolve({
+                    story: {
+                        id: 3,
+                        uuid: "uuid-b",
+                        name: "B",
+                        slug: "b",
+                        full_slug: "blog/b",
+                        is_folder: false,
+                        parent_id: 1,
+                        published: false,
+                        unpublished_changes: false,
+                        content: { component: "page", title: "B content" },
+                    },
+                });
+            }
+
+            return Promise.resolve(undefined);
+        });
+
+        const outputPath = path.join(tempDir, "reports", "resume-dry-run.json");
+
+        await copyCommand({
+            input: ["copy", "stories"],
+            flags: {
+                from: "source-space",
+                to: "target-space",
+                source: "blog",
+                destination: "imported",
+                dryRun: true,
+                publicationMode: "save-only",
+                manifestRoot,
+                outputPath,
+            },
+        } as any);
+
+        const report = JSON.parse(await readFile(outputPath, "utf8"));
+
+        expect(report.summary.storiesSkipped).toBeGreaterThan(0);
+        expect(mocks.getStoryById).not.toHaveBeenCalledWith(
+            "2",
+            expect.anything(),
+        );
+        expect(mocks.logSuccess).toHaveBeenCalledWith(
+            expect.stringMatching(
+                /^Resume: \d+ stories already up to date \(checkpointed\)\.$/,
+            ),
+        );
+    });
+
+    it("excludes a story from the tree entirely when its content fetch fails, instead of writing content: {} (C1)", async () => {
+        mocks.getStoryById.mockImplementation((id: any) => {
+            if (String(id) === "2") {
+                throw new Error(
+                    "resume fast path must not fetch content for a checkpointed story",
+                );
+            }
+
+            // Story "b" (id 3) simulates a content-fetch failure:
+            // getStoryById already logs and resolves undefined internally
+            // on error (see stories.ts's own try/catch).
+            return Promise.resolve(undefined);
+        });
+
+        await expect(
+            copyCommand({
+                input: ["copy", "stories"],
+                flags: {
+                    from: "source-space",
+                    to: "target-space",
+                    source: "blog",
+                    destination: "imported",
+                    manifestRoot,
+                },
+            } as any),
+        ).rejects.toThrow(/story content fetch\(es\) failed/);
+
+        // Story "b" is excluded entirely: no shell created for it, no
+        // content write for it -- NOT a shell silently created with an
+        // empty payload.
+        expect(mocks.createStory).not.toHaveBeenCalled();
+        const updatedTargetIds = mocks.updateStory.mock.calls.map(
+            (call) => call[1],
+        );
+        expect(updatedTargetIds).not.toContain("1003");
+
+        // The rest of the copy still completed: story "a"'s own fast path
+        // is entirely unaffected by "b"'s failure.
+        expect(mocks.getStoryById).not.toHaveBeenCalledWith(
+            "2",
+            expect.anything(),
+        );
+
+        // No manifest entry (shell mapping or checkpoint) was ever written
+        // for the excluded story.
+        const combinedManifest = (
+            await readFile(
+                path.join(manifestDirectory, "manifest.jsonl"),
+                "utf8",
+            )
+        )
+            .trim()
+            .split("\n")
+            .map((line) => JSON.parse(line));
+
+        expect(
+            combinedManifest.some((entry: any) => entry.source_id === 3),
+        ).toBe(false);
     });
 });
