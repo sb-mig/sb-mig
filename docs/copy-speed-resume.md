@@ -123,7 +123,7 @@ Mapped stories skip validation calls by default. The 404 fallback covers stale m
 
 | Flag | Default | Effect |
 | --- | --- | --- |
-| `--rateLimit <n>` | 6 | Target requests per second for the shared limiter. Overrides the `rateLimit` value from the sb-mig config file when both are set. |
+| `--rateLimit <n>` | 6 | Target requests per second for the shared limiter. Independent of the `rateLimit` value in the sb-mig config file, which only applies to the plain Storyblok client used by other commands. |
 | `--verify` | off | Re-check mapped stories and checkpoints against the target space. |
 | `--force-content` | off | Ignore `story_content` checkpoints and rewrite every story. |
 
