@@ -5,20 +5,23 @@ import type {
 
 import crypto from "crypto";
 
-const stableStringify = (value: any): string => {
+const stableStringify = (value: any): string | undefined => {
     if (Array.isArray(value)) {
-        return `[${value.map(stableStringify).join(",")}]`;
+        return `[${value
+            .map((item) => stableStringify(item) ?? "null")
+            .join(",")}]`;
     }
     if (value && typeof value === "object") {
-        const keys = Object.keys(value).sort();
-        return `{${keys
-            .map(
-                (key) =>
-                    `${JSON.stringify(key)}:${stableStringify(value[key])}`,
-            )
-            .join(",")}}`;
+        const parts: string[] = [];
+        for (const key of Object.keys(value).sort()) {
+            const encoded = stableStringify(value[key]);
+            if (encoded !== undefined) {
+                parts.push(`${JSON.stringify(key)}:${encoded}`);
+            }
+        }
+        return `{${parts.join(",")}}`;
     }
-    return JSON.stringify(value) ?? "null";
+    return JSON.stringify(value);
 };
 
 export const computeContentHash = ({
@@ -30,14 +33,19 @@ export const computeContentHash = ({
     publicationMode: string;
     publishLanguages?: string[];
 }): string => {
-    const canonical = stableStringify({
-        payload,
-        publicationMode,
-        publishLanguages: [...(publishLanguages ?? [])].sort(),
-    });
+    const canonical =
+        stableStringify({
+            payload,
+            publicationMode,
+            publishLanguages: [...(publishLanguages ?? [])].sort(),
+        }) ?? "null";
 
     return `sha256:${crypto.createHash("sha256").update(canonical).digest("hex")}`;
 };
+
+const isStoryContentManifestEntry = (
+    entry: CopyManifestEntry,
+): entry is CopyStoryContentManifestEntry => entry.type === "story_content";
 
 export const buildContentCheckpointMap = (
     entries: CopyManifestEntry[],
@@ -45,9 +53,8 @@ export const buildContentCheckpointMap = (
     const map = new Map<number, CopyStoryContentManifestEntry>();
 
     for (const entry of entries) {
-        if ((entry as any).type === "story_content") {
-            const checkpoint = entry as CopyStoryContentManifestEntry;
-            map.set(Number(checkpoint.source_id), checkpoint);
+        if (isStoryContentManifestEntry(entry)) {
+            map.set(Number(entry.source_id), entry);
         }
     }
 

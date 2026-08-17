@@ -42,6 +42,42 @@ describe("computeContentHash", () => {
             computeContentHash({ payload, publicationMode: "collapse-draft" }),
         );
     });
+
+    it("omits object properties with undefined values (matches wire semantics)", () => {
+        const withUndefined = computeContentHash({
+            payload: { content: { a: undefined } },
+            publicationMode: "save-only",
+        });
+        const withoutKey = computeContentHash({
+            payload: { content: {} },
+            publicationMode: "save-only",
+        });
+        expect(withUndefined).toBe(withoutKey);
+    });
+
+    it("distinguishes between undefined and null values", () => {
+        const withUndefined = computeContentHash({
+            payload: { content: { a: undefined } },
+            publicationMode: "save-only",
+        });
+        const withNull = computeContentHash({
+            payload: { content: { a: null } },
+            publicationMode: "save-only",
+        });
+        expect(withUndefined).not.toBe(withNull);
+    });
+
+    it("serializes undefined array elements as null", () => {
+        const withUndefinedArray = computeContentHash({
+            payload: { content: { list: [undefined] } },
+            publicationMode: "save-only",
+        });
+        const withNullArray = computeContentHash({
+            payload: { content: { list: [null] } },
+            publicationMode: "save-only",
+        });
+        expect(withUndefinedArray).toBe(withNullArray);
+    });
 });
 
 describe("buildContentCheckpointMap", () => {
