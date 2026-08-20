@@ -145,6 +145,39 @@ const sourceStoriesById = new Map<number, any>([
     [DOCS_D, makeStory(DOCS_D, "docs/d", { parentId: DOCS_ROOT })],
 ]);
 
+// Two more independent subtrees for the multi-root scenario below. A real
+// migration runs `copy stories` once per root folder, so these exercise
+// several roots accumulating into ONE shared manifest.
+const NEWS_ROOT = 21;
+const NEWS_A = 22;
+const NEWS_SUB = 23;
+const NEWS_B = 24;
+const NEWS_C = 25;
+const NEWS_D = 26;
+const HELP_ROOT = 31;
+const HELP_A = 32;
+const HELP_SUB = 33;
+const HELP_B = 34;
+const HELP_C = 35;
+const HELP_D = 36;
+
+for (const story of [
+    makeStory(NEWS_ROOT, "news", { isFolder: true, parentId: 0 }),
+    makeStory(NEWS_A, "news/a", { parentId: NEWS_ROOT }),
+    makeStory(NEWS_SUB, "news/sub", { isFolder: true, parentId: NEWS_ROOT }),
+    makeStory(NEWS_B, "news/sub/b", { parentId: NEWS_SUB }),
+    makeStory(NEWS_C, "news/sub/c", { parentId: NEWS_SUB }),
+    makeStory(NEWS_D, "news/d", { parentId: NEWS_ROOT }),
+    makeStory(HELP_ROOT, "help", { isFolder: true, parentId: 0 }),
+    makeStory(HELP_A, "help/a", { parentId: HELP_ROOT }),
+    makeStory(HELP_SUB, "help/sub", { isFolder: true, parentId: HELP_ROOT }),
+    makeStory(HELP_B, "help/sub/b", { parentId: HELP_SUB }),
+    makeStory(HELP_C, "help/sub/c", { parentId: HELP_SUB }),
+    makeStory(HELP_D, "help/d", { parentId: HELP_ROOT }),
+]) {
+    sourceStoriesById.set(story.id, story);
+}
+
 // Fake target space: created/matched purely in-memory, mutated only through
 // managementApi.stories.createStory (never reset between tests, mirroring a
 // real target space that accumulates state across resumed runs).
@@ -388,6 +421,69 @@ describe("copy stories: end-to-end resume scenarios", () => {
                 String(DOCS_SUB),
                 expect.anything(),
             );
+        });
+    });
+    describe("multiple root folders copied one at a time (shared manifest)", () => {
+        let tempDir: string;
+        let manifestRoot: string;
+
+        beforeAll(async () => {
+            tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-e2e-roots-"));
+            manifestRoot = path.join(tempDir, ".sb-mig");
+        });
+
+        afterAll(async () => {
+            await rm(tempDir, { recursive: true, force: true });
+        });
+
+        it("5. a second root folder copies fully and keeps the first root's manifest entries", async () => {
+            await runCopy("news", manifestRoot);
+
+            expect(mocks.createStory).toHaveBeenCalledTimes(6);
+            expect(mocks.updateStory).toHaveBeenCalledTimes(6);
+
+            vi.clearAllMocks();
+
+            await runCopy("help", manifestRoot);
+
+            expect(mocks.createStory).toHaveBeenCalledTimes(6);
+            expect(mocks.updateStory).toHaveBeenCalledTimes(6);
+
+            const entries = await readCombinedManifest(manifestRoot);
+            const storyEntries = entries.filter(
+                (entry: any) => entry.type === "story",
+            );
+            const checkpointEntries = entries.filter(
+                (entry: any) => entry.type === "story_content",
+            );
+
+            // The "help" run must not drop what the "news" run wrote: both
+            // roots share one manifest keyed by source/target space pair.
+            expect(storyEntries).toHaveLength(12);
+            expect(checkpointEntries).toHaveLength(12);
+        });
+
+        it("6. re-running each root folder fast-paths everything, in any order", async () => {
+            await runCopy("help", manifestRoot);
+
+            expect(mocks.createStory).not.toHaveBeenCalled();
+            expect(mocks.updateStory).not.toHaveBeenCalled();
+            expect(mocks.getStoryById).not.toHaveBeenCalled();
+
+            vi.clearAllMocks();
+
+            await runCopy("news", manifestRoot);
+
+            expect(mocks.createStory).not.toHaveBeenCalled();
+            expect(mocks.updateStory).not.toHaveBeenCalled();
+            expect(mocks.getStoryById).not.toHaveBeenCalled();
+
+            const entries = await readCombinedManifest(manifestRoot);
+            const checkpointEntries = entries.filter(
+                (entry: any) => entry.type === "story_content",
+            );
+
+            expect(checkpointEntries).toHaveLength(12);
         });
     });
 });
