@@ -28,6 +28,7 @@ export type CopyError = {
     message: string;
     path?: string;
     sourceValue?: unknown;
+    sourceId?: number;
 };
 
 type CopyManifestEntryBase = {
@@ -69,10 +70,32 @@ export type CopyAssetFolderManifestEntry = CopyManifestEntryBase & {
     target_path?: string;
 };
 
+export type CopyStoryContentManifestEntry = {
+    type: "story_content";
+    schema_version: 1;
+    source_space_id: string;
+    target_space_id: string;
+    source_id: number;
+    target_id: number;
+    source_updated_at?: string;
+    content_hash: string;
+    unresolved_refs: number;
+    created_at: string;
+    // Resume fast-path gate identity (Task 10 hardening): a checkpoint is
+    // only trustworthy for skipping a re-copy if the publication mode,
+    // publish languages, and destination (target slug) it was written
+    // under still match the current run -- otherwise a mode/destination
+    // change could silently be skipped.
+    publication_mode?: string;
+    publish_languages?: string[];
+    target_full_slug?: string;
+};
+
 export type CopyManifestEntry =
     | CopyStoryManifestEntry
     | CopyAssetManifestEntry
-    | CopyAssetFolderManifestEntry;
+    | CopyAssetFolderManifestEntry
+    | CopyStoryContentManifestEntry;
 
 export type CopyMaps = {
     storyIds: Map<number, number>;

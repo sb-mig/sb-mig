@@ -14,6 +14,7 @@ import type {
     FinishAssetUpload,
 } from "./assets.types.js";
 
+import crypto from "crypto";
 import fs from "fs";
 import https from "https";
 import path from "path";
@@ -194,6 +195,38 @@ export const finishAssetUpload: FinishAssetUpload = async (
         });
 };
 
+// Storyblok asset URLs look like `.../f/<space>/<dims>/<hash>/<name>`, so the
+// bare filename (the URL's last segment) is not unique across assets -- two
+// different source assets can share a base filename. Downloading concurrently
+// to a path built only from that filename lets two workers write the same
+// file at once, corrupting whichever upload reads it first. Use the URL's
+// hash segment (unique per asset) as a per-download subfolder; fall back to a
+// hash of the whole URL when it doesn't parse into that shape.
+const getDownloadUniqueSegment = (fileUrl: string): string => {
+    try {
+        const url = new URL(fileUrl);
+
+        if (url.hostname === "a.storyblok.com") {
+            const parts = url.pathname.split("/").filter(Boolean);
+            const fIndex = parts.indexOf("f");
+            const assetHash = fIndex >= 0 ? parts[fIndex + 3] : undefined;
+            // A filename segment must follow the hash -- without this check,
+            // a 4-segment path (.../f/<space>/<name>) reads its own bare
+            // filename as the "hash", so two such assets sharing a basename
+            // still collide (parts[fIndex + 4] is undefined otherwise).
+            const hasNameSegment = parts.length > fIndex + 4;
+
+            if (assetHash && hasNameSegment) {
+                return assetHash;
+            }
+        }
+    } catch {
+        // Not a parseable URL -- fall through to the generic fallback below.
+    }
+
+    return crypto.createHash("sha1").update(fileUrl).digest("hex").slice(0, 16);
+};
+
 export const downloadAsset: DownloadAsset = async (args, config) => {
     const { debug, sbmigWorkingDirectory } = config;
     const { payload } = args;
@@ -205,6 +238,7 @@ export const downloadAsset: DownloadAsset = async (args, config) => {
     const downloadedAssetsFolder = path.join(
         sbmigWorkingDirectory,
         "downloadedAssets",
+        getDownloadUniqueSegment(fileUrl),
     );
     Logger.log(
         `Downloading ${fileName} asset ${

@@ -93,6 +93,7 @@ Do not hesitate to get in touch if you encounter any issues or require further c
     - [Syncing components](#syncing-components)
     - [Syncing datasources](#syncing-datasources)
     - [Migrating content](#migrating-content)
+    - [Copying content](#copying-content)
     - [Inspecting publication state](#inspecting-publication-state)
     - [Presets support](#presets-support)
 - [Development](#development)
@@ -398,6 +399,25 @@ sb-mig migrate content --all \
 This runs `colorPickerModeValues` for the normal Backpack keys and also for the
 two wrapper component names by aliasing them onto the existing `sb-button` and
 `sb-section` migration handlers.
+
+## Copying content
+
+Use `sb-mig copy` to copy stories, folders, and assets between spaces with durable manifests and resume support.
+
+```bash
+sb-mig copy stories --from 12345 --to 67890 --source blog --destination imported
+```
+
+### Speed and resume
+
+The copy command sends requests in parallel through an adaptive rate limiter. The default budget is 6 requests per second. Use `--rateLimit <n>` to change it. This is independent of the `rateLimit` setting in your `storyblok.config.js`, which only applies to the plain Storyblok client used by other commands. The limiter backs off automatically on 429 responses and recovers on success.
+
+Every successful story write is checkpointed in `.sb-mig/copy/<source>/<target>/manifest.jsonl`. When a copy fails or is interrupted (Ctrl-C), run the same command again: completed stories and assets are skipped, and only unfinished work runs. A story edited in the source space after a copy is detected and copied again.
+
+- `--verify` — re-check every mapped story and checkpoint against the target space instead of trusting the local manifest.
+- `--force-content` — ignore content checkpoints and rewrite every story.
+
+Known limitation: target assets match by file name. Two target assets with the same file name block the match, and a rerun after a partial asset copy can upload a duplicate.
 
 ## Inspecting publication state
 

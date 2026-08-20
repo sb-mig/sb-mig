@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
     getStoryById: vi.fn(),
     getStoryBySlug: vi.fn(),
     getAllStories: vi.fn(),
+    getAllStoriesWithoutContent: vi.fn(),
     getStoryVersions: vi.fn(),
     createStory: vi.fn(),
     updateStory: vi.fn(),
@@ -33,12 +34,23 @@ vi.mock("../../src/cli/api-config.js", () => ({
     },
 }));
 
+// copyCommand now constructs its OWN rate-limited StoryblokClient (Task 12
+// fix) instead of reusing apiConfig.sbApi directly, so prefetchTargetStories'
+// direct sbApi.get calls must be intercepted here too, not just via the
+// api-config.js mock above.
+vi.mock("storyblok-js-client", () => ({
+    default: vi.fn().mockImplementation(() => ({
+        get: mocks.sbApiGet,
+    })),
+}));
+
 vi.mock("../../src/api/managementApi.js", () => ({
     managementApi: {
         stories: {
             getStoryById: mocks.getStoryById,
             getStoryBySlug: mocks.getStoryBySlug,
             getAllStories: mocks.getAllStories,
+            getAllStoriesWithoutContent: mocks.getAllStoriesWithoutContent,
             getStoryVersions: mocks.getStoryVersions,
             createStory: mocks.createStory,
             updateStory: mocks.updateStory,
@@ -73,6 +85,7 @@ vi.mock("../../src/utils/logger.js", () => ({
 }));
 
 import { copyCommand } from "../../src/cli/commands/copy.js";
+import Logger from "../../src/utils/logger.js";
 
 describe("copy stories dry-run", () => {
     const sourceAsset = {
@@ -93,6 +106,28 @@ describe("copy stories dry-run", () => {
             parent_id: 20,
         },
     ];
+
+    // copyCommand now fetches the child story list as content-less stubs
+    // (getAllStoriesWithoutContent) and selectively fetches full content
+    // per id (getStoryById) instead of the old combined getAllStories call.
+    // This test file has no resume-checkpoint manifests, so every child
+    // always lands in `needsContentIds` and gets its full content fetched
+    // -- this helper just wires the same fixed `{story: {...}}` arrays the
+    // tests already use through that new two-step call pattern.
+    const mockChildStories = (items: any[]) => {
+        mocks.getAllStoriesWithoutContent.mockResolvedValue(
+            items.map((item) => {
+                const { content: _content, ...stub } = item.story;
+                return { updated_at: "2026-01-01T00:00:00.000Z", ...stub };
+            }),
+        );
+        mocks.getStoryById.mockImplementation((id: any) => {
+            const match = items.find(
+                (item) => Number(item.story.id) === Number(id),
+            );
+            return Promise.resolve(match);
+        });
+    };
 
     beforeEach(() => {
         vi.clearAllMocks();
@@ -150,7 +185,7 @@ describe("copy stories dry-run", () => {
             return Promise.resolve(undefined);
         });
 
-        mocks.getAllStories.mockResolvedValue([
+        mockChildStories([
             {
                 story: {
                     id: 2,
@@ -291,15 +326,11 @@ describe("copy stories dry-run", () => {
             "blog",
             expect.objectContaining({ spaceId: "source-space" }),
         );
-        expect(mocks.getStoryBySlug).toHaveBeenCalledWith(
-            "imported/blog",
-            expect.objectContaining({ spaceId: "target-space" }),
+        expect(mocks.sbApiGet).toHaveBeenCalledWith(
+            "spaces/target-space/stories/",
+            expect.objectContaining({ starts_with: "imported" }),
         );
-        expect(mocks.getStoryBySlug).toHaveBeenCalledWith(
-            "imported/blog/post-1",
-            expect.objectContaining({ spaceId: "target-space" }),
-        );
-        expect(mocks.getAllStories).toHaveBeenCalledWith(
+        expect(mocks.getAllStoriesWithoutContent).toHaveBeenCalledWith(
             {
                 options: {
                     starts_with: "blog/",
@@ -365,13 +396,141 @@ describe("copy stories dry-run", () => {
         await rm(tempDir, { recursive: true, force: true });
     });
 
+    it("reports a conflict when a story already exists at a planned target path", async () => {
+        const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-copy-"));
+        const outputPath = path.join(tempDir, "plans", "copy-plan.json");
+
+        mocks.sbApiGet.mockImplementation((url: string) => {
+            if (url === "spaces/target-space/stories/") {
+                return Promise.resolve({
+                    data: {
+                        stories: [
+                            {
+                                id: 5000,
+                                uuid: "existing-target-blog-uuid",
+                                full_slug: "imported/blog",
+                            },
+                        ],
+                    },
+                    total: 1,
+                    perPage: 100,
+                });
+            }
+
+            return Promise.resolve({
+                data: { space: { languages: [] } },
+            });
+        });
+
+        await copyCommand({
+            input: ["copy", "stories"],
+            flags: {
+                from: "source-space",
+                to: "target-space",
+                source: "blog",
+                destination: "imported",
+                dryRun: true,
+                outputPath,
+            },
+        } as any);
+
+        const report = JSON.parse(await readFile(outputPath, "utf8"));
+
+        expect(report.summary).toMatchObject({
+            plannedCreates: 2,
+            conflicts: 1,
+        });
+        expect(report.items).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({
+                    targetFullSlug: "imported/blog",
+                    conflict: true,
+                }),
+            ]),
+        );
+        const postItem = report.items.find(
+            (item: any) => item.targetFullSlug === "imported/blog/post-1",
+        );
+        expect(postItem?.conflict).toBeUndefined();
+
+        await rm(tempDir, { recursive: true, force: true });
+    });
+
+    it.each(["root", "/"])(
+        "prefetches the target list without starts_with when destination is %j",
+        async (destination) => {
+            const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-copy-"));
+            const outputPath = path.join(tempDir, "plans", "copy-plan.json");
+
+            mocks.sbApiGet.mockImplementation((url: string) => {
+                if (url === "spaces/target-space/stories/") {
+                    return Promise.resolve({
+                        data: {
+                            stories: [
+                                {
+                                    id: 5000,
+                                    uuid: "existing-target-blog-uuid",
+                                    full_slug: "blog",
+                                },
+                            ],
+                        },
+                        total: 1,
+                        perPage: 100,
+                    });
+                }
+
+                return Promise.resolve({
+                    data: { space: { languages: [] } },
+                });
+            });
+
+            await copyCommand({
+                input: ["copy", "stories"],
+                flags: {
+                    from: "source-space",
+                    to: "target-space",
+                    source: "blog",
+                    destination,
+                    dryRun: true,
+                    outputPath,
+                },
+            } as any);
+
+            const [, targetListParams] = mocks.sbApiGet.mock.calls.find(
+                ([url]) => url === "spaces/target-space/stories/",
+            )!;
+
+            expect("starts_with" in targetListParams).toBe(false);
+
+            // The prefetch map is actually populated for a root destination:
+            // the existing "blog" story (planned target path for a root
+            // copy) is reported as a conflict.
+            const report = JSON.parse(await readFile(outputPath, "utf8"));
+
+            expect(report.summary).toMatchObject({
+                plannedCreates: 2,
+                conflicts: 1,
+            });
+            expect(report.items).toEqual(
+                expect.arrayContaining([
+                    expect.objectContaining({
+                        targetFullSlug: "blog",
+                        conflict: true,
+                    }),
+                ]),
+            );
+
+            await rm(tempDir, { recursive: true, force: true });
+        },
+    );
+
     it("flags source components missing from the target space during story dry-run", async () => {
         const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-copy-"));
         const outputPath = path.join(tempDir, "plans", "copy-plan.json");
 
         // The target space (getAllComponents mock) only knows 'page'; this post
         // nests a component that does not exist there.
-        mocks.getAllStories.mockResolvedValue([
+        mockChildStories([
             {
                 story: {
                     id: 2,
@@ -780,7 +939,7 @@ describe("copy stories dry-run", () => {
 
             return Promise.resolve(undefined);
         });
-        mocks.getAllStories.mockResolvedValue([]);
+        mockChildStories([]);
         mocks.createTree.mockImplementation((stories: any[]) => [
             {
                 id: stories[0].id,
@@ -929,7 +1088,11 @@ describe("copy stories dry-run", () => {
         )
             .trim()
             .split("\n")
-            .map((line) => JSON.parse(line));
+            .map((line) => JSON.parse(line))
+            // Only the "story" shell entries are relevant here; the rewrite
+            // phase also appends "story_content" checkpoint entries once the
+            // content update succeeds.
+            .filter((entry: any) => entry.type === "story");
         const combinedManifest = (
             await readFile(
                 path.join(manifestDirectory, "manifest.jsonl"),
@@ -1021,6 +1184,34 @@ describe("copy stories dry-run", () => {
             { force_update: true, publish: false },
             expect.objectContaining({ spaceId: "target-space" }),
         );
+
+        await rm(tempDir, { recursive: true, force: true });
+    });
+
+    it("prints an exit summary at the end of an apply-mode run (Task 12)", async () => {
+        const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-copy-"));
+        const manifestRoot = path.join(tempDir, ".sb-mig");
+
+        await copyCommand({
+            input: ["copy", "stories"],
+            flags: {
+                from: "source-space",
+                to: "target-space",
+                source: "blog",
+                destination: "imported",
+                manifestRoot,
+            },
+        } as any);
+
+        const summaryCall = (Logger.log as any).mock.calls.find((call: any[]) =>
+            String(call[0]).startsWith("Copy summary"),
+        );
+        expect(summaryCall).toBeDefined();
+        expect(summaryCall[0]).toMatch(
+            /stories:\s+created 2\s+matched 0\s+skipped 0\s+failed 0/,
+        );
+        // No failures and no abort, so no Resume line is printed.
+        expect(summaryCall[0]).not.toMatch(/Resume:/);
 
         await rm(tempDir, { recursive: true, force: true });
     });
@@ -1118,6 +1309,103 @@ describe("copy stories dry-run", () => {
             { force_update: true, publish: false },
             expect.objectContaining({ spaceId: "target-space" }),
         );
+
+        await rm(tempDir, { recursive: true, force: true });
+    });
+
+    it("does not fail the run when a shell-phase creation failure is retried and recovered by the rewrite phase", async () => {
+        const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-copy-"));
+        const manifestRoot = path.join(tempDir, ".sb-mig");
+        const outputPath = path.join(tempDir, "reports", "copy-report.json");
+
+        mocks.getStoryBySlug.mockImplementation((slug: string) => {
+            if (slug === "imported") {
+                return Promise.resolve({
+                    story: {
+                        id: 900,
+                        name: "Imported",
+                        slug: "imported",
+                        full_slug: "imported",
+                        is_folder: true,
+                        uuid: "target-imported-uuid",
+                    },
+                });
+            }
+
+            if (slug === "plain") {
+                return Promise.resolve({
+                    story: {
+                        id: 3,
+                        name: "Plain Story",
+                        slug: "plain",
+                        full_slug: "plain",
+                        is_folder: false,
+                        parent_id: 0,
+                        uuid: "source-plain-uuid",
+                        content: {
+                            component: "page",
+                            headline: "No references here",
+                        },
+                    },
+                });
+            }
+
+            return Promise.resolve(undefined);
+        });
+        mocks.createTree.mockImplementationOnce((stories: any[]) => [
+            {
+                id: stories[0].id,
+                story: stories[0],
+                children: [],
+            },
+        ]);
+        // The shell phase's first (and only) createStory attempt fails; the
+        // rewrite phase's own createOrMatchReplacementShell retry succeeds.
+        mocks.createStory
+            .mockRejectedValueOnce(new Error("boom-shell"))
+            .mockResolvedValueOnce({
+                story: {
+                    id: 1003,
+                    uuid: "target-plain-uuid",
+                    full_slug: "imported/plain",
+                },
+            });
+
+        await copyCommand({
+            input: ["copy", "stories"],
+            flags: {
+                from: "source-space",
+                to: "target-space",
+                source: "plain",
+                destination: "imported",
+                manifestRoot,
+                outputPath,
+            },
+        } as any);
+
+        expect(mocks.createStory).toHaveBeenCalledTimes(2);
+        expect(mocks.updateStory).toHaveBeenCalledTimes(1);
+        expect(mocks.updateStory).toHaveBeenCalledWith(
+            expect.objectContaining({
+                name: "Plain Story",
+                parent_id: 900,
+                slug: "plain",
+            }),
+            "1003",
+            { force_update: true, publish: false },
+            expect.objectContaining({ spaceId: "target-space" }),
+        );
+
+        const report = JSON.parse(await readFile(outputPath, "utf8"));
+        expect(report.warnings).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({
+                    code: "shell_create_failed_retried",
+                    sourceFullSlug: "plain",
+                }),
+            ]),
+        );
+        expect(report.summary.failures).toBeUndefined();
 
         await rm(tempDir, { recursive: true, force: true });
     });
@@ -1523,27 +1811,22 @@ describe("copy stories dry-run", () => {
             "utf8",
         );
 
-        mocks.getStoryById.mockResolvedValueOnce({
-            story: {
-                id: 9999,
-                uuid: "stale-target-blog-uuid",
-                full_slug: "imported/blog",
-            },
-        });
         const getStoryBySlug = mocks.getStoryBySlug.getMockImplementation();
-        mocks.getStoryBySlug.mockImplementation((slug: string, options: any) => {
-            if (slug === "imported/blog") {
-                return Promise.resolve({
-                    story: {
-                        id: 9999,
-                        uuid: "stale-target-blog-uuid",
-                        full_slug: "imported/blog",
-                    },
-                });
-            }
+        mocks.getStoryBySlug.mockImplementation(
+            (slug: string, options: any) => {
+                if (slug === "imported/blog") {
+                    return Promise.resolve({
+                        story: {
+                            id: 9999,
+                            uuid: "stale-target-blog-uuid",
+                            full_slug: "imported/blog",
+                        },
+                    });
+                }
 
-            return getStoryBySlug?.(slug, options);
-        });
+                return getStoryBySlug?.(slug, options);
+            },
+        );
         mocks.updateStory
             .mockResolvedValueOnce({
                 ok: false,
@@ -1646,8 +1929,6 @@ describe("copy stories dry-run", () => {
             "utf8",
         );
 
-        mocks.getStoryById.mockResolvedValueOnce(undefined);
-
         await copyCommand({
             input: ["copy", "stories"],
             flags: {
@@ -1656,12 +1937,16 @@ describe("copy stories dry-run", () => {
                 source: "blog",
                 destination: "imported",
                 manifestRoot,
+                verify: true,
             },
         } as any);
 
-        expect(mocks.getStoryById).toHaveBeenCalledWith(
-            "9999",
-            expect.objectContaining({ spaceId: "target-space" }),
+        // Verification is now done against the bulk target-story prefetch
+        // (no more per-id lookups); the prefetch here returns no stories, so
+        // the stale mapping to id 9999 is treated as not found and repaired.
+        expect(mocks.sbApiGet).toHaveBeenCalledWith(
+            "spaces/target-space/stories/",
+            expect.objectContaining({ starts_with: "imported" }),
         );
         expect(mocks.createStory).toHaveBeenNthCalledWith(
             1,
@@ -1766,7 +2051,11 @@ describe("copy stories dry-run", () => {
         )
             .trim()
             .split("\n")
-            .map((line) => JSON.parse(line));
+            .map((line) => JSON.parse(line))
+            // Only the "story" shell entries are relevant here; the rewrite
+            // phase also appends "story_content" checkpoint entries once the
+            // content update succeeds.
+            .filter((entry: any) => entry.type === "story");
 
         expect(assetManifest).toMatchObject([
             {
