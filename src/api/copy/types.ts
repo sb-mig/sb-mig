@@ -121,6 +121,28 @@ export type CopyGraphAssetFolderNode = {
     action: CopyGraphAction;
 };
 
+/**
+ * Scope-aware lifecycle of a scanned story reference.
+ *
+ * - `unclassified` — emitted by the scanner, which sees a single story and
+ *   therefore cannot know the copy plan. Replaced by the classifier.
+ * - `will_relink` — the referenced story is inside the selection (its mapping
+ *   will exist by phase 2) or is already in the loaded ledger.
+ * - `will_break` — the referenced story is outside the selection and not in
+ *   the ledger; in a cross-space copy this reference dangles.
+ * - `external_kept` — same-space copy, where pointing at the original story
+ *   remains correct.
+ * - `unresolved` — reference policy `fail`: the reference cannot be handled.
+ * - `unsupported` — the reference shape is not rewritable.
+ */
+export type CopyStoryReferenceStatus =
+    | "unclassified"
+    | "will_relink"
+    | "will_break"
+    | "external_kept"
+    | "unresolved"
+    | "unsupported";
+
 export type CopyGraphStoryReference = {
     type: "story_reference";
     sourceStoryId?: number;
@@ -129,7 +151,7 @@ export type CopyGraphStoryReference = {
     referencedStoryId?: number;
     referencedStoryUuid?: string;
     path: string;
-    status: "mapped" | "preserved_external" | "unresolved" | "unsupported";
+    status: CopyStoryReferenceStatus;
 };
 
 export type CopyGraphAssetReference = {

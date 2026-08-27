@@ -141,7 +141,9 @@ export const scanStoriesReferences = ({
 };
 
 const scanStoryMetadata = (story: StoryLike, state: ScannerState) => {
-    if (typeof story.parent_id === "number") {
+    // parent_id 0 is Storyblok's "lives at the space root" sentinel, not a
+    // story id. Recording it inflated every reference count with a phantom.
+    if (typeof story.parent_id === "number" && story.parent_id !== 0) {
         addStoryReference(state, {
             path: "parent_id",
             referencedStoryId: story.parent_id,
@@ -503,9 +505,12 @@ const addStoryReference = (
         type: "story_reference",
         ...state.context,
         ...reference,
+        // The scanner sees one story at a time, so it cannot know whether the
+        // referenced story is inside the copy plan. The classifier decides
+        // that; see classifyStoryReferences in ./reference-classifier.ts.
         status:
             state.options.referencePolicy === "preserve"
-                ? "preserved_external"
+                ? "unclassified"
                 : "unresolved",
     });
 };

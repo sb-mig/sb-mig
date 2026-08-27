@@ -338,11 +338,24 @@ Known fields to rewrite:
 | `alternates[].parent_id`                    | story id   | Replace source parent id with target parent id   |
 | `parent_id`                                 | story id   | Replace source parent id with target parent id   |
 
-If a story reference points to a story outside the selected copy scope, the command must not silently corrupt it. The copy report should classify it:
+If a story reference points to a story outside the selected copy scope, the command must not silently corrupt it. Every scanned story reference in the copy graph (`graph.storyReferences[].status`) is classified against the copy plan **and** the ledger:
 
-- `preserved_external_reference`
-- `unresolved_story_reference`
-- `skipped_reference_rewrite`
+| Status          | Meaning                                                                                                                 |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `unclassified`  | Emitted by the scanner, which sees one story at a time and cannot know the plan. Replaced before the graph is reported. |
+| `will_relink`   | The referenced story is inside the selection (its mapping exists by phase 2) or is already in the loaded ledger.        |
+| `will_break`    | The referenced story is outside the selection and not in the ledger; in a cross-space copy this reference dangles.      |
+| `external_kept` | Same-space copy, where continuing to point at the original story is correct.                                            |
+| `unresolved`    | Reference policy `fail`: the reference cannot be handled.                                                               |
+| `unsupported`   | The reference shape is not rewritable.                                                                                  |
+
+Notes:
+
+- `parent_id` is resolved by the copy plan itself — phase 1 creates every shell under its planned parent, and the top of the selection lands under the destination — so it is always `will_relink` and never reported as a break.
+- `parent_id: 0` is Storyblok's "lives at the space root" sentinel, not a story id, and is not recorded as a reference at all.
+- When `will_break > 0` the dry-run prints a loud report naming each holding story and field path, and the graph carries a `broken_story_reference` warning per story.
+
+The dry-run summary exposes the same accounting as `storyReferencesWillRelink`, `storyReferencesWillBreak`, `storyReferencesExternalKept` and `storyReferencesUnresolved`.
 
 Potential policies:
 

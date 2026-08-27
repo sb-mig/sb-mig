@@ -205,42 +205,42 @@ describe("copy reference scanner", () => {
             expect.objectContaining({
                 referencedStoryId: 90,
                 path: "parent_id",
-                status: "preserved_external",
+                status: "unclassified",
             }),
             expect.objectContaining({
                 referencedStoryId: 101,
                 path: "alternates[0].id",
-                status: "preserved_external",
+                status: "unclassified",
             }),
             expect.objectContaining({
                 referencedStoryId: 91,
                 path: "alternates[0].parent_id",
-                status: "preserved_external",
+                status: "unclassified",
             }),
             expect.objectContaining({
                 referencedStoryId: 102,
                 path: "content.hero[0].cta.id",
-                status: "preserved_external",
+                status: "unclassified",
             }),
             expect.objectContaining({
                 referencedStoryUuid: "story-uuid-103",
                 path: "content.hero[0].body.content[0].content[0].attrs.uuid",
-                status: "preserved_external",
+                status: "unclassified",
             }),
             expect.objectContaining({
                 referencedStoryId: 104,
                 path: "content.hero[0].body.content[1].attrs.body[0].link.id",
-                status: "preserved_external",
+                status: "unclassified",
             }),
             expect.objectContaining({
                 referencedStoryId: 105,
                 path: "content.related[0]",
-                status: "preserved_external",
+                status: "unclassified",
             }),
             expect.objectContaining({
                 referencedStoryId: 106,
                 path: "content.related[1]",
-                status: "preserved_external",
+                status: "unclassified",
             }),
         ]);
 

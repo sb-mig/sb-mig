@@ -552,7 +552,13 @@ describe("copy stories dry-run", () => {
                 assetFolders: 2,
                 assets: 1,
                 assetReferences: 1,
-                storyReferences: 4,
+                // parent_id 0 (the space root) is not a story reference: blog
+                // -> post-1, post-1 -> blog, and post-1's parent_id.
+                storyReferences: 3,
+                storyReferencesWillRelink: 3,
+                storyReferencesWillBreak: 0,
+                storyReferencesExternalKept: 0,
+                storyReferencesUnresolved: 0,
                 errors: 0,
             },
             graph: {
@@ -1531,19 +1537,21 @@ describe("copy stories dry-run", () => {
             },
         });
         const getStoryBySlug = mocks.getStoryBySlug.getMockImplementation();
-        mocks.getStoryBySlug.mockImplementation((slug: string, options: any) => {
-            if (slug === "imported/blog") {
-                return Promise.resolve({
-                    story: {
-                        id: 9999,
-                        uuid: "stale-target-blog-uuid",
-                        full_slug: "imported/blog",
-                    },
-                });
-            }
+        mocks.getStoryBySlug.mockImplementation(
+            (slug: string, options: any) => {
+                if (slug === "imported/blog") {
+                    return Promise.resolve({
+                        story: {
+                            id: 9999,
+                            uuid: "stale-target-blog-uuid",
+                            full_slug: "imported/blog",
+                        },
+                    });
+                }
 
-            return getStoryBySlug?.(slug, options);
-        });
+                return getStoryBySlug?.(slug, options);
+            },
+        );
         mocks.updateStory
             .mockResolvedValueOnce({
                 ok: false,

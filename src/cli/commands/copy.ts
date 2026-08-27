@@ -19,9 +19,14 @@ import {
     appendManifestEntry,
     buildCopyAssetsGraph,
     buildCopyMaps,
+    buildCopyReferenceSelection,
+    classifyStoryReferences,
+    countStoryReferenceStatuses,
     createCopyGraph,
     dedupeManifestFile,
+    describeBrokenStoryReferenceTarget,
     getDefaultCopyManifestPaths,
+    groupBrokenStoryReferences,
     loadManifest,
     normalizeAssetFolderParentId,
     rewriteCopyReferences,
@@ -154,8 +159,9 @@ type CopyDryRunReport = {
         assetsMapped: number;
         assetsToCopy: number;
         storyReferences: number;
-        storyReferencesMapped: number;
-        storyReferencesPreserved: number;
+        storyReferencesWillRelink: number;
+        storyReferencesWillBreak: number;
+        storyReferencesExternalKept: number;
         storyReferencesUnresolved: number;
         conflicts: number;
         warnings: number;
@@ -1404,18 +1410,9 @@ const buildCopyDryRunReport = ({
         graph?.assetReferences.filter(
             (reference) => reference.status === "unresolved",
         ).length ?? 0;
-    const storyReferencesMapped =
-        graph?.storyReferences.filter(
-            (reference) => reference.status === "mapped",
-        ).length ?? 0;
-    const storyReferencesPreserved =
-        graph?.storyReferences.filter(
-            (reference) => reference.status === "preserved_external",
-        ).length ?? 0;
-    const storyReferencesUnresolved =
-        graph?.storyReferences.filter(
-            (reference) => reference.status === "unresolved",
-        ).length ?? 0;
+    const storyReferenceCounts = countStoryReferenceStatuses(
+        graph?.storyReferences ?? [],
+    );
     const assetsMapped =
         graph?.assets.filter((asset) => asset.action === "match").length ?? 0;
     const assetsToCopy =
@@ -1458,9 +1455,10 @@ const buildCopyDryRunReport = ({
             assetsMapped,
             assetsToCopy,
             storyReferences: graphSummary?.storyReferences ?? 0,
-            storyReferencesMapped,
-            storyReferencesPreserved,
-            storyReferencesUnresolved,
+            storyReferencesWillRelink: storyReferenceCounts.willRelink,
+            storyReferencesWillBreak: storyReferenceCounts.willBreak,
+            storyReferencesExternalKept: storyReferenceCounts.externalKept,
+            storyReferencesUnresolved: storyReferenceCounts.unresolved,
             conflicts: conflicts.length,
             warnings: warnings.length + (graphSummary?.warnings ?? 0),
             errors: graphSummary?.errors ?? 0,
@@ -2261,15 +2259,27 @@ const annotateReferencesWithManifestMaps = ({
         }
     }
 
-    for (const reference of graph.storyReferences) {
-        if (
-            (reference.referencedStoryId !== undefined &&
-                copyMaps.storyIds.has(reference.referencedStoryId)) ||
-            (reference.referencedStoryUuid !== undefined &&
-                copyMaps.storyUuids.has(reference.referencedStoryUuid))
-        ) {
-            reference.status = "mapped";
-        }
+    // Story references are classified against the copy plan as well as the
+    // ledger: a reference into the selection relinks once phase 2 runs, one
+    // that points outside it dangles. graph.stories already carries the plan.
+    graph.storyReferences = classifyStoryReferences({
+        storyReferences: graph.storyReferences,
+        selection: buildCopyReferenceSelection(graph.stories),
+        copyMaps,
+        sameSpace: graph.sourceSpaceId === graph.targetSpaceId,
+    });
+
+    for (const group of groupBrokenStoryReferences(graph.storyReferences)) {
+        graph.warnings.push({
+            code: "broken_story_reference",
+            message: `Story '${group.sourceStoryFullSlug}' references ${group.references.length} story/stories outside this copy that are not in the ledger; the copied content will point at nothing.`,
+            path: group.references
+                .map((reference) => reference.path)
+                .join(", "),
+            sourceValue: group.references.map(
+                describeBrokenStoryReferenceTarget,
+            ),
+        });
     }
 };
 
@@ -3614,8 +3624,26 @@ const logDryRunCopyPlan = async ({ report }: { report: CopyDryRunReport }) => {
         }
 
         Logger.warning(
-            `[dry-run] Story refs: ${report.summary.storyReferencesMapped} mapped, ${report.summary.storyReferencesPreserved} preserved, ${report.summary.storyReferencesUnresolved} unresolved.`,
+            `[dry-run] Story refs: ${report.summary.storyReferencesWillRelink} will relink, ${report.summary.storyReferencesWillBreak} will break, ${report.summary.storyReferencesExternalKept} external kept, ${report.summary.storyReferencesUnresolved} unresolved.`,
         );
+
+        if (report.summary.storyReferencesWillBreak > 0) {
+            Logger.error(
+                `[dry-run] ${report.summary.storyReferencesWillBreak} story reference(s) WILL BREAK: they point at stories outside this copy and are not in the ledger, so the copied content will point at nothing.`,
+            );
+
+            for (const group of groupBrokenStoryReferences(
+                report.graph.storyReferences,
+            )) {
+                Logger.error(`[dry-run]   ${group.sourceStoryFullSlug}`);
+
+                for (const reference of group.references) {
+                    Logger.error(
+                        `[dry-run]     ${reference.path} -> ${describeBrokenStoryReferenceTarget(reference)}`,
+                    );
+                }
+            }
+        }
 
         for (const folder of report.graph.assetFolders) {
             Logger.warning(
