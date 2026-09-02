@@ -120,6 +120,9 @@ describe("CLI help output", () => {
         expect(copyHelp).toContain("--mode");
         expect(copyHelp).toContain("--all");
         expect(copyHelp).toContain("--dry-run");
+        expect(copyHelp).toContain("--yes");
+        expect(copyHelp).toContain("--fresh");
+        expect(copyHelp).toContain("PLAN block");
         expect(copyHelp).toContain("--outputPath");
         expect(copyHelp).toContain("folder/*");
         expect(copyHelp).toContain("durable manifests");

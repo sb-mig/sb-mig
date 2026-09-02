@@ -248,7 +248,7 @@ export const copyDescription = `
         --referenced-by-stories
                        Select assets referenced by a story/folder scope. Requires --source. [assets only]
         --dry-run       Preview story paths, manifest-mapped references, and likely target conflicts without writing to Storyblok.
-        --yes           Skip the 'Continue? [y/N]' plan gate that copy stories shows before its first write. Required in non-interactive runs (CI). [stories only]
+        --yes           Skip the confirmation gate that copy stories shows after its PLAN block, before its first write. Required in non-interactive runs (CI). [stories only]
         --fresh         Ignore the existing copy ledger for this run; existing manifest files are moved aside with a timestamp suffix, never deleted. [stories only]
         --outputPath    Optional JSON file path for a dry-run copy plan artifact. Only writes locally when passed.
 
@@ -272,7 +272,7 @@ export const copyDescription = `
         mode 'subtree' copies a folder and all descendants. This is the default for folders.
         mode 'children' copies a folder's descendants without the folder root.
         mode 'self' copies only the source story or folder shell.
-        copy stories prints a PLAN block (create/adopt/resume counts, ledger, will-relink/will-break references, assets) and asks 'Continue? [y/N]' before any write; pass --yes to skip the question. Without a terminal and without --yes it refuses to write.
+        copy stories prints a PLAN block (create/adopt/resume counts, ledger, will-relink/will-break references, assets) and asks for confirmation before any write; pass --yes to skip the question. Without a terminal and without --yes it refuses to write.
         copy stories creates or matches target story shells, then fills them with rewritten source content.
         copy stories matches existing targets by manifest first, then target full_slug when safe, so reruns can reuse mapped target stories.
         copy stories rewrites mapped asset and story references after story manifests exist.
