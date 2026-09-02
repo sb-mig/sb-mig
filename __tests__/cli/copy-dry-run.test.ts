@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "fs/promises";
 import { tmpdir } from "os";
 import path from "path";
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
     getStoryById: vi.fn(),
@@ -22,6 +22,11 @@ const mocks = vi.hoisted(() => ({
     createTree: vi.fn(),
     traverseAndCreate: vi.fn(),
     sbApiGet: vi.fn(),
+    askYesNo: vi.fn(),
+}));
+
+vi.mock("../../src/cli/helpers.js", () => ({
+    askYesNo: mocks.askYesNo,
 }));
 
 vi.mock("../../src/cli/api-config.js", () => ({
@@ -908,6 +913,187 @@ describe("copy stories dry-run", () => {
         await rm(tempDir, { recursive: true, force: true });
     });
 
+    describe("plan gate", () => {
+        const stdin = process.stdin as any;
+        const originalIsTTY = stdin.isTTY;
+        const originalExitCode = process.exitCode;
+
+        afterEach(() => {
+            stdin.isTTY = originalIsTTY;
+            process.exitCode = originalExitCode;
+        });
+
+        it("refuses to write without --yes when no terminal can answer", async () => {
+            stdin.isTTY = false;
+
+            await copyCommand({
+                input: ["copy", "stories"],
+                flags: {
+                    from: "source-space",
+                    to: "target-space",
+                    source: "blog",
+                    destination: "imported",
+                },
+            } as any);
+
+            expect(mocks.askYesNo).not.toHaveBeenCalled();
+            expect(mocks.createStory).not.toHaveBeenCalled();
+            expect(mocks.updateStory).not.toHaveBeenCalled();
+            expect(process.exitCode).toBe(1);
+        });
+
+        it("asks Continue? on a terminal and stops on anything but yes", async () => {
+            stdin.isTTY = true;
+            mocks.askYesNo.mockResolvedValue(false);
+
+            await copyCommand({
+                input: ["copy", "stories"],
+                flags: {
+                    from: "source-space",
+                    to: "target-space",
+                    source: "blog",
+                    destination: "imported",
+                },
+            } as any);
+
+            expect(mocks.askYesNo).toHaveBeenCalledWith("Continue? [y/N]");
+            expect(mocks.createStory).not.toHaveBeenCalled();
+            expect(process.exitCode).toBe(originalExitCode);
+        });
+
+        it("writes after an explicit yes on a terminal", async () => {
+            stdin.isTTY = true;
+            mocks.askYesNo.mockResolvedValue(true);
+            const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-copy-"));
+
+            await copyCommand({
+                input: ["copy", "stories"],
+                flags: {
+                    from: "source-space",
+                    to: "target-space",
+                    source: "blog",
+                    destination: "imported",
+                    manifestRoot: path.join(tempDir, ".sb-mig"),
+                },
+            } as any);
+
+            expect(mocks.askYesNo).toHaveBeenCalledTimes(1);
+            expect(mocks.createStory).toHaveBeenCalledTimes(2);
+
+            await rm(tempDir, { recursive: true, force: true });
+        });
+
+        it("scans references and checks target paths before the gate in apply mode", async () => {
+            stdin.isTTY = false;
+
+            await copyCommand({
+                input: ["copy", "stories"],
+                flags: {
+                    from: "source-space",
+                    to: "target-space",
+                    source: "blog",
+                    destination: "imported",
+                },
+            } as any);
+
+            // Scanner ran (component schemas fetched) and every planned
+            // target path was checked for adoption, all before any write.
+            expect(mocks.getAllComponents).toHaveBeenCalledWith(
+                expect.objectContaining({ spaceId: "source-space" }),
+            );
+            expect(mocks.getStoryBySlug).toHaveBeenCalledWith(
+                "imported/blog/post-1",
+                expect.objectContaining({ spaceId: "target-space" }),
+            );
+            expect(mocks.createStory).not.toHaveBeenCalled();
+        });
+
+        it("moves the existing ledger aside with --fresh and starts empty", async () => {
+            const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-copy-"));
+            const manifestRoot = path.join(tempDir, ".sb-mig");
+            const manifestDirectory = path.join(
+                manifestRoot,
+                "copy",
+                "source-space",
+                "target-space",
+            );
+            const staleEntry = {
+                type: "story",
+                source_space_id: "source-space",
+                target_space_id: "target-space",
+                source_id: 2,
+                target_id: 5555,
+                source_uuid: "source-post-uuid",
+                target_uuid: "stale-target-post-uuid",
+                source_full_slug: "blog/post-1",
+                target_full_slug: "imported/blog/post-1",
+                action: "created",
+                created_at: "2026-06-23T10:00:00.000Z",
+            };
+
+            await mkdir(manifestDirectory, { recursive: true });
+            await writeFile(
+                path.join(manifestDirectory, "manifest.jsonl"),
+                JSON.stringify(staleEntry) + "\n",
+                "utf8",
+            );
+            await writeFile(
+                path.join(manifestDirectory, "stories.manifest.jsonl"),
+                JSON.stringify(staleEntry) + "\n",
+                "utf8",
+            );
+
+            await copyCommand({
+                input: ["copy", "stories"],
+                flags: {
+                    from: "source-space",
+                    to: "target-space",
+                    source: "blog",
+                    destination: "imported",
+                    manifestRoot,
+                    fresh: true,
+                    yes: true,
+                },
+            } as any);
+
+            // The stale mapping was not reused: both shells were created anew.
+            expect(mocks.createStory).toHaveBeenCalledTimes(2);
+            expect(mocks.getStoryById).not.toHaveBeenCalledWith(
+                "5555",
+                expect.anything(),
+            );
+
+            const { readdir } = await import("fs/promises");
+            const files = (await readdir(manifestDirectory)).sort();
+
+            expect(
+                files.filter((file) => /^manifest\.jsonl\..+\.bak$/.test(file)),
+            ).toHaveLength(1);
+            expect(
+                files.filter((file) =>
+                    /^stories\.manifest\.jsonl\..+\.bak$/.test(file),
+                ),
+            ).toHaveLength(1);
+
+            const combined = (
+                await readFile(
+                    path.join(manifestDirectory, "manifest.jsonl"),
+                    "utf8",
+                )
+            )
+                .trim()
+                .split("\n")
+                .map((line) => JSON.parse(line));
+
+            expect(combined.every((entry) => entry.target_id !== 5555)).toBe(
+                true,
+            );
+            expect(combined.map((entry) => entry.source_id)).toEqual([1, 2]);
+
+            await rm(tempDir, { recursive: true, force: true });
+        });
+    });
+
     it("copies selected stories and writes story manifests", async () => {
         const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-copy-"));
         const manifestRoot = path.join(tempDir, ".sb-mig");
@@ -944,6 +1130,7 @@ describe("copy stories dry-run", () => {
                 source: "blog",
                 destination: "imported",
                 manifestRoot,
+                yes: true,
             },
         } as any);
 
@@ -1144,6 +1331,7 @@ describe("copy stories dry-run", () => {
                 source: "plain",
                 destination: "imported",
                 manifestRoot,
+                yes: true,
             },
         } as any);
 
@@ -1244,6 +1432,7 @@ describe("copy stories dry-run", () => {
                 destination: "imported",
                 publicationLanguages: "default",
                 manifestRoot,
+                yes: true,
             },
         } as any);
 
@@ -1340,6 +1529,7 @@ describe("copy stories dry-run", () => {
                 destination: "imported",
                 publicationMode: "save-only",
                 manifestRoot,
+                yes: true,
             },
         } as any);
 
@@ -1434,6 +1624,7 @@ describe("copy stories dry-run", () => {
                 destination: "imported",
                 publicationLanguages: "default",
                 manifestRoot,
+                yes: true,
             },
         } as any);
 
@@ -1507,6 +1698,7 @@ describe("copy stories dry-run", () => {
                     source: "blog",
                     destination: "imported",
                     manifestRoot,
+                    yes: true,
                 },
             } as any),
         ).rejects.toThrow(
@@ -1540,6 +1732,7 @@ describe("copy stories dry-run", () => {
                     source: "blog",
                     destination: "imported",
                     manifestRoot,
+                    yes: true,
                 },
             } as any),
         ).rejects.toThrow(
@@ -1620,6 +1813,7 @@ describe("copy stories dry-run", () => {
                 source: "blog",
                 destination: "imported",
                 manifestRoot,
+                yes: true,
             },
         } as any);
 
@@ -1716,6 +1910,7 @@ describe("copy stories dry-run", () => {
                 source: "blog",
                 destination: "imported",
                 manifestRoot,
+                yes: true,
             },
         } as any);
 
@@ -1789,6 +1984,7 @@ describe("copy stories dry-run", () => {
                 withAssets: true,
                 manifestRoot,
                 outputPath,
+                yes: true,
             },
         } as any);
 

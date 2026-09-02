@@ -17,14 +17,18 @@ import path from "path";
 
 import {
     appendManifestEntry,
+    archiveCopyManifests,
     buildCopyAssetsGraph,
     buildCopyMaps,
+    buildCopyPlanGateSummary,
     buildCopyReferenceSelection,
     classifyStoryReferences,
     countStoryReferenceStatuses,
     createCopyGraph,
+    createEmptyCopyMaps,
     dedupeManifestFile,
     describeBrokenStoryReferenceTarget,
+    formatCopyPlanGate,
     getDefaultCopyManifestPaths,
     groupBrokenStoryReferences,
     loadManifest,
@@ -47,6 +51,7 @@ import { mapWithConcurrency } from "../../utils/async-utils.js";
 import Logger from "../../utils/logger.js";
 import { getFileName } from "../../utils/string-utils.js";
 import { apiConfig } from "../api-config.js";
+import { askYesNo } from "../helpers.js";
 
 const COPY_COMMANDS = {
     stories: "stories",
@@ -3812,6 +3817,34 @@ const logDryRunCopyAssetsPlan = async ({
     );
 };
 
+/**
+ * The single gate between planning and the first API write. `--yes` passes
+ * it (the plan still prints); without a terminal there is nobody to ask, so
+ * the run refuses rather than guessing.
+ */
+const confirmCopyPlan = async ({ yes }: { yes: boolean }): Promise<boolean> => {
+    if (yes) {
+        Logger.log("Continuing without confirmation (--yes).");
+        return true;
+    }
+
+    if (!process.stdin.isTTY) {
+        Logger.error(
+            "Refusing to write without confirmation: no interactive terminal. Re-run with --yes to continue, or --dry-run to only plan.",
+        );
+        process.exitCode = 1;
+        return false;
+    }
+
+    const confirmed = await askYesNo("Continue? [y/N]");
+
+    if (!confirmed) {
+        Logger.warning("Copy aborted before any write.");
+    }
+
+    return confirmed;
+};
+
 export const copyCommand = async (props: CLIOptions) => {
     const { input, flags } = props;
 
@@ -3836,6 +3869,8 @@ export const copyCommand = async (props: CLIOptions) => {
             const withAssets = Boolean(
                 flags["withAssets"] ?? flags["with-assets"],
             );
+            const yes = Boolean(flags["yes"]);
+            const fresh = Boolean(flags["fresh"]);
             const publication = await resolveCopyPublicationOptions({
                 flags,
                 targetSpace,
@@ -3879,13 +3914,32 @@ export const copyCommand = async (props: CLIOptions) => {
                 rootDir: manifestRoot,
             });
             const manifestEntries = await loadManifest(manifestPaths.combined);
-            const copyMaps = buildCopyMaps(manifestEntries);
+            const ledgerPath = path.resolve(manifestPaths.combined);
+            // --fresh: the ledger on disk is read only to be announced; the
+            // run plans and classifies against an empty one.
+            const copyMaps = fresh
+                ? createEmptyCopyMaps()
+                : buildCopyMaps(manifestEntries);
+            const ledger = {
+                path: ledgerPath,
+                entries: manifestEntries.length,
+                ignored: fresh,
+            };
+            Logger.warning(
+                fresh
+                    ? `Ledger: ${manifestEntries.length} entr${manifestEntries.length === 1 ? "y" : "ies"} at ${ledgerPath} IGNORED (--fresh).`
+                    : manifestEntries.length > 0
+                      ? `Ledger: ${manifestEntries.length} entr${manifestEntries.length === 1 ? "y" : "ies"} loaded from ${ledgerPath} (resuming; use --fresh to ignore).`
+                      : `Ledger: none at ${ledgerPath} (starting empty).`,
+            );
             let dryRunGraph: CopyGraph | undefined;
             let withAssetsGraph: CopyGraph | undefined;
             let sourceAssets: any[] = [];
             let sourceAssetFolders: any[] = [];
 
-            if (dryRun || withAssets) {
+            // The reference scan runs in apply mode too: the plan gate needs
+            // will-relink / will-break counts before the first write.
+            {
                 const schemasPromise =
                     buildComponentSchemaRegistry(sourceSpace);
 
@@ -3938,7 +3992,7 @@ export const copyCommand = async (props: CLIOptions) => {
                         `Reference planning complete. Found ${withAssetsGraph.assets.length} referenced asset(s), ${withAssetsGraph.assetFolders.length} asset folder(s), ${withAssetsGraph.assetReferences.length} asset reference occurrence(s), and ${withAssetsGraph.storyReferences.length} story reference occurrence(s).`,
                     );
                     dryRunGraph = withAssetsGraph;
-                } else if (dryRun) {
+                } else {
                     const schemas = await schemasPromise;
                     Logger.warning(
                         `Scanning ${countStoryItems(sourceStories)} stories for copy references.`,
@@ -4007,6 +4061,51 @@ export const copyCommand = async (props: CLIOptions) => {
                 }
 
                 break;
+            }
+
+            const conflicts = await findTargetConflicts(plan, targetSpace);
+            const sourceStoryByFullSlug = new Map(
+                sourceStories
+                    .map((item: any) => item?.story)
+                    .filter(Boolean)
+                    .map(
+                        (story: any) =>
+                            [String(story.full_slug ?? ""), story] as const,
+                    ),
+            );
+            const planGate = buildCopyPlanGateSummary({
+                sourceSpaceId: sourceSpace,
+                targetSpaceId: targetSpace,
+                plan: plan.map((item) => ({
+                    type: item.type,
+                    sourceId: sourceStoryByFullSlug.get(item.sourceFullSlug)
+                        ?.id,
+                    sourceFullSlug: item.sourceFullSlug,
+                    targetFullSlug: item.targetFullSlug,
+                })),
+                conflictTargetFullSlugs: conflicts.map(
+                    (conflict) => conflict.targetFullSlug,
+                ),
+                copyMaps,
+                ledger,
+                graph: dryRunGraph,
+                withAssets,
+            });
+
+            formatCopyPlanGate(planGate).forEach((line) => Logger.log(line));
+
+            if (!(await confirmCopyPlan({ yes }))) {
+                break;
+            }
+
+            if (fresh) {
+                const archived = await archiveCopyManifests(manifestPaths);
+
+                Logger.warning(
+                    archived.length > 0
+                        ? `--fresh: moved ${archived.length} ledger file(s) aside so this run starts empty: ${archived.join(", ")}`
+                        : "--fresh: no ledger files to move aside; starting empty.",
+                );
             }
 
             let assetCopyReport: CopyAssetsApplyReport | undefined;

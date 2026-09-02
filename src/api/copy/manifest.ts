@@ -39,6 +39,39 @@ export const getDefaultCopyManifestPaths = ({
     };
 };
 
+/**
+ * Moves every existing manifest file of a copy pair aside so the next run
+ * starts with an empty ledger. Nothing is deleted: each file is renamed with
+ * a timestamp suffix next to the original. Returns the archived paths.
+ */
+export const archiveCopyManifests = async (
+    paths: CopyManifestPaths,
+    now: Date = new Date(),
+): Promise<string[]> => {
+    const suffix = now.toISOString().replace(/[:.]/g, "-");
+    const archived: string[] = [];
+
+    for (const filePath of [
+        paths.combined,
+        paths.stories,
+        paths.assets,
+        paths.assetFolders,
+    ]) {
+        const archivePath = `${filePath}.${suffix}.bak`;
+
+        try {
+            await fs.rename(filePath, archivePath);
+            archived.push(archivePath);
+        } catch (error: any) {
+            if (error?.code !== "ENOENT") {
+                throw error;
+            }
+        }
+    }
+
+    return archived;
+};
+
 export const createEmptyCopyMaps = (): CopyMaps => ({
     storyIds: new Map(),
     storyUuids: new Map(),
