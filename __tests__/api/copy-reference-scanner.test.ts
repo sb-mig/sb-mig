@@ -31,6 +31,7 @@ const story = {
     uuid: "story-uuid-100",
     full_slug: "blog/post",
     parent_id: 90,
+    // Read-only API metadata: stripped before write, so never scanned.
     alternates: [{ id: 101, parent_id: 91 }],
     content: {
         component: "page",
@@ -205,16 +206,6 @@ describe("copy reference scanner", () => {
             expect.objectContaining({
                 referencedStoryId: 90,
                 path: "parent_id",
-                status: "unclassified",
-            }),
-            expect.objectContaining({
-                referencedStoryId: 101,
-                path: "alternates[0].id",
-                status: "unclassified",
-            }),
-            expect.objectContaining({
-                referencedStoryId: 91,
-                path: "alternates[0].parent_id",
                 status: "unclassified",
             }),
             expect.objectContaining({

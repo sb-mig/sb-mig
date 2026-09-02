@@ -220,11 +220,11 @@ describe("copy graph model", () => {
             sourceStoryId: 100,
             referencedStoryId: 101,
             path: "content.related[0]",
-            status: "preserved_external",
+            status: "will_break",
         });
         graph.warnings.push({
-            code: "external_story_reference",
-            message: "External story reference preserved.",
+            code: "broken_story_reference",
+            message: "Story reference points outside this copy.",
         });
 
         expect(graph).toMatchObject({

@@ -15,7 +15,6 @@ type StoryLike = {
     uuid?: string;
     full_slug?: string;
     parent_id?: number | null;
-    alternates?: Array<{ id?: number; parent_id?: number | null }>;
     content?: Record<string, unknown>;
 };
 
@@ -150,21 +149,9 @@ const scanStoryMetadata = (story: StoryLike, state: ScannerState) => {
         });
     }
 
-    story.alternates?.forEach((alternate, index) => {
-        if (typeof alternate.id === "number") {
-            addStoryReference(state, {
-                path: `alternates[${index}].id`,
-                referencedStoryId: alternate.id,
-            });
-        }
-
-        if (typeof alternate.parent_id === "number") {
-            addStoryReference(state, {
-                path: `alternates[${index}].parent_id`,
-                referencedStoryId: alternate.parent_id,
-            });
-        }
-    });
+    // `alternates` is read-only API metadata that the copy payload strips
+    // before writing, so it is never rewritten and never dangles. Scanning it
+    // would report references that no copy phase acts on.
 };
 
 const scanComponentNode = (

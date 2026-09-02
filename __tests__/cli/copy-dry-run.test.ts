@@ -365,6 +365,58 @@ describe("copy stories dry-run", () => {
         await rm(tempDir, { recursive: true, force: true });
     });
 
+    it("scans only planned stories in children mode, never the excluded root", async () => {
+        const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-copy-"));
+        const outputPath = path.join(tempDir, "plans", "copy-plan.json");
+
+        await copyCommand({
+            input: ["copy", "stories"],
+            flags: {
+                from: "source-space",
+                to: "target-space",
+                source: "blog",
+                mode: "children",
+                destination: "imported",
+                dryRun: true,
+                outputPath,
+            },
+        } as any);
+
+        const report = JSON.parse(await readFile(outputPath, "utf8"));
+
+        expect(report.items).toMatchObject([
+            {
+                type: "story",
+                sourceFullSlug: "blog/post-1",
+                targetFullSlug: "imported/post-1",
+            },
+        ]);
+        // The root folder `blog` is fetched but not copied. Its own cta -> post-1
+        // reference must not be scanned: it would inflate the relink count for
+        // a story this run never writes.
+        expect(
+            report.graph.storyReferences.map(
+                (reference: any) => reference.sourceStoryFullSlug,
+            ),
+        ).toEqual(["blog/post-1", "blog/post-1"]);
+        expect(report.graph.storyReferences).toMatchObject([
+            { path: "parent_id", status: "will_relink" },
+            {
+                path: "content.body.content[0].attrs.uuid",
+                referencedStoryUuid: "source-blog-uuid",
+                status: "will_break",
+            },
+        ]);
+        expect(report.summary).toMatchObject({
+            storyReferences: 2,
+            storyReferencesWillRelink: 1,
+            storyReferencesWillBreak: 1,
+            storyReferencesExternalKept: 0,
+        });
+
+        await rm(tempDir, { recursive: true, force: true });
+    });
+
     it("flags source components missing from the target space during story dry-run", async () => {
         const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-copy-"));
         const outputPath = path.join(tempDir, "plans", "copy-plan.json");

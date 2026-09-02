@@ -2243,10 +2243,17 @@ const annotateReferencesWithManifestMaps = ({
     graph,
     copyMaps,
     withAssets,
+    classifyStories,
 }: {
     graph: CopyGraph;
     copyMaps: CopyMaps;
     withAssets: boolean;
+    /**
+     * Only a story-copy run rewrites story references, so only it can promise
+     * `will_relink` or warn `will_break`. Asset-only runs leave the scanner's
+     * neutral `unclassified` status in place.
+     */
+    classifyStories: boolean;
 }) => {
     for (const reference of graph.assetReferences) {
         if (hasMappedAssetReference({ ...reference, copyMaps })) {
@@ -2257,6 +2264,10 @@ const annotateReferencesWithManifestMaps = ({
         if (!withAssets && reference.status === "planned") {
             reference.status = "unresolved";
         }
+    }
+
+    if (!classifyStories) {
+        return;
     }
 
     // Story references are classified against the copy plan as well as the
@@ -2328,6 +2339,27 @@ const annotateAssetsWithManifestMaps = ({
     }
 };
 
+/**
+ * Restricts the scan input to the stories the plan will actually write. The
+ * selection fetch can return more than the plan (children mode fetches the
+ * root folder but does not copy it); scanning those would attribute
+ * references to a run that never touches them.
+ */
+const selectPlannedSourceStories = (
+    sourceStories: any[],
+    plan: CopyPlanItem[],
+): any[] => {
+    const plannedFullSlugs = new Set(plan.map((item) => item.sourceFullSlug));
+
+    return sourceStories
+        .map((item) => item?.story)
+        .filter(
+            (story) =>
+                Boolean(story) &&
+                plannedFullSlugs.has(String(story.full_slug ?? "")),
+        );
+};
+
 const buildStoryReferenceDryRunGraph = ({
     sourceSpace,
     targetSpace,
@@ -2360,7 +2392,7 @@ const buildStoryReferenceDryRunGraph = ({
             .map((story) => [String(story.full_slug ?? ""), story] as const),
     );
     const scanResult = scanStoriesReferences({
-        stories: sourceStories.map((item) => item?.story).filter(Boolean),
+        stories: selectPlannedSourceStories(sourceStories, plan),
         schemas,
         options: {
             referencePolicy: "preserve",
@@ -2401,6 +2433,7 @@ const buildStoryReferenceDryRunGraph = ({
         graph,
         copyMaps,
         withAssets: false,
+        classifyStories: true,
     });
 
     return graph;
@@ -2417,6 +2450,7 @@ const buildReferencedAssetsGraph = ({
     sourceAssetFolders,
     schemas,
     copyMaps,
+    classifyStories,
     onScanProgress,
 }: {
     sourceSpace: string;
@@ -2429,6 +2463,7 @@ const buildReferencedAssetsGraph = ({
     sourceAssetFolders: any[];
     schemas: Record<string, any>;
     copyMaps: CopyMaps;
+    classifyStories: boolean;
     onScanProgress?: (progress: {
         scanned: number;
         total: number;
@@ -2436,7 +2471,7 @@ const buildReferencedAssetsGraph = ({
     }) => void;
 }): CopyGraph => {
     const scanResult = scanStoriesReferences({
-        stories: sourceStories.map((item) => item?.story).filter(Boolean),
+        stories: selectPlannedSourceStories(sourceStories, plan),
         schemas,
         options: {
             referencePolicy: "preserve",
@@ -2523,6 +2558,7 @@ const buildReferencedAssetsGraph = ({
         graph,
         copyMaps,
         withAssets: true,
+        classifyStories,
     });
     annotateAssetsWithManifestMaps({
         graph,
@@ -3895,6 +3931,7 @@ export const copyCommand = async (props: CLIOptions) => {
                         sourceAssetFolders,
                         schemas,
                         copyMaps,
+                        classifyStories: true,
                         onScanProgress: logReferenceScanProgress,
                     });
                     Logger.success(
@@ -4147,6 +4184,9 @@ export const copyCommand = async (props: CLIOptions) => {
                     sourceAssetFolders,
                     schemas,
                     copyMaps,
+                    // An asset-only run never rewrites stories, so story
+                    // references stay `unclassified` and never warn.
+                    classifyStories: false,
                     onScanProgress: logReferenceScanProgress,
                 });
                 Logger.success(

@@ -195,17 +195,6 @@ describe("copy reference classifier", () => {
             expect(classified.status).toBe("will_relink");
         });
 
-        it("does classify alternates as ordinary content references", () => {
-            const [classified] = classify([
-                reference({
-                    path: "alternates[0].parent_id",
-                    referencedStoryId: 999,
-                }),
-            ]);
-
-            expect(classified.status).toBe("will_break");
-        });
-
         it("leaves scanner-decided statuses untouched", () => {
             const classified = classify([
                 reference({
