@@ -37,13 +37,26 @@ export type CopyBrokenStoryReferenceGroup = {
  */
 const STRUCTURAL_REFERENCE_PATHS = new Set(["parent_id"]);
 
+/**
+ * `excludeSourceFullSlugs` names planned stories the run will NOT map. `copy
+ * stories` creates every planned story, so it excludes nothing; `copy relink`
+ * never creates, so a reference into a story missing from the target has to
+ * classify as a break rather than a promise to relink.
+ */
 export const buildCopyReferenceSelection = (
     stories: CopyGraphStoryNode[],
+    {
+        excludeSourceFullSlugs,
+    }: { excludeSourceFullSlugs?: ReadonlySet<string> } = {},
 ): CopyReferenceSelection => {
     const storyIds = new Set<number>();
     const storyUuids = new Set<string>();
 
     for (const story of stories) {
+        if (excludeSourceFullSlugs?.has(story.sourceFullSlug)) {
+            continue;
+        }
+
         // Plan items whose source story could not be resolved carry sourceId 0.
         if (Number.isFinite(story.sourceId) && story.sourceId > 0) {
             storyIds.add(story.sourceId);

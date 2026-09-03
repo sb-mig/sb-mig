@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm } from "fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "fs/promises";
 import { tmpdir } from "os";
 import path from "path";
 
@@ -119,6 +119,27 @@ const targetFolder = {
     uuid: "target-blog-uuid",
 };
 
+/** Writes a ledger the run will read back, the way an earlier copy left it. */
+const writeLedger = async (manifestRoot: string, entries: unknown[]) => {
+    const dir = path.join(manifestRoot, "copy", "source-space", "target-space");
+
+    await mkdir(dir, { recursive: true });
+    await writeFile(
+        path.join(dir, "manifest.jsonl"),
+        entries.map((entry) => JSON.stringify(entry)).join("\n") + "\n",
+        "utf8",
+    );
+};
+
+const storyLedgerEntry = (entry: Record<string, unknown>) => ({
+    type: "story",
+    source_space_id: "source-space",
+    target_space_id: "target-space",
+    action: "created",
+    created_at: "2026-09-03T00:00:00.000Z",
+    ...entry,
+});
+
 const relinkFlags = (extra: Record<string, unknown> = {}) => ({
     input: ["copy", "relink"],
     flags: {
@@ -204,9 +225,7 @@ describe("copy relink", () => {
         const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-relink-"));
         const manifestRoot = path.join(tempDir, ".sb-mig");
 
-        await copyCommand(
-            relinkFlags({ manifestRoot, yes: true }) as any,
-        );
+        await copyCommand(relinkFlags({ manifestRoot, yes: true }) as any);
 
         // Nothing was created and nothing was copied from the source: one
         // story updated, carrying only the remapped reference.
@@ -321,9 +340,7 @@ describe("copy relink", () => {
         const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-relink-"));
         const manifestRoot = path.join(tempDir, ".sb-mig");
 
-        await copyCommand(
-            relinkFlags({ manifestRoot, dryRun: true }) as any,
-        );
+        await copyCommand(relinkFlags({ manifestRoot, dryRun: true }) as any);
 
         expect(planLines()).toContain(
             "  rewrite: 2 references in 1 story; 0 already correct and left untouched",
@@ -342,6 +359,233 @@ describe("copy relink", () => {
                 "utf8",
             ),
         ).rejects.toThrow();
+
+        await rm(tempDir, { recursive: true, force: true });
+    });
+
+    /**
+     * The state a half-finished copy really leaves behind: the ledger still
+     * maps a story whose target has since been deleted, and a story that IS in
+     * the target still references it.
+     */
+    const setUpStaleLedgerMapping = async (manifestRoot: string) => {
+        const sourceReferencingPost = {
+            ...sourcePost,
+            content: {
+                component: "page",
+                cta: { linktype: "story", id: 3, uuid: "source-post-3-uuid" },
+            },
+        };
+        const sourceDeletedPost = {
+            id: 3,
+            name: "Post 3",
+            slug: "post-3",
+            full_slug: "blog/post-3",
+            is_folder: false,
+            parent_id: 1,
+            uuid: "source-post-3-uuid",
+            content: { component: "page" },
+        };
+
+        targetPost.content = {
+            component: "page",
+            cta: { linktype: "story", id: 3, uuid: "source-post-3-uuid" },
+        };
+
+        await writeLedger(manifestRoot, [
+            storyLedgerEntry({
+                source_id: 3,
+                target_id: 3003,
+                source_uuid: "source-post-3-uuid",
+                target_uuid: "deleted-target-uuid",
+                source_full_slug: "blog/post-3",
+                target_full_slug: "imported/blog/post-3",
+            }),
+        ]);
+
+        mocks.getAllStories.mockResolvedValue([
+            { story: sourceReferencingPost },
+            { story: sourceDeletedPost },
+        ]);
+        mocks.createTree.mockImplementation((stories: any[]) => [
+            {
+                id: stories[0].id,
+                story: stories[0],
+                children: stories.slice(1).map((story: any) => ({
+                    id: story.id,
+                    story,
+                    children: [],
+                })),
+            },
+        ]);
+        // The mapped target story was deleted, and no story lives at its path.
+        mocks.getStoryById.mockResolvedValue(undefined);
+    };
+
+    it("never rewrites a reference through a ledger mapping whose target is gone", async () => {
+        const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-relink-"));
+        const manifestRoot = path.join(tempDir, ".sb-mig");
+
+        await setUpStaleLedgerMapping(manifestRoot);
+
+        await copyCommand(relinkFlags({ manifestRoot, yes: true }) as any);
+
+        // Leaving the broken reference alone is the correct outcome: pointing
+        // it at the deleted story would be worse than the break.
+        expect(mocks.updateStory).not.toHaveBeenCalled();
+        expect(JSON.stringify(mocks.updateStory.mock.calls)).not.toContain(
+            "deleted-target-uuid",
+        );
+
+        await rm(tempDir, { recursive: true, force: true });
+    });
+
+    it("classifies references into a story missing from the target as breaks", async () => {
+        const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-relink-"));
+        const manifestRoot = path.join(tempDir, ".sb-mig");
+
+        await setUpStaleLedgerMapping(manifestRoot);
+
+        await copyCommand(relinkFlags({ manifestRoot, dryRun: true }) as any);
+
+        const lines = planLines();
+
+        expect(lines).toContain(
+            "    1 planned story is not in the target and cannot be relinked; copy it first.",
+        );
+        expect(lines).toContain(
+            "  source references: 2 will relink, 1 leave your selection and WILL BREAK",
+        );
+        expect(lines).toContain(
+            "    References into the story missing from the target cannot be repaired here; copy it first, then relink again.",
+        );
+        // The shared ledger line must not offer a flag this command lacks.
+        expect(
+            lines.some((line) => line.includes("use --fresh to ignore")),
+        ).toBe(false);
+
+        await rm(tempDir, { recursive: true, force: true });
+    });
+
+    it("repairs references into stories outside the selection when the mapping still resolves", async () => {
+        const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-relink-"));
+        const manifestRoot = path.join(tempDir, ".sb-mig");
+
+        targetPost.content = {
+            component: "page",
+            cta: { linktype: "story", id: 5, uuid: "shared-header-uuid" },
+        };
+
+        await writeLedger(manifestRoot, [
+            storyLedgerEntry({
+                source_id: 5,
+                target_id: 5005,
+                source_uuid: "shared-header-uuid",
+                target_uuid: "target-header-uuid",
+                source_full_slug: "shared/header",
+                target_full_slug: "imported/shared/header",
+            }),
+        ]);
+        mocks.getStoryById.mockImplementation((storyId: string) =>
+            Promise.resolve(
+                storyId === "5005"
+                    ? { story: { id: 5005, uuid: "target-header-uuid" } }
+                    : undefined,
+            ),
+        );
+
+        await copyCommand(relinkFlags({ manifestRoot, yes: true }) as any);
+
+        expect(mocks.updateStory).toHaveBeenCalledTimes(1);
+        expect(mocks.updateStory.mock.calls[0][0]).toMatchObject({
+            content: {
+                cta: { id: 5005, uuid: "target-header-uuid" },
+            },
+        });
+
+        await rm(tempDir, { recursive: true, force: true });
+    });
+
+    it("does not call a reference broken when the ledger already covers it", async () => {
+        const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-relink-"));
+        const manifestRoot = path.join(tempDir, ".sb-mig");
+
+        // The source story links to a story outside this selection; the target
+        // copy of it already points at the right story. Nothing to repair, and
+        // nothing to shout about: the ledger covers the reference.
+        mocks.getAllStories.mockResolvedValue([
+            {
+                story: {
+                    ...sourcePost,
+                    content: {
+                        component: "page",
+                        cta: {
+                            linktype: "story",
+                            id: 5,
+                            uuid: "shared-header-uuid",
+                        },
+                    },
+                },
+            },
+        ]);
+        targetPost.content = {
+            component: "page",
+            cta: {
+                linktype: "story",
+                id: 5005,
+                uuid: "target-header-uuid",
+            },
+        };
+
+        await writeLedger(manifestRoot, [
+            storyLedgerEntry({
+                source_id: 5,
+                target_id: 5005,
+                source_uuid: "shared-header-uuid",
+                target_uuid: "target-header-uuid",
+                source_full_slug: "shared/header",
+                target_full_slug: "imported/shared/header",
+            }),
+        ]);
+
+        await copyCommand(relinkFlags({ manifestRoot, dryRun: true }) as any);
+
+        const lines = planLines();
+
+        expect(lines).toContain(
+            "  source references: 2 will relink, 0 will break",
+        );
+        expect(lines.some((line) => line.includes("WILL BREAK"))).toBe(false);
+        expect(mocks.updateStory).not.toHaveBeenCalled();
+
+        await rm(tempDir, { recursive: true, force: true });
+    });
+
+    it("drops an out-of-selection ledger mapping whose target story is gone", async () => {
+        const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-relink-"));
+        const manifestRoot = path.join(tempDir, ".sb-mig");
+
+        targetPost.content = {
+            component: "page",
+            cta: { linktype: "story", id: 5, uuid: "shared-header-uuid" },
+        };
+
+        await writeLedger(manifestRoot, [
+            storyLedgerEntry({
+                source_id: 5,
+                target_id: 5005,
+                source_uuid: "shared-header-uuid",
+                target_uuid: "target-header-uuid",
+                source_full_slug: "shared/header",
+                target_full_slug: "imported/shared/header",
+            }),
+        ]);
+        // The mapped story is no longer in the target space.
+        mocks.getStoryById.mockResolvedValue(undefined);
+
+        await copyCommand(relinkFlags({ manifestRoot, yes: true }) as any);
+
+        expect(mocks.updateStory).not.toHaveBeenCalled();
 
         await rm(tempDir, { recursive: true, force: true });
     });

@@ -1,5 +1,10 @@
-import type { CopyComponentSchemaRegistry, CopyMaps } from "./types.js";
+import type {
+    CopyComponentSchemaRegistry,
+    CopyManifestEntry,
+    CopyMaps,
+} from "./types.js";
 
+import { createEmptyCopyMaps } from "./manifest.js";
 import {
     formatCopyPlanGateLedger,
     formatCopyPlanGateReferences,
@@ -54,6 +59,144 @@ export type CopyRelinkPlanSummary = {
     rewrittenReferences: number;
     ledger: CopyPlanGateLedger;
     references: CopyPlanGateReferences;
+};
+
+/**
+ * One source story mapped to the story that actually backs it in the target,
+ * as proven by this run at the moment it built its maps.
+ */
+export type CopyRelinkStoryMapping = {
+    sourceId: number;
+    sourceUuid: string;
+    targetId: number;
+    targetUuid: string;
+    sourceFullSlug: string;
+    targetFullSlug: string;
+};
+
+/**
+ * The maps `copy relink` rewrites through. Story mappings come ONLY from
+ * matches this run validated against the target space — a ledger line whose
+ * target story is gone would otherwise rewrite a live reference to a deleted
+ * uuid, which is worse than the break the command was asked to repair. Asset
+ * mappings carry over untouched: they record copied files, and no story match
+ * can invalidate them.
+ */
+export const buildCopyRelinkMaps = ({
+    ledgerMaps,
+    storyMappings,
+}: {
+    ledgerMaps: CopyMaps;
+    storyMappings: CopyRelinkStoryMapping[];
+}): CopyMaps => {
+    const maps = createEmptyCopyMaps();
+
+    ledgerMaps.assetIds.forEach((value, key) => maps.assetIds.set(key, value));
+    ledgerMaps.assetFilenames.forEach((value, key) =>
+        maps.assetFilenames.set(key, value),
+    );
+    ledgerMaps.assetFolderIds.forEach((value, key) =>
+        maps.assetFolderIds.set(key, value),
+    );
+
+    for (const mapping of storyMappings) {
+        maps.storyIds.set(mapping.sourceId, mapping.targetId);
+        maps.storyUuids.set(mapping.sourceUuid, mapping.targetUuid);
+    }
+
+    return maps;
+};
+
+/**
+ * The maps the PLAN's reference counts are read against. Unlike the rewrite
+ * maps, these keep the ledger's own out-of-selection mappings: a reference the
+ * ledger already covers is not a break just because this run never had to
+ * touch it. What they must not keep is any mapping this run PROVED stale —
+ * otherwise the plan promises a relink the rewrite will refuse.
+ */
+export const buildCopyRelinkClassificationMaps = ({
+    ledgerMaps,
+    storyMappings,
+    staleStoryKeys,
+}: {
+    ledgerMaps: CopyMaps;
+    storyMappings: CopyRelinkStoryMapping[];
+    staleStoryKeys: Array<{ sourceId: number; sourceUuid: string }>;
+}): CopyMaps => {
+    const maps: CopyMaps = {
+        storyIds: new Map(ledgerMaps.storyIds),
+        storyUuids: new Map(ledgerMaps.storyUuids),
+        assetIds: new Map(ledgerMaps.assetIds),
+        assetFilenames: new Map(ledgerMaps.assetFilenames),
+        assetFolderIds: new Map(ledgerMaps.assetFolderIds),
+    };
+
+    for (const key of staleStoryKeys) {
+        maps.storyIds.delete(key.sourceId);
+        maps.storyUuids.delete(key.sourceUuid);
+    }
+
+    for (const mapping of storyMappings) {
+        maps.storyIds.set(mapping.sourceId, mapping.targetId);
+        maps.storyUuids.set(mapping.sourceUuid, mapping.targetUuid);
+    }
+
+    return maps;
+};
+
+const mentionsStoryReference = (
+    serializedContent: string,
+    { sourceId, sourceUuid }: { sourceId: number; sourceUuid: string },
+): boolean =>
+    (sourceUuid.length > 0 && serializedContent.includes(sourceUuid)) ||
+    (Number.isFinite(sourceId) &&
+        new RegExp(`(^|[^0-9])${sourceId}([^0-9]|$)`).test(serializedContent));
+
+/**
+ * Ledger mappings for stories OUTSIDE the relink selection that the target
+ * content actually mentions — the `shared/header` a relink of `pages` alone
+ * still has to repair. These are candidates, not conclusions: the caller
+ * validates each one against the target space before it may join the rewrite
+ * maps.
+ *
+ * The mention test is a substring scan of the target content and deliberately
+ * generous: a false positive costs one lookup, a miss would silently leave a
+ * reference unrepaired.
+ */
+export const selectRelinkLedgerStoryMappings = ({
+    entries,
+    plannedSourceIds,
+    targetContents,
+}: {
+    entries: CopyManifestEntry[];
+    plannedSourceIds: Set<number>;
+    targetContents: unknown[];
+}): CopyRelinkStoryMapping[] => {
+    const serializedContent = targetContents
+        .map((content) => JSON.stringify(content ?? null))
+        .join("\n");
+    const mappings = new Map<number, CopyRelinkStoryMapping>();
+
+    for (const entry of entries) {
+        if (entry.type !== "story" || plannedSourceIds.has(entry.source_id)) {
+            continue;
+        }
+
+        const mapping: CopyRelinkStoryMapping = {
+            sourceId: Number(entry.source_id),
+            sourceUuid: String(entry.source_uuid ?? ""),
+            targetId: Number(entry.target_id),
+            targetUuid: String(entry.target_uuid ?? ""),
+            sourceFullSlug: String(entry.source_full_slug ?? ""),
+            targetFullSlug: String(entry.target_full_slug ?? ""),
+        };
+
+        if (mentionsStoryReference(serializedContent, mapping)) {
+            mappings.set(mapping.sourceId, mapping);
+        }
+    }
+
+    return Array.from(mappings.values());
 };
 
 export const buildCopyRelinkPlanSummary = ({
@@ -133,13 +276,36 @@ export const formatCopyRelinkPlan = (
         );
     }
 
-    lines.push(formatCopyPlanGateLedger(ledger));
     lines.push(
-        ...formatCopyPlanGateReferences({
-            references,
-            sameSpace: summary.sameSpace,
+        // `copy relink` has no `--fresh`: the ledger is its input, and target
+        // path adoption already fills whatever the ledger is missing.
+        formatCopyPlanGateLedger(ledger, {
+            resumeNote: "completing the mapping from the target space",
         }),
     );
+
+    // The scan reads the SOURCE stories this selection covers, while the
+    // rewrite below is measured in the TARGET content relink actually writes.
+    // The two answer different questions and their counts legitimately differ,
+    // so the line says which one it is instead of implying the other.
+    const referenceLines = formatCopyPlanGateReferences({
+        references,
+        sameSpace: summary.sameSpace,
+        label: "source references",
+    });
+
+    lines.push(
+        ...referenceLines.slice(0, 1),
+        "    Counted in the source content this selection covers, against the mapping above; the rewrite line below is what changes in the target.",
+        ...referenceLines.slice(1),
+    );
+
+    if (stories.missing > 0 && references.willBreak > 0) {
+        lines.push(
+            `    References into ${plural(stories.missing, "the story", "stories")} missing from the target cannot be repaired here; copy ${plural(stories.missing, "it", "them")} first, then relink again.`,
+        );
+    }
+
     lines.push(
         `  rewrite: ${summary.rewrittenReferences} ${plural(summary.rewrittenReferences, "reference", "references")} in ${stories.toUpdate} ${plural(stories.toUpdate, "story", "stories")}; ${stories.unchanged} already correct and left untouched`,
     );

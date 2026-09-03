@@ -3,6 +3,7 @@ import type {
     CopyMaps,
     CopyRelinkMatch,
     CopyRelinkPlanItem,
+    CopyRelinkStoryMapping,
     CopyRelinkStoryRewrite,
     CopyAssetFolderManifestEntry,
     CopyAssetManifestEntry,
@@ -25,6 +26,8 @@ import {
     buildCopyMaps,
     buildCopyPlanGateSummary,
     buildCopyReferenceSelection,
+    buildCopyRelinkClassificationMaps,
+    buildCopyRelinkMaps,
     buildCopyRelinkPlanSummary,
     classifyStoryReferences,
     countStoryReferenceStatuses,
@@ -41,6 +44,7 @@ import {
     planCopyRelinkStoryRewrite,
     rewriteCopyReferences,
     scanStoriesReferences,
+    selectRelinkLedgerStoryMappings,
     summarizeCopyGraph,
 } from "../../api/copy/index.js";
 import {
@@ -2292,6 +2296,7 @@ const annotateReferencesWithManifestMaps = ({
     copyMaps,
     withAssets,
     classifyStories,
+    unmappedSourceFullSlugs,
 }: {
     graph: CopyGraph;
     copyMaps: CopyMaps;
@@ -2302,6 +2307,12 @@ const annotateReferencesWithManifestMaps = ({
      * neutral `unclassified` status in place.
      */
     classifyStories: boolean;
+    /**
+     * Planned stories that will have no mapping when content is rewritten.
+     * `copy stories` creates them all and passes nothing; `copy relink` passes
+     * the stories missing from the target, whose references really do break.
+     */
+    unmappedSourceFullSlugs?: ReadonlySet<string>;
 }) => {
     for (const reference of graph.assetReferences) {
         if (hasMappedAssetReference({ ...reference, copyMaps })) {
@@ -2323,7 +2334,9 @@ const annotateReferencesWithManifestMaps = ({
     // that points outside it dangles. graph.stories already carries the plan.
     graph.storyReferences = classifyStoryReferences({
         storyReferences: graph.storyReferences,
-        selection: buildCopyReferenceSelection(graph.stories),
+        selection: buildCopyReferenceSelection(graph.stories, {
+            excludeSourceFullSlugs: unmappedSourceFullSlugs,
+        }),
         copyMaps,
         sameSpace: graph.sourceSpaceId === graph.targetSpaceId,
     });
@@ -2417,6 +2430,7 @@ const buildStoryReferenceDryRunGraph = ({
     sourceStories,
     schemas,
     copyMaps,
+    unmappedSourceFullSlugs,
     onScanProgress,
 }: {
     sourceSpace: string;
@@ -2427,6 +2441,8 @@ const buildStoryReferenceDryRunGraph = ({
     sourceStories: any[];
     schemas: Record<string, any>;
     copyMaps: CopyMaps;
+    /** Planned stories this run will not map; see the annotator. */
+    unmappedSourceFullSlugs?: ReadonlySet<string>;
     onScanProgress?: (progress: {
         scanned: number;
         total: number;
@@ -2482,6 +2498,7 @@ const buildStoryReferenceDryRunGraph = ({
         copyMaps,
         withAssets: false,
         classifyStories: true,
+        unmappedSourceFullSlugs,
     });
 
     return graph;
@@ -3983,6 +4000,70 @@ const matchRelinkTargets = async ({
 };
 
 /**
+ * Keeps only the out-of-selection ledger mappings whose target story is still
+ * there. Relink writes THROUGH these mappings, so an unchecked one turns a
+ * broken reference into a reference to a story that no longer exists — the one
+ * outcome worse than leaving the break alone. Only mappings the target content
+ * actually mentions are checked, so the cost is bounded by the damage.
+ */
+const validateRelinkLedgerMappings = async ({
+    mappings,
+    targetSpace,
+}: {
+    mappings: CopyRelinkStoryMapping[];
+    targetSpace: string;
+}): Promise<{
+    valid: CopyRelinkStoryMapping[];
+    stale: CopyRelinkStoryMapping[];
+}> => {
+    if (mappings.length === 0) {
+        return { valid: [], stale: [] };
+    }
+
+    Logger.warning(
+        `Validating ${mappings.length} ledger mapping(s) referenced by the target content but outside this selection.`,
+    );
+
+    const checked = await mapWithConcurrency(
+        mappings,
+        TARGET_CONFLICT_CHECK_CONCURRENCY,
+        async (mapping) => {
+            const targetStory = await managementApi.stories.getStoryById(
+                String(mapping.targetId),
+                {
+                    ...apiConfig,
+                    spaceId: targetSpace,
+                },
+            );
+            const foundUuid = targetStory?.story?.uuid;
+
+            if (
+                targetStory?.story?.id &&
+                (!mapping.targetUuid ||
+                    String(foundUuid) === mapping.targetUuid)
+            ) {
+                return { mapping, valid: true };
+            }
+
+            Logger.warning(
+                `Ignoring stale story manifest mapping for '${mapping.sourceFullSlug || `#${mapping.sourceId}`}' because target story '${mapping.targetId}' was not found in space '${targetSpace}'. References to it are left as they are.`,
+            );
+
+            return { mapping, valid: false };
+        },
+    );
+
+    return {
+        valid: checked
+            .filter((result) => result.valid)
+            .map((result) => result.mapping),
+        stale: checked
+            .filter((result) => !result.valid)
+            .map((result) => result.mapping),
+    };
+};
+
+/**
  * The write half of `copy relink`: record the adopted mappings, then store the
  * rewritten content of every story whose references actually changed. Stories
  * that already point at the right target are never updated.
@@ -4547,7 +4628,7 @@ export const copyCommand = async (props: CLIOptions) => {
             });
             const manifestEntries = await loadManifest(manifestPaths.combined);
             const ledgerPath = path.resolve(manifestPaths.combined);
-            const copyMaps = buildCopyMaps(manifestEntries);
+            const ledgerMaps = buildCopyMaps(manifestEntries);
 
             Logger.warning(
                 manifestEntries.length > 0
@@ -4558,25 +4639,83 @@ export const copyCommand = async (props: CLIOptions) => {
             const matches = await matchRelinkTargets({
                 plan,
                 sourceStories,
-                copyMaps,
+                copyMaps: ledgerMaps,
                 targetSpace,
             });
 
             // Every mapping must be complete BEFORE a single story is
             // rewritten: a reference resolved against a half-built map is
             // exactly the silent breakage this command exists to repair.
-            for (const match of matches) {
-                if (match.targetStory && match.sourceStory) {
-                    copyMaps.storyIds.set(
-                        Number(match.sourceStory.id),
-                        Number(match.targetStory.id),
-                    );
-                    copyMaps.storyUuids.set(
-                        String(match.sourceStory.uuid),
-                        String(match.targetStory.uuid),
-                    );
-                }
-            }
+            //
+            // It must also contain nothing but mappings this run VERIFIED.
+            // The ledger is a record of what was true when it was written, and
+            // relinking through a mapping whose target has since been deleted
+            // would replace a broken reference with a dangling one.
+            const matchedStoryMappings: CopyRelinkStoryMapping[] = matches
+                .filter(
+                    (match) =>
+                        match.sourceStory?.uuid && match.targetStory?.uuid,
+                )
+                .map((match) => ({
+                    sourceId: Number(match.sourceStory.id),
+                    sourceUuid: String(match.sourceStory.uuid),
+                    targetId: Number(match.targetStory.id),
+                    targetUuid: String(match.targetStory.uuid),
+                    sourceFullSlug: String(
+                        match.sourceStory.full_slug ??
+                            match.item.sourceFullSlug,
+                    ),
+                    targetFullSlug: String(
+                        match.targetStory.full_slug ??
+                            match.item.targetFullSlug,
+                    ),
+                }));
+            // Stories outside the selection are still repairable — relinking
+            // `pages` alone must fix its links into `shared` — but only once
+            // their mapping is checked against the target the same way.
+            const ledgerStoryMappings = await validateRelinkLedgerMappings({
+                mappings: selectRelinkLedgerStoryMappings({
+                    entries: manifestEntries,
+                    plannedSourceIds: new Set(
+                        matches
+                            .map((match) => Number(match.sourceStory?.id))
+                            .filter((sourceId) => Number.isFinite(sourceId)),
+                    ),
+                    targetContents: matches.map(
+                        (match) => match.targetStory?.content,
+                    ),
+                }),
+                targetSpace,
+            });
+            const validatedStoryMappings = [
+                ...matchedStoryMappings,
+                ...ledgerStoryMappings.valid,
+            ];
+            const copyMaps = buildCopyRelinkMaps({
+                ledgerMaps,
+                storyMappings: validatedStoryMappings,
+            });
+            // The PLAN counts read against the ledger as corrected by this run:
+            // out-of-selection mappings still count as covered, but everything
+            // proven stale is gone, so the counts cannot promise what the
+            // rewrite above will refuse to do.
+            const classificationMaps = buildCopyRelinkClassificationMaps({
+                ledgerMaps,
+                storyMappings: validatedStoryMappings,
+                staleStoryKeys: [
+                    ...matches
+                        .filter(
+                            (match) =>
+                                match.match === "missing" &&
+                                match.sourceStory?.uuid,
+                        )
+                        .map((match) => ({
+                            sourceId: Number(match.sourceStory.id),
+                            sourceUuid: String(match.sourceStory.uuid),
+                        })),
+                    ...ledgerStoryMappings.stale,
+                ],
+            });
 
             const schemas = await buildComponentSchemaRegistry(sourceSpace);
             const relinkPlan: CopyRelinkPlanItem[] = matches.map((match) => {
@@ -4608,7 +4747,14 @@ export const copyCommand = async (props: CLIOptions) => {
                 plan,
                 sourceStories,
                 schemas,
-                copyMaps,
+                copyMaps: classificationMaps,
+                // Relink never creates a story, so a reference into one that is
+                // missing from the target breaks; it cannot relink.
+                unmappedSourceFullSlugs: new Set(
+                    matches
+                        .filter((match) => match.match === "missing")
+                        .map((match) => match.item.sourceFullSlug),
+                ),
                 onScanProgress: logReferenceScanProgress,
             });
             const referenceCounts = countStoryReferenceStatuses(

@@ -211,31 +211,47 @@ export const formatCopyPlanGate = (summary: CopyPlanGateSummary): string[] => {
     return lines;
 };
 
-/** The one line stating where the ledger came from and whether it is used. */
+/**
+ * The one line stating where the ledger came from and whether it is used.
+ * `resumeNote` is what the loaded-ledger line says in brackets; a command
+ * without `--fresh` must not advertise it, so it passes its own note.
+ */
 export const formatCopyPlanGateLedger = (
     ledger: CopyPlanGateLedger,
+    {
+        resumeNote = "resuming; use --fresh to ignore",
+    }: {
+        resumeNote?: string;
+    } = {},
 ): string => {
     if (ledger.ignored) {
         return `  ledger: ${ledger.entries} ${plural(ledger.entries, "entry", "entries")} at ${ledger.path} IGNORED (--fresh; starting empty)`;
     }
 
     if (ledger.entries > 0) {
-        return `  ledger: ${ledger.entries} ${plural(ledger.entries, "entry", "entries")} loaded from ${ledger.path} (resuming; use --fresh to ignore)`;
+        return `  ledger: ${ledger.entries} ${plural(ledger.entries, "entry", "entries")} loaded from ${ledger.path} (${resumeNote})`;
     }
 
     return `  ledger: none at ${ledger.path} (starting empty)`;
 };
 
-/** The reference counts and, when anything dangles, the grouped detail. */
+/**
+ * The reference counts and, when anything dangles, the grouped detail. The
+ * `label` names what the counts were measured against: `copy stories` scans
+ * the content it is about to copy, so plain `references` is the whole truth,
+ * while a command that rewrites something else must say so.
+ */
 export const formatCopyPlanGateReferences = ({
     references,
     sameSpace,
+    label = "references",
 }: {
     references: CopyPlanGateReferences;
     sameSpace: boolean;
+    label?: string;
 }): string[] => {
     if (!references.scanned) {
-        return ["  references: not scanned"];
+        return [`  ${label}: not scanned`];
     }
 
     const parts = [`${references.willRelink} will relink`];
@@ -253,7 +269,7 @@ export const formatCopyPlanGateReferences = ({
     );
 
     return [
-        `  references: ${parts.join(", ")}`,
+        `  ${label}: ${parts.join(", ")}`,
         ...formatBreakingReferences(references.breaking),
     ];
 };
