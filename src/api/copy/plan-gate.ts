@@ -36,6 +36,17 @@ export type CopyPlanGateLedger = {
     ignored: boolean;
 };
 
+/** The reference facts a PLAN block states, whatever command printed it. */
+export type CopyPlanGateReferences = {
+    scanned: boolean;
+    total: number;
+    willRelink: number;
+    willBreak: number;
+    externalKept: number;
+    /** The will-break references grouped by the story that holds them. */
+    breaking: CopyBrokenStoryReferenceGroup[];
+};
+
 export type CopyPlanGateSummary = {
     sourceSpaceId: string;
     targetSpaceId: string;
@@ -60,15 +71,7 @@ export type CopyPlanGateSummary = {
         staleLedger: number;
     };
     ledger: CopyPlanGateLedger;
-    references: {
-        scanned: boolean;
-        total: number;
-        willRelink: number;
-        willBreak: number;
-        externalKept: number;
-        /** The will-break references grouped by the story that holds them. */
-        breaking: CopyBrokenStoryReferenceGroup[];
-    };
+    references: CopyPlanGateReferences;
     assets?: {
         toCopy: number;
         mapped: number;
@@ -189,37 +192,13 @@ export const formatCopyPlanGate = (summary: CopyPlanGateSummary): string[] => {
         );
     }
 
-    if (ledger.ignored) {
-        lines.push(
-            `  ledger: ${ledger.entries} ${plural(ledger.entries, "entry", "entries")} at ${ledger.path} IGNORED (--fresh; starting empty)`,
-        );
-    } else if (ledger.entries > 0) {
-        lines.push(
-            `  ledger: ${ledger.entries} ${plural(ledger.entries, "entry", "entries")} loaded from ${ledger.path} (resuming; use --fresh to ignore)`,
-        );
-    } else {
-        lines.push(`  ledger: none at ${ledger.path} (starting empty)`);
-    }
-
-    if (!references.scanned) {
-        lines.push("  references: not scanned");
-    } else {
-        const referenceParts = [`${references.willRelink} will relink`];
-
-        if (summary.sameSpace) {
-            referenceParts.push(
-                `${references.externalKept} outside the selection kept (same space)`,
-            );
-        }
-
-        referenceParts.push(
-            references.willBreak > 0
-                ? `${references.willBreak} leave your selection and WILL BREAK`
-                : "0 will break",
-        );
-        lines.push(`  references: ${referenceParts.join(", ")}`);
-        lines.push(...formatBreakingReferences(references.breaking));
-    }
+    lines.push(formatCopyPlanGateLedger(ledger));
+    lines.push(
+        ...formatCopyPlanGateReferences({
+            references,
+            sameSpace: summary.sameSpace,
+        }),
+    );
 
     if (assets) {
         lines.push(
@@ -230,6 +209,53 @@ export const formatCopyPlanGate = (summary: CopyPlanGateSummary): string[] => {
     }
 
     return lines;
+};
+
+/** The one line stating where the ledger came from and whether it is used. */
+export const formatCopyPlanGateLedger = (
+    ledger: CopyPlanGateLedger,
+): string => {
+    if (ledger.ignored) {
+        return `  ledger: ${ledger.entries} ${plural(ledger.entries, "entry", "entries")} at ${ledger.path} IGNORED (--fresh; starting empty)`;
+    }
+
+    if (ledger.entries > 0) {
+        return `  ledger: ${ledger.entries} ${plural(ledger.entries, "entry", "entries")} loaded from ${ledger.path} (resuming; use --fresh to ignore)`;
+    }
+
+    return `  ledger: none at ${ledger.path} (starting empty)`;
+};
+
+/** The reference counts and, when anything dangles, the grouped detail. */
+export const formatCopyPlanGateReferences = ({
+    references,
+    sameSpace,
+}: {
+    references: CopyPlanGateReferences;
+    sameSpace: boolean;
+}): string[] => {
+    if (!references.scanned) {
+        return ["  references: not scanned"];
+    }
+
+    const parts = [`${references.willRelink} will relink`];
+
+    if (sameSpace) {
+        parts.push(
+            `${references.externalKept} outside the selection kept (same space)`,
+        );
+    }
+
+    parts.push(
+        references.willBreak > 0
+            ? `${references.willBreak} leave your selection and WILL BREAK`
+            : "0 will break",
+    );
+
+    return [
+        `  references: ${parts.join(", ")}`,
+        ...formatBreakingReferences(references.breaking),
+    ];
 };
 
 /**

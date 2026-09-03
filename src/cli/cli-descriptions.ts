@@ -218,6 +218,8 @@ export const copyDescription = `
         $ sb-mig copy stories --from [spaceId] --to [spaceId] --source [folder_full_slug]
         $ sb-mig copy stories --from [spaceId] --to [spaceId] --source [folder_full_slug]/* --destination [target_folder_full_slug]
         $ sb-mig copy stories --from [spaceId] --to [spaceId] --source [folder_full_slug] --mode self --destination /
+        $ sb-mig copy relink --from [spaceId] --to [spaceId] --source [folder_full_slug] --destination [target_folder_full_slug]
+        $ sb-mig copy relink --from [spaceId] --to [spaceId] --source [folder_full_slug] --dry-run
         $ sb-mig copy assets --from [spaceId] --to [spaceId] --all
         $ sb-mig copy assets --from [spaceId] --to [spaceId] --asset [asset_id_or_filename]
         $ sb-mig copy assets --from [spaceId] --to [spaceId] --assetFolder [folder_id_or_path]
@@ -229,6 +231,7 @@ export const copyDescription = `
 
     COMMANDS
         stories         Copy one story, one folder subtree, a folder's children, or one folder shell.
+        relink          Repair references in stories that were already copied, without copying content again.
         assets          Copy or plan all assets and asset folders with durable manifests.
 
     FLAGS
@@ -248,7 +251,7 @@ export const copyDescription = `
         --referenced-by-stories
                        Select assets referenced by a story/folder scope. Requires --source. [assets only]
         --dry-run       Preview story paths, manifest-mapped references, and likely target conflicts without writing to Storyblok.
-        --yes           Skip the confirmation gate that copy stories shows after its PLAN block, before its first write. Required in non-interactive runs (CI). [stories only]
+        --yes           Skip the confirmation gate that copy stories and copy relink show after their PLAN block, before their first write. Required in non-interactive runs (CI). [stories and relink only]
         --fresh         Ignore the existing copy ledger for this run; every manifest file of this space pair, the asset and asset-folder ledgers included, is moved aside with a timestamp suffix, never deleted. A later --with-assets run therefore starts without the archived asset mappings too. [stories only]
         --outputPath    Optional JSON file path for a dry-run copy plan artifact. Only writes locally when passed.
 
@@ -259,6 +262,8 @@ export const copyDescription = `
         --where         Alias for --destination.
 
     SIDE EFFECTS
+        copy relink updates the content of already-copied target stories unless --dry-run is passed. Only reference values change.
+        copy relink appends matched_by_target_key entries to the story manifest for target stories it matches by path.
         copy stories writes copied stories into the target Storyblok space unless --dry-run is passed.
         copy stories writes story ID/UUID manifests under .sb-mig/copy/<source>/<target>/ during apply.
         copy stories --with-assets writes referenced asset folders/assets before story writes unless --dry-run is passed.
@@ -273,6 +278,11 @@ export const copyDescription = `
         mode 'children' copies a folder's descendants without the folder root.
         mode 'self' copies only the source story or folder shell.
         copy stories prints a PLAN block (create/adopt/resume counts, ledger, will-relink/will-break references, assets) and asks for confirmation before any write; pass --yes to skip the question. Without a terminal and without --yes it refuses to write.
+        copy relink repairs stories that were copied before the stories they reference, which leaves source-space IDs and UUIDs in target content forever; copying the referenced stories later does not fix the content that was already written.
+        copy relink takes the same --source, --destination and --mode as the copy stories run it repairs, so the planned target paths line up.
+        copy relink builds the mapping from the ledger plus target paths, then rewrites each target story's own content. It never creates stories and never copies content from the source.
+        copy relink leaves a story untouched when its references already resolve, and updates the draft only, so published stories need publishing afterwards.
+        copy relink prints the same PLAN block and confirmation gate as copy stories, with the exact number of references it is about to rewrite.
         copy stories creates or matches target story shells, then fills them with rewritten source content.
         copy stories matches existing targets by manifest first, then target full_slug when safe, so reruns can reuse mapped target stories.
         copy stories rewrites mapped asset and story references after story manifests exist.

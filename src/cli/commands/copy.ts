@@ -1,6 +1,9 @@
 import type {
     CopyGraph,
     CopyMaps,
+    CopyRelinkMatch,
+    CopyRelinkPlanItem,
+    CopyRelinkStoryRewrite,
     CopyAssetFolderManifestEntry,
     CopyAssetManifestEntry,
     CopyComponentSchemaRegistry,
@@ -22,6 +25,7 @@ import {
     buildCopyMaps,
     buildCopyPlanGateSummary,
     buildCopyReferenceSelection,
+    buildCopyRelinkPlanSummary,
     classifyStoryReferences,
     countStoryReferenceStatuses,
     createCopyGraph,
@@ -29,10 +33,12 @@ import {
     dedupeManifestFile,
     describeBrokenStoryReferenceTarget,
     formatCopyPlanGate,
+    formatCopyRelinkPlan,
     getDefaultCopyManifestPaths,
     groupBrokenStoryReferences,
     loadManifest,
     normalizeAssetFolderParentId,
+    planCopyRelinkStoryRewrite,
     rewriteCopyReferences,
     scanStoriesReferences,
     summarizeCopyGraph,
@@ -56,6 +62,7 @@ import { askYesNo } from "../helpers.js";
 const COPY_COMMANDS = {
     stories: "stories",
     assets: "assets",
+    relink: "relink",
 };
 
 const COPY_MODES = ["subtree", "children", "self"] as const;
@@ -3881,6 +3888,249 @@ const confirmCopyPlan = async ({ yes }: { yes: boolean }): Promise<boolean> => {
     return confirmed;
 };
 
+type CopyRelinkMatchRecord = {
+    item: CopyPlanItem;
+    sourceStory?: any;
+    targetStory?: any;
+    match: CopyRelinkMatch;
+    rewrite?: CopyRelinkStoryRewrite;
+};
+
+/**
+ * Finds the story each planned item already has in the target space: through a
+ * still-valid ledger mapping first, then by target path. Read-only — adopted
+ * mappings are recorded only once the operator has confirmed the plan.
+ */
+const matchRelinkTargets = async ({
+    plan,
+    sourceStories,
+    copyMaps,
+    targetSpace,
+}: {
+    plan: CopyPlanItem[];
+    sourceStories: any[];
+    copyMaps: CopyMaps;
+    targetSpace: string;
+}): Promise<CopyRelinkMatchRecord[]> => {
+    const sourceStoryByFullSlug = new Map<string, any>(
+        sourceStories
+            .map((item: any) => item?.story)
+            .filter(Boolean)
+            .map((story: any) => [String(story.full_slug ?? ""), story]),
+    );
+    let checked = 0;
+
+    Logger.warning(
+        `Matching ${plan.length} planned item(s) against stories in space '${targetSpace}'.`,
+    );
+
+    const records = await mapWithConcurrency(
+        plan,
+        TARGET_CONFLICT_CHECK_CONCURRENCY,
+        async (item): Promise<CopyRelinkMatchRecord> => {
+            const sourceStory = sourceStoryByFullSlug.get(item.sourceFullSlug);
+            const mappedTargetId = sourceStory
+                ? copyMaps.storyIds.get(Number(sourceStory.id))
+                : undefined;
+            let targetStory: any;
+            let match: CopyRelinkMatch = "missing";
+
+            if (sourceStory && mappedTargetId) {
+                targetStory = await getValidMappedTargetStory({
+                    sourceStory,
+                    targetStoryId: mappedTargetId,
+                    targetFullSlug: item.targetFullSlug,
+                    targetSpace,
+                });
+
+                if (targetStory) {
+                    match = "ledger";
+                }
+            }
+
+            if (!targetStory) {
+                const existingTargetStory =
+                    await managementApi.stories.getStoryBySlug(
+                        item.targetFullSlug,
+                        {
+                            ...apiConfig,
+                            spaceId: targetSpace,
+                        },
+                    );
+
+                if (existingTargetStory?.story?.id) {
+                    targetStory = existingTargetStory.story;
+                    match = "adopted";
+                }
+            }
+
+            checked += 1;
+            if (
+                checked === plan.length ||
+                checked % 25 === 0 ||
+                plan.length <= 25
+            ) {
+                Logger.success(
+                    `Matched ${checked} of ${plan.length} planned item(s).`,
+                );
+            }
+
+            return { item, sourceStory, targetStory, match };
+        },
+    );
+
+    return records;
+};
+
+/**
+ * The write half of `copy relink`: record the adopted mappings, then store the
+ * rewritten content of every story whose references actually changed. Stories
+ * that already point at the right target are never updated.
+ */
+const relinkTargetStories = async ({
+    matches,
+    manifestPaths,
+    sourceSpace,
+    targetSpace,
+}: {
+    matches: CopyRelinkMatchRecord[];
+    manifestPaths: ReturnType<typeof getDefaultCopyManifestPaths>;
+    sourceSpace: string;
+    targetSpace: string;
+}) => {
+    let adopted = 0;
+
+    for (const record of matches) {
+        if (
+            record.match !== "adopted" ||
+            !record.sourceStory?.uuid ||
+            !record.targetStory?.uuid
+        ) {
+            continue;
+        }
+
+        const entry: CopyStoryManifestEntry = {
+            type: "story",
+            source_space_id: sourceSpace,
+            target_space_id: targetSpace,
+            source_id: Number(record.sourceStory.id),
+            target_id: Number(record.targetStory.id),
+            source_uuid: String(record.sourceStory.uuid),
+            target_uuid: String(record.targetStory.uuid),
+            source_full_slug: String(record.sourceStory.full_slug ?? ""),
+            target_full_slug: String(
+                record.targetStory.full_slug ?? record.item.targetFullSlug,
+            ),
+            action: "matched_by_target_key",
+            created_at: new Date().toISOString(),
+        };
+
+        await appendCopyManifestEntry({
+            combinedPath: manifestPaths.combined,
+            resourcePath: manifestPaths.stories,
+            entry,
+        });
+        adopted += 1;
+    }
+
+    if (adopted > 0) {
+        await dedupeManifestFile(manifestPaths.stories);
+        await dedupeManifestFile(manifestPaths.combined);
+        Logger.success(
+            `Recorded ${adopted} adopted target story mapping(s) in the ledger.`,
+        );
+    }
+
+    let updatedStories = 0;
+    let unchangedStories = 0;
+    let rewrittenReferences = 0;
+    let publishedStories = 0;
+    const failures: Array<{ fullSlug: string; message: string }> = [];
+
+    for (const record of matches) {
+        if (!record.rewrite || !record.targetStory) {
+            continue;
+        }
+
+        const targetLabel = String(
+            record.targetStory.full_slug ?? record.item.targetFullSlug,
+        );
+
+        if (!record.rewrite.changed) {
+            unchangedStories += 1;
+            continue;
+        }
+
+        const result = await managementApi.stories.updateStory(
+            { ...record.targetStory, content: record.rewrite.content },
+            String(record.targetStory.id),
+            {
+                publish: false,
+                force_update: true,
+            },
+            {
+                ...apiConfig,
+                spaceId: targetSpace,
+            },
+        );
+
+        try {
+            assertStoryUpdateSucceeded({
+                result,
+                sourceStory: record.sourceStory ?? record.targetStory,
+                targetStoryId: Number(record.targetStory.id),
+                targetSpace,
+                content: record.rewrite.content,
+            });
+        } catch (error) {
+            const message =
+                error instanceof Error ? error.message : String(error);
+            Logger.error(message);
+            failures.push({ fullSlug: targetLabel, message });
+            continue;
+        }
+
+        updatedStories += 1;
+        rewrittenReferences += record.rewrite.rewrittenReferences;
+
+        if (record.targetStory.published === true) {
+            publishedStories += 1;
+        }
+
+        Logger.success(
+            `  ${targetLabel}: ${record.rewrite.rewrittenReferences} reference(s) rewritten.`,
+        );
+    }
+
+    Logger.success(
+        `Relinked ${updatedStories} story/stories in space '${targetSpace}'; rewrote ${rewrittenReferences} reference(s). ${unchangedStories} story/stories already resolved correctly and were left untouched.`,
+    );
+
+    if (publishedStories > 0) {
+        Logger.warning(
+            `${publishedStories} relinked story/stories are published in the target: the repair is in the DRAFT only. Publish them to update live content.`,
+        );
+    }
+
+    if (failures.length > 0) {
+        Logger.error(
+            `${failures.length} story update(s) failed; the rest of the relink still completed. Failed stories:`,
+        );
+
+        for (const failure of failures) {
+            Logger.error(`  - ${failure.fullSlug || "<unknown>"}`);
+        }
+
+        throw new Error(
+            `Relink finished but ${failures.length} story update(s) failed:\n${failures
+                .map((failure) => failure.message)
+                .join("\n")}`,
+        );
+    }
+
+    return { updatedStories, unchangedStories, rewrittenReferences, failures };
+};
+
 export const copyCommand = async (props: CLIOptions) => {
     const { input, flags } = props;
 
@@ -4244,6 +4494,166 @@ export const copyCommand = async (props: CLIOptions) => {
 
                 await writeJsonReport(outputPath, report);
             }
+
+            break;
+        }
+        case COPY_COMMANDS.relink: {
+            const sourceSpace = getCopySpace(
+                flags,
+                ["from", "sourceSpace"],
+                apiConfig.spaceId,
+            );
+            const targetSpace = getCopySpace(
+                flags,
+                ["to", "targetSpace"],
+                apiConfig.spaceId,
+            );
+            const selection = resolveCopySelection(flags);
+            const dryRun = Boolean(flags["dryRun"]);
+            const manifestRoot = readStringFlag(flags, ["manifestRoot"]);
+            const yes = Boolean(flags["yes"]);
+            const destination = readStringFlag(flags, ["destination", "where"]);
+
+            Logger.warning(
+                `Relinking stories in space '${targetSpace}' against their sources in space '${sourceSpace}'.`,
+            );
+            Logger.log(
+                `Source '${selection.source}', mode '${selection.mode}', destination '${destination ?? "root"}'.`,
+            );
+
+            const sourceStories = await getStoriesForSelection(
+                selection,
+                sourceSpace,
+            );
+            const normalizedStories = normalizeStoriesForTree(
+                sourceStories,
+                selection,
+            );
+            const tree = createTree(normalizedStories);
+            const rootsToRelink = prepareTreeForCreate(
+                selectTreeRoots(tree, selection),
+            );
+
+            if (rootsToRelink.length === 0) {
+                Logger.warning("No stories matched the relink selection.");
+                break;
+            }
+
+            const plan = buildCopyPlan(rootsToRelink, destination);
+            const manifestPaths = getDefaultCopyManifestPaths({
+                sourceSpaceId: sourceSpace,
+                targetSpaceId: targetSpace,
+                rootDir: manifestRoot,
+            });
+            const manifestEntries = await loadManifest(manifestPaths.combined);
+            const ledgerPath = path.resolve(manifestPaths.combined);
+            const copyMaps = buildCopyMaps(manifestEntries);
+
+            Logger.warning(
+                manifestEntries.length > 0
+                    ? `Ledger: ${manifestEntries.length} entr${manifestEntries.length === 1 ? "y" : "ies"} loaded from ${ledgerPath}.`
+                    : `Ledger: none at ${ledgerPath}; the mapping is rebuilt from the target space by matching target paths.`,
+            );
+
+            const matches = await matchRelinkTargets({
+                plan,
+                sourceStories,
+                copyMaps,
+                targetSpace,
+            });
+
+            // Every mapping must be complete BEFORE a single story is
+            // rewritten: a reference resolved against a half-built map is
+            // exactly the silent breakage this command exists to repair.
+            for (const match of matches) {
+                if (match.targetStory && match.sourceStory) {
+                    copyMaps.storyIds.set(
+                        Number(match.sourceStory.id),
+                        Number(match.targetStory.id),
+                    );
+                    copyMaps.storyUuids.set(
+                        String(match.sourceStory.uuid),
+                        String(match.targetStory.uuid),
+                    );
+                }
+            }
+
+            const schemas = await buildComponentSchemaRegistry(sourceSpace);
+            const relinkPlan: CopyRelinkPlanItem[] = matches.map((match) => {
+                const rewrite =
+                    match.targetStory && match.item.type === "story"
+                        ? planCopyRelinkStoryRewrite({
+                              content: match.targetStory.content,
+                              maps: copyMaps,
+                              schemas,
+                          })
+                        : undefined;
+
+                match.rewrite = rewrite;
+
+                return {
+                    type: match.item.type,
+                    sourceFullSlug: match.item.sourceFullSlug,
+                    targetFullSlug: match.item.targetFullSlug,
+                    match: match.match,
+                    rewrittenReferences: rewrite?.rewrittenReferences ?? 0,
+                    changed: rewrite?.changed ?? false,
+                };
+            });
+            const graph = buildStoryReferenceDryRunGraph({
+                sourceSpace,
+                targetSpace,
+                selection,
+                destination,
+                plan,
+                sourceStories,
+                schemas,
+                copyMaps,
+                onScanProgress: logReferenceScanProgress,
+            });
+            const referenceCounts = countStoryReferenceStatuses(
+                graph.storyReferences,
+            );
+            const relinkSummary = buildCopyRelinkPlanSummary({
+                sourceSpaceId: sourceSpace,
+                targetSpaceId: targetSpace,
+                plan: relinkPlan,
+                ledger: {
+                    path: ledgerPath,
+                    entries: manifestEntries.length,
+                    ignored: false,
+                },
+                references: {
+                    scanned: true,
+                    total: graph.storyReferences.length,
+                    willRelink: referenceCounts.willRelink,
+                    willBreak: referenceCounts.willBreak,
+                    externalKept: referenceCounts.externalKept,
+                    breaking: groupBrokenStoryReferences(graph.storyReferences),
+                },
+            });
+
+            formatCopyRelinkPlan(relinkSummary).forEach((line) =>
+                Logger.log(line),
+            );
+
+            if (dryRun) {
+                Logger.warning(
+                    "[dry-run] Relink preview only. No Storyblok writes and no ledger entries were made.",
+                );
+                break;
+            }
+
+            if (!(await confirmCopyPlan({ yes }))) {
+                break;
+            }
+
+            await relinkTargetStories({
+                matches,
+                manifestPaths,
+                sourceSpace,
+                targetSpace,
+            });
 
             break;
         }

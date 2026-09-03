@@ -115,6 +115,8 @@ describe("CLI help output", () => {
 
         expect(copyHelp).toContain("copy stories");
         expect(copyHelp).toContain("copy assets");
+        expect(copyHelp).toContain("copy relink");
+        expect(copyHelp).toContain("matched_by_target_key");
         expect(copyHelp).toContain("--source");
         expect(copyHelp).toContain("--destination");
         expect(copyHelp).toContain("--mode");
