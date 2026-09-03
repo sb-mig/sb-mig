@@ -1,6 +1,11 @@
-import type { CopyGraph, CopyMaps } from "./types.js";
+import type { CopyGraph } from "./types.js";
 
-import { countStoryReferenceStatuses } from "./reference-classifier.js";
+import {
+    countStoryReferenceStatuses,
+    describeBrokenStoryReferenceTarget,
+    groupBrokenStoryReferences,
+    type CopyBrokenStoryReferenceGroup,
+} from "./reference-classifier.js";
 
 /**
  * Everything a `copy stories` apply run knows before its first write, in one
@@ -10,9 +15,16 @@ import { countStoryReferenceStatuses } from "./reference-classifier.js";
  */
 export type CopyPlanGatePlanItem = {
     type: "folder" | "story";
-    sourceId?: number;
     sourceFullSlug: string;
     targetFullSlug: string;
+    /**
+     * Target story id the ledger maps this source story to, if any. A mapping
+     * only counts as a resume when the mapped story is the one actually living
+     * at `targetFullSlug` — see `existingTargetStoryId`.
+     */
+    ledgerTargetStoryId?: number;
+    /** Id of the story that already occupies `targetFullSlug` in the target. */
+    existingTargetStoryId?: number;
 };
 
 export type CopyPlanGateLedger = {
@@ -31,15 +43,21 @@ export type CopyPlanGateSummary = {
     stories: {
         total: number;
         folders: number;
-        /** No ledger mapping and no existing target path: a new shell. */
+        /** No usable ledger mapping and no existing target path: a new shell. */
         create: number;
-        /** Ledger already maps the source story: the mapped target is reused. */
+        /** The ledger maps the source story to the story at the target path. */
         resume: number;
         /**
-         * No ledger mapping but the target path already exists: the run adopts
-         * it (`matched_by_target_key`) and UPDATES it in place.
+         * No usable ledger mapping but the target path already exists: the run
+         * adopts it (`matched_by_target_key`) and UPDATES it in place.
          */
         adopt: number;
+        /**
+         * Ledger mappings that no longer resolve in the target space (the
+         * mapped story was deleted, moved or replaced). They are counted as
+         * create/adopt above, exactly as the run will treat them.
+         */
+        staleLedger: number;
     };
     ledger: CopyPlanGateLedger;
     references: {
@@ -48,6 +66,8 @@ export type CopyPlanGateSummary = {
         willRelink: number;
         willBreak: number;
         externalKept: number;
+        /** The will-break references grouped by the story that holds them. */
+        breaking: CopyBrokenStoryReferenceGroup[];
     };
     assets?: {
         toCopy: number;
@@ -55,12 +75,13 @@ export type CopyPlanGateSummary = {
     };
 };
 
+/** How many holding stories the PLAN block names before it summarises the rest. */
+const MAX_LISTED_BREAK_GROUPS = 20;
+
 export const buildCopyPlanGateSummary = ({
     sourceSpaceId,
     targetSpaceId,
     plan,
-    conflictTargetFullSlugs,
-    copyMaps,
     ledger,
     graph,
     withAssets,
@@ -68,24 +89,28 @@ export const buildCopyPlanGateSummary = ({
     sourceSpaceId: string;
     targetSpaceId: string;
     plan: CopyPlanGatePlanItem[];
-    conflictTargetFullSlugs: Iterable<string>;
-    copyMaps: CopyMaps;
     ledger: CopyPlanGateLedger;
     graph?: CopyGraph;
     withAssets: boolean;
 }): CopyPlanGateSummary => {
-    const conflicts = new Set(conflictTargetFullSlugs);
     let create = 0;
     let resume = 0;
     let adopt = 0;
+    let staleLedger = 0;
 
     for (const item of plan) {
-        if (
-            item.sourceId !== undefined &&
-            copyMaps.storyIds.has(item.sourceId)
-        ) {
-            resume += 1;
-        } else if (conflicts.has(item.targetFullSlug)) {
+        if (item.ledgerTargetStoryId !== undefined) {
+            if (item.ledgerTargetStoryId === item.existingTargetStoryId) {
+                resume += 1;
+                continue;
+            }
+
+            // The mapping is on disk but the target no longer backs it, so the
+            // run will discard it and fall through to adoption or creation.
+            staleLedger += 1;
+        }
+
+        if (item.existingTargetStoryId !== undefined) {
             adopt += 1;
         } else {
             create += 1;
@@ -106,6 +131,7 @@ export const buildCopyPlanGateSummary = ({
             create,
             resume,
             adopt,
+            staleLedger,
         },
         ledger,
         references: {
@@ -114,6 +140,7 @@ export const buildCopyPlanGateSummary = ({
             willRelink: referenceCounts.willRelink,
             willBreak: referenceCounts.willBreak,
             externalKept: referenceCounts.externalKept,
+            breaking: groupBrokenStoryReferences(graph?.storyReferences ?? []),
         },
         ...(withAssets && graph
             ? {
@@ -156,6 +183,12 @@ export const formatCopyPlanGate = (summary: CopyPlanGateSummary): string[] => {
         );
     }
 
+    if (stories.staleLedger > 0) {
+        lines.push(
+            `    ${stories.staleLedger} ledger ${plural(stories.staleLedger, "mapping", "mappings")} no longer ${plural(stories.staleLedger, "resolves", "resolve")} in space ${summary.targetSpaceId} and will be discarded.`,
+        );
+    }
+
     if (ledger.ignored) {
         lines.push(
             `  ledger: ${ledger.entries} ${plural(ledger.entries, "entry", "entries")} at ${ledger.path} IGNORED (--fresh; starting empty)`,
@@ -185,6 +218,7 @@ export const formatCopyPlanGate = (summary: CopyPlanGateSummary): string[] => {
                 : "0 will break",
         );
         lines.push(`  references: ${referenceParts.join(", ")}`);
+        lines.push(...formatBreakingReferences(references.breaking));
     }
 
     if (assets) {
@@ -193,6 +227,41 @@ export const formatCopyPlanGate = (summary: CopyPlanGateSummary): string[] => {
         );
     } else {
         lines.push("  assets: not copied (pass --with-assets)");
+    }
+
+    return lines;
+};
+
+/**
+ * The same grouped detail the dry-run prints: a count alone does not tell the
+ * operator which stories are about to lose which fields, and the gate is the
+ * last moment they can act on it.
+ */
+const formatBreakingReferences = (
+    groups: CopyBrokenStoryReferenceGroup[],
+): string[] => {
+    if (groups.length === 0) {
+        return [];
+    }
+
+    const lines = ["    WILL BREAK, by story:"];
+
+    for (const group of groups.slice(0, MAX_LISTED_BREAK_GROUPS)) {
+        lines.push(`      ${group.sourceStoryFullSlug}`);
+
+        for (const reference of group.references) {
+            lines.push(
+                `        ${reference.path} -> ${describeBrokenStoryReferenceTarget(reference)}`,
+            );
+        }
+    }
+
+    const hidden = groups.length - MAX_LISTED_BREAK_GROUPS;
+
+    if (hidden > 0) {
+        lines.push(
+            `      ...and ${hidden} more ${plural(hidden, "story", "stories")} with breaking references; run with --dryRun for the full list.`,
+        );
     }
 
     return lines;

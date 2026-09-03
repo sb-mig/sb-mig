@@ -994,14 +994,21 @@ const buildCopyPlan = (
     return plan;
 };
 
+type CopyTargetConflictCheck = {
+    /** Planned paths that already hold a story or folder in the target. */
+    conflicts: CopyPlanItem[];
+    /** Id of the story occupying each of those paths, keyed by target path. */
+    existingTargetStoryIdByFullSlug: Map<string, number>;
+};
+
 const findTargetConflicts = async (
     plan: CopyPlanItem[],
     targetSpace: string,
-): Promise<CopyPlanItem[]> => {
+): Promise<CopyTargetConflictCheck> => {
     let checked = 0;
 
     if (plan.length === 0) {
-        return [];
+        return { conflicts: [], existingTargetStoryIdByFullSlug: new Map() };
     }
 
     Logger.warning(
@@ -1031,19 +1038,48 @@ const findTargetConflicts = async (
                 );
             }
 
-            return existingStory ? item : null;
+            if (!existingStory) {
+                return null;
+            }
+
+            const existingStoryId = existingStory?.story?.id;
+
+            return {
+                item,
+                existingTargetStoryId:
+                    existingStoryId === undefined
+                        ? undefined
+                        : Number(existingStoryId),
+            };
         },
     );
 
-    const conflicts = results.filter(
-        (item): item is CopyPlanItem => item !== null,
+    const found = results.filter(
+        (
+            result,
+        ): result is {
+            item: CopyPlanItem;
+            existingTargetStoryId: number | undefined;
+        } => result !== null,
+    );
+    const conflicts = found.map((result) => result.item);
+    const existingTargetStoryIdByFullSlug = new Map<string, number>(
+        found
+            .filter((result) => result.existingTargetStoryId !== undefined)
+            .map(
+                (result) =>
+                    [
+                        result.item.targetFullSlug,
+                        result.existingTargetStoryId as number,
+                    ] as const,
+            ),
     );
 
     Logger.success(
         `Target conflict check complete. Found ${conflicts.length} existing target path(s).`,
     );
 
-    return conflicts;
+    return { conflicts, existingTargetStoryIdByFullSlug };
 };
 
 const withConflictFlags = (
@@ -4015,7 +4051,10 @@ export const copyCommand = async (props: CLIOptions) => {
             }
 
             if (dryRun) {
-                const conflicts = await findTargetConflicts(plan, targetSpace);
+                const { conflicts } = await findTargetConflicts(
+                    plan,
+                    targetSpace,
+                );
                 Logger.warning(
                     "Checking source components against the target space schema.",
                 );
@@ -4063,7 +4102,8 @@ export const copyCommand = async (props: CLIOptions) => {
                 break;
             }
 
-            const conflicts = await findTargetConflicts(plan, targetSpace);
+            const { existingTargetStoryIdByFullSlug } =
+                await findTargetConflicts(plan, targetSpace);
             const sourceStoryByFullSlug = new Map(
                 sourceStories
                     .map((item: any) => item?.story)
@@ -4076,17 +4116,30 @@ export const copyCommand = async (props: CLIOptions) => {
             const planGate = buildCopyPlanGateSummary({
                 sourceSpaceId: sourceSpace,
                 targetSpaceId: targetSpace,
-                plan: plan.map((item) => ({
-                    type: item.type,
-                    sourceId: sourceStoryByFullSlug.get(item.sourceFullSlug)
-                        ?.id,
-                    sourceFullSlug: item.sourceFullSlug,
-                    targetFullSlug: item.targetFullSlug,
-                })),
-                conflictTargetFullSlugs: conflicts.map(
-                    (conflict) => conflict.targetFullSlug,
-                ),
-                copyMaps,
+                plan: plan.map((item) => {
+                    const sourceId = sourceStoryByFullSlug.get(
+                        item.sourceFullSlug,
+                    )?.id;
+
+                    return {
+                        type: item.type,
+                        sourceFullSlug: item.sourceFullSlug,
+                        targetFullSlug: item.targetFullSlug,
+                        // A ledger mapping only survives the gate if the story
+                        // it points at is the one living at the planned target
+                        // path — the same rule `getValidMappedTargetStory`
+                        // applies per story once writing starts, answered here
+                        // from the target check the gate already ran.
+                        ledgerTargetStoryId:
+                            sourceId === undefined
+                                ? undefined
+                                : copyMaps.storyIds.get(Number(sourceId)),
+                        existingTargetStoryId:
+                            existingTargetStoryIdByFullSlug.get(
+                                item.targetFullSlug,
+                            ),
+                    };
+                }),
                 ledger,
                 graph: dryRunGraph,
                 withAssets,

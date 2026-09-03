@@ -334,8 +334,6 @@ Known fields to rewrite:
 | `options` with `source: "internal_stories"` | story ids  | Replace each source id with target id            |
 | nested `bloks`                              | varies     | Recursively inspect nested components            |
 | richtext embedded bloks                     | varies     | Recursively inspect embedded component content   |
-| `alternates[].id`                           | story id   | Replace source id with target id                 |
-| `alternates[].parent_id`                    | story id   | Replace source parent id with target parent id   |
 | `parent_id`                                 | story id   | Replace source parent id with target parent id   |
 
 If a story reference points to a story outside the selected copy scope, the command must not silently corrupt it. Every scanned story reference in the copy graph (`graph.storyReferences[].status`) is classified against the copy plan **and** the ledger:

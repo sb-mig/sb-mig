@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import {
     buildCopyPlanGateSummary,
     createCopyGraph,
-    createEmptyCopyMaps,
     formatCopyPlanGate,
 } from "../../src/api/copy/index.js";
 
@@ -16,19 +15,16 @@ const ledger = {
 const plan = [
     {
         type: "folder" as const,
-        sourceId: 1,
         sourceFullSlug: "blog",
         targetFullSlug: "imported/blog",
     },
     {
         type: "story" as const,
-        sourceId: 2,
         sourceFullSlug: "blog/post-1",
         targetFullSlug: "imported/blog/post-1",
     },
     {
         type: "story" as const,
-        sourceId: 3,
         sourceFullSlug: "blog/post-2",
         targetFullSlug: "imported/blog/post-2",
     },
@@ -52,6 +48,7 @@ const graphWithReferences = () => {
         {
             type: "story_reference",
             sourceStoryId: 2,
+            sourceStoryFullSlug: "blog/post-1",
             referencedStoryId: 3,
             path: "content.related[0]",
             status: "will_relink",
@@ -59,6 +56,7 @@ const graphWithReferences = () => {
         {
             type: "story_reference",
             sourceStoryId: 2,
+            sourceStoryFullSlug: "blog/post-1",
             referencedStoryUuid: "shared-header-uuid",
             path: "content.header",
             status: "will_break",
@@ -66,6 +64,7 @@ const graphWithReferences = () => {
         {
             type: "story_reference",
             sourceStoryId: 3,
+            sourceStoryFullSlug: "blog/post-2",
             referencedStoryUuid: "shared-footer-uuid",
             path: "content.footer",
             status: "external_kept",
@@ -91,20 +90,25 @@ const graphWithReferences = () => {
 
 describe("copy plan gate", () => {
     describe("buildCopyPlanGateSummary", () => {
-        it("splits the plan into create, adopt and resume by ledger first, then target path", () => {
-            const copyMaps = createEmptyCopyMaps();
-            copyMaps.storyIds.set(2, 9002);
-
+        it("splits the plan into create, adopt and resume", () => {
             const summary = buildCopyPlanGateSummary({
                 sourceSpaceId: "111",
                 targetSpaceId: "222",
-                plan,
-                // post-1 also exists at the target, but the ledger wins.
-                conflictTargetFullSlugs: [
-                    "imported/blog/post-1",
-                    "imported/blog/post-2",
+                plan: [
+                    plan[0],
+                    {
+                        // Mapped by the ledger to the story that really sits at
+                        // the target path: a resume.
+                        ...plan[1],
+                        ledgerTargetStoryId: 9002,
+                        existingTargetStoryId: 9002,
+                    },
+                    {
+                        // Unmapped, but the path is taken: adopted in place.
+                        ...plan[2],
+                        existingTargetStoryId: 9003,
+                    },
                 ],
-                copyMaps,
                 ledger: { ...ledger, entries: 1 },
                 withAssets: false,
             });
@@ -115,6 +119,7 @@ describe("copy plan gate", () => {
                 create: 1,
                 resume: 1,
                 adopt: 1,
+                staleLedger: 0,
             });
             expect(summary.references).toEqual({
                 scanned: false,
@@ -122,8 +127,42 @@ describe("copy plan gate", () => {
                 willRelink: 0,
                 willBreak: 0,
                 externalKept: 0,
+                breaking: [],
             });
             expect(summary.assets).toBeUndefined();
+        });
+
+        it("discards ledger mappings the target no longer backs", () => {
+            const summary = buildCopyPlanGateSummary({
+                sourceSpaceId: "111",
+                targetSpaceId: "222",
+                plan: [
+                    plan[0],
+                    {
+                        // Mapped, but the target story is gone: a create.
+                        ...plan[1],
+                        ledgerTargetStoryId: 5555,
+                    },
+                    {
+                        // Mapped, but a different story holds the path now:
+                        // the run adopts that one instead.
+                        ...plan[2],
+                        ledgerTargetStoryId: 5556,
+                        existingTargetStoryId: 9003,
+                    },
+                ],
+                ledger: { ...ledger, entries: 2 },
+                withAssets: false,
+            });
+
+            expect(summary.stories).toEqual({
+                total: 3,
+                folders: 1,
+                create: 2,
+                resume: 0,
+                adopt: 1,
+                staleLedger: 2,
+            });
         });
 
         it("counts classified references and planned assets from the graph", () => {
@@ -131,42 +170,27 @@ describe("copy plan gate", () => {
                 sourceSpaceId: "111",
                 targetSpaceId: "222",
                 plan,
-                conflictTargetFullSlugs: [],
-                copyMaps: createEmptyCopyMaps(),
                 ledger,
                 graph: graphWithReferences(),
                 withAssets: true,
             });
 
-            expect(summary.references).toEqual({
+            expect(summary.references).toMatchObject({
                 scanned: true,
                 total: 3,
                 willRelink: 1,
                 willBreak: 1,
                 externalKept: 1,
             });
+            expect(summary.references.breaking).toEqual([
+                {
+                    sourceStoryFullSlug: "blog/post-1",
+                    references: [
+                        expect.objectContaining({ path: "content.header" }),
+                    ],
+                },
+            ]);
             expect(summary.assets).toEqual({ toCopy: 1, mapped: 1 });
-        });
-
-        it("treats plan items without a resolved source id as creates", () => {
-            const copyMaps = createEmptyCopyMaps();
-            copyMaps.storyIds.set(2, 9002);
-
-            const summary = buildCopyPlanGateSummary({
-                sourceSpaceId: "111",
-                targetSpaceId: "222",
-                plan: plan.map(({ sourceId: _sourceId, ...item }) => item),
-                conflictTargetFullSlugs: [],
-                copyMaps,
-                ledger,
-                withAssets: false,
-            });
-
-            expect(summary.stories).toMatchObject({
-                create: 3,
-                resume: 0,
-                adopt: 0,
-            });
         });
     });
 
@@ -177,8 +201,6 @@ describe("copy plan gate", () => {
                     sourceSpaceId: "111",
                     targetSpaceId: "222",
                     plan,
-                    conflictTargetFullSlugs: [],
-                    copyMaps: createEmptyCopyMaps(),
                     ledger,
                     withAssets: false,
                 }),
@@ -194,16 +216,19 @@ describe("copy plan gate", () => {
         });
 
         it("names adoption, resumption, breaking references and assets", () => {
-            const copyMaps = createEmptyCopyMaps();
-            copyMaps.storyIds.set(3, 9003);
-
             const lines = formatCopyPlanGate(
                 buildCopyPlanGateSummary({
                     sourceSpaceId: "111",
                     targetSpaceId: "222",
-                    plan,
-                    conflictTargetFullSlugs: ["imported/blog/post-1"],
-                    copyMaps,
+                    plan: [
+                        plan[0],
+                        { ...plan[1], existingTargetStoryId: 9002 },
+                        {
+                            ...plan[2],
+                            ledgerTargetStoryId: 9003,
+                            existingTargetStoryId: 9003,
+                        },
+                    ],
                     ledger: { ...ledger, entries: 11 },
                     graph: graphWithReferences(),
                     withAssets: true,
@@ -216,8 +241,64 @@ describe("copy plan gate", () => {
                 "    1 existing target path will be adopted and UPDATED in place.",
                 "  ledger: 11 entries loaded from /repo/.sb-mig/copy/111/222/manifest.jsonl (resuming; use --fresh to ignore)",
                 "  references: 1 will relink, 1 leave your selection and WILL BREAK",
+                "    WILL BREAK, by story:",
+                "      blog/post-1",
+                "        content.header -> shared-header-uuid",
                 "  assets: 1 will copy, 1 already mapped",
             ]);
+        });
+
+        it("says how many ledger mappings went stale", () => {
+            const lines = formatCopyPlanGate(
+                buildCopyPlanGateSummary({
+                    sourceSpaceId: "111",
+                    targetSpaceId: "222",
+                    plan: [
+                        { ...plan[0], ledgerTargetStoryId: 5554 },
+                        { ...plan[1], ledgerTargetStoryId: 5555 },
+                        plan[2],
+                    ],
+                    ledger: { ...ledger, entries: 2 },
+                    withAssets: false,
+                }),
+            );
+
+            expect(lines[1]).toBe(
+                "  3 items (1 folder) -> space 222 (3 create, 0 adopt existing, 0 resume from ledger)",
+            );
+            expect(lines[2]).toBe(
+                "    2 ledger mappings no longer resolve in space 222 and will be discarded.",
+            );
+        });
+
+        it("caps the broken-reference listing and points at the dry run", () => {
+            const graph = graphWithReferences();
+
+            graph.storyReferences = Array.from({ length: 23 }, (_, index) => ({
+                type: "story_reference" as const,
+                sourceStoryId: 100 + index,
+                sourceStoryFullSlug: `blog/post-${index}`,
+                referencedStoryUuid: "shared-header-uuid",
+                path: "content.header",
+                status: "will_break" as const,
+            }));
+
+            const lines = formatCopyPlanGate(
+                buildCopyPlanGateSummary({
+                    sourceSpaceId: "111",
+                    targetSpaceId: "222",
+                    plan,
+                    ledger,
+                    graph,
+                    withAssets: false,
+                }),
+            );
+
+            expect(lines).toContain("      blog/post-19");
+            expect(lines).not.toContain("      blog/post-20");
+            expect(lines).toContain(
+                "      ...and 3 more stories with breaking references; run with --dryRun for the full list.",
+            );
         });
 
         it("marks an ignored ledger and shows kept references on a same-space copy", () => {
@@ -226,8 +307,6 @@ describe("copy plan gate", () => {
                     sourceSpaceId: "111",
                     targetSpaceId: "111",
                     plan,
-                    conflictTargetFullSlugs: [],
-                    copyMaps: createEmptyCopyMaps(),
                     ledger: { ...ledger, entries: 1, ignored: true },
                     graph: graphWithReferences(),
                     withAssets: false,

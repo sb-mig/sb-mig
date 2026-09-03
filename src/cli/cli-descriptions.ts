@@ -249,7 +249,7 @@ export const copyDescription = `
                        Select assets referenced by a story/folder scope. Requires --source. [assets only]
         --dry-run       Preview story paths, manifest-mapped references, and likely target conflicts without writing to Storyblok.
         --yes           Skip the confirmation gate that copy stories shows after its PLAN block, before its first write. Required in non-interactive runs (CI). [stories only]
-        --fresh         Ignore the existing copy ledger for this run; existing manifest files are moved aside with a timestamp suffix, never deleted. [stories only]
+        --fresh         Ignore the existing copy ledger for this run; every manifest file of this space pair, the asset and asset-folder ledgers included, is moved aside with a timestamp suffix, never deleted. A later --with-assets run therefore starts without the archived asset mappings too. [stories only]
         --outputPath    Optional JSON file path for a dry-run copy plan artifact. Only writes locally when passed.
 
     LEGACY FLAGS
