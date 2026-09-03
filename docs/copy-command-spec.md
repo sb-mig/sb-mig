@@ -327,14 +327,16 @@ Storyblok story content can reference other stories by ID or UUID depending on f
 
 Known fields to rewrite:
 
-| Field location                              | Identity   | Required behavior                                |
-| ------------------------------------------- | ---------- | ------------------------------------------------ |
-| `multilink` with `linktype: "story"`        | story id   | Replace source story id with target story id     |
-| `richtext` story links                      | story uuid | Replace source story uuid with target story uuid |
-| `options` with `source: "internal_stories"` | story ids  | Replace each source id with target id            |
-| nested `bloks`                              | varies     | Recursively inspect nested components            |
-| richtext embedded bloks                     | varies     | Recursively inspect embedded component content   |
-| `parent_id`                                 | story id   | Replace source parent id with target parent id   |
+| Field location                                                                       | Identity     | Required behavior                                                                                                                                               |
+| ------------------------------------------------------------------------------------ | ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `multilink` with `linktype: "story"`                                                 | story id     | Replace source story id with target story id                                                                                                                    |
+| `multilink` stored paths (`cached_url`, `url`, cached `story.full_slug`/`story.url`) | target path  | Replace the source path with the target story's `full_slug`, keeping `?query` / `#anchor` and the stored slash convention. Unknown target path: leave untouched |
+| `richtext` story links                                                               | story uuid   | Replace source story uuid with target story uuid                                                                                                                |
+| `richtext` link `href`                                                               | uuid or path | A mapped uuid is replaced as a uuid; anything else is treated as a stored path                                                                                  |
+| `options` with `source: "internal_stories"`                                          | story ids    | Replace each source id with target id                                                                                                                           |
+| nested `bloks`                                                                       | varies       | Recursively inspect nested components                                                                                                                           |
+| richtext embedded bloks                                                              | varies       | Recursively inspect embedded component content                                                                                                                  |
+| `parent_id`                                                                          | story id     | Replace source parent id with target parent id                                                                                                                  |
 
 If a story reference points to a story outside the selected copy scope, the command must not silently corrupt it. Every scanned story reference in the copy graph (`graph.storyReferences[].status`) is classified against the copy plan **and** the ledger:
 
@@ -351,6 +353,7 @@ Notes:
 
 - `parent_id` is resolved by the copy plan itself — phase 1 creates every shell under its planned parent, and the top of the selection lands under the destination — so it is always `will_relink` and never reported as a break.
 - `parent_id: 0` is Storyblok's "lives at the space root" sentinel, not a story id, and is not recorded as a reference at all.
+- Stored paths travel with the mapping: the ledger keeps `target_full_slug`, keyed by both the source and the target uuid, so a link an earlier run relinked without rewriting its path is still repaired later by `copy relink`.
 - When `will_break > 0` the dry-run prints a loud report naming each holding story and field path, and the graph carries a `broken_story_reference` warning per story.
 
 The dry-run summary exposes the same accounting as `storyReferencesWillRelink`, `storyReferencesWillBreak`, `storyReferencesExternalKept` and `storyReferencesUnresolved`.

@@ -77,6 +77,14 @@ export type CopyManifestEntry =
 export type CopyMaps = {
     storyIds: Map<number, number>;
     storyUuids: Map<string, string>;
+    /**
+     * Story uuid -> that story's `full_slug` in the TARGET space, keyed by BOTH
+     * the source and the target uuid. A relinked link still renders through its
+     * stored path (`cached_url`, richtext `href`), so the path has to travel
+     * with the uuid — including for a link that was relinked before paths were
+     * rewritten and now carries the target uuid with the source's path.
+     */
+    storyFullSlugs: Map<string, string>;
     assetIds: Map<number, { id: number; filename: string }>;
     assetFilenames: Map<string, string>;
     assetFolderIds: Map<number, number>;
@@ -244,7 +252,7 @@ export type CopyRewriteRecord = {
     path: string;
     sourceValue: unknown;
     targetValue: unknown;
-    field: "id" | "uuid" | "filename";
+    field: "id" | "uuid" | "filename" | "path";
 };
 
 export type CopyRewriteResult<T> = {

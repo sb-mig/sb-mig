@@ -21,6 +21,7 @@ import path from "path";
 
 import {
     appendManifestEntry,
+    applyStoryManifestEntryToMaps,
     archiveCopyManifests,
     buildCopyAssetsGraph,
     buildCopyMaps,
@@ -2818,8 +2819,7 @@ const rewriteCopiedStoryContents = async ({
             resourcePath: manifestPaths.stories,
             entry,
         });
-        maps.storyIds.set(entry.source_id, entry.target_id);
-        maps.storyUuids.set(entry.source_uuid, entry.target_uuid);
+        applyStoryManifestEntryToMaps(maps, entry);
 
         return entry.target_id;
     };
@@ -3245,8 +3245,7 @@ const createStoriesAndWriteManifests = async ({
                     resourcePath: manifestPaths.stories,
                     entry,
                 });
-                copyMaps.storyIds.set(entry.source_id, entry.target_id);
-                copyMaps.storyUuids.set(entry.source_uuid, entry.target_uuid);
+                applyStoryManifestEntryToMaps(copyMaps, entry);
                 storiesMatched += 1;
 
                 await walk(node.children ?? [], entry.target_id);
@@ -3290,8 +3289,7 @@ const createStoriesAndWriteManifests = async ({
                 resourcePath: manifestPaths.stories,
                 entry,
             });
-            copyMaps.storyIds.set(entry.source_id, entry.target_id);
-            copyMaps.storyUuids.set(entry.source_uuid, entry.target_uuid);
+            applyStoryManifestEntryToMaps(copyMaps, entry);
             storiesCreated += 1;
 
             await walk(node.children ?? [], entry.target_id);

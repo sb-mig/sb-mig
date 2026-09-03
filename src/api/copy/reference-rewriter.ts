@@ -136,6 +136,103 @@ const rewriteAssetObject = (
     }
 };
 
+/** The path keys a story link stores alongside its uuid. */
+const STORY_LINK_PATH_KEYS = ["cached_url", "url", "href"];
+
+/** The keys of the story object some links cache next to the link itself. */
+const CACHED_STORY_PATH_KEYS = ["full_slug", "url"];
+
+/**
+ * Splits a stored link path into the story path and the `?query` / `#anchor`
+ * tail, which belongs to the link rather than the story and must survive the
+ * rewrite untouched.
+ */
+const splitStoryLinkPath = (value: string) => {
+    const boundary = value.search(/[?#]/);
+
+    return boundary === -1
+        ? { linkPath: value, suffix: "" }
+        : { linkPath: value.slice(0, boundary), suffix: value.slice(boundary) };
+};
+
+/** Keeps whatever leading and trailing slash convention the space stores. */
+const applyTargetFullSlug = (linkPath: string, targetFullSlug: string) => {
+    const leading = linkPath.startsWith("/") ? "/" : "";
+    const trailing = linkPath.length > 1 && linkPath.endsWith("/") ? "/" : "";
+
+    return `${leading}${targetFullSlug}${trailing}`;
+};
+
+/**
+ * Rewrites one stored path of a relinked story link. A link whose target path
+ * is unknown is left exactly as it is: a wrong path is worse than a stale one,
+ * and the classifier has already reported what could not be mapped.
+ */
+const rewriteStoryLinkPath = ({
+    node,
+    key,
+    path,
+    state,
+    targetFullSlug,
+}: {
+    node: Record<string, any>;
+    key: string;
+    path: string;
+    state: RewriteState;
+    targetFullSlug?: string;
+}) => {
+    const value = node[key];
+
+    if (typeof value !== "string" || value.length === 0) {
+        return;
+    }
+
+    // Some spaces store the uuid in the path slot (richtext `href` does it by
+    // default). A value the story map knows is a reference, not a path, and it
+    // maps as one.
+    const targetUuid = state.maps.storyUuids.get(value);
+
+    if (targetUuid !== undefined) {
+        if (targetUuid !== value) {
+            addRecord(state, {
+                type: "story",
+                path: `${path}.${key}`,
+                sourceValue: value,
+                targetValue: targetUuid,
+                field: "uuid",
+            });
+            node[key] = targetUuid;
+        }
+
+        return;
+    }
+
+    if (targetFullSlug === undefined) {
+        return;
+    }
+
+    const { linkPath, suffix } = splitStoryLinkPath(value);
+
+    if (linkPath.length === 0) {
+        return;
+    }
+
+    const rewritten = `${applyTargetFullSlug(linkPath, targetFullSlug)}${suffix}`;
+
+    if (rewritten === value) {
+        return;
+    }
+
+    addRecord(state, {
+        type: "story",
+        path: `${path}.${key}`,
+        sourceValue: value,
+        targetValue: rewritten,
+        field: "path",
+    });
+    node[key] = rewritten;
+};
+
 const rewriteStoryLinkObject = (
     node: Record<string, any>,
     path: string,
@@ -144,6 +241,13 @@ const rewriteStoryLinkObject = (
     if (node.linktype !== "story") {
         return;
     }
+
+    // Read before the id/uuid slots are rewritten: the target path is looked up
+    // by the SOURCE uuid the link still carries.
+    const targetFullSlug = [node.id, node.uuid]
+        .filter((value): value is string => typeof value === "string")
+        .map((value) => state.maps.storyFullSlugs.get(value))
+        .find((fullSlug) => fullSlug !== undefined);
 
     if (typeof node.id === "number") {
         const targetId = state.maps.storyIds.get(node.id);
@@ -184,6 +288,25 @@ const rewriteStoryLinkObject = (
                 field: "uuid",
             });
             node.uuid = targetUuid;
+        }
+    }
+
+    // A relinked link still renders through its stored path, so a correct uuid
+    // with the source's path is a link that points at the right story and
+    // navigates to the wrong one.
+    for (const key of STORY_LINK_PATH_KEYS) {
+        rewriteStoryLinkPath({ node, key, path, state, targetFullSlug });
+    }
+
+    if (isRecord(node.story)) {
+        for (const key of CACHED_STORY_PATH_KEYS) {
+            rewriteStoryLinkPath({
+                node: node.story,
+                key,
+                path: `${path}.story`,
+                state,
+                targetFullSlug,
+            });
         }
     }
 };

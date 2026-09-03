@@ -536,6 +536,20 @@ describe("copy relink", () => {
                 uuid: "target-header-uuid",
             },
         };
+        // The story the repaired reference points at is really there.
+        mocks.getStoryById.mockImplementation((storyId: string) =>
+            Promise.resolve(
+                storyId === "5005"
+                    ? {
+                          story: {
+                              id: 5005,
+                              uuid: "target-header-uuid",
+                              full_slug: "imported/shared/header",
+                          },
+                      }
+                    : undefined,
+            ),
+        );
 
         await writeLedger(manifestRoot, [
             storyLedgerEntry({
@@ -557,6 +571,54 @@ describe("copy relink", () => {
         );
         expect(lines.some((line) => line.includes("WILL BREAK"))).toBe(false);
         expect(mocks.updateStory).not.toHaveBeenCalled();
+
+        await rm(tempDir, { recursive: true, force: true });
+    });
+
+    it("repairs the stored path of a link an earlier run already relinked", async () => {
+        const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-relink-"));
+        const manifestRoot = path.join(tempDir, ".sb-mig");
+
+        // uuid already correct, path still the source's: the state every copy
+        // made before paths were rewritten leaves behind.
+        targetPost.content = {
+            component: "page",
+            cta: {
+                linktype: "story",
+                id: "target-header-uuid",
+                cached_url: "shared/header",
+            },
+        };
+        mocks.getStoryById.mockImplementation((storyId: string) =>
+            Promise.resolve(
+                storyId === "5005"
+                    ? { story: { id: 5005, uuid: "target-header-uuid" } }
+                    : undefined,
+            ),
+        );
+
+        await writeLedger(manifestRoot, [
+            storyLedgerEntry({
+                source_id: 5,
+                target_id: 5005,
+                source_uuid: "shared-header-uuid",
+                target_uuid: "target-header-uuid",
+                source_full_slug: "shared/header",
+                target_full_slug: "imported/shared/header",
+            }),
+        ]);
+
+        await copyCommand(relinkFlags({ manifestRoot, yes: true }) as any);
+
+        expect(mocks.updateStory).toHaveBeenCalledTimes(1);
+        expect(mocks.updateStory.mock.calls[0][0]).toMatchObject({
+            content: {
+                cta: {
+                    id: "target-header-uuid",
+                    cached_url: "imported/shared/header",
+                },
+            },
+        });
 
         await rm(tempDir, { recursive: true, force: true });
     });

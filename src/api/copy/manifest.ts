@@ -75,6 +75,7 @@ export const archiveCopyManifests = async (
 export const createEmptyCopyMaps = (): CopyMaps => ({
     storyIds: new Map(),
     storyUuids: new Map(),
+    storyFullSlugs: new Map(),
     assetIds: new Map(),
     assetFilenames: new Map(),
     assetFolderIds: new Map(),
@@ -173,13 +174,30 @@ export const dedupeManifestFile = async (
     return deduped;
 };
 
+/**
+ * Records one written story mapping in the maps the rewriter reads. The target
+ * path is only recorded when the entry carries one: an unknown path must leave
+ * `cached_url` alone rather than guess it.
+ */
+export const applyStoryManifestEntryToMaps = (
+    maps: CopyMaps,
+    entry: CopyStoryManifestEntry,
+) => {
+    maps.storyIds.set(entry.source_id, entry.target_id);
+    maps.storyUuids.set(entry.source_uuid, entry.target_uuid);
+
+    if (entry.target_full_slug) {
+        maps.storyFullSlugs.set(entry.source_uuid, entry.target_full_slug);
+        maps.storyFullSlugs.set(entry.target_uuid, entry.target_full_slug);
+    }
+};
+
 export const buildCopyMaps = (entries: CopyManifestEntry[]): CopyMaps => {
     const maps = createEmptyCopyMaps();
 
     for (const entry of entries) {
         if (isStoryManifestEntry(entry)) {
-            maps.storyIds.set(entry.source_id, entry.target_id);
-            maps.storyUuids.set(entry.source_uuid, entry.target_uuid);
+            applyStoryManifestEntryToMaps(maps, entry);
         }
 
         if (isAssetManifestEntry(entry)) {

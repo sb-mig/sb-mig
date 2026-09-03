@@ -244,6 +244,175 @@ describe("copy reference rewriter", () => {
         ]);
     });
 
+    it("rewrites a relinked link's stored path to the target story's path", () => {
+        const maps = createEmptyCopyMaps();
+        maps.storyUuids.set("source-header-uuid", "target-header-uuid");
+        maps.storyFullSlugs.set("source-header-uuid", "imported/shared/header");
+
+        const content = {
+            component: "page",
+            cta: {
+                fieldtype: "multilink",
+                linktype: "story",
+                id: "source-header-uuid",
+                url: "",
+                cached_url: "shared/header",
+            },
+        };
+
+        const result = rewriteCopyReferences({ value: content, maps });
+
+        expect(result.value.cta.id).toBe("target-header-uuid");
+        expect(result.value.cta.cached_url).toBe("imported/shared/header");
+        expect(result.records).toContainEqual(
+            expect.objectContaining({
+                type: "story",
+                path: "$.cta.cached_url",
+                sourceValue: "shared/header",
+                targetValue: "imported/shared/header",
+                field: "path",
+            }),
+        );
+    });
+
+    it("repairs the stored path of a link that already points at the target story", () => {
+        const maps = createEmptyCopyMaps();
+        maps.storyUuids.set("source-header-uuid", "target-header-uuid");
+        maps.storyFullSlugs.set("source-header-uuid", "imported/shared/header");
+        maps.storyFullSlugs.set("target-header-uuid", "imported/shared/header");
+
+        // An earlier copy relinked the uuid but left the path behind, which is
+        // exactly the state this feature exists to clean up.
+        const content = {
+            component: "page",
+            cta: {
+                linktype: "story",
+                id: "target-header-uuid",
+                cached_url: "shared/header",
+            },
+        };
+
+        const result = rewriteCopyReferences({ value: content, maps });
+
+        expect(result.value.cta.id).toBe("target-header-uuid");
+        expect(result.value.cta.cached_url).toBe("imported/shared/header");
+    });
+
+    it("keeps anchors, query strings and slash conventions in a rewritten path", () => {
+        const maps = createEmptyCopyMaps();
+        maps.storyUuids.set("source-header-uuid", "target-header-uuid");
+        maps.storyFullSlugs.set("source-header-uuid", "imported/shared/header");
+
+        const content = {
+            component: "page",
+            anchored: {
+                linktype: "story",
+                id: "source-header-uuid",
+                cached_url: "shared/header#contact",
+            },
+            queried: {
+                linktype: "story",
+                id: "source-header-uuid",
+                cached_url: "/shared/header/?utm=1",
+            },
+        };
+
+        const result = rewriteCopyReferences({ value: content, maps });
+
+        expect(result.value.anchored.cached_url).toBe(
+            "imported/shared/header#contact",
+        );
+        expect(result.value.queried.cached_url).toBe(
+            "/imported/shared/header/?utm=1",
+        );
+    });
+
+    it("leaves the stored path alone when the target path is unknown", () => {
+        const maps = createEmptyCopyMaps();
+        maps.storyUuids.set("source-header-uuid", "target-header-uuid");
+
+        const content = {
+            component: "page",
+            cta: {
+                linktype: "story",
+                id: "source-header-uuid",
+                cached_url: "shared/header",
+            },
+        };
+
+        const result = rewriteCopyReferences({ value: content, maps });
+
+        // A guessed path would be worse than a stale one.
+        expect(result.value.cta.id).toBe("target-header-uuid");
+        expect(result.value.cta.cached_url).toBe("shared/header");
+    });
+
+    it("rewrites a richtext link's href, as a uuid or as a path", () => {
+        const maps = createEmptyCopyMaps();
+        maps.storyUuids.set("source-header-uuid", "target-header-uuid");
+        maps.storyFullSlugs.set("source-header-uuid", "imported/shared/header");
+
+        const content = {
+            component: "page",
+            body: {
+                type: "doc",
+                content: [
+                    {
+                        type: "link",
+                        attrs: {
+                            linktype: "story",
+                            uuid: "source-header-uuid",
+                            href: "shared/header",
+                        },
+                    },
+                    {
+                        type: "link",
+                        attrs: {
+                            linktype: "story",
+                            uuid: "source-header-uuid",
+                            href: "source-header-uuid",
+                        },
+                    },
+                ],
+            },
+        };
+
+        const result = rewriteCopyReferences({ value: content, maps });
+
+        expect(result.value.body.content[0].attrs.href).toBe(
+            "imported/shared/header",
+        );
+        // A uuid in the href slot is a reference, not a path.
+        expect(result.value.body.content[1].attrs.href).toBe(
+            "target-header-uuid",
+        );
+    });
+
+    it("rewrites the story object a link caches next to itself", () => {
+        const maps = createEmptyCopyMaps();
+        maps.storyUuids.set("source-header-uuid", "target-header-uuid");
+        maps.storyFullSlugs.set("source-header-uuid", "imported/shared/header");
+
+        const content = {
+            component: "page",
+            cta: {
+                linktype: "story",
+                id: "source-header-uuid",
+                cached_url: "shared/header",
+                story: {
+                    name: "Header",
+                    full_slug: "shared/header",
+                    url: "shared/header",
+                },
+            },
+        };
+
+        const result = rewriteCopyReferences({ value: content, maps });
+
+        expect(result.value.cta.story.full_slug).toBe("imported/shared/header");
+        expect(result.value.cta.story.url).toBe("imported/shared/header");
+    });
+
     it("rewrites bare source-story uuids in unknown fields via the safety net", () => {
         const maps = createEmptyCopyMaps();
         maps.storyUuids.set(
@@ -270,16 +439,14 @@ describe("copy reference rewriter", () => {
             "010fe283-aaaa-bbbb-cccc-000000000001",
         );
         expect(result.value.some_custom_field).toBe("not-a-story-uuid");
-        expect(result.value._uid).toBe(
-            "2166697c-aaaa-bbbb-cccc-000000000001",
-        );
+        expect(result.value._uid).toBe("2166697c-aaaa-bbbb-cccc-000000000001");
         expect(result.records.map((record) => record.path).sort()).toEqual([
             "$.nested.deep_reference",
             "$.shared_component",
         ]);
-        expect(
-            result.records.every((record) => record.type === "story"),
-        ).toBe(true);
+        expect(result.records.every((record) => record.type === "story")).toBe(
+            true,
+        );
     });
 
     it("rewrites the blog-articles-section regression fixture (categories + filter_groups)", () => {

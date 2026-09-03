@@ -74,6 +74,19 @@ export type CopyRelinkStoryMapping = {
     targetFullSlug: string;
 };
 
+const applyCopyRelinkStoryMapping = (
+    maps: CopyMaps,
+    mapping: CopyRelinkStoryMapping,
+) => {
+    maps.storyIds.set(mapping.sourceId, mapping.targetId);
+    maps.storyUuids.set(mapping.sourceUuid, mapping.targetUuid);
+
+    if (mapping.targetFullSlug) {
+        maps.storyFullSlugs.set(mapping.sourceUuid, mapping.targetFullSlug);
+        maps.storyFullSlugs.set(mapping.targetUuid, mapping.targetFullSlug);
+    }
+};
+
 /**
  * The maps `copy relink` rewrites through. Story mappings come ONLY from
  * matches this run validated against the target space — a ledger line whose
@@ -100,8 +113,7 @@ export const buildCopyRelinkMaps = ({
     );
 
     for (const mapping of storyMappings) {
-        maps.storyIds.set(mapping.sourceId, mapping.targetId);
-        maps.storyUuids.set(mapping.sourceUuid, mapping.targetUuid);
+        applyCopyRelinkStoryMapping(maps, mapping);
     }
 
     return maps;
@@ -126,6 +138,7 @@ export const buildCopyRelinkClassificationMaps = ({
     const maps: CopyMaps = {
         storyIds: new Map(ledgerMaps.storyIds),
         storyUuids: new Map(ledgerMaps.storyUuids),
+        storyFullSlugs: new Map(ledgerMaps.storyFullSlugs),
         assetIds: new Map(ledgerMaps.assetIds),
         assetFilenames: new Map(ledgerMaps.assetFilenames),
         assetFolderIds: new Map(ledgerMaps.assetFolderIds),
@@ -134,23 +147,43 @@ export const buildCopyRelinkClassificationMaps = ({
     for (const key of staleStoryKeys) {
         maps.storyIds.delete(key.sourceId);
         maps.storyUuids.delete(key.sourceUuid);
+        maps.storyFullSlugs.delete(key.sourceUuid);
+        maps.storyFullSlugs.delete(
+            ledgerMaps.storyUuids.get(key.sourceUuid) ?? key.sourceUuid,
+        );
     }
 
     for (const mapping of storyMappings) {
-        maps.storyIds.set(mapping.sourceId, mapping.targetId);
-        maps.storyUuids.set(mapping.sourceUuid, mapping.targetUuid);
+        applyCopyRelinkStoryMapping(maps, mapping);
     }
 
     return maps;
 };
 
+const mentionsStoryValue = (
+    serializedContent: string,
+    value: string | number,
+): boolean =>
+    typeof value === "string"
+        ? value.length > 0 && serializedContent.includes(value)
+        : Number.isFinite(value) &&
+          new RegExp(`(^|[^0-9])${value}([^0-9]|$)`).test(serializedContent);
+
+/**
+ * Both ends of the mapping count. The source uuid is the unrepaired reference;
+ * the target uuid is a reference an earlier run already relinked, whose stored
+ * path may still be the source's.
+ */
 const mentionsStoryReference = (
     serializedContent: string,
-    { sourceId, sourceUuid }: { sourceId: number; sourceUuid: string },
+    mapping: CopyRelinkStoryMapping,
 ): boolean =>
-    (sourceUuid.length > 0 && serializedContent.includes(sourceUuid)) ||
-    (Number.isFinite(sourceId) &&
-        new RegExp(`(^|[^0-9])${sourceId}([^0-9]|$)`).test(serializedContent));
+    [
+        mapping.sourceUuid,
+        mapping.sourceId,
+        mapping.targetUuid,
+        mapping.targetId,
+    ].some((value) => mentionsStoryValue(serializedContent, value));
 
 /**
  * Ledger mappings for stories OUTSIDE the relink selection that the target

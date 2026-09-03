@@ -78,9 +78,11 @@ const assetFolderEntry = (overrides: Partial<CopyManifestEntry> = {}) =>
 describe("copy manifest store", () => {
     afterEach(async () => {
         await Promise.all(
-            createdTempDirs.splice(0).map((tempDir) =>
-                rm(tempDir, { recursive: true, force: true }),
-            ),
+            createdTempDirs
+                .splice(0)
+                .map((tempDir) =>
+                    rm(tempDir, { recursive: true, force: true }),
+                ),
         );
     });
 
@@ -93,7 +95,9 @@ describe("copy manifest store", () => {
 
         expect(paths.rootDir).toBe(rootDir);
         expect(paths.combined).toBe(path.join(rootDir, "manifest.jsonl"));
-        expect(paths.stories).toBe(path.join(rootDir, "stories.manifest.jsonl"));
+        expect(paths.stories).toBe(
+            path.join(rootDir, "stories.manifest.jsonl"),
+        );
         expect(paths.assets).toBe(path.join(rootDir, "assets.manifest.jsonl"));
         expect(paths.assetFolders).toBe(
             path.join(rootDir, "asset-folders.manifest.jsonl"),
@@ -124,7 +128,11 @@ describe("copy manifest store", () => {
         expect(raw.trim().split("\n")).toHaveLength(3);
 
         const entries = await loadManifest(manifestPath);
-        expect(entries).toEqual([storyEntry(), assetFolderEntry(), assetEntry()]);
+        expect(entries).toEqual([
+            storyEntry(),
+            assetFolderEntry(),
+            assetEntry(),
+        ]);
     });
 
     it("reports invalid JSONL with file and line context", () => {
@@ -133,9 +141,7 @@ describe("copy manifest store", () => {
                 `${JSON.stringify(storyEntry())}\n{not-json}\n`,
                 "copy.manifest.jsonl",
             ),
-        ).toThrow(
-            "Failed to parse manifest 'copy.manifest.jsonl' at line 2",
-        );
+        ).toThrow("Failed to parse manifest 'copy.manifest.jsonl' at line 2");
     });
 
     it("dedupes manifest entries by source key and keeps the latest mapping", async () => {
@@ -182,6 +188,29 @@ describe("copy manifest store", () => {
             maps.assetFilenames.get("https://a.storyblok.com/f/111/source.jpg"),
         ).toBe("https://a.storyblok.com/f/222/target.jpg");
         expect(maps.assetFolderIds.get(500)).toBe(600);
+        // The target path travels with the uuid so a relinked link can be
+        // rendered through its stored `cached_url`.
+        expect(maps.storyFullSlugs.get("source-story-uuid")).toBe(
+            "imported/blog/post",
+        );
+        // Keyed by the target uuid too, so a link relinked by an earlier run
+        // can still have its stale path repaired.
+        expect(maps.storyFullSlugs.get("target-story-uuid")).toBe(
+            "imported/blog/post",
+        );
+    });
+
+    it("records no target path when the ledger entry carries none", () => {
+        const maps = buildCopyMaps([
+            storyEntry({ target_full_slug: undefined }),
+        ]);
+
+        expect(maps.storyUuids.get("source-story-uuid")).toBe(
+            "target-story-uuid",
+        );
+        // Without a path there is nothing to rewrite a cached_url to, and a
+        // guess would be worse than the stale value.
+        expect(maps.storyFullSlugs.has("source-story-uuid")).toBe(false);
     });
 });
 
