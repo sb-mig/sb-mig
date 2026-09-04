@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
     createStory: vi.fn(),
     updateStory: vi.fn(),
     getAllComponents: vi.fn(),
+    getAssetById: vi.fn(),
     createTree: vi.fn(),
     traverseAndCreate: vi.fn(),
     sbApiGet: vi.fn(),
@@ -42,7 +43,9 @@ vi.mock("../../src/api/managementApi.js", () => ({
         components: {
             getAllComponents: mocks.getAllComponents,
         },
-        assets: {},
+        assets: {
+            getAssetById: mocks.getAssetById,
+        },
     },
 }));
 
@@ -130,6 +133,19 @@ const writeLedger = async (manifestRoot: string, entries: unknown[]) => {
         "utf8",
     );
 };
+
+const assetLedgerEntry = (entry: Record<string, unknown>) => ({
+    type: "asset",
+    source_space_id: "source-space",
+    target_space_id: "target-space",
+    source_id: 70,
+    target_id: 7007,
+    source_filename: "https://a.storyblok.com/f/111/logo.png",
+    target_filename: "https://a.storyblok.com/f/222/logo.png",
+    action: "created",
+    created_at: "2026-09-03T00:00:00.000Z",
+    ...entry,
+});
 
 const storyLedgerEntry = (entry: Record<string, unknown>) => ({
     type: "story",
@@ -219,6 +235,7 @@ describe("copy relink", () => {
             },
         ]);
         mocks.updateStory.mockResolvedValue({ ok: true });
+        mocks.getAssetById.mockResolvedValue(undefined);
     });
 
     it("rebuilds the mapping from the target space and repairs the reference", async () => {
@@ -648,6 +665,116 @@ describe("copy relink", () => {
         await copyCommand(relinkFlags({ manifestRoot, yes: true }) as any);
 
         expect(mocks.updateStory).not.toHaveBeenCalled();
+
+        await rm(tempDir, { recursive: true, force: true });
+    });
+
+    /** A story whose only reference is an image the copy left pointing home. */
+    const setUpStaleAssetLedger = async (manifestRoot: string) => {
+        targetPost.content = {
+            component: "page",
+            image: {
+                fieldtype: "asset",
+                id: 70,
+                filename: "https://a.storyblok.com/f/111/logo.png",
+            },
+        };
+
+        await writeLedger(manifestRoot, [assetLedgerEntry({})]);
+    };
+
+    it("never rewrites an image through an asset mapping whose target file is gone", async () => {
+        const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-relink-"));
+        const manifestRoot = path.join(tempDir, ".sb-mig");
+
+        await setUpStaleAssetLedger(manifestRoot);
+        // The copied file was deleted in the target space since the copy.
+        mocks.getAssetById.mockResolvedValue(undefined);
+
+        await copyCommand(relinkFlags({ manifestRoot, yes: true }) as any);
+
+        // Pointing a live image at a deleted file is worse than the stale
+        // filename it already has.
+        expect(mocks.updateStory).not.toHaveBeenCalled();
+        expect(JSON.stringify(mocks.updateStory.mock.calls)).not.toContain(
+            "https://a.storyblok.com/f/222/logo.png",
+        );
+
+        await rm(tempDir, { recursive: true, force: true });
+    });
+
+    it("repairs an image when the mapped target file is really there", async () => {
+        const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-relink-"));
+        const manifestRoot = path.join(tempDir, ".sb-mig");
+
+        await setUpStaleAssetLedger(manifestRoot);
+        mocks.getAssetById.mockResolvedValue({
+            id: 7007,
+            filename: "https://a.storyblok.com/f/222/logo.png",
+        });
+
+        await copyCommand(relinkFlags({ manifestRoot, yes: true }) as any);
+
+        expect(mocks.updateStory).toHaveBeenCalledTimes(1);
+        expect(mocks.updateStory.mock.calls[0][0]).toMatchObject({
+            content: {
+                image: {
+                    id: 7007,
+                    filename: "https://a.storyblok.com/f/222/logo.png",
+                },
+            },
+        });
+
+        await rm(tempDir, { recursive: true, force: true });
+    });
+
+    it("rewrites the path of a story that moved after it was copied", async () => {
+        const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-relink-"));
+        const manifestRoot = path.join(tempDir, ".sb-mig");
+
+        // uuid already relinked, path still the source's — and the story has
+        // been moved in the target since the ledger line was written.
+        targetPost.content = {
+            component: "page",
+            cta: {
+                linktype: "story",
+                id: "target-header-uuid",
+                cached_url: "shared/header",
+            },
+        };
+        mocks.getStoryById.mockImplementation((storyId: string) =>
+            Promise.resolve(
+                storyId === "5005"
+                    ? {
+                          story: {
+                              id: 5005,
+                              uuid: "target-header-uuid",
+                              full_slug: "moved/shared/header",
+                          },
+                      }
+                    : undefined,
+            ),
+        );
+
+        await writeLedger(manifestRoot, [
+            storyLedgerEntry({
+                source_id: 5,
+                target_id: 5005,
+                source_uuid: "shared-header-uuid",
+                target_uuid: "target-header-uuid",
+                source_full_slug: "shared/header",
+                target_full_slug: "imported/shared/header",
+            }),
+        ]);
+
+        await copyCommand(relinkFlags({ manifestRoot, yes: true }) as any);
+
+        expect(mocks.updateStory).toHaveBeenCalledTimes(1);
+        // The ledger records where the story was PUT; the space knows where it
+        // is now, and the run has already read it.
+        expect(mocks.updateStory.mock.calls[0][0]).toMatchObject({
+            content: { cta: { cached_url: "moved/shared/header" } },
+        });
 
         await rm(tempDir, { recursive: true, force: true });
     });

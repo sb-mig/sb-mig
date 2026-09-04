@@ -388,6 +388,73 @@ describe("copy reference rewriter", () => {
         );
     });
 
+    it("leaves an already-relinked uuid in a path slot alone on a second pass", () => {
+        const maps = createEmptyCopyMaps();
+        maps.storyUuids.set("source-header-uuid", "target-header-uuid");
+        maps.storyFullSlugs.set("source-header-uuid", "imported/shared/header");
+        maps.storyFullSlugs.set("target-header-uuid", "imported/shared/header");
+
+        // Storyblok stores the uuid in `href` for an internal richtext link,
+        // so the second relink of the same story reads back what the first one
+        // wrote.
+        const content = {
+            component: "page",
+            body: {
+                type: "doc",
+                content: [
+                    {
+                        type: "link",
+                        attrs: {
+                            linktype: "story",
+                            uuid: "source-header-uuid",
+                            href: "source-header-uuid",
+                        },
+                    },
+                ],
+            },
+        };
+
+        const first = rewriteCopyReferences({ value: content, maps });
+        const second = rewriteCopyReferences({ value: first.value, maps });
+
+        expect(first.value.body.content[0].attrs.href).toBe(
+            "target-header-uuid",
+        );
+        // A second pass must not mistake the reference it just wrote for a
+        // path and overwrite it with a slug.
+        expect(second.value.body.content[0].attrs.href).toBe(
+            "target-header-uuid",
+        );
+        expect(second.records).toHaveLength(0);
+    });
+
+    it("repairs the stored path of a link that references a numeric story id", () => {
+        const maps = createEmptyCopyMaps();
+        maps.storyIds.set(11, 22);
+        maps.storyIdFullSlugs.set(11, "imported/shared/header");
+        maps.storyIdFullSlugs.set(22, "imported/shared/header");
+
+        const content = {
+            component: "page",
+            cta: {
+                linktype: "story",
+                id: 11,
+                cached_url: "shared/header",
+            },
+        };
+
+        const result = rewriteCopyReferences({ value: content, maps });
+
+        // The id is remapped, and the path beside it must not be left lying.
+        expect(result.value.cta.id).toBe(22);
+        expect(result.value.cta.cached_url).toBe("imported/shared/header");
+
+        const second = rewriteCopyReferences({ value: result.value, maps });
+
+        expect(second.value.cta.cached_url).toBe("imported/shared/header");
+        expect(second.records).toHaveLength(0);
+    });
+
     it("rewrites the story object a link caches next to itself", () => {
         const maps = createEmptyCopyMaps();
         maps.storyUuids.set("source-header-uuid", "target-header-uuid");

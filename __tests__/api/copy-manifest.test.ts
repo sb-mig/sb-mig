@@ -198,6 +198,9 @@ describe("copy manifest store", () => {
         expect(maps.storyFullSlugs.get("target-story-uuid")).toBe(
             "imported/blog/post",
         );
+        // And keyed by id as well, for the links that store one instead.
+        expect(maps.storyIdFullSlugs.get(100)).toBe("imported/blog/post");
+        expect(maps.storyIdFullSlugs.get(200)).toBe("imported/blog/post");
     });
 
     it("records no target path when the ledger entry carries none", () => {
@@ -211,6 +214,7 @@ describe("copy manifest store", () => {
         // Without a path there is nothing to rewrite a cached_url to, and a
         // guess would be worse than the stale value.
         expect(maps.storyFullSlugs.has("source-story-uuid")).toBe(false);
+        expect(maps.storyIdFullSlugs.has(100)).toBe(false);
     });
 });
 

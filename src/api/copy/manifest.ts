@@ -76,6 +76,7 @@ export const createEmptyCopyMaps = (): CopyMaps => ({
     storyIds: new Map(),
     storyUuids: new Map(),
     storyFullSlugs: new Map(),
+    storyIdFullSlugs: new Map(),
     assetIds: new Map(),
     assetFilenames: new Map(),
     assetFolderIds: new Map(),
@@ -189,6 +190,8 @@ export const applyStoryManifestEntryToMaps = (
     if (entry.target_full_slug) {
         maps.storyFullSlugs.set(entry.source_uuid, entry.target_full_slug);
         maps.storyFullSlugs.set(entry.target_uuid, entry.target_full_slug);
+        maps.storyIdFullSlugs.set(entry.source_id, entry.target_full_slug);
+        maps.storyIdFullSlugs.set(entry.target_id, entry.target_full_slug);
     }
 };
 

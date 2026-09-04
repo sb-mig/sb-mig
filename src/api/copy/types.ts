@@ -85,6 +85,13 @@ export type CopyMaps = {
      * rewritten and now carries the target uuid with the source's path.
      */
     storyFullSlugs: Map<string, string>;
+    /**
+     * The same target `full_slug`, keyed by story ID instead — by BOTH the
+     * source and the target id. A multilink may store a numeric story id where
+     * another stores a uuid, and its stored path has to be repaired the same
+     * way; without this map the id is remapped and the path left lying.
+     */
+    storyIdFullSlugs: Map<number, string>;
     assetIds: Map<number, { id: number; filename: string }>;
     assetFilenames: Map<string, string>;
     assetFolderIds: Map<number, number>;

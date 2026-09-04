@@ -84,36 +84,61 @@ const applyCopyRelinkStoryMapping = (
     if (mapping.targetFullSlug) {
         maps.storyFullSlugs.set(mapping.sourceUuid, mapping.targetFullSlug);
         maps.storyFullSlugs.set(mapping.targetUuid, mapping.targetFullSlug);
+        maps.storyIdFullSlugs.set(mapping.sourceId, mapping.targetFullSlug);
+        maps.storyIdFullSlugs.set(mapping.targetId, mapping.targetFullSlug);
     }
 };
 
 /**
- * The maps `copy relink` rewrites through. Story mappings come ONLY from
- * matches this run validated against the target space — a ledger line whose
- * target story is gone would otherwise rewrite a live reference to a deleted
- * uuid, which is worse than the break the command was asked to repair. Asset
- * mappings carry over untouched: they record copied files, and no story match
- * can invalidate them.
+ * One copied asset mapped to the file that actually backs it in the target, as
+ * proven by this run. Relink writes through asset mappings exactly as it writes
+ * through story ones, so they are subject to the same proof.
+ */
+export type CopyRelinkAssetMapping = {
+    sourceId: number;
+    sourceFilename: string;
+    targetId: number;
+    targetFilename: string;
+};
+
+const applyCopyRelinkAssetMapping = (
+    maps: CopyMaps,
+    mapping: CopyRelinkAssetMapping,
+) => {
+    maps.assetIds.set(mapping.sourceId, {
+        id: mapping.targetId,
+        filename: mapping.targetFilename,
+    });
+    maps.assetFilenames.set(mapping.sourceFilename, mapping.targetFilename);
+};
+
+/**
+ * The maps `copy relink` rewrites through. EVERY mapping in them comes from a
+ * match this run validated against the target space — a ledger line whose
+ * target is gone would otherwise replace a live reference with a dangling one,
+ * which is worse than the break the command was asked to repair. That holds
+ * for files as much as for stories: a deleted target asset makes the ledger's
+ * filename just as dead as a deleted story makes its uuid.
+ *
+ * Asset FOLDER ids are deliberately absent: the rewriter never reads them, so
+ * carrying them would only be unvalidated data in a map that promises the
+ * opposite.
  */
 export const buildCopyRelinkMaps = ({
-    ledgerMaps,
     storyMappings,
+    assetMappings = [],
 }: {
-    ledgerMaps: CopyMaps;
     storyMappings: CopyRelinkStoryMapping[];
+    assetMappings?: CopyRelinkAssetMapping[];
 }): CopyMaps => {
     const maps = createEmptyCopyMaps();
 
-    ledgerMaps.assetIds.forEach((value, key) => maps.assetIds.set(key, value));
-    ledgerMaps.assetFilenames.forEach((value, key) =>
-        maps.assetFilenames.set(key, value),
-    );
-    ledgerMaps.assetFolderIds.forEach((value, key) =>
-        maps.assetFolderIds.set(key, value),
-    );
-
     for (const mapping of storyMappings) {
         applyCopyRelinkStoryMapping(maps, mapping);
+    }
+
+    for (const mapping of assetMappings) {
+        applyCopyRelinkAssetMapping(maps, mapping);
     }
 
     return maps;
@@ -139,6 +164,7 @@ export const buildCopyRelinkClassificationMaps = ({
         storyIds: new Map(ledgerMaps.storyIds),
         storyUuids: new Map(ledgerMaps.storyUuids),
         storyFullSlugs: new Map(ledgerMaps.storyFullSlugs),
+        storyIdFullSlugs: new Map(ledgerMaps.storyIdFullSlugs),
         assetIds: new Map(ledgerMaps.assetIds),
         assetFilenames: new Map(ledgerMaps.assetFilenames),
         assetFolderIds: new Map(ledgerMaps.assetFolderIds),
@@ -151,6 +177,10 @@ export const buildCopyRelinkClassificationMaps = ({
         maps.storyFullSlugs.delete(
             ledgerMaps.storyUuids.get(key.sourceUuid) ?? key.sourceUuid,
         );
+        maps.storyIdFullSlugs.delete(key.sourceId);
+        maps.storyIdFullSlugs.delete(
+            ledgerMaps.storyIds.get(key.sourceId) ?? key.sourceId,
+        );
     }
 
     for (const mapping of storyMappings) {
@@ -160,7 +190,7 @@ export const buildCopyRelinkClassificationMaps = ({
     return maps;
 };
 
-const mentionsStoryValue = (
+const mentionsValue = (
     serializedContent: string,
     value: string | number,
 ): boolean =>
@@ -183,7 +213,7 @@ const mentionsStoryReference = (
         mapping.sourceId,
         mapping.targetUuid,
         mapping.targetId,
-    ].some((value) => mentionsStoryValue(serializedContent, value));
+    ].some((value) => mentionsValue(serializedContent, value));
 
 /**
  * Ledger mappings for stories OUTSIDE the relink selection that the target
@@ -225,6 +255,51 @@ export const selectRelinkLedgerStoryMappings = ({
         };
 
         if (mentionsStoryReference(serializedContent, mapping)) {
+            mappings.set(mapping.sourceId, mapping);
+        }
+    }
+
+    return Array.from(mappings.values());
+};
+
+/**
+ * The same selection for FILES: ledger asset mappings the target content still
+ * mentions by the source's id or filename. Only the source side is looked for —
+ * content already carrying the target's values has nothing left to rewrite, so
+ * checking those mappings would buy nothing.
+ *
+ * Candidates again, not conclusions: the caller proves each target file is
+ * really there before relink may write its filename into a story.
+ */
+export const selectRelinkLedgerAssetMappings = ({
+    entries,
+    targetContents,
+}: {
+    entries: CopyManifestEntry[];
+    targetContents: unknown[];
+}): CopyRelinkAssetMapping[] => {
+    const serializedContent = targetContents
+        .map((content) => JSON.stringify(content ?? null))
+        .join("\n");
+    const mappings = new Map<number, CopyRelinkAssetMapping>();
+
+    for (const entry of entries) {
+        if (entry.type !== "asset") {
+            continue;
+        }
+
+        const mapping: CopyRelinkAssetMapping = {
+            sourceId: Number(entry.source_id),
+            sourceFilename: String(entry.source_filename ?? ""),
+            targetId: Number(entry.target_id),
+            targetFilename: String(entry.target_filename ?? ""),
+        };
+
+        if (
+            [mapping.sourceId, mapping.sourceFilename].some((value) =>
+                mentionsValue(serializedContent, value),
+            )
+        ) {
             mappings.set(mapping.sourceId, mapping);
         }
     }

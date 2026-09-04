@@ -8,6 +8,7 @@ import {
     createEmptyCopyMaps,
     formatCopyRelinkPlan,
     planCopyRelinkStoryRewrite,
+    selectRelinkLedgerAssetMappings,
     selectRelinkLedgerStoryMappings,
     type CopyManifestEntry,
     type CopyRelinkPlanItem,
@@ -260,7 +261,41 @@ describe("copy relink", () => {
                 ...overrides,
             }) as CopyManifestEntry;
 
-        it("carries only validated story mappings, never the ledger's own", () => {
+        it("carries only validated mappings, never the ledger's own", () => {
+            const maps = buildCopyRelinkMaps({
+                storyMappings: [
+                    {
+                        sourceId: 1,
+                        sourceUuid: "source-blog-uuid",
+                        targetId: 1001,
+                        targetUuid: "target-blog-uuid",
+                        sourceFullSlug: "blog",
+                        targetFullSlug: "imported/blog",
+                    },
+                ],
+                assetMappings: [
+                    {
+                        sourceId: 7,
+                        sourceFilename: "a.png",
+                        targetId: 7007,
+                        targetFilename: "b.png",
+                    },
+                ],
+            });
+
+            expect(maps.storyIds.get(1)).toBe(1001);
+            expect(maps.storyFullSlugs.get("target-blog-uuid")).toBe(
+                "imported/blog",
+            );
+            expect(maps.storyIdFullSlugs.get(1001)).toBe("imported/blog");
+            expect(maps.assetIds.get(7)).toEqual({
+                id: 7007,
+                filename: "b.png",
+            });
+            expect(maps.assetFilenames.get("a.png")).toBe("b.png");
+        });
+
+        it("cannot be handed the ledger's unvalidated mappings at all", () => {
             const ledgerMaps = buildCopyMaps([
                 ledgerEntry(),
                 ledgerEntry({
@@ -276,36 +311,21 @@ describe("copy relink", () => {
                     source_id: 7,
                     target_id: 7007,
                     source_filename: "a.png",
-                    target_filename: "b.png",
+                    target_filename: "deleted-target.png",
                     action: "created",
                     created_at: "2026-09-03T00:00:00.000Z",
                 } as CopyManifestEntry,
             ]);
 
-            const maps = buildCopyRelinkMaps({
-                ledgerMaps,
-                storyMappings: [
-                    {
-                        sourceId: 1,
-                        sourceUuid: "source-blog-uuid",
-                        targetId: 1001,
-                        targetUuid: "target-blog-uuid",
-                        sourceFullSlug: "blog",
-                        targetFullSlug: "imported/blog",
-                    },
-                ],
-            });
+            // Nothing the ledger claims — story or file — reaches a map the
+            // rewriter writes through until this run has proven it.
+            const maps = buildCopyRelinkMaps({ storyMappings: [] });
 
-            // The mapping whose target is gone must not survive into a map the
-            // rewriter writes through.
-            expect(maps.storyIds.get(1)).toBe(1001);
-            expect(maps.storyIds.has(3)).toBe(false);
-            expect(maps.storyUuids.has("source-gone-uuid")).toBe(false);
-            // Asset mappings are untouched by a story match.
-            expect(maps.assetIds.get(7)).toEqual({
-                id: 7007,
-                filename: "b.png",
-            });
+            expect(ledgerMaps.storyUuids.has("source-gone-uuid")).toBe(true);
+            expect(ledgerMaps.assetFilenames.has("a.png")).toBe(true);
+            expect(maps.storyUuids.size).toBe(0);
+            expect(maps.assetIds.size).toBe(0);
+            expect(maps.assetFilenames.size).toBe(0);
         });
     });
 
@@ -420,6 +440,76 @@ describe("copy relink", () => {
                         {
                             component: "page",
                             header: { uuid: "shared-header-uuid" },
+                        },
+                    ],
+                }),
+            ).toEqual([]);
+        });
+    });
+
+    describe("selectRelinkLedgerAssetMappings", () => {
+        const assetEntries: CopyManifestEntry[] = [
+            {
+                type: "asset",
+                source_space_id: "111",
+                target_space_id: "222",
+                source_id: 70,
+                target_id: 7007,
+                source_filename: "https://a.storyblok.com/f/111/logo.png",
+                target_filename: "https://a.storyblok.com/f/222/logo.png",
+                action: "created",
+                created_at: "2026-09-03T00:00:00.000Z",
+            },
+            {
+                type: "asset",
+                source_space_id: "111",
+                target_space_id: "222",
+                source_id: 80,
+                target_id: 8008,
+                source_filename: "https://a.storyblok.com/f/111/unused.png",
+                target_filename: "https://a.storyblok.com/f/222/unused.png",
+                action: "created",
+                created_at: "2026-09-03T00:00:00.000Z",
+            },
+        ];
+
+        it("picks the asset mappings the target content still mentions", () => {
+            const mappings = selectRelinkLedgerAssetMappings({
+                entries: assetEntries,
+                targetContents: [
+                    {
+                        component: "page",
+                        image: {
+                            id: 70,
+                            filename: "https://a.storyblok.com/f/111/logo.png",
+                        },
+                    },
+                ],
+            });
+
+            expect(mappings).toEqual([
+                {
+                    sourceId: 70,
+                    sourceFilename: "https://a.storyblok.com/f/111/logo.png",
+                    targetId: 7007,
+                    targetFilename: "https://a.storyblok.com/f/222/logo.png",
+                },
+            ]);
+        });
+
+        it("ignores content that already carries the target's file", () => {
+            // Nothing left to rewrite there, so nothing worth a lookup.
+            expect(
+                selectRelinkLedgerAssetMappings({
+                    entries: assetEntries,
+                    targetContents: [
+                        {
+                            component: "page",
+                            image: {
+                                id: 7007,
+                                filename:
+                                    "https://a.storyblok.com/f/222/logo.png",
+                            },
                         },
                     ],
                 }),

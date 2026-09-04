@@ -207,6 +207,15 @@ const rewriteStoryLinkPath = ({
         return;
     }
 
+    // A value the maps already know as a story reference is a uuid sitting in
+    // a path slot that an earlier pass has ALREADY relinked (`storyFullSlugs`
+    // is keyed by the target uuid too). Treating it as a path would overwrite
+    // the reference with a slug on the second pass, so the rewrite has to stop
+    // here to stay idempotent.
+    if (state.maps.storyFullSlugs.has(value)) {
+        return;
+    }
+
     if (targetFullSlug === undefined) {
         return;
     }
@@ -233,6 +242,29 @@ const rewriteStoryLinkPath = ({
     node[key] = rewritten;
 };
 
+/**
+ * The target `full_slug` of the story a link points at, read from whichever of
+ * its reference slots the maps recognise. Both key spaces are consulted: a
+ * multilink stores either a uuid or a numeric story id, and either one has to
+ * be able to repair the stored path beside it.
+ */
+const findTargetFullSlug = (values: unknown[], state: RewriteState) => {
+    for (const value of values) {
+        const targetFullSlug =
+            typeof value === "string"
+                ? state.maps.storyFullSlugs.get(value)
+                : typeof value === "number"
+                  ? state.maps.storyIdFullSlugs.get(value)
+                  : undefined;
+
+        if (targetFullSlug !== undefined) {
+            return targetFullSlug;
+        }
+    }
+
+    return undefined;
+};
+
 const rewriteStoryLinkObject = (
     node: Record<string, any>,
     path: string,
@@ -243,11 +275,9 @@ const rewriteStoryLinkObject = (
     }
 
     // Read before the id/uuid slots are rewritten: the target path is looked up
-    // by the SOURCE uuid the link still carries.
-    const targetFullSlug = [node.id, node.uuid]
-        .filter((value): value is string => typeof value === "string")
-        .map((value) => state.maps.storyFullSlugs.get(value))
-        .find((fullSlug) => fullSlug !== undefined);
+    // by the SOURCE reference the link still carries — which is a uuid in most
+    // links and a numeric story id in some.
+    const targetFullSlug = findTargetFullSlug([node.id, node.uuid], state);
 
     if (typeof node.id === "number") {
         const targetId = state.maps.storyIds.get(node.id);

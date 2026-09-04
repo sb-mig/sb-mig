@@ -2,6 +2,7 @@ import type {
     CopyGraph,
     CopyMaps,
     CopyRelinkMatch,
+    CopyRelinkAssetMapping,
     CopyRelinkPlanItem,
     CopyRelinkStoryMapping,
     CopyRelinkStoryRewrite,
@@ -45,6 +46,7 @@ import {
     planCopyRelinkStoryRewrite,
     rewriteCopyReferences,
     scanStoriesReferences,
+    selectRelinkLedgerAssetMappings,
     selectRelinkLedgerStoryMappings,
     summarizeCopyGraph,
 } from "../../api/copy/index.js";
@@ -3999,10 +4001,12 @@ const matchRelinkTargets = async ({
 
 /**
  * Keeps only the out-of-selection ledger mappings whose target story is still
- * there. Relink writes THROUGH these mappings, so an unchecked one turns a
- * broken reference into a reference to a story that no longer exists — the one
- * outcome worse than leaving the break alone. Only mappings the target content
- * actually mentions are checked, so the cost is bounded by the damage.
+ * there, refreshed from the story the check just read. Relink writes THROUGH
+ * these mappings, so an unchecked one turns a broken reference into a reference
+ * to a story that no longer exists — the one outcome worse than leaving the
+ * break alone — and a mapping trusted for its recorded path would rewrite
+ * `cached_url` to wherever the story used to live. Only mappings the target
+ * content actually mentions are checked, so the cost is bounded by the damage.
  */
 const validateRelinkLedgerMappings = async ({
     mappings,
@@ -4040,11 +4044,91 @@ const validateRelinkLedgerMappings = async ({
                 (!mapping.targetUuid ||
                     String(foundUuid) === mapping.targetUuid)
             ) {
-                return { mapping, valid: true };
+                // The ledger records where the story was PUT; the target space
+                // knows where it is now. A story moved since the copy keeps its
+                // mapping and gets its current path.
+                const foundFullSlug = targetStory.story.full_slug;
+
+                return {
+                    mapping: {
+                        ...mapping,
+                        targetFullSlug:
+                            typeof foundFullSlug === "string" &&
+                            foundFullSlug.length > 0
+                                ? foundFullSlug
+                                : mapping.targetFullSlug,
+                    },
+                    valid: true,
+                };
             }
 
             Logger.warning(
                 `Ignoring stale story manifest mapping for '${mapping.sourceFullSlug || `#${mapping.sourceId}`}' because target story '${mapping.targetId}' was not found in space '${targetSpace}'. References to it are left as they are.`,
+            );
+
+            return { mapping, valid: false };
+        },
+    );
+
+    return {
+        valid: checked
+            .filter((result) => result.valid)
+            .map((result) => result.mapping),
+        stale: checked
+            .filter((result) => !result.valid)
+            .map((result) => result.mapping),
+    };
+};
+
+/**
+ * Keeps only the asset mappings whose target file is still in the target space,
+ * with the filename that space reports today. Relink rewrites a story's image
+ * fields through these exactly as it rewrites its links, so an unchecked
+ * mapping points a live image at a deleted file — the ledger records what was
+ * copied, and a later deletion in the target invalidates it just as thoroughly
+ * as it invalidates a story mapping.
+ */
+const validateRelinkAssetMappings = async ({
+    mappings,
+    targetSpace,
+}: {
+    mappings: CopyRelinkAssetMapping[];
+    targetSpace: string;
+}): Promise<{
+    valid: CopyRelinkAssetMapping[];
+    stale: CopyRelinkAssetMapping[];
+}> => {
+    if (mappings.length === 0) {
+        return { valid: [], stale: [] };
+    }
+
+    Logger.warning(
+        `Validating ${mappings.length} asset mapping(s) referenced by the target content.`,
+    );
+
+    const checked = await mapWithConcurrency(
+        mappings,
+        TARGET_CONFLICT_CHECK_CONCURRENCY,
+        async (mapping) => {
+            const targetAsset: any = await managementApi.assets.getAssetById(
+                { spaceId: targetSpace, assetId: mapping.targetId },
+                apiConfig,
+            );
+            const foundFilename = targetAsset?.filename;
+
+            if (
+                Number(targetAsset?.id) === mapping.targetId &&
+                typeof foundFilename === "string" &&
+                foundFilename.length > 0
+            ) {
+                return {
+                    mapping: { ...mapping, targetFilename: foundFilename },
+                    valid: true,
+                };
+            }
+
+            Logger.warning(
+                `Ignoring stale asset manifest mapping for '${mapping.sourceFilename || `#${mapping.sourceId}`}' because target asset '${mapping.targetId}' was not found in space '${targetSpace}'. References to it are left as they are.`,
             );
 
             return { mapping, valid: false };
@@ -4689,9 +4773,20 @@ export const copyCommand = async (props: CLIOptions) => {
                 ...matchedStoryMappings,
                 ...ledgerStoryMappings.valid,
             ];
+            // Files get the same treatment: the ledger says which asset was
+            // copied, only the target space can say it is still there.
+            const ledgerAssetMappings = await validateRelinkAssetMappings({
+                mappings: selectRelinkLedgerAssetMappings({
+                    entries: manifestEntries,
+                    targetContents: matches.map(
+                        (match) => match.targetStory?.content,
+                    ),
+                }),
+                targetSpace,
+            });
             const copyMaps = buildCopyRelinkMaps({
-                ledgerMaps,
                 storyMappings: validatedStoryMappings,
+                assetMappings: ledgerAssetMappings.valid,
             });
             // The PLAN counts read against the ledger as corrected by this run:
             // out-of-selection mappings still count as covered, but everything
