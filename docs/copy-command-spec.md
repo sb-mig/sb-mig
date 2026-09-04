@@ -459,6 +459,35 @@ Default recommendation:
 preserve-layers
 ```
 
+### Translated Slugs
+
+Localized routing lives in a story's `translated_slugs`, one row per language.
+The Management API **reads** them under that key and **writes** them under
+`translated_slugs_attributes`; a write carrying `translated_slugs` is accepted
+and ignored, so a copy that passes the story back verbatim loses every
+translated slug without a word.
+
+Requirements:
+
+- The phase-2 story write maps source `translated_slugs` onto
+  `translated_slugs_attributes` as `{lang, slug, name}`. Source row ids are
+  dropped: they address rows in the source space.
+- The PLAN and the dry run state how many translated slugs will be carried,
+  and across how many stories, before anything is written.
+- A slug whose language the target space does not have is **left behind with a
+  warning naming the languages**, not sent — an unknown language would fail the
+  whole story write, which is a heavier answer than the loss it prevents. The
+  target's languages are read once per run, and only when a planned story
+  actually carries translated slugs.
+- If the target space's languages cannot be read, everything is carried: an
+  unknown language list is not an empty one.
+- `copy relink` never writes `translated_slugs_attributes`. It repairs
+  reference values in content and nothing else, so the target's own translated
+  slugs are untouched by a repair pass.
+
+Translated _content_ — `__i18n__<lang>` field values — is a separate concern
+and is handled by the reference rewriter like any other field.
+
 ### Idempotency and Resume
 
 Rerunning copy should not duplicate everything.
@@ -844,6 +873,7 @@ Required safety behavior:
 - Asset upload uses signed upload flow.
 - Space duplicate does not create independent asset copies.
 - Story duplicate is same-space-oriented and is not sufficient for cross-space copy.
+- Translated slugs are read as `translated_slugs` and written as `translated_slugs_attributes`; the read shape is silently ignored on write.
 - Some references live in plugin fields or custom JSON where schema-safe rewriting may be impossible.
 - Historical story versions, activity logs, release scheduling, workflow state, tasks, comments, and app-specific metadata may not be fully copyable through the same flow.
 

@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
     updateStory: vi.fn(),
     publishStoryLanguages: vi.fn(),
     getAllComponents: vi.fn(),
+    getSpace: vi.fn(),
     getAllAssets: vi.fn(),
     getAllAssetFolders: vi.fn(),
     createAssetFolder: vi.fn(),
@@ -51,6 +52,9 @@ vi.mock("../../src/api/managementApi.js", () => ({
         },
         components: {
             getAllComponents: mocks.getAllComponents,
+        },
+        spaces: {
+            getSpace: mocks.getSpace,
         },
         assets: {
             getAllAssets: mocks.getAllAssets,
@@ -277,6 +281,9 @@ describe("copy stories dry-run", () => {
             asset_folder_id: 130,
         });
         mocks.updateStory.mockResolvedValue({ ok: true });
+        mocks.getSpace.mockResolvedValue({
+            space: { languages: [{ code: "de" }, { code: "pl" }] },
+        });
     });
 
     it("plans selected stories without creating them", async () => {
@@ -1441,6 +1448,126 @@ describe("copy stories dry-run", () => {
             { force_update: true, publish: false },
             expect.objectContaining({ spaceId: "target-space" }),
         );
+
+        await rm(tempDir, { recursive: true, force: true });
+    });
+
+    /** A source story that carries a translated slug, the EF-shaped case. */
+    const withTranslatedSlugs = (translated_slugs: unknown[]) => {
+        mocks.getAllStories.mockResolvedValue([
+            {
+                story: {
+                    id: 2,
+                    name: "Post 1",
+                    slug: "post-1",
+                    full_slug: "blog/post-1",
+                    is_folder: false,
+                    parent_id: 1,
+                    uuid: "source-post-uuid",
+                    content: { component: "page" },
+                    translated_slugs,
+                },
+            },
+        ]);
+    };
+
+    it("carries translated slugs into the target in the shape the API writes", async () => {
+        const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-copy-"));
+
+        withTranslatedSlugs([
+            { id: 555, story_id: 2, lang: "de", slug: "seite-eins", name: "Seite Eins" },
+        ]);
+
+        await copyCommand({
+            input: ["copy", "stories"],
+            flags: {
+                from: "source-space",
+                to: "target-space",
+                source: "blog",
+                destination: "imported",
+                manifestRoot: path.join(tempDir, ".sb-mig"),
+                yes: true,
+            },
+        } as any);
+
+        const postPayload = mocks.updateStory.mock.calls
+            .map((call) => call[0])
+            .find((payload: any) => payload?.slug === "post-1");
+
+        expect(postPayload.translated_slugs_attributes).toEqual([
+            { lang: "de", slug: "seite-eins", name: "Seite Eins" },
+        ]);
+        // The read shape is what the API accepts and ignores, which is how
+        // these were lost without a word.
+        expect(postPayload.translated_slugs).toBeUndefined();
+        expect(planGateLines()).toContain(
+            "  translated slugs: 1 carried across 1 story",
+        );
+
+        await rm(tempDir, { recursive: true, force: true });
+    });
+
+    it("leaves behind a translated slug the target space has no language for", async () => {
+        const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-copy-"));
+
+        withTranslatedSlugs([
+            { lang: "de", slug: "seite-eins" },
+            { lang: "fr", slug: "page-une" },
+        ]);
+
+        await copyCommand({
+            input: ["copy", "stories"],
+            flags: {
+                from: "source-space",
+                to: "target-space",
+                source: "blog",
+                destination: "imported",
+                manifestRoot: path.join(tempDir, ".sb-mig"),
+                yes: true,
+            },
+        } as any);
+
+        const postPayload = mocks.updateStory.mock.calls
+            .map((call) => call[0])
+            .find((payload: any) => payload?.slug === "post-1");
+
+        // Warned, not failed: the rest of the copy is worth more than the
+        // slug that cannot land.
+        expect(postPayload.translated_slugs_attributes).toEqual([
+            { lang: "de", slug: "seite-eins", name: null },
+        ]);
+        expect(
+            (Logger.warning as unknown as ReturnType<typeof vi.fn>).mock.calls
+                .map((call) => String(call[0]))
+                .some((line) =>
+                    line.includes(
+                        "1 translated slug(s) will be left behind: space 'target-space' has no language(s) fr",
+                    ),
+                ),
+        ).toBe(true);
+
+        await rm(tempDir, { recursive: true, force: true });
+    });
+
+    it("never asks the target space for languages when nothing is translated", async () => {
+        const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-copy-"));
+
+        await copyCommand({
+            input: ["copy", "stories"],
+            flags: {
+                from: "source-space",
+                to: "target-space",
+                source: "blog",
+                destination: "imported",
+                manifestRoot: path.join(tempDir, ".sb-mig"),
+                yes: true,
+            },
+        } as any);
+
+        expect(mocks.getSpace).not.toHaveBeenCalled();
+        expect(
+            planGateLines().some((line) => line.includes("translated slug")),
+        ).toBe(false);
 
         await rm(tempDir, { recursive: true, force: true });
     });

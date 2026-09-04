@@ -248,6 +248,53 @@ describe("copy plan gate", () => {
             ]);
         });
 
+        it("states the translated slugs it will carry and the languages it cannot", () => {
+            const lines = formatCopyPlanGate(
+                buildCopyPlanGateSummary({
+                    sourceSpaceId: "111",
+                    targetSpaceId: "222",
+                    plan,
+                    ledger,
+                    withAssets: false,
+                    translatedSlugs: {
+                        stories: 2,
+                        carried: 3,
+                        unsupported: 1,
+                        unsupportedLangs: ["fr"],
+                    },
+                }),
+            );
+
+            expect(lines).toContain(
+                "  translated slugs: 3 carried across 2 stories",
+            );
+            expect(lines).toContain(
+                "    1 translated slug is left behind: space 222 has no language fr.",
+            );
+        });
+
+        it("says nothing about translated slugs when the run found none", () => {
+            const lines = formatCopyPlanGate(
+                buildCopyPlanGateSummary({
+                    sourceSpaceId: "111",
+                    targetSpaceId: "222",
+                    plan,
+                    ledger,
+                    withAssets: false,
+                    translatedSlugs: {
+                        stories: 0,
+                        carried: 0,
+                        unsupported: 0,
+                        unsupportedLangs: [],
+                    },
+                }),
+            );
+
+            expect(
+                lines.some((line) => line.includes("translated slug")),
+            ).toBe(false);
+        });
+
         it("says how many ledger mappings went stale", () => {
             const lines = formatCopyPlanGate(
                 buildCopyPlanGateSummary({

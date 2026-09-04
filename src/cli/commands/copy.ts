@@ -11,6 +11,7 @@ import type {
     CopyComponentSchemaRegistry,
     CopyManifestEntry,
     CopyStoryManifestEntry,
+    CopyTranslatedSlugSummary,
 } from "../../api/copy/index.js";
 import type { PublicationMode } from "../../api/data-migration/component-data-migration.js";
 import type { PublishedLayerRecord } from "../../api/data-migration/published-layer.js";
@@ -37,6 +38,7 @@ import {
     createEmptyCopyMaps,
     dedupeManifestFile,
     describeBrokenStoryReferenceTarget,
+    describeCopyTranslatedSlugs,
     formatCopyPlanGate,
     formatCopyRelinkPlan,
     getDefaultCopyManifestPaths,
@@ -44,11 +46,13 @@ import {
     loadManifest,
     normalizeAssetFolderParentId,
     planCopyRelinkStoryRewrite,
+    planStoryTranslatedSlugs,
     rewriteCopyReferences,
     scanStoriesReferences,
     selectRelinkLedgerAssetMappings,
     selectRelinkLedgerStoryMappings,
     summarizeCopyGraph,
+    summarizeCopyTranslatedSlugs,
 } from "../../api/copy/index.js";
 import {
     buildPublishedLayerContext,
@@ -719,10 +723,12 @@ const buildFinalStoryPayload = ({
     sourceStory,
     targetParentId,
     rewrittenContent,
+    targetLanguageCodes,
 }: {
     sourceStory: any;
     targetParentId: number | null;
     rewrittenContent: any;
+    targetLanguageCodes?: string[];
 }) => {
     const payload = stripGeneratedStoryFields(sourceStory);
 
@@ -731,6 +737,20 @@ const buildFinalStoryPayload = ({
 
     payload.slug = resolveStorySlug(sourceStory);
     payload.content = rewrittenContent;
+
+    // Read as `translated_slugs`, written as `translated_slugs_attributes`.
+    // Sending the read shape is what silently dropped them: the API takes the
+    // key and ignores it.
+    const translatedSlugs = planStoryTranslatedSlugs({
+        story: sourceStory,
+        targetLanguageCodes,
+    });
+
+    delete payload.translated_slugs;
+
+    if (translatedSlugs.carried.length > 0) {
+        payload.translated_slugs_attributes = translatedSlugs.carried;
+    }
 
     if (targetParentId !== null) {
         payload.parent_id = targetParentId;
@@ -2404,6 +2424,38 @@ const annotateAssetsWithManifestMaps = ({
 };
 
 /**
+ * The languages the target space has, or `undefined` when the space could not
+ * be read. An unknown list is not an empty one: the caller carries everything
+ * rather than drop a slug on a failed lookup.
+ */
+const getTargetLanguageCodes = async (
+    targetSpace: string,
+): Promise<string[] | undefined> => {
+    const space: any = await managementApi.spaces.getSpace(
+        { spaceId: targetSpace },
+        {
+            ...apiConfig,
+            spaceId: targetSpace,
+        },
+    );
+    const languages = space?.space?.languages;
+
+    if (!Array.isArray(languages)) {
+        Logger.warning(
+            `Could not read the languages of space '${targetSpace}'; translated slugs will be sent as they are and the API has the last word.`,
+        );
+
+        return undefined;
+    }
+
+    return languages
+        .map((language: any) =>
+            typeof language === "string" ? language : language?.code,
+        )
+        .filter((code: any): code is string => Boolean(code));
+};
+
+/**
  * Restricts the scan input to the stories the plan will actually write. The
  * selection fetch can return more than the plan (children mode fetches the
  * root folder but does not copy it); scanning those would attribute
@@ -2699,12 +2751,14 @@ const buildRewrittenStoryPayload = ({
     targetParentId,
     maps,
     schemas,
+    targetLanguageCodes,
 }: {
     sourceStory: any;
     content: any;
     targetParentId: number | null;
     maps: CopyMaps;
     schemas: CopyComponentSchemaRegistry;
+    targetLanguageCodes?: string[];
 }) => {
     const rewritten = rewriteCopyReferences({
         value: content ?? {},
@@ -2717,6 +2771,7 @@ const buildRewrittenStoryPayload = ({
             sourceStory,
             targetParentId,
             rewrittenContent: rewritten.value,
+            targetLanguageCodes,
         }),
         rewrittenReferences: rewritten.records.length,
     };
@@ -2762,6 +2817,7 @@ const rewriteCopiedStoryContents = async ({
     sourceSpace,
     targetSpace,
     manifestRoot,
+    targetLanguageCodes,
 }: {
     tree: any[];
     realParentId: number | null;
@@ -2772,6 +2828,7 @@ const rewriteCopiedStoryContents = async ({
     sourceSpace: string;
     targetSpace: string;
     manifestRoot?: string;
+    targetLanguageCodes?: string[];
 }) => {
     const manifestPaths = getDefaultCopyManifestPaths({
         sourceSpaceId: sourceSpace,
@@ -2926,6 +2983,7 @@ const rewriteCopiedStoryContents = async ({
                     targetParentId: parentId,
                     maps,
                     schemas,
+                    targetLanguageCodes,
                 });
                 const publishedLayerRecord = publishedLayerRecordBySourceId.get(
                     String(sourceStory.id),
@@ -2946,6 +3004,7 @@ const rewriteCopiedStoryContents = async ({
                         targetParentId: parentId,
                         maps,
                         schemas,
+                        targetLanguageCodes,
                     });
                     const publishedUpdateResult =
                         await managementApi.stories.updateStory(
@@ -3664,7 +3723,13 @@ const copyAssetsAndWriteManifests = async ({
     return report;
 };
 
-const logDryRunCopyPlan = async ({ report }: { report: CopyDryRunReport }) => {
+const logDryRunCopyPlan = async ({
+    report,
+    translatedSlugs,
+}: {
+    report: CopyDryRunReport;
+    translatedSlugs?: CopyTranslatedSlugSummary;
+}) => {
     Logger.warning(
         "[dry-run] Copy stories preview only. No Storyblok writes will be made.",
     );
@@ -3691,6 +3756,15 @@ const logDryRunCopyPlan = async ({ report }: { report: CopyDryRunReport }) => {
         Logger.warning(
             "[dry-run] Descendants will not be copied; only the selected story or folder shell is planned.",
         );
+    }
+
+    if (translatedSlugs) {
+        for (const line of describeCopyTranslatedSlugs({
+            summary: translatedSlugs,
+            targetSpaceId: report.normalized.targetSpaceId,
+        })) {
+            Logger.warning(`[dry-run] ${line}`);
+        }
     }
 
     Logger.warning(
@@ -4463,6 +4537,30 @@ export const copyCommand = async (props: CLIOptions) => {
                 }
             }
 
+            // Translated slugs are read from the source stories and written in
+            // a different shape, so they are planned like any other write: the
+            // target's languages decide what can land, and both the dry run
+            // and the gate state the count before anything happens.
+            const plannedSourceStories = selectPlannedSourceStories(
+                sourceStories,
+                plan,
+            );
+            const targetLanguageCodes = plannedSourceStories.some(
+                (story: any) => (story?.translated_slugs?.length ?? 0) > 0,
+            )
+                ? await getTargetLanguageCodes(targetSpace)
+                : undefined;
+            const translatedSlugs = summarizeCopyTranslatedSlugs({
+                stories: plannedSourceStories,
+                targetLanguageCodes,
+            });
+
+            if (translatedSlugs.unsupported > 0) {
+                Logger.warning(
+                    `${translatedSlugs.unsupported} translated slug(s) will be left behind: space '${targetSpace}' has no language(s) ${translatedSlugs.unsupportedLangs.join(", ")}. Add them to the target space and copy again to carry them.`,
+                );
+            }
+
             if (dryRun) {
                 const { conflicts } = await findTargetConflicts(
                     plan,
@@ -4503,7 +4601,7 @@ export const copyCommand = async (props: CLIOptions) => {
                     outputPath,
                 });
 
-                await logDryRunCopyPlan({ report });
+                await logDryRunCopyPlan({ report, translatedSlugs });
 
                 if (outputPath) {
                     Logger.warning(
@@ -4556,6 +4654,7 @@ export const copyCommand = async (props: CLIOptions) => {
                 ledger,
                 graph: dryRunGraph,
                 withAssets,
+                translatedSlugs,
             });
 
             formatCopyPlanGate(planGate).forEach((line) => Logger.log(line));
@@ -4638,6 +4737,7 @@ export const copyCommand = async (props: CLIOptions) => {
                 sourceSpace,
                 targetSpace,
                 manifestRoot,
+                targetLanguageCodes,
             });
 
             if (outputPath) {

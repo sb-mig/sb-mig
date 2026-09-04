@@ -779,6 +779,33 @@ describe("copy relink", () => {
         await rm(tempDir, { recursive: true, force: true });
     });
 
+    it("leaves the target's translated slugs alone", async () => {
+        const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-relink-"));
+
+        targetPost.translated_slugs = [
+            { id: 777, lang: "de", slug: "seite-eins", name: "Seite Eins" },
+        ];
+
+        await copyCommand(
+            relinkFlags({
+                manifestRoot: path.join(tempDir, ".sb-mig"),
+                yes: true,
+            }) as any,
+        );
+
+        expect(mocks.updateStory).toHaveBeenCalledTimes(1);
+        // Relink repairs reference values and nothing else: it never writes
+        // the attributes form, so the target's own slugs cannot be rewritten.
+        expect(
+            mocks.updateStory.mock.calls[0][0].translated_slugs_attributes,
+        ).toBeUndefined();
+        expect(mocks.updateStory.mock.calls[0][0].translated_slugs).toEqual(
+            targetPost.translated_slugs,
+        );
+
+        await rm(tempDir, { recursive: true, force: true });
+    });
+
     it("reports planned stories that are not in the target at all", async () => {
         const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-relink-"));
 

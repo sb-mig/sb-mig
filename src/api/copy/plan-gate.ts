@@ -1,3 +1,4 @@
+import type { CopyTranslatedSlugSummary } from "./translated-slugs.js";
 import type { CopyGraph } from "./types.js";
 
 import {
@@ -6,6 +7,7 @@ import {
     groupBrokenStoryReferences,
     type CopyBrokenStoryReferenceGroup,
 } from "./reference-classifier.js";
+import { describeCopyTranslatedSlugs } from "./translated-slugs.js";
 
 /**
  * Everything a `copy stories` apply run knows before its first write, in one
@@ -76,6 +78,8 @@ export type CopyPlanGateSummary = {
         toCopy: number;
         mapped: number;
     };
+    /** Absent when the run never looked; empty counts when it found none. */
+    translatedSlugs?: CopyTranslatedSlugSummary;
 };
 
 /** How many holding stories the PLAN block names before it summarises the rest. */
@@ -88,6 +92,7 @@ export const buildCopyPlanGateSummary = ({
     ledger,
     graph,
     withAssets,
+    translatedSlugs,
 }: {
     sourceSpaceId: string;
     targetSpaceId: string;
@@ -95,6 +100,7 @@ export const buildCopyPlanGateSummary = ({
     ledger: CopyPlanGateLedger;
     graph?: CopyGraph;
     withAssets: boolean;
+    translatedSlugs?: CopyTranslatedSlugSummary;
 }): CopyPlanGateSummary => {
     let create = 0;
     let resume = 0;
@@ -137,6 +143,7 @@ export const buildCopyPlanGateSummary = ({
             staleLedger,
         },
         ledger,
+        ...(translatedSlugs ? { translatedSlugs } : {}),
         references: {
             scanned: graph !== undefined,
             total: graph?.storyReferences.length ?? 0,
@@ -199,6 +206,18 @@ export const formatCopyPlanGate = (summary: CopyPlanGateSummary): string[] => {
             sameSpace: summary.sameSpace,
         }),
     );
+
+    if (summary.translatedSlugs) {
+        const [carried, ...notes] = describeCopyTranslatedSlugs({
+            summary: summary.translatedSlugs,
+            targetSpaceId: summary.targetSpaceId,
+        });
+
+        if (carried) {
+            lines.push(`  ${carried}`);
+            lines.push(...notes.map((note) => `    ${note}`));
+        }
+    }
 
     if (assets) {
         lines.push(
