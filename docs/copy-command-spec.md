@@ -535,34 +535,70 @@ Partial failure must be resumable from existing manifest state.
 ### Reading the Ledger Back: `copy manifests`
 
 Everything above rests on the ledger being right, and until now nothing could
-say whether it was. `copy manifests` reads one pair's ledger back and reports
-what a copy run would make of it.
+say whether it was. `copy manifests` reads the ledgers back: which pairs have
+one, what mappings a run would use from a pair's ledger, and every way that
+ledger would misdirect a run.
 
 ```bash
-sb-mig copy manifests --from 12345 --to 67890
-sb-mig copy manifests --from 12345 --to 67890 --outputPath sbmig/copy-plans/ledger.json
+# every ledger this working copy has
+sb-mig copy manifests
+
+# one pair: the mappings a run would use, then their health
+sb-mig copy manifests --pair 12345:67890
+sb-mig copy manifests --pair 12345:67890 --type story --slug blog
+sb-mig copy manifests --pair 12345:67890 --outputPath sbmig/copy-plans/ledger.json
+
+# the one write it can make, behind the same gate as every other write
+sb-mig copy manifests --pair 12345:67890 --prune --dry-run
+sb-mig copy manifests --pair 12345:67890 --prune --yes
 ```
 
 Requirements:
 
-- Read-only from end to end. No Storyblok request is made, and no ledger file
-  is written, deduplicated, or archived. It is safe to run at any moment,
+- **No Storyblok request, in any mode.** It is safe to run at any moment,
   including mid-copy and in CI.
+- **With no `--pair`, it lists every ledger under `--manifestRoot`** and says
+  nothing about whether any of them is healthy — health is a question about a
+  pair, and the listing exists to tell you which pairs there are to ask about.
+- **It never falls back to the configured space.** A ledger belongs to a pair;
+  defaulting either side reads a different pair's file — or a file that was
+  never written — and reports the result as the answer. Naming half a pair is
+  an error for the same reason. `--from` and `--to` together are accepted as an
+  alias for `--pair`.
+- **`--pair` prints the deduped view first**: the ledger is append-only, so its
+  lines are a history and only the collapsed set is the state. `--type` and
+  `--slug` narrow that view; both require `--pair`.
 - The **combined** `manifest.jsonl` is the authority, because it is the only
   file `buildCopyMaps` reads. The per-resource files are records; a mapping
   that lives only in one of them is a mapping no run will ever use, and is
   reported as `missing_from_combined`.
-- Conflicts are reported against the map that would actually be poisoned. A
-  story writes two mappings, not one — the numeric id and the uuid live in
-  separate maps — so `story id 1` can conflict while `story uuid …` does not.
-  The report names the value that wins, since a run keeps the last line it
-  reads and the loser is invisible at runtime.
-- Errors (`conflicting_mapping`, `space_pair_mismatch`, `unreadable_file`,
-  `missing_from_combined`) mean a run reading this ledger would do the wrong
-  thing, and the command exits 1 so a pipeline can gate on it. Warnings
-  (`duplicate_mapping`, `missing_target_full_slug`) cost the run something
-  without misdirecting it.
-- `--outputPath` writes the same account as JSON.
+- **Conflicts are reported against the runtime map that would be poisoned, read
+  off the run's own projection** (`getCopyMapWrites`, which `buildCopyMaps` is
+  now built from). One story writes six mappings across four maps — its id, its
+  uuid, and its target path under both uuids and both ids — so `story id 1` can
+  conflict while its uuid does not, and a story recopied to a new path conflicts
+  in the path maps alone. A hand-kept list of "what an entry maps" missed
+  exactly those, and reported a poisoned ledger as healthy. The report names the
+  value that wins, since a run keeps the last line it reads and the loser is
+  invisible at runtime.
+- **An entry the run could not read is not a mapping.** Entries are validated
+  for shape first (`invalid_entry`); counting an unknown type or an asset with
+  no ids as coverage invents identities out of `undefined`, and every number
+  derived from them is a fiction.
+- Errors (`conflicting_mapping`, `invalid_entry`, `space_pair_mismatch`,
+  `unreadable_file`, `missing_from_combined`) mean a run reading this ledger
+  would do the wrong thing, and the command exits 1 so a pipeline can gate on
+  it. Warnings (`duplicate_mapping`, `missing_target_full_slug`) cost the run
+  something without misdirecting it.
+- **`--prune` is the only write**, and it sits behind the same PLAN-block-then-
+  confirm gate as `copy stories` and `copy relink`: `--dry-run` plans and stops,
+  `--yes` skips the question, and without a terminal and without `--yes` it
+  refuses. It removes only lines a run would never act on — unusable entries,
+  entries from another pair, and lines already overridden by a later line for
+  the same source — so what survives is exactly what `buildCopyMaps` ends up
+  with today. Every rewritten file is copied to a timestamped `.bak` next to it
+  first; nothing is deleted, and a file that would not parse is never rewritten.
+- `--outputPath` writes the same account as JSON, whichever mode ran.
 
 What it deliberately does not do: it cannot tell whether the target space
 still holds the stories these mappings name. **A ledger that is clean here can

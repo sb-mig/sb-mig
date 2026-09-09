@@ -5,6 +5,14 @@ import type {
     CopyStoryManifestEntry,
 } from "./types.js";
 
+import {
+    dedupeManifestEntries,
+    getCopyMapWrites,
+    getManifestEntrySourceKey,
+    type CopyMapName,
+    validateCopyManifestEntry,
+} from "./manifest.js";
+
 /**
  * The four files of one copy pair's ledger. `combined` is the authority: every
  * copy run builds its maps from that file alone, so anything recorded only in a
@@ -38,6 +46,7 @@ export type CopyManifestFindingCode =
     | "unreadable_file"
     | "conflicting_mapping"
     | "duplicate_mapping"
+    | "invalid_entry"
     | "missing_target_full_slug"
     | "space_pair_mismatch"
     | "missing_from_combined";
@@ -56,6 +65,36 @@ export type CopyManifestFinding = {
     file?: CopyManifestFileKind;
 };
 
+/** One mapping a run would use, after the ledger's own last-line-wins dedupe. */
+export type CopyManifestMappingRow = {
+    resource: CopyResourceType;
+    action: CopyAction;
+    recordedAt: string;
+    sourceId: number;
+    targetId: number;
+    sourceUuid?: string;
+    targetUuid?: string;
+    /** Story `full_slug`, asset filename, or asset folder path, when recorded. */
+    sourcePath?: string;
+    targetPath?: string;
+};
+
+export type CopyManifestViewFilters = {
+    types?: CopyResourceType[];
+    slug?: string;
+};
+
+export type CopyManifestPairView = {
+    /** Lines in the combined ledger, before anything is collapsed. */
+    lines: number;
+    /** Mappings left once every superseded line is collapsed away. */
+    mappings: number;
+    /** Mappings left after --type/--slug. Equals `mappings` with no filters. */
+    matched: number;
+    filters: CopyManifestViewFilters;
+    rows: CopyManifestMappingRow[];
+};
+
 export type CopyManifestInspection = {
     schemaVersion: 1;
     command: "copy manifests";
@@ -66,6 +105,7 @@ export type CopyManifestInspection = {
         rootDir: string;
     };
     files: CopyManifestFileReport[];
+    view: CopyManifestPairView;
     summary: {
         entries: number;
         stories: number;
@@ -76,6 +116,7 @@ export type CopyManifestInspection = {
         mappingKeys: number;
         conflicts: number;
         duplicates: number;
+        invalidEntries: number;
         storiesWithoutTargetPath: number;
         errors: number;
         warnings: number;
@@ -88,42 +129,154 @@ const isStoryEntry = (
 ): entry is CopyStoryManifestEntry => entry.type === "story";
 
 /**
- * Every identity a ledger entry claims, in the exact terms `buildCopyMaps`
- * keys its maps on. A story writes two mappings, not one — the numeric id and
- * the uuid live in separate maps and can disagree with each other — so a
- * conflict has to be reported against the map that would actually be poisoned.
+ * The runtime maps named the way a report has to name them: a finding is only
+ * useful if it says which map a run would read the wrong value out of.
+ */
+const MAP_LABELS: Record<CopyMapName, string> = {
+    storyIds: "story id",
+    storyUuids: "story uuid",
+    storyFullSlugs: "story path for uuid",
+    storyIdFullSlugs: "story path for id",
+    assetIds: "asset id",
+    assetFilenames: "asset filename",
+    assetFolderIds: "asset folder id",
+};
+
+const MAP_RESOURCES: Record<CopyMapName, CopyResourceType> = {
+    storyIds: "story",
+    storyUuids: "story",
+    storyFullSlugs: "story",
+    storyIdFullSlugs: "story",
+    assetIds: "asset",
+    assetFilenames: "asset",
+    assetFolderIds: "asset_folder",
+};
+
+const describeMapValue = (value: unknown): string => {
+    if (value && typeof value === "object") {
+        const asset = value as { id?: unknown; filename?: unknown };
+
+        if (asset.filename !== undefined) {
+            return `${asset.id} (${asset.filename})`;
+        }
+    }
+
+    return String(value);
+};
+
+/**
+ * Every identity a ledger entry claims, keyed exactly as `buildCopyMaps` keys
+ * it. Read straight off the run's own projection rather than restated here: a
+ * story writes six mappings, not one, across four maps that can disagree with
+ * each other, and a map this function forgot is a map whose conflicts would go
+ * unreported while a run quietly read the loser.
  */
 const getEntryMappings = (
     entry: CopyManifestEntry,
-): { key: string; value: string }[] => {
+): {
+    mapKey: string;
+    label: string;
+    resource: CopyResourceType;
+    value: string;
+}[] =>
+    getCopyMapWrites(entry).map((write) => ({
+        mapKey: `${write.map}:${write.key}`,
+        label: `${MAP_LABELS[write.map]} ${write.key}`,
+        resource: MAP_RESOURCES[write.map],
+        value: describeMapValue(write.value),
+    }));
+
+const buildMappingRow = (entry: CopyManifestEntry): CopyManifestMappingRow => {
     if (isStoryEntry(entry)) {
-        return [
-            {
-                key: `story id ${entry.source_id}`,
-                value: String(entry.target_id),
-            },
-            {
-                key: `story uuid ${entry.source_uuid}`,
-                value: String(entry.target_uuid),
-            },
-        ];
+        return {
+            resource: "story",
+            action: entry.action,
+            recordedAt: entry.created_at,
+            sourceId: entry.source_id,
+            targetId: entry.target_id,
+            sourceUuid: entry.source_uuid,
+            targetUuid: entry.target_uuid,
+            ...(entry.source_full_slug
+                ? { sourcePath: entry.source_full_slug }
+                : {}),
+            ...(entry.target_full_slug
+                ? { targetPath: entry.target_full_slug }
+                : {}),
+        };
     }
 
     if (entry.type === "asset") {
-        return [
-            {
-                key: `asset id ${entry.source_id}`,
-                value: `${entry.target_id}:${entry.target_filename}`,
-            },
-        ];
+        return {
+            resource: "asset",
+            action: entry.action,
+            recordedAt: entry.created_at,
+            sourceId: entry.source_id,
+            targetId: entry.target_id,
+            sourcePath: entry.source_filename,
+            targetPath: entry.target_filename,
+        };
     }
 
-    return [
-        {
-            key: `asset folder id ${entry.source_id}`,
-            value: String(entry.target_id),
-        },
-    ];
+    return {
+        resource: "asset_folder",
+        action: entry.action,
+        recordedAt: entry.created_at,
+        sourceId: entry.source_id,
+        targetId: entry.target_id,
+        ...(entry.source_path ? { sourcePath: entry.source_path } : {}),
+        ...(entry.target_path ? { targetPath: entry.target_path } : {}),
+    };
+};
+
+const rowMatchesFilters = (
+    row: CopyManifestMappingRow,
+    filters: CopyManifestViewFilters,
+): boolean => {
+    if (filters.types && filters.types.length > 0) {
+        if (!filters.types.includes(row.resource)) {
+            return false;
+        }
+    }
+
+    if (filters.slug) {
+        const needle = filters.slug.toLowerCase();
+        const haystacks = [row.sourcePath, row.targetPath].filter(
+            (value): value is string => Boolean(value),
+        );
+
+        if (!haystacks.some((value) => value.toLowerCase().includes(needle))) {
+            return false;
+        }
+    }
+
+    return true;
+};
+
+/**
+ * The mappings a run would actually use: the ledger is append-only and a later
+ * line for the same source silently replaces an earlier one, so the raw lines
+ * are a history and only the collapsed set is the state.
+ */
+export const buildCopyManifestPairView = ({
+    entries,
+    validEntries,
+    filters = {},
+}: {
+    entries: CopyManifestEntry[];
+    validEntries: CopyManifestEntry[];
+    filters?: CopyManifestViewFilters;
+}): CopyManifestPairView => {
+    const deduped = dedupeManifestEntries(validEntries);
+    const rows = deduped.map(buildMappingRow);
+    const matched = rows.filter((row) => rowMatchesFilters(row, filters));
+
+    return {
+        lines: entries.length,
+        mappings: rows.length,
+        matched: matched.length,
+        filters,
+        rows: matched,
+    };
 };
 
 /**
@@ -139,12 +292,14 @@ export const inspectCopyManifests = ({
     targetSpaceId,
     rootDir,
     files,
+    filters = {},
     generatedAt = new Date().toISOString(),
 }: {
     sourceSpaceId: string;
     targetSpaceId: string;
     rootDir: string;
     files: CopyManifestFileInput[];
+    filters?: CopyManifestViewFilters;
     generatedAt?: string;
 }): CopyManifestInspection => {
     const findings: CopyManifestFinding[] = [];
@@ -165,11 +320,29 @@ export const inspectCopyManifests = ({
     const byAction: Partial<Record<CopyAction, number>> = {};
     const targetsByKey = new Map<
         string,
-        { resource: CopyResourceType; values: string[] }
+        { resource: CopyResourceType; label: string; values: string[] }
     >();
+    const validCombined: CopyManifestEntry[] = [];
+    let invalidEntries = 0;
     let storiesWithoutTargetPath = 0;
 
-    for (const entry of combined) {
+    for (const [index, entry] of combined.entries()) {
+        // An entry a run cannot read is not a mapping, and counting it as one
+        // would report coverage the ledger does not have.
+        const problems = validateCopyManifestEntry(entry);
+
+        if (problems.length > 0) {
+            invalidEntries += 1;
+            findings.push({
+                code: "invalid_entry",
+                severity: "error",
+                message: `Entry ${index + 1} of the combined ledger cannot be used: ${problems.join(", ")}. It maps nothing, and every count that treated it as a mapping would be wrong.`,
+                file: "combined",
+            });
+            continue;
+        }
+
+        validCombined.push(entry);
         byAction[entry.action] = (byAction[entry.action] ?? 0) + 1;
 
         if (
@@ -190,15 +363,16 @@ export const inspectCopyManifests = ({
         }
 
         for (const mapping of getEntryMappings(entry)) {
-            const existing = targetsByKey.get(mapping.key);
+            const existing = targetsByKey.get(mapping.mapKey);
 
             if (existing) {
                 existing.values.push(mapping.value);
                 continue;
             }
 
-            targetsByKey.set(mapping.key, {
-                resource: entry.type,
+            targetsByKey.set(mapping.mapKey, {
+                resource: mapping.resource,
+                label: mapping.label,
                 values: [mapping.value],
             });
         }
@@ -207,7 +381,7 @@ export const inspectCopyManifests = ({
     let conflicts = 0;
     let duplicates = 0;
 
-    for (const [key, { resource, values }] of targetsByKey) {
+    for (const { resource, label, values } of targetsByKey.values()) {
         if (values.length < 2) {
             continue;
         }
@@ -219,9 +393,9 @@ export const inspectCopyManifests = ({
             findings.push({
                 code: "conflicting_mapping",
                 severity: "error",
-                message: `${key} maps to ${distinct.join(" and ")}. A run keeps the last line it reads, so it would use ${values[values.length - 1]} and silently ignore the rest.`,
+                message: `${label} maps to ${distinct.join(" and ")}. A run keeps the last line it reads, so it would use ${values[values.length - 1]} and silently ignore the rest.`,
                 resource,
-                key,
+                key: label,
                 file: "combined",
             });
             continue;
@@ -231,9 +405,9 @@ export const inspectCopyManifests = ({
         findings.push({
             code: "duplicate_mapping",
             severity: "warning",
-            message: `${key} is recorded ${values.length} times with the same target. Harmless, and cleared the next time this ledger is deduplicated.`,
+            message: `${label} is recorded ${values.length} times with the same target. Harmless, and cleared by copy manifests --prune.`,
             resource,
-            key,
+            key: label,
             file: "combined",
         });
     }
@@ -255,29 +429,42 @@ export const inspectCopyManifests = ({
             continue;
         }
 
-        const missing = new Set<string>();
+        const missing = new Map<string, string>();
 
-        for (const entry of file.entries) {
+        for (const [index, entry] of file.entries.entries()) {
+            const problems = validateCopyManifestEntry(entry);
+
+            if (problems.length > 0) {
+                invalidEntries += 1;
+                findings.push({
+                    code: "invalid_entry",
+                    severity: "error",
+                    message: `Entry ${index + 1} of '${file.path}' cannot be used: ${problems.join(", ")}. It maps nothing, and every count that treated it as a mapping would be wrong.`,
+                    file: file.kind,
+                });
+                continue;
+            }
+
             for (const mapping of getEntryMappings(entry)) {
-                if (!targetsByKey.has(mapping.key)) {
-                    missing.add(mapping.key);
+                if (!targetsByKey.has(mapping.mapKey)) {
+                    missing.set(mapping.mapKey, mapping.label);
                 }
             }
         }
 
-        for (const key of missing) {
+        for (const label of missing.values()) {
             findings.push({
                 code: "missing_from_combined",
                 severity: "error",
-                message: `${key} is recorded in ${file.path} but not in the combined ledger, which is the only file a copy run reads. This mapping cannot be reused.`,
-                key,
+                message: `${label} is recorded in ${file.path} but not in the combined ledger, which is the only file a copy run reads. This mapping cannot be reused.`,
+                key: label,
                 file: file.kind,
             });
         }
     }
 
     const countType = (type: CopyResourceType) =>
-        combined.filter((entry) => entry.type === type).length;
+        validCombined.filter((entry) => entry.type === type).length;
 
     return {
         schemaVersion: 1,
@@ -291,6 +478,11 @@ export const inspectCopyManifests = ({
             entries: entries?.length ?? 0,
             ...(error ? { error } : {}),
         })),
+        view: buildCopyManifestPairView({
+            entries: combined,
+            validEntries: validCombined,
+            filters,
+        }),
         summary: {
             entries: combined.length,
             stories: countType("story"),
@@ -300,6 +492,7 @@ export const inspectCopyManifests = ({
             mappingKeys: targetsByKey.size,
             conflicts,
             duplicates,
+            invalidEntries,
             storiesWithoutTargetPath,
             errors: findings.filter((finding) => finding.severity === "error")
                 .length,
@@ -312,12 +505,53 @@ export const inspectCopyManifests = ({
 };
 
 const FINDING_LIST_LIMIT = 20;
+const ROW_LIST_LIMIT = 50;
 
 const FILE_LABELS: Record<CopyManifestFileKind, string> = {
     combined: "combined",
     stories: "stories",
     assets: "assets",
     assetFolders: "asset folders",
+};
+
+const RESOURCE_LABELS: Record<CopyResourceType, string> = {
+    story: "story",
+    asset: "asset",
+    asset_folder: "asset folder",
+};
+
+const plural = (count: number, one: string, many: string) =>
+    count === 1 ? one : many;
+
+const describeRow = (row: CopyManifestMappingRow): string[] => {
+    const source = row.sourcePath ?? "(no source path recorded)";
+    const target = row.targetPath ?? "(no target path recorded)";
+    const identity = [`id ${row.sourceId} -> ${row.targetId}`];
+
+    if (row.sourceUuid && row.targetUuid) {
+        identity.push(`uuid ${row.sourceUuid} -> ${row.targetUuid}`);
+    }
+
+    return [
+        `    ${RESOURCE_LABELS[row.resource]}  ${source} -> ${target}`,
+        `      ${identity.join(", ")}, ${row.action} ${row.recordedAt}`,
+    ];
+};
+
+const describeFilters = (filters: CopyManifestViewFilters): string => {
+    const parts: string[] = [];
+
+    if (filters.types && filters.types.length > 0) {
+        parts.push(
+            `type ${filters.types.map((type) => RESOURCE_LABELS[type]).join(" or ")}`,
+        );
+    }
+
+    if (filters.slug) {
+        parts.push(`slug containing '${filters.slug}'`);
+    }
+
+    return parts.join(", ");
 };
 
 /**
@@ -327,7 +561,7 @@ const FILE_LABELS: Record<CopyManifestFileKind, string> = {
 export const formatCopyManifestInspection = (
     inspection: CopyManifestInspection,
 ): string[] => {
-    const { normalized, summary, files, findings } = inspection;
+    const { normalized, summary, files, view } = inspection;
     const lines = [
         "LEDGER",
         `  pair: ${normalized.sourceSpaceId} to ${normalized.targetSpaceId}`,
@@ -344,28 +578,76 @@ export const formatCopyManifestInspection = (
 
         lines.push(
             file.exists
-                ? `  ${label}: ${file.entries} entr${file.entries === 1 ? "y" : "ies"}`
+                ? `  ${label}: ${file.entries} ${plural(file.entries, "entry", "entries")}`
                 : `  ${label}: not written yet`,
         );
     }
 
     if (summary.entries === 0) {
-        lines.push(
-            "  nothing has been copied between these spaces yet, or the ledger was moved aside.",
-        );
-    } else {
-        lines.push(
-            `  mappings: ${summary.stories} story, ${summary.assets} asset, ${summary.assetFolders} asset folder`,
-        );
-
-        const actions = Object.entries(summary.byAction)
-            .sort(([left], [right]) => left.localeCompare(right))
-            .map(([action, count]) => `${action} ${count}`);
-
-        if (actions.length > 0) {
-            lines.push(`  recorded as: ${actions.join(", ")}`);
+        // An unreadable file is not an empty ledger, and saying so would be the
+        // one sentence a caller must not read here.
+        if (!files.some((file) => file.error)) {
+            lines.push(
+                "  nothing has been copied between these spaces yet, or the ledger was moved aside.",
+            );
         }
+
+        return [...lines, ...formatHealth(inspection)];
     }
+
+    lines.push(
+        `  mappings: ${summary.stories} story, ${summary.assets} asset, ${summary.assetFolders} asset folder`,
+    );
+
+    const actions = Object.entries(summary.byAction)
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([action, count]) => `${action} ${count}`);
+
+    if (actions.length > 0) {
+        lines.push(`  recorded as: ${actions.join(", ")}`);
+    }
+
+    const filterLabel = describeFilters(view.filters);
+
+    lines.push(
+        "MAPPINGS",
+        `  ${view.mappings} ${plural(view.mappings, "mapping", "mappings")} from ${view.lines} ledger ${plural(view.lines, "line", "lines")}${
+            view.mappings === view.lines
+                ? ""
+                : `; ${view.lines - view.mappings} superseded or unusable ${plural(view.lines - view.mappings, "line", "lines")} collapsed away`
+        }.`,
+    );
+
+    if (filterLabel) {
+        lines.push(`  showing ${view.matched} matching ${filterLabel}.`);
+    }
+
+    if (view.rows.length === 0) {
+        lines.push(
+            filterLabel
+                ? "    nothing matches this filter."
+                : "    no usable mapping in this ledger.",
+        );
+    }
+
+    for (const row of view.rows.slice(0, ROW_LIST_LIMIT)) {
+        lines.push(...describeRow(row));
+    }
+
+    if (view.rows.length > ROW_LIST_LIMIT) {
+        lines.push(
+            `    and ${view.rows.length - ROW_LIST_LIMIT} more; narrow with --type/--slug, or read them all from the --outputPath report.`,
+        );
+    }
+
+    return [...lines, ...formatHealth(inspection)];
+};
+
+const formatHealth = ({
+    summary,
+    findings,
+}: CopyManifestInspection): string[] => {
+    const lines = ["HEALTH"];
 
     if (findings.length === 0) {
         lines.push("  no problems found in the ledger itself.");
@@ -388,6 +670,337 @@ export const formatCopyManifestInspection = (
             `    and ${findings.length - FINDING_LIST_LIMIT} more; the full list is in the --outputPath report.`,
         );
     }
+
+    return lines;
+};
+
+/* ------------------------------------------------------------------ *
+ * Listing every pair on disk
+ * ------------------------------------------------------------------ */
+
+export type CopyManifestPairSummary = {
+    sourceSpaceId: string;
+    targetSpaceId: string;
+    rootDir: string;
+    files: CopyManifestFileReport[];
+    entries: number;
+    stories: number;
+    assets: number;
+    assetFolders: number;
+    /** The newest `created_at` any combined entry carries, when readable. */
+    lastRecordedAt?: string;
+    unreadable: boolean;
+};
+
+export type CopyManifestPairList = {
+    schemaVersion: 1;
+    command: "copy manifests";
+    generatedAt: string;
+    root: string;
+    pairs: CopyManifestPairSummary[];
+};
+
+export type CopyManifestPairInput = {
+    sourceSpaceId: string;
+    targetSpaceId: string;
+    rootDir: string;
+    files: CopyManifestFileInput[];
+};
+
+/**
+ * Every pair that has a ledger on disk, counted but not judged. Listing is the
+ * answer to "what has this working copy ever copied", which has to be
+ * answerable without naming a pair — and without guessing one either.
+ */
+export const buildCopyManifestPairList = ({
+    root,
+    pairs,
+    generatedAt = new Date().toISOString(),
+}: {
+    root: string;
+    pairs: CopyManifestPairInput[];
+    generatedAt?: string;
+}): CopyManifestPairList => ({
+    schemaVersion: 1,
+    command: "copy manifests",
+    generatedAt,
+    root,
+    pairs: pairs.map((pair) => {
+        const combinedFile = pair.files.find(
+            (file) => file.kind === "combined",
+        );
+        const combined = combinedFile?.entries ?? [];
+        const countType = (type: CopyResourceType) =>
+            combined.filter((entry) => entry.type === type).length;
+        const recordedAt = combined
+            .map((entry) => entry.created_at)
+            .filter((value): value is string => typeof value === "string")
+            .sort();
+
+        return {
+            sourceSpaceId: pair.sourceSpaceId,
+            targetSpaceId: pair.targetSpaceId,
+            rootDir: pair.rootDir,
+            files: pair.files.map(({ kind, path, exists, entries, error }) => ({
+                kind,
+                path,
+                exists,
+                entries: entries?.length ?? 0,
+                ...(error ? { error } : {}),
+            })),
+            entries: combined.length,
+            stories: countType("story"),
+            assets: countType("asset"),
+            assetFolders: countType("asset_folder"),
+            ...(recordedAt.length > 0
+                ? { lastRecordedAt: recordedAt[recordedAt.length - 1] }
+                : {}),
+            unreadable: pair.files.some((file) => Boolean(file.error)),
+        };
+    }),
+});
+
+export const formatCopyManifestPairList = (
+    list: CopyManifestPairList,
+): string[] => {
+    const lines = ["LEDGERS", `  root: ${list.root}`];
+
+    if (list.pairs.length === 0) {
+        lines.push(
+            "  no copy ledger found under this root. One appears the first time copy stories or copy assets writes to a space pair.",
+        );
+
+        return lines;
+    }
+
+    lines.push(
+        `  ${list.pairs.length} ${plural(list.pairs.length, "pair", "pairs")}:`,
+    );
+
+    for (const pair of list.pairs) {
+        lines.push(
+            `    ${pair.sourceSpaceId} -> ${pair.targetSpaceId}  ${pair.entries} ${plural(pair.entries, "entry", "entries")} (${pair.stories} story, ${pair.assets} asset, ${pair.assetFolders} asset folder)${
+                pair.lastRecordedAt
+                    ? `, last recorded ${pair.lastRecordedAt}`
+                    : ""
+            }${pair.unreadable ? ", SOME FILES UNREADABLE" : ""}`,
+        );
+    }
+
+    lines.push(
+        "  inspect one with: sb-mig copy manifests --pair <sourceSpaceId>:<targetSpaceId>",
+    );
+
+    return lines;
+};
+
+/* ------------------------------------------------------------------ *
+ * Pruning a pair's ledger
+ * ------------------------------------------------------------------ */
+
+export type CopyManifestPruneReason =
+    | "superseded"
+    | "foreign_pair"
+    | "invalid_entry";
+
+export type CopyManifestPruneFilePlan = {
+    kind: CopyManifestFileKind;
+    path: string;
+    exists: boolean;
+    lines: number;
+    keep: number;
+    remove: number;
+    removedBy: Partial<Record<CopyManifestPruneReason, number>>;
+    /** The exact content the file would be rewritten with. */
+    entries: CopyManifestEntry[];
+    /** Set when the file is left alone: an unreadable file is never rewritten. */
+    skipped?: string;
+};
+
+export type CopyManifestPrunePlan = {
+    schemaVersion: 1;
+    command: "copy manifests --prune";
+    generatedAt: string;
+    normalized: {
+        sourceSpaceId: string;
+        targetSpaceId: string;
+        rootDir: string;
+    };
+    files: CopyManifestPruneFilePlan[];
+    summary: {
+        lines: number;
+        keep: number;
+        remove: number;
+        removedBy: Partial<Record<CopyManifestPruneReason, number>>;
+        filesToRewrite: number;
+    };
+};
+
+const PRUNE_REASON_LABELS: Record<CopyManifestPruneReason, string> = {
+    superseded: "superseded by a later line for the same source",
+    foreign_pair: "recorded for another space pair",
+    invalid_entry: "unusable shape",
+};
+
+/**
+ * What a prune would remove, and what each file would be left holding.
+ *
+ * Only lines a run would never act on are removed: an entry it cannot read, an
+ * entry belonging to another pair, and any line already overridden by a later
+ * one for the same source. The surviving set is exactly what `buildCopyMaps`
+ * ends up with today, which is what makes this safe — the pruned ledger says
+ * out loud what the fat one already meant.
+ */
+export const planCopyManifestPrune = ({
+    sourceSpaceId,
+    targetSpaceId,
+    rootDir,
+    files,
+    generatedAt = new Date().toISOString(),
+}: {
+    sourceSpaceId: string;
+    targetSpaceId: string;
+    rootDir: string;
+    files: CopyManifestFileInput[];
+    generatedAt?: string;
+}): CopyManifestPrunePlan => {
+    const filePlans: CopyManifestPruneFilePlan[] = files.map((file) => {
+        if (!file.exists || file.error || !file.entries) {
+            return {
+                kind: file.kind,
+                path: file.path,
+                exists: file.exists,
+                lines: 0,
+                keep: 0,
+                remove: 0,
+                removedBy: {},
+                entries: [],
+                skipped: file.error
+                    ? "unreadable, left exactly as it is"
+                    : "not written yet",
+            };
+        }
+
+        const removedBy: Partial<Record<CopyManifestPruneReason, number>> = {};
+        const count = (reason: CopyManifestPruneReason) => {
+            removedBy[reason] = (removedBy[reason] ?? 0) + 1;
+        };
+        const usable: CopyManifestEntry[] = [];
+
+        for (const entry of file.entries) {
+            if (validateCopyManifestEntry(entry).length > 0) {
+                count("invalid_entry");
+                continue;
+            }
+
+            if (
+                entry.source_space_id !== sourceSpaceId ||
+                entry.target_space_id !== targetSpaceId
+            ) {
+                count("foreign_pair");
+                continue;
+            }
+
+            usable.push(entry);
+        }
+
+        const kept = dedupeManifestEntries(usable);
+        const superseded = usable.length - kept.length;
+
+        if (superseded > 0) {
+            removedBy.superseded = superseded;
+        }
+
+        return {
+            kind: file.kind,
+            path: file.path,
+            exists: file.exists,
+            lines: file.entries.length,
+            keep: kept.length,
+            remove: file.entries.length - kept.length,
+            removedBy,
+            entries: kept,
+        };
+    });
+
+    const summary = filePlans.reduce(
+        (acc, plan) => {
+            acc.lines += plan.lines;
+            acc.keep += plan.keep;
+            acc.remove += plan.remove;
+
+            for (const [reason, value] of Object.entries(plan.removedBy)) {
+                const key = reason as CopyManifestPruneReason;
+                acc.removedBy[key] = (acc.removedBy[key] ?? 0) + value;
+            }
+
+            if (plan.remove > 0) {
+                acc.filesToRewrite += 1;
+            }
+
+            return acc;
+        },
+        {
+            lines: 0,
+            keep: 0,
+            remove: 0,
+            removedBy: {} as Partial<Record<CopyManifestPruneReason, number>>,
+            filesToRewrite: 0,
+        },
+    );
+
+    return {
+        schemaVersion: 1,
+        command: "copy manifests --prune",
+        generatedAt,
+        normalized: { sourceSpaceId, targetSpaceId, rootDir },
+        files: filePlans,
+        summary,
+    };
+};
+
+export const formatCopyManifestPrunePlan = (
+    plan: CopyManifestPrunePlan,
+): string[] => {
+    const { normalized, summary, files } = plan;
+    const lines = [
+        "PRUNE PLAN",
+        `  pair: ${normalized.sourceSpaceId} to ${normalized.targetSpaceId}`,
+        `  root: ${normalized.rootDir}`,
+    ];
+
+    for (const file of files) {
+        const label = FILE_LABELS[file.kind];
+
+        if (file.skipped) {
+            lines.push(`  ${label}: ${file.skipped}`);
+            continue;
+        }
+
+        if (file.remove === 0) {
+            lines.push(
+                `  ${label}: ${file.lines} ${plural(file.lines, "line", "lines")}, nothing to remove`,
+            );
+            continue;
+        }
+
+        const reasons = Object.entries(file.removedBy)
+            .map(
+                ([reason, count]) =>
+                    `${count} ${PRUNE_REASON_LABELS[reason as CopyManifestPruneReason]}`,
+            )
+            .join(", ");
+
+        lines.push(
+            `  ${label}: ${file.lines} ${plural(file.lines, "line", "lines")} -> ${file.keep} kept, ${file.remove} removed (${reasons})`,
+        );
+    }
+
+    lines.push(
+        summary.remove === 0
+            ? "  nothing to prune: every line in this ledger is one a run would use."
+            : `  ${summary.remove} of ${summary.lines} ${plural(summary.lines, "line", "lines")} would be removed from ${summary.filesToRewrite} ${plural(summary.filesToRewrite, "file", "files")}. Every rewritten file is archived first with a timestamp suffix; nothing is deleted.`,
+    );
 
     return lines;
 };

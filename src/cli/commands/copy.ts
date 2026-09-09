@@ -12,6 +12,11 @@ import type {
     CopyManifestEntry,
     CopyManifestFileInput,
     CopyManifestFileKind,
+    CopyManifestPairInput,
+    CopyManifestPaths,
+    CopyManifestPrunePlan,
+    CopyManifestViewFilters,
+    CopyResourceType,
     CopyStoryManifestEntry,
     CopyTranslatedSlugSummary,
 } from "../../api/copy/index.js";
@@ -43,17 +48,24 @@ import {
     describeBrokenStoryReferenceTarget,
     describeCopyTranslatedSlugs,
     formatCopyManifestInspection,
+    formatCopyManifestPairList,
+    formatCopyManifestPrunePlan,
     formatCopyPlanGate,
     formatCopyRelinkPlan,
+    buildCopyManifestPairList,
+    getCopyManifestRoot,
     getDefaultCopyManifestPaths,
     groupBrokenStoryReferences,
     inspectCopyManifests,
+    isCopyResourceType,
+    planCopyManifestPrune,
     loadManifest,
     normalizeAssetFolderParentId,
     parseManifestJsonl,
     planCopyRelinkStoryRewrite,
     planStoryTranslatedSlugs,
     rewriteCopyReferences,
+    writeManifest,
     scanStoriesReferences,
     selectRelinkLedgerAssetMappings,
     selectRelinkLedgerStoryMappings,
@@ -1784,6 +1796,171 @@ const readCopyManifestFile = async (
             error: String(error?.message ?? error),
         };
     }
+};
+
+const COPY_MANIFEST_FILE_KINDS: [
+    CopyManifestFileKind,
+    keyof CopyManifestPaths,
+][] = [
+    ["combined", "combined"],
+    ["stories", "stories"],
+    ["assets", "assets"],
+    ["assetFolders", "assetFolders"],
+];
+
+const readCopyManifestFiles = async (
+    paths: CopyManifestPaths,
+): Promise<CopyManifestFileInput[]> =>
+    Promise.all(
+        COPY_MANIFEST_FILE_KINDS.map(([kind, key]) =>
+            readCopyManifestFile(kind, paths[key] as string),
+        ),
+    );
+
+/**
+ * Every space pair with a ledger directory on disk. Discovery is the whole
+ * point of the no-argument listing: the answer must come from what was actually
+ * copied, never from the configured space, which is a guess that reads a
+ * different pair's ledger — or an empty one — and calls it healthy.
+ */
+const discoverCopyManifestPairs = async (
+    manifestRoot: string | undefined,
+): Promise<{ sourceSpaceId: string; targetSpaceId: string }[]> => {
+    const root = getCopyManifestRoot(manifestRoot);
+    const pairs: { sourceSpaceId: string; targetSpaceId: string }[] = [];
+
+    let sources: string[];
+
+    try {
+        sources = (await fs.readdir(root, { withFileTypes: true }))
+            .filter((entry) => entry.isDirectory())
+            .map((entry) => entry.name)
+            .sort();
+    } catch (error: any) {
+        if (error?.code === "ENOENT") {
+            return [];
+        }
+
+        throw error;
+    }
+
+    for (const sourceSpaceId of sources) {
+        const targets = (
+            await fs.readdir(path.join(root, sourceSpaceId), {
+                withFileTypes: true,
+            })
+        )
+            .filter((entry) => entry.isDirectory())
+            .map((entry) => entry.name)
+            .sort();
+
+        for (const targetSpaceId of targets) {
+            pairs.push({ sourceSpaceId, targetSpaceId });
+        }
+    }
+
+    return pairs;
+};
+
+type CopyManifestPairSelection = {
+    sourceSpaceId: string;
+    targetSpaceId: string;
+};
+
+/**
+ * The pair to inspect, named explicitly or not at all.
+ *
+ * `copy manifests` never falls back to the configured space: a ledger belongs
+ * to a pair, and defaulting either side reads the wrong file and reports it as
+ * the answer. Half a pair is an error for the same reason.
+ */
+const resolveCopyManifestPair = (
+    flags: Record<string, any>,
+): { pair?: CopyManifestPairSelection; error?: string } => {
+    const rawPair = readStringFlag(flags, ["pair"]);
+    const from = readStringFlag(flags, ["from", "sourceSpace"]);
+    const to = readStringFlag(flags, ["to", "targetSpace"]);
+
+    if (rawPair) {
+        const [sourceSpaceId, targetSpaceId, ...rest] = rawPair.split(":");
+
+        if (!sourceSpaceId || !targetSpaceId || rest.length > 0) {
+            return {
+                error: `--pair must be written as <sourceSpaceId>:<targetSpaceId>, not '${rawPair}'.`,
+            };
+        }
+
+        return { pair: { sourceSpaceId, targetSpaceId } };
+    }
+
+    if (from && to) {
+        return { pair: { sourceSpaceId: from, targetSpaceId: to } };
+    }
+
+    if (from || to) {
+        return {
+            error: "Name the whole pair: --pair <sourceSpaceId>:<targetSpaceId>, or both --from and --to. copy manifests never falls back to the configured space.",
+        };
+    }
+
+    return {};
+};
+
+const parseCopyManifestTypes = (
+    flags: Record<string, any>,
+): { types?: CopyResourceType[]; error?: string } => {
+    const raw = readStringListFlag(flags, ["type"]);
+
+    if (raw.length === 0) {
+        return {};
+    }
+
+    const types: CopyResourceType[] = [];
+
+    for (const value of raw) {
+        const normalized = value.trim().toLowerCase().replace(/-/g, "_");
+
+        if (!isCopyResourceType(normalized)) {
+            return {
+                error: `--type must be one of: story, asset, asset_folder. Received '${value}'.`,
+            };
+        }
+
+        if (!types.includes(normalized)) {
+            types.push(normalized);
+        }
+    }
+
+    return { types };
+};
+
+/**
+ * Rewrites the files a prune plan found something to remove in. Each one is
+ * archived with a timestamp suffix before it is replaced, so a prune is always
+ * undoable by moving one file back — the same promise `--fresh` makes.
+ */
+const applyCopyManifestPrune = async (
+    plan: CopyManifestPrunePlan,
+    now: Date = new Date(),
+): Promise<{ archived: string[]; rewritten: string[] }> => {
+    const suffix = now.toISOString().replace(/[:.]/g, "-");
+    const archived: string[] = [];
+    const rewritten: string[] = [];
+
+    for (const file of plan.files) {
+        if (file.skipped || file.remove === 0) {
+            continue;
+        }
+
+        const archivePath = `${file.path}.${suffix}.bak`;
+        await fs.copyFile(file.path, archivePath);
+        archived.push(archivePath);
+
+        await writeManifest(file.path, file.entries);
+        rewritten.push(file.path);
+    }
+
+    return { archived, rewritten };
 };
 
 const writeJsonReport = async (outputPath: string, report: unknown) => {
@@ -5231,49 +5408,144 @@ export const copyCommand = async (props: CLIOptions) => {
             break;
         }
         case COPY_COMMANDS.manifests: {
-            const sourceSpace = getCopySpace(
-                flags,
-                ["from", "sourceSpace"],
-                apiConfig.spaceId,
-            );
-            const targetSpace = getCopySpace(
-                flags,
-                ["to", "targetSpace"],
-                apiConfig.spaceId,
-            );
             const outputPath = readStringFlag(flags, ["outputPath"]);
             const manifestRoot = readStringFlag(flags, ["manifestRoot"]);
+            const prune = Boolean(flags["prune"]);
+            const dryRun = Boolean(flags["dryRun"]);
+            const yes = Boolean(flags["yes"]);
+            const slug = readStringFlag(flags, ["slug"]);
+            const { types, error: typeError } = parseCopyManifestTypes(flags);
+            const { pair, error: pairError } = resolveCopyManifestPair(flags);
+
+            if (pairError ?? typeError) {
+                Logger.error(String(pairError ?? typeError));
+                process.exitCode = 1;
+                break;
+            }
+
+            if (!pair) {
+                if (prune || types || slug) {
+                    Logger.error(
+                        "--prune, --type and --slug all act on one ledger. Name it with --pair <sourceSpaceId>:<targetSpaceId>.",
+                    );
+                    process.exitCode = 1;
+                    break;
+                }
+
+                // No pair named: say what ledgers exist, and nothing about
+                // whether they are healthy — that answer belongs to a pair.
+                const discovered =
+                    await discoverCopyManifestPairs(manifestRoot);
+                const pairs: CopyManifestPairInput[] = [];
+
+                for (const found of discovered) {
+                    const paths = getDefaultCopyManifestPaths({
+                        sourceSpaceId: found.sourceSpaceId,
+                        targetSpaceId: found.targetSpaceId,
+                        rootDir: manifestRoot,
+                    });
+
+                    pairs.push({
+                        ...found,
+                        rootDir: paths.rootDir,
+                        files: await readCopyManifestFiles(paths),
+                    });
+                }
+
+                const list = buildCopyManifestPairList({
+                    root: getCopyManifestRoot(manifestRoot),
+                    pairs,
+                });
+
+                formatCopyManifestPairList(list).forEach((line) =>
+                    Logger.log(line),
+                );
+
+                if (outputPath) {
+                    await writeJsonReport(outputPath, list);
+                }
+
+                break;
+            }
+
             const manifestPaths = getDefaultCopyManifestPaths({
-                sourceSpaceId: sourceSpace,
-                targetSpaceId: targetSpace,
+                sourceSpaceId: pair.sourceSpaceId,
+                targetSpaceId: pair.targetSpaceId,
                 rootDir: manifestRoot,
             });
 
             Logger.warning(
-                `Reading the copy ledger for space '${sourceSpace}' to space '${targetSpace}'.`,
+                `Reading the copy ledger for space '${pair.sourceSpaceId}' to space '${pair.targetSpaceId}'.`,
             );
 
-            // Read-only from end to end: no Storyblok request is made and no
-            // ledger file is touched, so this is safe to run against a pair
-            // mid-copy or in CI.
-            const files = await Promise.all(
-                (
-                    [
-                        ["combined", manifestPaths.combined],
-                        ["stories", manifestPaths.stories],
-                        ["assets", manifestPaths.assets],
-                        ["assetFolders", manifestPaths.assetFolders],
-                    ] as [CopyManifestFileKind, string][]
-                ).map(([kind, filePath]) =>
-                    readCopyManifestFile(kind, filePath),
-                ),
-            );
+            // Read-only unless --prune is asked for: no Storyblok request is
+            // ever made, so this is safe to run against a pair mid-copy.
+            const files = await readCopyManifestFiles(manifestPaths);
+
+            if (prune && (types || slug)) {
+                // --type and --slug narrow a view. A prune that quietly ignored
+                // them would remove lines the caller believed it had excluded.
+                Logger.error(
+                    "--prune rewrites the whole ledger and cannot be narrowed by --type or --slug. Run them separately.",
+                );
+                process.exitCode = 1;
+                break;
+            }
+
+            if (prune) {
+                const prunePlan = planCopyManifestPrune({
+                    sourceSpaceId: pair.sourceSpaceId,
+                    targetSpaceId: pair.targetSpaceId,
+                    rootDir: manifestPaths.rootDir,
+                    files,
+                });
+
+                formatCopyManifestPrunePlan(prunePlan).forEach((line) =>
+                    Logger.log(line),
+                );
+
+                if (prunePlan.summary.remove === 0 || dryRun) {
+                    if (outputPath) {
+                        await writeJsonReport(outputPath, prunePlan);
+                    }
+
+                    break;
+                }
+
+                if (!(await confirmCopyPlan({ yes }))) {
+                    break;
+                }
+
+                const pruned = await applyCopyManifestPrune(prunePlan);
+
+                pruned.archived.forEach((archivePath) =>
+                    Logger.success(`Archived ${archivePath}`),
+                );
+                pruned.rewritten.forEach((filePath) =>
+                    Logger.success(`Pruned ${filePath}`),
+                );
+
+                if (outputPath) {
+                    await writeJsonReport(outputPath, {
+                        ...prunePlan,
+                        applied: pruned,
+                    });
+                }
+
+                break;
+            }
+
+            const filters: CopyManifestViewFilters = {
+                ...(types ? { types } : {}),
+                ...(slug ? { slug } : {}),
+            };
 
             const inspection = inspectCopyManifests({
-                sourceSpaceId: sourceSpace,
-                targetSpaceId: targetSpace,
+                sourceSpaceId: pair.sourceSpaceId,
+                targetSpaceId: pair.targetSpaceId,
                 rootDir: manifestPaths.rootDir,
                 files,
+                filters,
             });
 
             formatCopyManifestInspection(inspection).forEach((line) =>
@@ -5294,7 +5566,7 @@ export const copyCommand = async (props: CLIOptions) => {
         }
         default:
             Logger.warning(
-                "Unsupported copy command. Use: sb-mig copy stories --from <sourceSpaceId> --to <targetSpaceId> --source <full_slug> --destination <target_folder>, or sb-mig copy assets --from <sourceSpaceId> --to <targetSpaceId> --all --dry-run",
+                "Unsupported copy command. Use: sb-mig copy stories --from <sourceSpaceId> --to <targetSpaceId> --source <full_slug> --destination <target_folder>, sb-mig copy assets --from <sourceSpaceId> --to <targetSpaceId> --all --dry-run, or sb-mig copy manifests to list the copy ledgers on disk.",
             );
     }
 };
