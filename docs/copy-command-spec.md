@@ -627,7 +627,13 @@ Requirements:
   path.
 - **An `--outputPath` inside the deletion target is refused** before anything is
   deleted. A report written into the directory the same command then removes
-  does not survive the command that wrote it.
+  does not survive the command that wrote it. Containment is proven on disk, by
+  resolving the deepest existing ancestor, so a symlinked _parent_ is caught.
+  And an output path that is **itself** a symbolic link is refused outright,
+  dangling or not: a dangling link resolves to nothing, so the ascent lands on
+  the link's own directory and the check would pass while the write followed the
+  link into the pair. Where any link points can also change between the check
+  and the write. A report path is a plain path.
 - `--outputPath` writes the same account as JSON, whichever mode ran.
 
 What it deliberately does not do: it cannot tell whether the target space

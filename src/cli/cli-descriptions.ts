@@ -325,6 +325,7 @@ export const copyDescription = `
         copy manifests --prune lists every entry it would delete first, walking the directory recursively and reporting files, subdirectories and symlinks, with anything copy manifests did not write called out.
         copy manifests --prune refuses when any part of copy/<source>/<target> is a symbolic link, and checks the directory's real path is still inside the copy root's real path, because a link there means the directory being deleted is not the one the space ids name.
         copy manifests --prune refuses an --outputPath inside the directory it is deleting, because the report would not survive the delete it describes.
+        copy manifests --prune refuses an --outputPath that is a symbolic link, dangling or not, because where a link points cannot be proven before the write.
         copy manifests cannot tell whether the target space still holds the stories these mappings name. A ledger that is clean here can still be stale against the space.
         copy assets matches by manifest first, then safe target folder path or unique asset file name before creating.
         copy assets uploads assets, finalizes the upload, and writes source-to-target asset/folder manifests.

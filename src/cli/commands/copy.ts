@@ -2065,6 +2065,23 @@ const resolveRealPathOfDeepestExisting = async (
 };
 
 /**
+ * Whether a path is itself a symbolic link, dangling or not. `lstat` is the
+ * whole point: it reports on the link, where `stat` and `realpath` report on
+ * whatever it points at — and on a dangling link they report nothing at all.
+ */
+const isSymbolicLinkPath = async (target: string): Promise<boolean> => {
+    try {
+        return (await fs.lstat(path.resolve(target))).isSymbolicLink();
+    } catch (error: any) {
+        if (error?.code === "ENOENT") {
+            return false;
+        }
+
+        throw error;
+    }
+};
+
+/**
  * Whether a path really lands inside a directory, compared after both have been
  * resolved against the filesystem. Comparing the strings alone is not enough:
  * a parent component of the output path can be a symlink into the directory
@@ -5645,6 +5662,20 @@ export const copyCommand = async (props: CLIOptions) => {
 
                 // A report written inside the directory about to be deleted is
                 // a report that does not survive the command that wrote it.
+                // A link is refused outright rather than followed. A dangling
+                // one names a file that does not exist yet, so there is nothing
+                // to resolve and the ascent lands on the link's own directory —
+                // which is how a report aimed into the pair got through. And
+                // where any link points can change between the check and the
+                // write. A report is a plain path or it is not written.
+                if (outputPath && (await isSymbolicLinkPath(outputPath))) {
+                    Logger.error(
+                        `--outputPath '${outputPath}' is a symbolic link. Where it points cannot be proven before the write — a dangling link names a file that does not exist yet — and --prune deletes a directory a link could aim into. Pass a plain path.`,
+                    );
+                    process.exitCode = 1;
+                    break;
+                }
+
                 if (
                     outputPath &&
                     (await isReallyInsideDirectory(outputPath, pairDir))

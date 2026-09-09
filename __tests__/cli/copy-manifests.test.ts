@@ -860,9 +860,10 @@ describe("copy manifests", () => {
 
         await runInspector({ prune: "111:222", yes: true, outputPath });
 
-        expect(errorLines()[0]).toContain(
-            "is inside the directory --prune deletes",
-        );
+        // Refused as a link, before containment is even asked: the link
+        // check runs first because it is the one that also catches a
+        // dangling link, which resolves to nothing at all.
+        expect(errorLines()[0]).toContain("is a symbolic link");
         expect(process.exitCode).toBe(1);
         expect(await readdir(ledgerDir())).toContain("manifest.jsonl");
     });
@@ -887,5 +888,45 @@ describe("copy manifests", () => {
             "prune",
         );
         await expect(readdir(ledgerDir())).rejects.toThrow();
+    });
+
+    it("refuses a dangling --outputPath symlink aimed into the deletion target", async () => {
+        // The target does not exist yet, so there is nothing for realpath to
+        // resolve: the ascent lands on the link's own parent, which sits well
+        // outside the pair. The containment check therefore said yes, and the
+        // write then followed the link into the directory about to be deleted.
+        await writeLedger({ combined: `${storyLine()}\n` });
+
+        const outputPath = path.join(tempDir, "linked-report.json");
+        await symlink(
+            path.join(ledgerDir(), "new-report.json"),
+            outputPath,
+            "file",
+        );
+
+        await runInspector({ prune: "111:222", yes: true, outputPath });
+
+        expect(errorLines()[0]).toContain("is a symbolic link");
+        expect(process.exitCode).toBe(1);
+        expect(await readdir(ledgerDir())).toEqual(["manifest.jsonl"]);
+    });
+
+    it("refuses a symlinked --outputPath even when it points somewhere harmless", async () => {
+        // Not a containment question at all. Where a link points can change
+        // between the check and the write, so a link is never a report path.
+        await writeLedger({ combined: `${storyLine()}\n` });
+
+        const outputPath = path.join(tempDir, "harmless-link.json");
+        await symlink(
+            path.join(tempDir, "somewhere-else.json"),
+            outputPath,
+            "file",
+        );
+
+        await runInspector({ prune: "111:222", yes: true, outputPath });
+
+        expect(errorLines()[0]).toContain("is a symbolic link");
+        expect(process.exitCode).toBe(1);
+        expect(await readdir(ledgerDir())).toEqual(["manifest.jsonl"]);
     });
 });
