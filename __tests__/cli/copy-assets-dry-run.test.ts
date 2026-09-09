@@ -453,6 +453,18 @@ describe("copy assets dry-run", () => {
                 status: "planned",
             },
         ]);
+        // An asset-only run never rewrites stories, so story references keep
+        // the scanner's neutral status and raise no break warnings.
+        expect(
+            report.graph.storyReferences.every(
+                (reference: any) => reference.status === "unclassified",
+            ),
+        ).toBe(true);
+        expect(
+            report.graph.warnings.filter(
+                (warning: any) => warning.code === "broken_story_reference",
+            ),
+        ).toEqual([]);
         expect(report.commands.apply).toBe(
             "sb-mig copy assets --from source-space --to target-space --referenced-by-stories --source blog/post --mode subtree",
         );

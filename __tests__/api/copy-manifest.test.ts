@@ -16,6 +16,7 @@ import {
     getDefaultCopyManifestPaths,
     loadManifest,
     parseManifestJsonl,
+    rewriteCopyReferences,
     summarizeCopyGraph,
 } from "../../src/api/copy/index.js";
 
@@ -78,9 +79,11 @@ const assetFolderEntry = (overrides: Partial<CopyManifestEntry> = {}) =>
 describe("copy manifest store", () => {
     afterEach(async () => {
         await Promise.all(
-            createdTempDirs.splice(0).map((tempDir) =>
-                rm(tempDir, { recursive: true, force: true }),
-            ),
+            createdTempDirs
+                .splice(0)
+                .map((tempDir) =>
+                    rm(tempDir, { recursive: true, force: true }),
+                ),
         );
     });
 
@@ -93,7 +96,9 @@ describe("copy manifest store", () => {
 
         expect(paths.rootDir).toBe(rootDir);
         expect(paths.combined).toBe(path.join(rootDir, "manifest.jsonl"));
-        expect(paths.stories).toBe(path.join(rootDir, "stories.manifest.jsonl"));
+        expect(paths.stories).toBe(
+            path.join(rootDir, "stories.manifest.jsonl"),
+        );
         expect(paths.assets).toBe(path.join(rootDir, "assets.manifest.jsonl"));
         expect(paths.assetFolders).toBe(
             path.join(rootDir, "asset-folders.manifest.jsonl"),
@@ -124,7 +129,11 @@ describe("copy manifest store", () => {
         expect(raw.trim().split("\n")).toHaveLength(3);
 
         const entries = await loadManifest(manifestPath);
-        expect(entries).toEqual([storyEntry(), assetFolderEntry(), assetEntry()]);
+        expect(entries).toEqual([
+            storyEntry(),
+            assetFolderEntry(),
+            assetEntry(),
+        ]);
     });
 
     it("reports invalid JSONL with file and line context", () => {
@@ -133,9 +142,7 @@ describe("copy manifest store", () => {
                 `${JSON.stringify(storyEntry())}\n{not-json}\n`,
                 "copy.manifest.jsonl",
             ),
-        ).toThrow(
-            "Failed to parse manifest 'copy.manifest.jsonl' at line 2",
-        );
+        ).toThrow("Failed to parse manifest 'copy.manifest.jsonl' at line 2");
     });
 
     it("dedupes manifest entries by source key and keeps the latest mapping", async () => {
@@ -182,6 +189,100 @@ describe("copy manifest store", () => {
             maps.assetFilenames.get("https://a.storyblok.com/f/111/source.jpg"),
         ).toBe("https://a.storyblok.com/f/222/target.jpg");
         expect(maps.assetFolderIds.get(500)).toBe(600);
+        // The target path travels with the uuid so a relinked link can be
+        // rendered through its stored `cached_url`.
+        expect(maps.storyFullSlugs.get("source-story-uuid")).toBe(
+            "imported/blog/post",
+        );
+        // Keyed by the target uuid too, so a link relinked by an earlier run
+        // can still have its stale path repaired.
+        expect(maps.storyFullSlugs.get("target-story-uuid")).toBe(
+            "imported/blog/post",
+        );
+        // And keyed by id as well, for the links that store one instead.
+        expect(maps.storyIdFullSlugs.get(100)).toBe("imported/blog/post");
+        expect(maps.storyIdFullSlugs.get(200)).toBe("imported/blog/post");
+    });
+
+    it("records no target path when the ledger entry carries none", () => {
+        const maps = buildCopyMaps([
+            storyEntry({ target_full_slug: undefined }),
+        ]);
+
+        expect(maps.storyUuids.get("source-story-uuid")).toBe(
+            "target-story-uuid",
+        );
+        // Without a path there is nothing to rewrite a cached_url to, and a
+        // guess would be worse than the stale value.
+        expect(maps.storyFullSlugs.has("source-story-uuid")).toBe(false);
+        expect(maps.storyIdFullSlugs.has(100)).toBe(false);
+    });
+
+    it("refuses a ledger entry it cannot read, so a rewrite cannot blank real content", () => {
+        // An asset entry with no `target_id`. Applied, it puts `{ id: undefined }`
+        // into `assetIds`; the rewriter then finds a truthy mapping for the
+        // image's id and assigns `undefined` over it — the reference is not
+        // repaired, it is destroyed. Rejecting at the map boundary is what makes
+        // that impossible, rather than every reader remembering to check.
+        const maps = buildCopyMaps([
+            {
+                type: "asset",
+                source_space_id: "111",
+                target_space_id: "222",
+                action: "created",
+                created_at: "2026-09-09T10:00:00.000Z",
+                source_id: 900,
+                source_filename: "https://a.storyblok.com/f/111/x/hero.jpg",
+                target_filename: "https://a.storyblok.com/f/222/x/hero.jpg",
+            } as any,
+        ]);
+
+        expect(maps.assetIds.has(900)).toBe(false);
+        expect(
+            maps.assetFilenames.has("https://a.storyblok.com/f/111/x/hero.jpg"),
+        ).toBe(false);
+
+        const { value, records } = rewriteCopyReferences({
+            value: {
+                image: {
+                    id: 900,
+                    filename: "https://a.storyblok.com/f/111/x/hero.jpg",
+                },
+            },
+            maps,
+        });
+
+        expect(value.image.id).toBe(900);
+        expect(value.image.filename).toBe(
+            "https://a.storyblok.com/f/111/x/hero.jpg",
+        );
+        expect(records).toEqual([]);
+    });
+
+    it("still applies the entries around an unreadable one", () => {
+        const maps = buildCopyMaps([
+            {
+                type: "asset",
+                source_space_id: "111",
+                target_space_id: "222",
+            } as any,
+            {
+                type: "asset",
+                source_space_id: "111",
+                target_space_id: "222",
+                action: "created",
+                created_at: "2026-09-09T10:00:00.000Z",
+                source_id: 901,
+                target_id: 9001,
+                source_filename: "https://a.storyblok.com/f/111/x/ok.jpg",
+                target_filename: "https://a.storyblok.com/f/222/x/ok.jpg",
+            } as any,
+        ]);
+
+        expect(maps.assetIds.get(901)).toEqual({
+            id: 9001,
+            filename: "https://a.storyblok.com/f/222/x/ok.jpg",
+        });
     });
 });
 
@@ -220,11 +321,11 @@ describe("copy graph model", () => {
             sourceStoryId: 100,
             referencedStoryId: 101,
             path: "content.related[0]",
-            status: "preserved_external",
+            status: "will_break",
         });
         graph.warnings.push({
-            code: "external_story_reference",
-            message: "External story reference preserved.",
+            code: "broken_story_reference",
+            message: "Story reference points outside this copy.",
         });
 
         expect(graph).toMatchObject({

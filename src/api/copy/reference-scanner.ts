@@ -15,7 +15,6 @@ type StoryLike = {
     uuid?: string;
     full_slug?: string;
     parent_id?: number | null;
-    alternates?: Array<{ id?: number; parent_id?: number | null }>;
     content?: Record<string, unknown>;
 };
 
@@ -141,28 +140,18 @@ export const scanStoriesReferences = ({
 };
 
 const scanStoryMetadata = (story: StoryLike, state: ScannerState) => {
-    if (typeof story.parent_id === "number") {
+    // parent_id 0 is Storyblok's "lives at the space root" sentinel, not a
+    // story id. Recording it inflated every reference count with a phantom.
+    if (typeof story.parent_id === "number" && story.parent_id !== 0) {
         addStoryReference(state, {
             path: "parent_id",
             referencedStoryId: story.parent_id,
         });
     }
 
-    story.alternates?.forEach((alternate, index) => {
-        if (typeof alternate.id === "number") {
-            addStoryReference(state, {
-                path: `alternates[${index}].id`,
-                referencedStoryId: alternate.id,
-            });
-        }
-
-        if (typeof alternate.parent_id === "number") {
-            addStoryReference(state, {
-                path: `alternates[${index}].parent_id`,
-                referencedStoryId: alternate.parent_id,
-            });
-        }
-    });
+    // `alternates` is read-only API metadata that the copy payload strips
+    // before writing, so it is never rewritten and never dangles. Scanning it
+    // would report references that no copy phase acts on.
 };
 
 const scanComponentNode = (
@@ -503,9 +492,12 @@ const addStoryReference = (
         type: "story_reference",
         ...state.context,
         ...reference,
+        // The scanner sees one story at a time, so it cannot know whether the
+        // referenced story is inside the copy plan. The classifier decides
+        // that; see classifyStoryReferences in ./reference-classifier.ts.
         status:
             state.options.referencePolicy === "preserve"
-                ? "preserved_external"
+                ? "unclassified"
                 : "unresolved",
     });
 };

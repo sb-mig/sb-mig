@@ -77,6 +77,21 @@ export type CopyManifestEntry =
 export type CopyMaps = {
     storyIds: Map<number, number>;
     storyUuids: Map<string, string>;
+    /**
+     * Story uuid -> that story's `full_slug` in the TARGET space, keyed by BOTH
+     * the source and the target uuid. A relinked link still renders through its
+     * stored path (`cached_url`, richtext `href`), so the path has to travel
+     * with the uuid — including for a link that was relinked before paths were
+     * rewritten and now carries the target uuid with the source's path.
+     */
+    storyFullSlugs: Map<string, string>;
+    /**
+     * The same target `full_slug`, keyed by story ID instead — by BOTH the
+     * source and the target id. A multilink may store a numeric story id where
+     * another stores a uuid, and its stored path has to be repaired the same
+     * way; without this map the id is remapped and the path left lying.
+     */
+    storyIdFullSlugs: Map<number, string>;
     assetIds: Map<number, { id: number; filename: string }>;
     assetFilenames: Map<string, string>;
     assetFolderIds: Map<number, number>;
@@ -121,6 +136,28 @@ export type CopyGraphAssetFolderNode = {
     action: CopyGraphAction;
 };
 
+/**
+ * Scope-aware lifecycle of a scanned story reference.
+ *
+ * - `unclassified` — emitted by the scanner, which sees a single story and
+ *   therefore cannot know the copy plan. Replaced by the classifier.
+ * - `will_relink` — the referenced story is inside the selection (its mapping
+ *   will exist by phase 2) or is already in the loaded ledger.
+ * - `will_break` — the referenced story is outside the selection and not in
+ *   the ledger; in a cross-space copy this reference dangles.
+ * - `external_kept` — same-space copy, where pointing at the original story
+ *   remains correct.
+ * - `unresolved` — reference policy `fail`: the reference cannot be handled.
+ * - `unsupported` — the reference shape is not rewritable.
+ */
+export type CopyStoryReferenceStatus =
+    | "unclassified"
+    | "will_relink"
+    | "will_break"
+    | "external_kept"
+    | "unresolved"
+    | "unsupported";
+
 export type CopyGraphStoryReference = {
     type: "story_reference";
     sourceStoryId?: number;
@@ -129,7 +166,7 @@ export type CopyGraphStoryReference = {
     referencedStoryId?: number;
     referencedStoryUuid?: string;
     path: string;
-    status: "mapped" | "preserved_external" | "unresolved" | "unsupported";
+    status: CopyStoryReferenceStatus;
 };
 
 export type CopyGraphAssetReference = {
@@ -222,7 +259,7 @@ export type CopyRewriteRecord = {
     path: string;
     sourceValue: unknown;
     targetValue: unknown;
-    field: "id" | "uuid" | "filename";
+    field: "id" | "uuid" | "filename" | "path";
 };
 
 export type CopyRewriteResult<T> = {

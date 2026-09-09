@@ -327,22 +327,38 @@ Storyblok story content can reference other stories by ID or UUID depending on f
 
 Known fields to rewrite:
 
-| Field location                              | Identity   | Required behavior                                |
-| ------------------------------------------- | ---------- | ------------------------------------------------ |
-| `multilink` with `linktype: "story"`        | story id   | Replace source story id with target story id     |
-| `richtext` story links                      | story uuid | Replace source story uuid with target story uuid |
-| `options` with `source: "internal_stories"` | story ids  | Replace each source id with target id            |
-| nested `bloks`                              | varies     | Recursively inspect nested components            |
-| richtext embedded bloks                     | varies     | Recursively inspect embedded component content   |
-| `alternates[].id`                           | story id   | Replace source id with target id                 |
-| `alternates[].parent_id`                    | story id   | Replace source parent id with target parent id   |
-| `parent_id`                                 | story id   | Replace source parent id with target parent id   |
+| Field location                                                                       | Identity     | Required behavior                                                                                                                                               |
+| ------------------------------------------------------------------------------------ | ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `multilink` with `linktype: "story"`                                                 | story id     | Replace source story id with target story id                                                                                                                    |
+| `multilink` stored paths (`cached_url`, `url`, cached `story.full_slug`/`story.url`) | target path  | Replace the source path with the target story's `full_slug`, keeping `?query` / `#anchor` and the stored slash convention. Unknown target path: leave untouched |
+| `richtext` story links                                                               | story uuid   | Replace source story uuid with target story uuid                                                                                                                |
+| `richtext` link `href`                                                               | uuid or path | A uuid the mapping knows — at either end — is replaced as a uuid; anything else is treated as a stored path                                                     |
+| `options` with `source: "internal_stories"`                                          | story ids    | Replace each source id with target id                                                                                                                           |
+| nested `bloks`                                                                       | varies       | Recursively inspect nested components                                                                                                                           |
+| richtext embedded bloks                                                              | varies       | Recursively inspect embedded component content                                                                                                                  |
+| `parent_id`                                                                          | story id     | Replace source parent id with target parent id                                                                                                                  |
 
-If a story reference points to a story outside the selected copy scope, the command must not silently corrupt it. The copy report should classify it:
+If a story reference points to a story outside the selected copy scope, the command must not silently corrupt it. Every scanned story reference in the copy graph (`graph.storyReferences[].status`) is classified against the copy plan **and** the ledger:
 
-- `preserved_external_reference`
-- `unresolved_story_reference`
-- `skipped_reference_rewrite`
+| Status          | Meaning                                                                                                                 |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `unclassified`  | Emitted by the scanner, which sees one story at a time and cannot know the plan. Replaced before the graph is reported. |
+| `will_relink`   | The referenced story is inside the selection (its mapping exists by phase 2) or is already in the loaded ledger.        |
+| `will_break`    | The referenced story is outside the selection and not in the ledger; in a cross-space copy this reference dangles.      |
+| `external_kept` | Same-space copy, where continuing to point at the original story is correct.                                            |
+| `unresolved`    | Reference policy `fail`: the reference cannot be handled.                                                               |
+| `unsupported`   | The reference shape is not rewritable.                                                                                  |
+
+Notes:
+
+- `parent_id` is resolved by the copy plan itself — phase 1 creates every shell under its planned parent, and the top of the selection lands under the destination — so it is always `will_relink` and never reported as a break.
+- `parent_id: 0` is Storyblok's "lives at the space root" sentinel, not a story id, and is not recorded as a reference at all.
+- Stored paths travel with the mapping: the ledger keeps `target_full_slug`, keyed by both the source and the target uuid **and** by both story ids, so a link an earlier run relinked without rewriting its path is still repaired later by `copy relink`, whichever identity it stores.
+- Rewriting the same content twice must be a no-op. A value the mapping recognises as a story reference is never treated as a path, so the uuid a first pass writes into `href` is left exactly as it is by the second.
+- `copy relink` writes only through mappings it has verified against the target space in that run, files included: a ledger asset mapping whose target file has since been deleted is dropped, and the story keeps the filename it already has. The target's current `full_slug` and filename are read from the target space, not from the ledger, so a story moved after the copy is relinked to where it lives now.
+- When `will_break > 0` the dry-run prints a loud report naming each holding story and field path, and the graph carries a `broken_story_reference` warning per story.
+
+The dry-run summary exposes the same accounting as `storyReferencesWillRelink`, `storyReferencesWillBreak`, `storyReferencesExternalKept` and `storyReferencesUnresolved`.
 
 Potential policies:
 
@@ -443,6 +459,52 @@ Default recommendation:
 preserve-layers
 ```
 
+### Translated Slugs
+
+Localized routing lives in a story's `translated_slugs`, one row per language.
+The Management API **reads** them under that key and **writes** them under
+`translated_slugs_attributes`; a write carrying `translated_slugs` is accepted
+and ignored, so a copy that passes the story back verbatim loses every
+translated slug without a word.
+
+Requirements:
+
+- The phase-2 story write maps source `translated_slugs` onto
+  `translated_slugs_attributes` as `{lang, slug, name}`. Source row ids are
+  dropped: they address rows in the source space.
+- The PLAN and the dry run state how many translated slugs will be carried,
+  and across how many stories, before anything is written.
+- The `--outputPath` artifact carries the same account, for a dry run and for
+  an apply alike: a `translatedSlugs` block with the carried and unsupported
+  counts and the missing languages, plus the
+  `translated_slugs_unsupported_language` warning when there is one. A report
+  read back a week later is often the only record of what a run left behind, so
+  it must not be poorer than the terminal was.
+- A slug whose language the target space does not have is **left behind with a
+  warning naming the languages**, not sent — an unknown language would fail the
+  whole story write, which is a heavier answer than the loss it prevents. The
+  target's languages are read once per run, and only when a planned story
+  actually carries translated slugs.
+- If the target space's languages cannot be read, everything is carried: an
+  unknown language list is not an empty one.
+- `copy relink` never writes `translated_slugs_attributes`. It repairs
+  reference values in content and nothing else, so the target's own translated
+  slugs are untouched by a repair pass.
+
+**Rerun behavior rests on an API guarantee, not on bookkeeping of ours.**
+Because the source row ids are deliberately omitted, a rerun sends the same
+`{lang, slug, name}` rows again with no identity attached, and the Management
+API **upserts them by language**: the second run updates the existing row for
+that language rather than appending a duplicate. Verified against a live space —
+an identical copy rerun left exactly one row per language, keeping the row id
+the target assigned on the first run. If that behavior ever changed to keying
+rows by id, omitting ids would start appending duplicates on every rerun, and
+this command would have to read the target's existing translated slugs and send
+their ids back. Nothing else here compensates for it.
+
+Translated _content_ — `__i18n__<lang>` field values — is a separate concern
+and is handled by the reference rewriter like any other field.
+
 ### Idempotency and Resume
 
 Rerunning copy should not duplicate everything.
@@ -469,6 +531,116 @@ The report should show:
 - failed
 
 Partial failure must be resumable from existing manifest state.
+
+### Reading the Ledger Back: `copy manifests`
+
+Everything above rests on the ledger being right, and until now nothing could
+say whether it was. `copy manifests` reads the ledgers back: which pairs have
+one, what mappings a run would use from a pair's ledger, and every way that
+ledger would misdirect a run.
+
+```bash
+# every ledger this working copy has
+sb-mig copy manifests
+
+# one pair: the mappings a run would use, then their health
+sb-mig copy manifests --pair 12345:67890
+sb-mig copy manifests --pair 12345:67890 --type story --slug blog
+sb-mig copy manifests --pair 12345:67890 --outputPath sbmig/copy-plans/ledger.json
+
+# delete one pair's ledger directory outright, behind the confirmation gate
+sb-mig copy manifests --prune 12345:67890 --dry-run
+sb-mig copy manifests --prune 12345:67890 --yes
+```
+
+Requirements:
+
+- **No Storyblok request, in any mode.** It is safe to run at any moment,
+  including mid-copy and in CI.
+- **With no `--pair`, it lists every ledger under `--manifestRoot`** — each with
+  its **absolute resolved path** and the ledger file's **real mtime**, not a
+  `created_at` from inside it: the file's own timestamp is the one a hand edit
+  cannot fake, and "how stale is this?" is the question the listing is for. It
+  says nothing about whether any of them is healthy — health is a question about
+  a pair, and the listing exists to tell you which pairs there are to ask about.
+- **A space id is a path segment, and it comes from the command line.** Every id
+  must be a plain number (Storyblok issues nothing else), and the resolved pair
+  directory is asserted to lie inside the resolved copy root **before any read,
+  write or delete**. `--prune ../../outside:target` is refused before the disk is
+  touched at all; without both checks it would delete whatever it landed on.
+- **It never falls back to the configured space.** A ledger belongs to a pair;
+  defaulting either side reads a different pair's file — or a file that was
+  never written — and reports the result as the answer. Naming half a pair is
+  an error for the same reason. `--from` and `--to` together are accepted as an
+  alias for `--pair`.
+- **`--pair` prints the deduped view first**: the ledger is append-only, so its
+  lines are a history and only the collapsed set is the state. `--type` and
+  `--slug` narrow that view; both require `--pair`.
+- The **combined** `manifest.jsonl` is the authority, because it is the only
+  file `buildCopyMaps` reads. The per-resource files are records; a mapping
+  that lives only in one of them is a mapping no run will ever use, and is
+  reported as `missing_from_combined`.
+- **Conflicts are reported against the runtime map that would be poisoned, read
+  off the run's own projection** (`getCopyMapWrites`, which `buildCopyMaps` is
+  now built from). One story writes six mappings across four maps — its id, its
+  uuid, and its target path under both uuids and both ids — so `story id 1` can
+  conflict while its uuid does not, and a story recopied to a new path conflicts
+  in the path maps alone. A hand-kept list of "what an entry maps" missed
+  exactly those, and reported a poisoned ledger as healthy. The report names the
+  value that wins, since a run keeps the last line it reads and the loser is
+  invisible at runtime.
+- **An entry the run could not read is not a mapping**, and the check lives at
+  the shared runtime boundary rather than in the reader. `getCopyMapWrites`
+  rejects a malformed entry, so `buildCopyMaps` cannot apply one: an asset entry
+  with no `target_id` used to put `{ id: undefined }` into `assetIds`, and the
+  rewriter then assigned that `undefined` over a real image's `id` — the
+  reference was not repaired, it was destroyed. Reporting it as `invalid_entry`
+  is the reader's half of the same fact.
+- Errors (`conflicting_mapping`, `invalid_entry`, `space_pair_mismatch`,
+  `unreadable_file`, `missing_from_combined`) mean a run reading this ledger
+  would do the wrong thing, and the command exits 1 so a pipeline can gate on
+  it. Warnings (`duplicate_mapping`, `missing_target_full_slug`) cost the run
+  something without misdirecting it.
+- **`--prune <source>:<target>` is the only mutation**, and it sits behind the
+  same PLAN-block-then-confirm gate as `copy stories` and `copy relink`:
+  `--dry-run` plans and stops, `--yes` skips the question, and without a terminal
+  and without `--yes` it refuses. It DELETES that pair's ledger directory and
+  everything in it. It **names its own pair** rather than reading one from
+  `--pair`, because taking the target of a delete from a second flag is how the
+  wrong directory gets removed; combining it with `--pair`, `--from`, `--to`,
+  `--type` or `--slug` is refused. It deletes exactly that pair directory and
+  nothing above it, and the deletion is **not** archived — a run that would have
+  resumed from that ledger starts over.
+- **The plan discloses everything the delete removes.** The directory is walked
+  recursively with `lstat`, and every entry is listed — files, subdirectories,
+  and symlinks with their targets — because a recursive delete takes whatever it
+  finds and a plan naming only the ledger files lies by omission. Anything
+  `copy manifests` did not write is called out in the listing and counted in the
+  summary.
+- **Containment is proven against the filesystem, not the string.**
+  `path.resolve` collapses `..` textually and knows nothing about symlinks, so a
+  lexically contained path can still point anywhere: with `copy/123` symlinked to
+  a directory outside the root, `copy/123/456` resolves clean and the recursive
+  delete lands on somebody else's files. Two independent proofs — no component of
+  `copy/<source>/<target>` may be a symlink (`lstat`, which does not follow), and
+  the pair directory's **real** path must sit inside the copy root's **real**
+  path.
+- **An `--outputPath` inside the deletion target is refused** before anything is
+  deleted. A report written into the directory the same command then removes
+  does not survive the command that wrote it. Containment is proven on disk, by
+  resolving the deepest existing ancestor, so a symlinked _parent_ is caught.
+  And an output path that is **itself** a symbolic link is refused outright,
+  dangling or not: a dangling link resolves to nothing, so the ascent lands on
+  the link's own directory and the check would pass while the write followed the
+  link into the pair. Where any link points can also change between the check
+  and the write. A report path is a plain path.
+- `--outputPath` writes the same account as JSON, whichever mode ran.
+
+What it deliberately does not do: it cannot tell whether the target space
+still holds the stories these mappings name. **A ledger that is clean here can
+still be stale against the space** — that is the failure mode the plan gate and
+`copy relink` validate against, at the cost of API calls, and it stays their
+job.
 
 ## Proposed Copy Command Surface
 
@@ -828,6 +1000,7 @@ Required safety behavior:
 - Asset upload uses signed upload flow.
 - Space duplicate does not create independent asset copies.
 - Story duplicate is same-space-oriented and is not sufficient for cross-space copy.
+- Translated slugs are read as `translated_slugs` and written as `translated_slugs_attributes`; the read shape is silently ignored on write.
 - Some references live in plugin fields or custom JSON where schema-safe rewriting may be impossible.
 - Historical story versions, activity logs, release scheduling, workflow state, tasks, comments, and app-specific metadata may not be fully copyable through the same flow.
 

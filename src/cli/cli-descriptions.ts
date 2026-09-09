@@ -218,22 +218,36 @@ export const copyDescription = `
         $ sb-mig copy stories --from [spaceId] --to [spaceId] --source [folder_full_slug]
         $ sb-mig copy stories --from [spaceId] --to [spaceId] --source [folder_full_slug]/* --destination [target_folder_full_slug]
         $ sb-mig copy stories --from [spaceId] --to [spaceId] --source [folder_full_slug] --mode self --destination /
+        $ sb-mig copy relink --from [spaceId] --to [spaceId] --source [folder_full_slug] --destination [target_folder_full_slug]
+        $ sb-mig copy relink --from [spaceId] --to [spaceId] --source [folder_full_slug] --dry-run
         $ sb-mig copy assets --from [spaceId] --to [spaceId] --all
         $ sb-mig copy assets --from [spaceId] --to [spaceId] --asset [asset_id_or_filename]
         $ sb-mig copy assets --from [spaceId] --to [spaceId] --assetFolder [folder_id_or_path]
         $ sb-mig copy assets --from [spaceId] --to [spaceId] --referenced-by-stories --source [story_or_folder_full_slug]
         $ sb-mig copy assets --from [spaceId] --to [spaceId] --all --dry-run
+        $ sb-mig copy manifests
+        $ sb-mig copy manifests --pair [sourceSpaceId]:[targetSpaceId]
+        $ sb-mig copy manifests --pair [sourceSpaceId]:[targetSpaceId] --type story --slug blog
+        $ sb-mig copy manifests --prune [sourceSpaceId]:[targetSpaceId] --dry-run
+        $ sb-mig copy manifests --prune [sourceSpaceId]:[targetSpaceId] --yes
+        $ sb-mig copy manifests --pair [sourceSpaceId]:[targetSpaceId] --outputPath sbmig/copy-plans/ledger.json
 
     DESCRIPTION
         Copy Storyblok stories, folders, assets, or asset folders from one space to another.
 
     COMMANDS
         stories         Copy one story, one folder subtree, a folder's children, or one folder shell.
+        relink          Repair references in stories that were already copied, without copying content again.
         assets          Copy or plan all assets and asset folders with durable manifests.
+        manifests       List the copy ledgers on disk, or read one pair's ledger back and report what a run would make of it.
 
     FLAGS
-        --from          Source Storyblok space ID. Falls back to configured spaceId.
-        --to            Target Storyblok space ID. Falls back to configured spaceId.
+        --from          Source Storyblok space ID. Falls back to configured spaceId, except for copy manifests.
+        --to            Target Storyblok space ID. Falls back to configured spaceId, except for copy manifests.
+        --pair          Ledger to read, written as <sourceSpaceId>:<targetSpaceId>. Omit to list every ledger on disk. [manifests only]
+        --type          Restrict the mapping view to story, asset, or asset_folder. Repeatable. Requires --pair. [manifests only]
+        --slug          Restrict the mapping view to mappings whose source or target path contains this text. Requires --pair. [manifests only]
+        --prune         DELETE one pair's whole ledger directory, written as <sourceSpaceId>:<targetSpaceId>. Names its own pair, and asks before deleting. [manifests only]
         --source        Source story or folder full_slug. Use folder/* to copy a folder's children without the folder root.
         --destination   Target folder full_slug where copied stories are attached. Omit, '/', or 'root' to copy into target root.
         --mode          Copy mode: subtree, children, or self. Default: subtree. folder/* defaults to children.
@@ -247,7 +261,10 @@ export const copyDescription = `
         --assetFolder   Select one source asset folder by numeric ID or folder path. Includes descendants and assets in that subtree. Repeatable. [assets only]
         --referenced-by-stories
                        Select assets referenced by a story/folder scope. Requires --source. [assets only]
-        --dry-run       Preview story paths, manifest-mapped references, and likely target conflicts without writing to Storyblok.
+        --dry-run       Preview story paths, manifest-mapped references, and likely target conflicts without writing to Storyblok. With copy manifests --prune, print the plan and stop.
+        --yes           Skip the confirmation gate shown after a PLAN block, before the first write. Required in non-interactive runs (CI). [stories, relink, and manifests --prune]
+        --fresh         Ignore the existing copy ledger for this run; every manifest file of this space pair, the asset and asset-folder ledgers included, is moved aside with a timestamp suffix, never deleted. A later --with-assets run therefore starts without the archived asset mappings too. [stories only]
+        --manifestRoot  Directory holding the copy ledger. Default: .sb-mig
         --outputPath    Optional JSON file path for a dry-run copy plan artifact. Only writes locally when passed.
 
     LEGACY FLAGS
@@ -257,12 +274,17 @@ export const copyDescription = `
         --where         Alias for --destination.
 
     SIDE EFFECTS
+        copy relink updates the content of already-copied target stories unless --dry-run is passed. Only reference values change.
+        copy relink appends matched_by_target_key entries to the story manifest for target stories it matches by path.
         copy stories writes copied stories into the target Storyblok space unless --dry-run is passed.
         copy stories writes story ID/UUID manifests under .sb-mig/copy/<source>/<target>/ during apply.
         copy stories --with-assets writes referenced asset folders/assets before story writes unless --dry-run is passed.
         copy assets writes asset folders and assets into the target Storyblok space unless --dry-run is passed.
         copy assets writes JSONL manifests under .sb-mig/copy/<source>/<target>/ during apply.
         --outputPath writes a local JSON report for dry-run or apply.
+        copy manifests makes no Storyblok request in any mode.
+        copy manifests leaves every ledger file untouched unless --prune is passed and confirmed.
+        copy manifests --prune DELETES one pair's ledger directory and everything in it, including anything it did not write. It is not archived, and a copy run that would have resumed from it starts over.
 
     GOTCHAS
         --source must resolve to an existing source story or folder.
@@ -270,6 +292,12 @@ export const copyDescription = `
         mode 'subtree' copies a folder and all descendants. This is the default for folders.
         mode 'children' copies a folder's descendants without the folder root.
         mode 'self' copies only the source story or folder shell.
+        copy stories prints a PLAN block (create/adopt/resume counts, ledger, will-relink/will-break references, assets) and asks for confirmation before any write; pass --yes to skip the question. Without a terminal and without --yes it refuses to write.
+        copy relink repairs stories that were copied before the stories they reference, which leaves source-space IDs and UUIDs in target content forever; copying the referenced stories later does not fix the content that was already written.
+        copy relink takes the same --source, --destination and --mode as the copy stories run it repairs, so the planned target paths line up.
+        copy relink builds the mapping from the ledger plus target paths, then rewrites each target story's own content. It never creates stories and never copies content from the source.
+        copy relink leaves a story untouched when its references already resolve, and updates the draft only, so published stories need publishing afterwards.
+        copy relink prints the same PLAN block and confirmation gate as copy stories, with the exact number of references it is about to rewrite.
         copy stories creates or matches target story shells, then fills them with rewritten source content.
         copy stories matches existing targets by manifest first, then target full_slug when safe, so reruns can reuse mapped target stories.
         copy stories rewrites mapped asset and story references after story manifests exist.
@@ -285,6 +313,20 @@ export const copyDescription = `
         copy assets --asset includes the selected asset's folder ancestors so target folder mappings can be preserved.
         copy assets --assetFolder includes the selected folder, descendants, folder ancestors, and assets inside that selected subtree.
         copy assets --referenced-by-stories scans selected stories with source component schemas and copies only source-space assets referenced by that story scope.
+        copy manifests with no --pair lists every ledger under --manifestRoot, each with its absolute path and the ledger file's real modification time, and says nothing about whether any of them is healthy.
+        copy manifests requires every space id to be a plain number, because a space id becomes a directory name in the ledger and anything else can point outside it. The resolved directory is checked to be inside the copy root before any read, write or delete.
+        copy manifests never falls back to the configured spaceId. Naming half a pair is an error, because reading a different pair's ledger and reporting it is worse than refusing.
+        copy manifests --pair prints the mappings a run would use, with superseded and unusable lines collapsed away, then the health of the ledger behind them.
+        copy manifests treats the combined manifest.jsonl as the authority, because that is the only ledger file a copy run reads when it builds its maps.
+        copy manifests reports conflicts against the runtime map that would be poisoned, taken from the same projection a copy run builds its maps with. One story writes six mappings across four maps: its id, its uuid, and its target path under both uuids and both ids.
+        copy manifests exits 1 when it finds an error: a source key mapped to two different targets, an entry it cannot read, an entry belonging to another space pair, an unreadable file, or a mapping recorded only in a per-resource file.
+        copy manifests warns about duplicate lines and about story mappings with no target path, which is why stored link paths such as cached_url stay stale until a copy relink fills them in.
+        copy manifests --prune names the pair it deletes itself, so it cannot be combined with --pair, --from, --to, --type or --slug. It deletes exactly that pair directory and nothing above it.
+        copy manifests --prune lists every entry it would delete first, walking the directory recursively and reporting files, subdirectories and symlinks, with anything copy manifests did not write called out.
+        copy manifests --prune refuses when any part of copy/<source>/<target> is a symbolic link, and checks the directory's real path is still inside the copy root's real path, because a link there means the directory being deleted is not the one the space ids name.
+        copy manifests --prune refuses an --outputPath inside the directory it is deleting, because the report would not survive the delete it describes.
+        copy manifests --prune refuses an --outputPath that is a symbolic link, dangling or not, because where a link points cannot be proven before the write.
+        copy manifests cannot tell whether the target space still holds the stories these mappings name. A ledger that is clean here can still be stale against the space.
         copy assets matches by manifest first, then safe target folder path or unique asset file name before creating.
         copy assets uploads assets, finalizes the upload, and writes source-to-target asset/folder manifests.
 
@@ -295,6 +337,10 @@ export const copyDescription = `
         $ sb-mig copy stories --from 12345 --to 67890 --source blog --mode self --destination /
         $ sb-mig copy stories --from 12345 --to 67890 --source blog --destination imported --with-assets
         $ sb-mig copy stories --from 12345 --to 67890 --source blog --destination imported --with-assets --publicationMode preserve-layers
+        $ sb-mig copy manifests
+        $ sb-mig copy manifests --pair 12345:67890
+        $ sb-mig copy manifests --pair 12345:67890 --type story --slug blog
+        $ sb-mig copy manifests --prune 12345:67890 --yes
         $ sb-mig copy stories --from 12345 --to 67890 --source blog --destination imported --publicationMode collapse-draft --publicationLanguages default,fr,de
         $ sb-mig copy stories --from 12345 --to 67890 --source blog --destination imported --publicationMode save-only
         $ sb-mig copy stories --from 12345 --to 67890 --source blog --destination imported --dry-run

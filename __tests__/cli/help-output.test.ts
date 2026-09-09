@@ -115,11 +115,17 @@ describe("CLI help output", () => {
 
         expect(copyHelp).toContain("copy stories");
         expect(copyHelp).toContain("copy assets");
+        expect(copyHelp).toContain("copy relink");
+        expect(copyHelp).toContain("copy manifests");
+        expect(copyHelp).toContain("matched_by_target_key");
         expect(copyHelp).toContain("--source");
         expect(copyHelp).toContain("--destination");
         expect(copyHelp).toContain("--mode");
         expect(copyHelp).toContain("--all");
         expect(copyHelp).toContain("--dry-run");
+        expect(copyHelp).toContain("--yes");
+        expect(copyHelp).toContain("--fresh");
+        expect(copyHelp).toContain("PLAN block");
         expect(copyHelp).toContain("--outputPath");
         expect(copyHelp).toContain("folder/*");
         expect(copyHelp).toContain("durable manifests");

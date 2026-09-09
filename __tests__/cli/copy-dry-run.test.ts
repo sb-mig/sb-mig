@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "fs/promises";
 import { tmpdir } from "os";
 import path from "path";
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
     getStoryById: vi.fn(),
@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
     updateStory: vi.fn(),
     publishStoryLanguages: vi.fn(),
     getAllComponents: vi.fn(),
+    getSpace: vi.fn(),
     getAllAssets: vi.fn(),
     getAllAssetFolders: vi.fn(),
     createAssetFolder: vi.fn(),
@@ -22,6 +23,11 @@ const mocks = vi.hoisted(() => ({
     createTree: vi.fn(),
     traverseAndCreate: vi.fn(),
     sbApiGet: vi.fn(),
+    askYesNo: vi.fn(),
+}));
+
+vi.mock("../../src/cli/helpers.js", () => ({
+    askYesNo: mocks.askYesNo,
 }));
 
 vi.mock("../../src/cli/api-config.js", () => ({
@@ -46,6 +52,9 @@ vi.mock("../../src/api/managementApi.js", () => ({
         },
         components: {
             getAllComponents: mocks.getAllComponents,
+        },
+        spaces: {
+            getSpace: mocks.getSpace,
         },
         assets: {
             getAllAssets: mocks.getAllAssets,
@@ -73,6 +82,13 @@ vi.mock("../../src/utils/logger.js", () => ({
 }));
 
 import { copyCommand } from "../../src/cli/commands/copy.js";
+import Logger from "../../src/utils/logger.js";
+
+/** Every line the PLAN block printed, in order. */
+const planGateLines = () =>
+    (Logger.log as unknown as ReturnType<typeof vi.fn>).mock.calls.map((call) =>
+        String(call[0]),
+    );
 
 describe("copy stories dry-run", () => {
     const sourceAsset = {
@@ -265,6 +281,9 @@ describe("copy stories dry-run", () => {
             asset_folder_id: 130,
         });
         mocks.updateStory.mockResolvedValue({ ok: true });
+        mocks.getSpace.mockResolvedValue({
+            space: { languages: [{ code: "de" }, { code: "pl" }] },
+        });
     });
 
     it("plans selected stories without creating them", async () => {
@@ -361,6 +380,58 @@ describe("copy stories dry-run", () => {
         expect(report.commands.apply).toBe(
             "sb-mig copy stories --from source-space --to target-space --source blog --mode subtree --destination imported",
         );
+
+        await rm(tempDir, { recursive: true, force: true });
+    });
+
+    it("scans only planned stories in children mode, never the excluded root", async () => {
+        const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-copy-"));
+        const outputPath = path.join(tempDir, "plans", "copy-plan.json");
+
+        await copyCommand({
+            input: ["copy", "stories"],
+            flags: {
+                from: "source-space",
+                to: "target-space",
+                source: "blog",
+                mode: "children",
+                destination: "imported",
+                dryRun: true,
+                outputPath,
+            },
+        } as any);
+
+        const report = JSON.parse(await readFile(outputPath, "utf8"));
+
+        expect(report.items).toMatchObject([
+            {
+                type: "story",
+                sourceFullSlug: "blog/post-1",
+                targetFullSlug: "imported/post-1",
+            },
+        ]);
+        // The root folder `blog` is fetched but not copied. Its own cta -> post-1
+        // reference must not be scanned: it would inflate the relink count for
+        // a story this run never writes.
+        expect(
+            report.graph.storyReferences.map(
+                (reference: any) => reference.sourceStoryFullSlug,
+            ),
+        ).toEqual(["blog/post-1", "blog/post-1"]);
+        expect(report.graph.storyReferences).toMatchObject([
+            { path: "parent_id", status: "will_relink" },
+            {
+                path: "content.body.content[0].attrs.uuid",
+                referencedStoryUuid: "source-blog-uuid",
+                status: "will_break",
+            },
+        ]);
+        expect(report.summary).toMatchObject({
+            storyReferences: 2,
+            storyReferencesWillRelink: 1,
+            storyReferencesWillBreak: 1,
+            storyReferencesExternalKept: 0,
+        });
 
         await rm(tempDir, { recursive: true, force: true });
     });
@@ -552,7 +623,13 @@ describe("copy stories dry-run", () => {
                 assetFolders: 2,
                 assets: 1,
                 assetReferences: 1,
-                storyReferences: 4,
+                // parent_id 0 (the space root) is not a story reference: blog
+                // -> post-1, post-1 -> blog, and post-1's parent_id.
+                storyReferences: 3,
+                storyReferencesWillRelink: 3,
+                storyReferencesWillBreak: 0,
+                storyReferencesExternalKept: 0,
+                storyReferencesUnresolved: 0,
                 errors: 0,
             },
             graph: {
@@ -850,6 +927,355 @@ describe("copy stories dry-run", () => {
         await rm(tempDir, { recursive: true, force: true });
     });
 
+    describe("plan gate", () => {
+        const stdin = process.stdin as any;
+        const originalIsTTY = stdin.isTTY;
+        const originalExitCode = process.exitCode;
+
+        afterEach(() => {
+            stdin.isTTY = originalIsTTY;
+            process.exitCode = originalExitCode;
+        });
+
+        it("refuses to write without --yes when no terminal can answer", async () => {
+            stdin.isTTY = false;
+
+            await copyCommand({
+                input: ["copy", "stories"],
+                flags: {
+                    from: "source-space",
+                    to: "target-space",
+                    source: "blog",
+                    destination: "imported",
+                },
+            } as any);
+
+            expect(mocks.askYesNo).not.toHaveBeenCalled();
+            expect(mocks.createStory).not.toHaveBeenCalled();
+            expect(mocks.updateStory).not.toHaveBeenCalled();
+            expect(process.exitCode).toBe(1);
+        });
+
+        it("asks Continue? on a terminal and stops on anything but yes", async () => {
+            stdin.isTTY = true;
+            mocks.askYesNo.mockResolvedValue(false);
+
+            await copyCommand({
+                input: ["copy", "stories"],
+                flags: {
+                    from: "source-space",
+                    to: "target-space",
+                    source: "blog",
+                    destination: "imported",
+                },
+            } as any);
+
+            expect(mocks.askYesNo).toHaveBeenCalledWith("Continue? [y/N]");
+            expect(mocks.createStory).not.toHaveBeenCalled();
+            expect(process.exitCode).toBe(originalExitCode);
+        });
+
+        it("writes after an explicit yes on a terminal", async () => {
+            stdin.isTTY = true;
+            mocks.askYesNo.mockResolvedValue(true);
+            const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-copy-"));
+
+            await copyCommand({
+                input: ["copy", "stories"],
+                flags: {
+                    from: "source-space",
+                    to: "target-space",
+                    source: "blog",
+                    destination: "imported",
+                    manifestRoot: path.join(tempDir, ".sb-mig"),
+                },
+            } as any);
+
+            expect(mocks.askYesNo).toHaveBeenCalledTimes(1);
+            expect(mocks.createStory).toHaveBeenCalledTimes(2);
+
+            await rm(tempDir, { recursive: true, force: true });
+        });
+
+        it("scans references and checks target paths before the gate in apply mode", async () => {
+            stdin.isTTY = false;
+
+            await copyCommand({
+                input: ["copy", "stories"],
+                flags: {
+                    from: "source-space",
+                    to: "target-space",
+                    source: "blog",
+                    destination: "imported",
+                },
+            } as any);
+
+            // Scanner ran (component schemas fetched) and every planned
+            // target path was checked for adoption, all before any write.
+            expect(mocks.getAllComponents).toHaveBeenCalledWith(
+                expect.objectContaining({ spaceId: "source-space" }),
+            );
+            expect(mocks.getStoryBySlug).toHaveBeenCalledWith(
+                "imported/blog/post-1",
+                expect.objectContaining({ spaceId: "target-space" }),
+            );
+            expect(mocks.createStory).not.toHaveBeenCalled();
+        });
+
+        it("moves the existing ledger aside with --fresh and starts empty", async () => {
+            const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-copy-"));
+            const manifestRoot = path.join(tempDir, ".sb-mig");
+            const manifestDirectory = path.join(
+                manifestRoot,
+                "copy",
+                "source-space",
+                "target-space",
+            );
+            const staleEntry = {
+                type: "story",
+                source_space_id: "source-space",
+                target_space_id: "target-space",
+                source_id: 2,
+                target_id: 5555,
+                source_uuid: "source-post-uuid",
+                target_uuid: "stale-target-post-uuid",
+                source_full_slug: "blog/post-1",
+                target_full_slug: "imported/blog/post-1",
+                action: "created",
+                created_at: "2026-06-23T10:00:00.000Z",
+            };
+
+            await mkdir(manifestDirectory, { recursive: true });
+            await writeFile(
+                path.join(manifestDirectory, "manifest.jsonl"),
+                JSON.stringify(staleEntry) + "\n",
+                "utf8",
+            );
+            await writeFile(
+                path.join(manifestDirectory, "stories.manifest.jsonl"),
+                JSON.stringify(staleEntry) + "\n",
+                "utf8",
+            );
+
+            await copyCommand({
+                input: ["copy", "stories"],
+                flags: {
+                    from: "source-space",
+                    to: "target-space",
+                    source: "blog",
+                    destination: "imported",
+                    manifestRoot,
+                    fresh: true,
+                    yes: true,
+                },
+            } as any);
+
+            // The stale mapping was not reused: both shells were created anew.
+            expect(mocks.createStory).toHaveBeenCalledTimes(2);
+            expect(mocks.getStoryById).not.toHaveBeenCalledWith(
+                "5555",
+                expect.anything(),
+            );
+
+            const { readdir } = await import("fs/promises");
+            const files = (await readdir(manifestDirectory)).sort();
+
+            expect(
+                files.filter((file) => /^manifest\.jsonl\..+\.bak$/.test(file)),
+            ).toHaveLength(1);
+            expect(
+                files.filter((file) =>
+                    /^stories\.manifest\.jsonl\..+\.bak$/.test(file),
+                ),
+            ).toHaveLength(1);
+
+            const combined = (
+                await readFile(
+                    path.join(manifestDirectory, "manifest.jsonl"),
+                    "utf8",
+                )
+            )
+                .trim()
+                .split("\n")
+                .map((line) => JSON.parse(line));
+
+            expect(combined.every((entry) => entry.target_id !== 5555)).toBe(
+                true,
+            );
+            expect(combined.map((entry) => entry.source_id)).toEqual([1, 2]);
+
+            await rm(tempDir, { recursive: true, force: true });
+        });
+
+        const writeStaleLedger = async (manifestRoot: string) => {
+            const manifestDirectory = path.join(
+                manifestRoot,
+                "copy",
+                "source-space",
+                "target-space",
+            );
+
+            await mkdir(manifestDirectory, { recursive: true });
+            await writeFile(
+                path.join(manifestDirectory, "manifest.jsonl"),
+                JSON.stringify({
+                    type: "story",
+                    source_space_id: "source-space",
+                    target_space_id: "target-space",
+                    source_id: 2,
+                    target_id: 5555,
+                    source_uuid: "source-post-uuid",
+                    target_uuid: "stale-target-post-uuid",
+                    source_full_slug: "blog/post-1",
+                    target_full_slug: "imported/blog/post-1",
+                    action: "created",
+                    created_at: "2026-06-23T10:00:00.000Z",
+                }) + "\n",
+                "utf8",
+            );
+        };
+
+        it("plans a create, not a resume, when the mapped target story is gone", async () => {
+            const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-copy-"));
+            const manifestRoot = path.join(tempDir, ".sb-mig");
+
+            await writeStaleLedger(manifestRoot);
+
+            await copyCommand({
+                input: ["copy", "stories"],
+                flags: {
+                    from: "source-space",
+                    to: "target-space",
+                    source: "blog",
+                    destination: "imported",
+                    manifestRoot,
+                    yes: true,
+                },
+            } as any);
+
+            const lines = planGateLines();
+
+            expect(lines).toContain(
+                "  2 items (1 folder) -> space target-space (2 create, 0 adopt existing, 0 resume from ledger)",
+            );
+            expect(lines).toContain(
+                "    1 ledger mapping no longer resolves in space target-space and will be discarded.",
+            );
+            // And the plan told the truth: both shells really were created.
+            expect(mocks.createStory).toHaveBeenCalledTimes(2);
+
+            await rm(tempDir, { recursive: true, force: true });
+        });
+
+        it("plans an adoption when another story now holds the mapped target path", async () => {
+            stdin.isTTY = true;
+            mocks.askYesNo.mockResolvedValue(false);
+
+            const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-copy-"));
+            const manifestRoot = path.join(tempDir, ".sb-mig");
+            const getStoryBySlug = mocks.getStoryBySlug.getMockImplementation();
+
+            await writeStaleLedger(manifestRoot);
+
+            mocks.getStoryBySlug.mockImplementation(
+                (slug: string, options: any) => {
+                    if (slug === "imported/blog/post-1") {
+                        return Promise.resolve({
+                            story: {
+                                id: 7777,
+                                slug: "post-1",
+                                full_slug: "imported/blog/post-1",
+                                uuid: "other-target-post-uuid",
+                            },
+                        });
+                    }
+
+                    return getStoryBySlug!(slug, options);
+                },
+            );
+
+            await copyCommand({
+                input: ["copy", "stories"],
+                flags: {
+                    from: "source-space",
+                    to: "target-space",
+                    source: "blog",
+                    destination: "imported",
+                    manifestRoot,
+                },
+            } as any);
+
+            const lines = planGateLines();
+
+            expect(lines).toContain(
+                "  2 items (1 folder) -> space target-space (1 create, 1 adopt existing, 0 resume from ledger)",
+            );
+            expect(lines).toContain(
+                "    1 ledger mapping no longer resolves in space target-space and will be discarded.",
+            );
+            expect(mocks.createStory).not.toHaveBeenCalled();
+
+            await rm(tempDir, { recursive: true, force: true });
+        });
+
+        it("names the stories and field paths that will break before asking", async () => {
+            stdin.isTTY = true;
+            mocks.askYesNo.mockResolvedValue(false);
+            mocks.getAllStories.mockResolvedValue([
+                {
+                    story: {
+                        id: 2,
+                        name: "Post 1",
+                        slug: "post-1",
+                        full_slug: "blog/post-1",
+                        is_folder: false,
+                        parent_id: 1,
+                        uuid: "source-post-uuid",
+                        content: {
+                            component: "page",
+                            cta: {
+                                linktype: "story",
+                                id: 999,
+                            },
+                        },
+                    },
+                },
+            ]);
+
+            await copyCommand({
+                input: ["copy", "stories"],
+                flags: {
+                    from: "source-space",
+                    to: "target-space",
+                    source: "blog",
+                    destination: "imported",
+                },
+            } as any);
+
+            const lines = planGateLines();
+            const listingIndex = lines.indexOf("    WILL BREAK, by story:");
+
+            expect(listingIndex).toBeGreaterThan(-1);
+            expect(lines[listingIndex - 1]).toContain(
+                "1 leave your selection and WILL BREAK",
+            );
+            expect(lines[listingIndex + 1]).toBe("      blog/post-1");
+            expect(lines[listingIndex + 2]).toContain("-> #999");
+            expect(lines[listingIndex + 2].trim()).toMatch(/^content\.cta/);
+
+            // The detail is on screen before the operator is asked anything.
+            const listingOrder = (
+                Logger.log as unknown as ReturnType<typeof vi.fn>
+            ).mock.invocationCallOrder[listingIndex];
+
+            expect(mocks.askYesNo).toHaveBeenCalledTimes(1);
+            expect(listingOrder).toBeLessThan(
+                mocks.askYesNo.mock.invocationCallOrder[0],
+            );
+            expect(mocks.createStory).not.toHaveBeenCalled();
+        });
+    });
+
     it("copies selected stories and writes story manifests", async () => {
         const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-copy-"));
         const manifestRoot = path.join(tempDir, ".sb-mig");
@@ -886,6 +1312,7 @@ describe("copy stories dry-run", () => {
                 source: "blog",
                 destination: "imported",
                 manifestRoot,
+                yes: true,
             },
         } as any);
 
@@ -1025,6 +1452,264 @@ describe("copy stories dry-run", () => {
         await rm(tempDir, { recursive: true, force: true });
     });
 
+    /** A source story that carries a translated slug, the EF-shaped case. */
+    const withTranslatedSlugs = (translated_slugs: unknown[]) => {
+        mocks.getAllStories.mockResolvedValue([
+            {
+                story: {
+                    id: 2,
+                    name: "Post 1",
+                    slug: "post-1",
+                    full_slug: "blog/post-1",
+                    is_folder: false,
+                    parent_id: 1,
+                    uuid: "source-post-uuid",
+                    content: { component: "page" },
+                    translated_slugs,
+                },
+            },
+        ]);
+    };
+
+    it("carries translated slugs into the target in the shape the API writes", async () => {
+        const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-copy-"));
+
+        withTranslatedSlugs([
+            {
+                id: 555,
+                story_id: 2,
+                lang: "de",
+                slug: "seite-eins",
+                name: "Seite Eins",
+            },
+        ]);
+
+        await copyCommand({
+            input: ["copy", "stories"],
+            flags: {
+                from: "source-space",
+                to: "target-space",
+                source: "blog",
+                destination: "imported",
+                manifestRoot: path.join(tempDir, ".sb-mig"),
+                yes: true,
+            },
+        } as any);
+
+        const postPayload = mocks.updateStory.mock.calls
+            .map((call) => call[0])
+            .find((payload: any) => payload?.slug === "post-1");
+
+        expect(postPayload.translated_slugs_attributes).toEqual([
+            { lang: "de", slug: "seite-eins", name: "Seite Eins" },
+        ]);
+        // The read shape is what the API accepts and ignores, which is how
+        // these were lost without a word.
+        expect(postPayload.translated_slugs).toBeUndefined();
+        expect(planGateLines()).toContain(
+            "  translated slugs: 1 carried across 1 story",
+        );
+
+        await rm(tempDir, { recursive: true, force: true });
+    });
+
+    it("leaves behind a translated slug the target space has no language for", async () => {
+        const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-copy-"));
+
+        withTranslatedSlugs([
+            { lang: "de", slug: "seite-eins" },
+            { lang: "fr", slug: "page-une" },
+        ]);
+
+        await copyCommand({
+            input: ["copy", "stories"],
+            flags: {
+                from: "source-space",
+                to: "target-space",
+                source: "blog",
+                destination: "imported",
+                manifestRoot: path.join(tempDir, ".sb-mig"),
+                yes: true,
+            },
+        } as any);
+
+        const postPayload = mocks.updateStory.mock.calls
+            .map((call) => call[0])
+            .find((payload: any) => payload?.slug === "post-1");
+
+        // Warned, not failed: the rest of the copy is worth more than the
+        // slug that cannot land.
+        expect(postPayload.translated_slugs_attributes).toEqual([
+            { lang: "de", slug: "seite-eins", name: null },
+        ]);
+        expect(
+            (Logger.warning as unknown as ReturnType<typeof vi.fn>).mock.calls
+                .map((call) => String(call[0]))
+                .some((line) =>
+                    line.includes(
+                        "1 translated slug(s) will be left behind: space 'target-space' has no language(s) fr",
+                    ),
+                ),
+        ).toBe(true);
+
+        await rm(tempDir, { recursive: true, force: true });
+    });
+
+    it("never asks the target space for languages when nothing is translated", async () => {
+        const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-copy-"));
+
+        await copyCommand({
+            input: ["copy", "stories"],
+            flags: {
+                from: "source-space",
+                to: "target-space",
+                source: "blog",
+                destination: "imported",
+                manifestRoot: path.join(tempDir, ".sb-mig"),
+                yes: true,
+            },
+        } as any);
+
+        expect(mocks.getSpace).not.toHaveBeenCalled();
+        expect(
+            planGateLines().some((line) => line.includes("translated slug")),
+        ).toBe(false);
+
+        await rm(tempDir, { recursive: true, force: true });
+    });
+
+    it("hands copy manifests a ledger it can read back cleanly", async () => {
+        const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-copy-"));
+        const manifestRoot = path.join(tempDir, ".sb-mig");
+        const outputPath = path.join(tempDir, "reports", "ledger.json");
+
+        // Numeric space ids, as Storyblok issues them: copy manifests treats a
+        // space id as the path segment it becomes and refuses anything else.
+        await copyCommand({
+            input: ["copy", "stories"],
+            flags: {
+                from: "111",
+                to: "222",
+                source: "blog",
+                destination: "imported",
+                manifestRoot,
+                yes: true,
+            },
+        } as any);
+
+        await copyCommand({
+            input: ["copy", "manifests"],
+            flags: {
+                from: "111",
+                to: "222",
+                manifestRoot,
+                outputPath,
+            },
+        } as any);
+
+        const inspection = JSON.parse(await readFile(outputPath, "utf8"));
+
+        // The inspector is only worth anything if it understands the ledger the
+        // copier actually writes, not a fixture shaped like one.
+        expect(inspection.summary).toMatchObject({
+            stories: 2,
+            conflicts: 0,
+            errors: 0,
+            storiesWithoutTargetPath: 0,
+        });
+        expect(inspection.findings).toEqual([]);
+        expect(
+            inspection.files.every(
+                (file: any) => file.kind === "combined" || !file.error,
+            ),
+        ).toBe(true);
+
+        await rm(tempDir, { recursive: true, force: true });
+    });
+
+    it("writes the translated-slug account into the dry-run artifact", async () => {
+        const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-copy-"));
+        const outputPath = path.join(tempDir, "plans", "copy-plan.json");
+
+        withTranslatedSlugs([
+            { lang: "de", slug: "seite-eins", name: "Seite Eins" },
+            { lang: "fr", slug: "page-une" },
+        ]);
+
+        await copyCommand({
+            input: ["copy", "stories"],
+            flags: {
+                from: "source-space",
+                to: "target-space",
+                source: "blog",
+                destination: "imported",
+                dryRun: true,
+                outputPath,
+            },
+        } as any);
+
+        const report = JSON.parse(await readFile(outputPath, "utf8"));
+
+        // A plan read back from its file has to say what the console said;
+        // console-only accounting is invisible to whoever reviews the artifact.
+        expect(report.translatedSlugs).toEqual({
+            stories: 1,
+            carried: 1,
+            unsupported: 1,
+            unsupportedLangs: ["fr"],
+        });
+        expect(report.warnings).toContainEqual({
+            code: "translated_slugs_unsupported_language",
+            message:
+                "1 translated slug(s) will be left behind: space 'target-space' has no language(s) fr. Add them to the target space and copy again to carry them.",
+        });
+
+        await rm(tempDir, { recursive: true, force: true });
+    });
+
+    it("writes the translated-slug account into the apply artifact", async () => {
+        const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-copy-"));
+        const outputPath = path.join(tempDir, "reports", "copy-report.json");
+
+        withTranslatedSlugs([
+            { lang: "de", slug: "seite-eins", name: "Seite Eins" },
+            { lang: "fr", slug: "page-une" },
+        ]);
+
+        await copyCommand({
+            input: ["copy", "stories"],
+            flags: {
+                from: "source-space",
+                to: "target-space",
+                source: "blog",
+                destination: "imported",
+                manifestRoot: path.join(tempDir, ".sb-mig"),
+                yes: true,
+                outputPath,
+            },
+        } as any);
+
+        const report = JSON.parse(await readFile(outputPath, "utf8"));
+
+        expect(report.dryRun).toBe(false);
+        expect(report.translatedSlugs).toEqual({
+            stories: 1,
+            carried: 1,
+            unsupported: 1,
+            unsupportedLangs: ["fr"],
+        });
+        expect(report.warnings).toContainEqual({
+            code: "translated_slugs_unsupported_language",
+            message:
+                "1 translated slug(s) will be left behind: space 'target-space' has no language(s) fr. Add them to the target space and copy again to carry them.",
+        });
+        // The count has to move with the warning, or the summary understates
+        // the run it belongs to.
+        expect(report.summary.warnings).toBe(1);
+
+        await rm(tempDir, { recursive: true, force: true });
+    });
+
     it("fills copied story shells even when no references changed", async () => {
         const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-copy-"));
         const manifestRoot = path.join(tempDir, ".sb-mig");
@@ -1086,6 +1771,7 @@ describe("copy stories dry-run", () => {
                 source: "plain",
                 destination: "imported",
                 manifestRoot,
+                yes: true,
             },
         } as any);
 
@@ -1186,6 +1872,7 @@ describe("copy stories dry-run", () => {
                 destination: "imported",
                 publicationLanguages: "default",
                 manifestRoot,
+                yes: true,
             },
         } as any);
 
@@ -1282,6 +1969,7 @@ describe("copy stories dry-run", () => {
                 destination: "imported",
                 publicationMode: "save-only",
                 manifestRoot,
+                yes: true,
             },
         } as any);
 
@@ -1376,6 +2064,7 @@ describe("copy stories dry-run", () => {
                 destination: "imported",
                 publicationLanguages: "default",
                 manifestRoot,
+                yes: true,
             },
         } as any);
 
@@ -1449,6 +2138,7 @@ describe("copy stories dry-run", () => {
                     source: "blog",
                     destination: "imported",
                     manifestRoot,
+                    yes: true,
                 },
             } as any),
         ).rejects.toThrow(
@@ -1482,6 +2172,7 @@ describe("copy stories dry-run", () => {
                     source: "blog",
                     destination: "imported",
                     manifestRoot,
+                    yes: true,
                 },
             } as any),
         ).rejects.toThrow(
@@ -1531,19 +2222,21 @@ describe("copy stories dry-run", () => {
             },
         });
         const getStoryBySlug = mocks.getStoryBySlug.getMockImplementation();
-        mocks.getStoryBySlug.mockImplementation((slug: string, options: any) => {
-            if (slug === "imported/blog") {
-                return Promise.resolve({
-                    story: {
-                        id: 9999,
-                        uuid: "stale-target-blog-uuid",
-                        full_slug: "imported/blog",
-                    },
-                });
-            }
+        mocks.getStoryBySlug.mockImplementation(
+            (slug: string, options: any) => {
+                if (slug === "imported/blog") {
+                    return Promise.resolve({
+                        story: {
+                            id: 9999,
+                            uuid: "stale-target-blog-uuid",
+                            full_slug: "imported/blog",
+                        },
+                    });
+                }
 
-            return getStoryBySlug?.(slug, options);
-        });
+                return getStoryBySlug?.(slug, options);
+            },
+        );
         mocks.updateStory
             .mockResolvedValueOnce({
                 ok: false,
@@ -1560,6 +2253,7 @@ describe("copy stories dry-run", () => {
                 source: "blog",
                 destination: "imported",
                 manifestRoot,
+                yes: true,
             },
         } as any);
 
@@ -1656,6 +2350,7 @@ describe("copy stories dry-run", () => {
                 source: "blog",
                 destination: "imported",
                 manifestRoot,
+                yes: true,
             },
         } as any);
 
@@ -1729,6 +2424,7 @@ describe("copy stories dry-run", () => {
                 withAssets: true,
                 manifestRoot,
                 outputPath,
+                yes: true,
             },
         } as any);
 

@@ -1,11 +1,24 @@
 import type {
     CopyGraph,
     CopyMaps,
+    CopyRelinkMatch,
+    CopyRelinkAssetMapping,
+    CopyRelinkPlanItem,
+    CopyRelinkStoryMapping,
+    CopyRelinkStoryRewrite,
     CopyAssetFolderManifestEntry,
     CopyAssetManifestEntry,
     CopyComponentSchemaRegistry,
     CopyManifestEntry,
+    CopyManifestFileInput,
+    CopyManifestFileKind,
+    CopyManifestPairInput,
+    CopyManifestRemovalEntry,
+    CopyManifestPaths,
+    CopyManifestViewFilters,
+    CopyResourceType,
     CopyStoryManifestEntry,
+    CopyTranslatedSlugSummary,
 } from "../../api/copy/index.js";
 import type { PublicationMode } from "../../api/data-migration/component-data-migration.js";
 import type { PublishedLayerRecord } from "../../api/data-migration/published-layer.js";
@@ -17,16 +30,50 @@ import path from "path";
 
 import {
     appendManifestEntry,
+    applyStoryManifestEntryToMaps,
+    archiveCopyManifests,
     buildCopyAssetsGraph,
     buildCopyMaps,
+    buildCopyPlanGateSummary,
+    buildCopyReferenceSelection,
+    buildCopyRelinkClassificationMaps,
+    buildCopyRelinkMaps,
+    buildCopyRelinkPlanSummary,
+    buildCopyTranslatedSlugsWarning,
+    classifyStoryReferences,
+    countStoryReferenceStatuses,
     createCopyGraph,
+    createEmptyCopyMaps,
     dedupeManifestFile,
+    describeBrokenStoryReferenceTarget,
+    describeCopyTranslatedSlugs,
+    formatCopyManifestInspection,
+    formatCopyManifestPairList,
+    formatCopyManifestRemovalPlan,
+    formatCopyPlanGate,
+    formatCopyRelinkPlan,
+    buildCopyManifestPairList,
+    getCopyManifestRoot,
     getDefaultCopyManifestPaths,
+    groupBrokenStoryReferences,
+    inspectCopyManifests,
+    assertCopyManifestPairPathIsSafe,
+    isCopyResourceType,
+    isKnownCopyLedgerFile,
+    isSafeCopySpaceSegment,
+    buildCopyManifestRemovalPlan,
+    CopyManifestPathError,
     loadManifest,
     normalizeAssetFolderParentId,
+    parseManifestJsonl,
+    planCopyRelinkStoryRewrite,
+    planStoryTranslatedSlugs,
     rewriteCopyReferences,
     scanStoriesReferences,
+    selectRelinkLedgerAssetMappings,
+    selectRelinkLedgerStoryMappings,
     summarizeCopyGraph,
+    summarizeCopyTranslatedSlugs,
 } from "../../api/copy/index.js";
 import {
     buildPublishedLayerContext,
@@ -42,10 +89,13 @@ import { mapWithConcurrency } from "../../utils/async-utils.js";
 import Logger from "../../utils/logger.js";
 import { getFileName } from "../../utils/string-utils.js";
 import { apiConfig } from "../api-config.js";
+import { askYesNo } from "../helpers.js";
 
 const COPY_COMMANDS = {
     stories: "stories",
     assets: "assets",
+    relink: "relink",
+    manifests: "manifests",
 };
 
 const COPY_MODES = ["subtree", "children", "self"] as const;
@@ -154,14 +204,16 @@ type CopyDryRunReport = {
         assetsMapped: number;
         assetsToCopy: number;
         storyReferences: number;
-        storyReferencesMapped: number;
-        storyReferencesPreserved: number;
+        storyReferencesWillRelink: number;
+        storyReferencesWillBreak: number;
+        storyReferencesExternalKept: number;
         storyReferencesUnresolved: number;
         conflicts: number;
         warnings: number;
         errors: number;
         componentIssues: number;
     };
+    translatedSlugs: CopyTranslatedSlugSummary;
     items: CopyPlanItem[];
     graph?: CopyGraph;
     assetReferenceSummary?: CopyDryRunAssetReferenceSummary;
@@ -266,6 +318,7 @@ type CopyStoriesApplyReport = {
         warnings: number;
         errors: number;
     };
+    translatedSlugs: CopyTranslatedSlugSummary;
     items: CopyPlanItem[];
     graph?: CopyGraph;
     assetCopy?: CopyAssetsApplyReport;
@@ -694,10 +747,12 @@ const buildFinalStoryPayload = ({
     sourceStory,
     targetParentId,
     rewrittenContent,
+    targetLanguageCodes,
 }: {
     sourceStory: any;
     targetParentId: number | null;
     rewrittenContent: any;
+    targetLanguageCodes?: string[];
 }) => {
     const payload = stripGeneratedStoryFields(sourceStory);
 
@@ -706,6 +761,20 @@ const buildFinalStoryPayload = ({
 
     payload.slug = resolveStorySlug(sourceStory);
     payload.content = rewrittenContent;
+
+    // Read as `translated_slugs`, written as `translated_slugs_attributes`.
+    // Sending the read shape is what silently dropped them: the API takes the
+    // key and ignores it.
+    const translatedSlugs = planStoryTranslatedSlugs({
+        story: sourceStory,
+        targetLanguageCodes,
+    });
+
+    delete payload.translated_slugs;
+
+    if (translatedSlugs.carried.length > 0) {
+        payload.translated_slugs_attributes = translatedSlugs.carried;
+    }
 
     if (targetParentId !== null) {
         payload.parent_id = targetParentId;
@@ -983,14 +1052,21 @@ const buildCopyPlan = (
     return plan;
 };
 
+type CopyTargetConflictCheck = {
+    /** Planned paths that already hold a story or folder in the target. */
+    conflicts: CopyPlanItem[];
+    /** Id of the story occupying each of those paths, keyed by target path. */
+    existingTargetStoryIdByFullSlug: Map<string, number>;
+};
+
 const findTargetConflicts = async (
     plan: CopyPlanItem[],
     targetSpace: string,
-): Promise<CopyPlanItem[]> => {
+): Promise<CopyTargetConflictCheck> => {
     let checked = 0;
 
     if (plan.length === 0) {
-        return [];
+        return { conflicts: [], existingTargetStoryIdByFullSlug: new Map() };
     }
 
     Logger.warning(
@@ -1020,19 +1096,48 @@ const findTargetConflicts = async (
                 );
             }
 
-            return existingStory ? item : null;
+            if (!existingStory) {
+                return null;
+            }
+
+            const existingStoryId = existingStory?.story?.id;
+
+            return {
+                item,
+                existingTargetStoryId:
+                    existingStoryId === undefined
+                        ? undefined
+                        : Number(existingStoryId),
+            };
         },
     );
 
-    const conflicts = results.filter(
-        (item): item is CopyPlanItem => item !== null,
+    const found = results.filter(
+        (
+            result,
+        ): result is {
+            item: CopyPlanItem;
+            existingTargetStoryId: number | undefined;
+        } => result !== null,
+    );
+    const conflicts = found.map((result) => result.item);
+    const existingTargetStoryIdByFullSlug = new Map<string, number>(
+        found
+            .filter((result) => result.existingTargetStoryId !== undefined)
+            .map(
+                (result) =>
+                    [
+                        result.item.targetFullSlug,
+                        result.existingTargetStoryId as number,
+                    ] as const,
+            ),
     );
 
     Logger.success(
         `Target conflict check complete. Found ${conflicts.length} existing target path(s).`,
     );
 
-    return conflicts;
+    return { conflicts, existingTargetStoryIdByFullSlug };
 };
 
 const withConflictFlags = (
@@ -1372,6 +1477,7 @@ const buildCopyDryRunReport = ({
     conflicts,
     graph,
     componentCompatibility,
+    translatedSlugs,
     outputPath,
 }: {
     sourceSpace: string;
@@ -1384,12 +1490,20 @@ const buildCopyDryRunReport = ({
     conflicts: CopyPlanItem[];
     graph?: CopyGraph;
     componentCompatibility?: CopyDryRunComponentCompatibility;
+    translatedSlugs: CopyTranslatedSlugSummary;
     outputPath?: string;
 }): CopyDryRunReport => {
     const items = withConflictFlags(plan, conflicts);
+    // The artifact carries the same translated-slug account the console gives,
+    // so a run read back from its JSON is not missing what the terminal said.
+    const translatedSlugsWarning = buildCopyTranslatedSlugsWarning({
+        summary: translatedSlugs,
+        targetSpaceId: targetSpace,
+    });
     const warnings = [
         ...buildDryRunWarnings({ conflicts, withAssets }),
         ...buildComponentCompatibilityWarnings(componentCompatibility),
+        ...(translatedSlugsWarning ? [translatedSlugsWarning] : []),
     ];
     const graphSummary = graph ? summarizeCopyGraph(graph) : undefined;
     const assetReferencesMapped =
@@ -1404,18 +1518,9 @@ const buildCopyDryRunReport = ({
         graph?.assetReferences.filter(
             (reference) => reference.status === "unresolved",
         ).length ?? 0;
-    const storyReferencesMapped =
-        graph?.storyReferences.filter(
-            (reference) => reference.status === "mapped",
-        ).length ?? 0;
-    const storyReferencesPreserved =
-        graph?.storyReferences.filter(
-            (reference) => reference.status === "preserved_external",
-        ).length ?? 0;
-    const storyReferencesUnresolved =
-        graph?.storyReferences.filter(
-            (reference) => reference.status === "unresolved",
-        ).length ?? 0;
+    const storyReferenceCounts = countStoryReferenceStatuses(
+        graph?.storyReferences ?? [],
+    );
     const assetsMapped =
         graph?.assets.filter((asset) => asset.action === "match").length ?? 0;
     const assetsToCopy =
@@ -1458,14 +1563,16 @@ const buildCopyDryRunReport = ({
             assetsMapped,
             assetsToCopy,
             storyReferences: graphSummary?.storyReferences ?? 0,
-            storyReferencesMapped,
-            storyReferencesPreserved,
-            storyReferencesUnresolved,
+            storyReferencesWillRelink: storyReferenceCounts.willRelink,
+            storyReferencesWillBreak: storyReferenceCounts.willBreak,
+            storyReferencesExternalKept: storyReferenceCounts.externalKept,
+            storyReferencesUnresolved: storyReferenceCounts.unresolved,
             conflicts: conflicts.length,
             warnings: warnings.length + (graphSummary?.warnings ?? 0),
             errors: graphSummary?.errors ?? 0,
             componentIssues: componentCompatibility?.findings.length ?? 0,
         },
+        translatedSlugs,
         items,
         ...(graph ? { graph } : {}),
         ...(assetReferenceSummary ? { assetReferenceSummary } : {}),
@@ -1561,6 +1668,7 @@ const buildCopyStoriesApplyReport = ({
     storySummary,
     graph,
     assetCopyReport,
+    translatedSlugs,
     manifestRoot,
 }: {
     sourceSpace: string;
@@ -1573,6 +1681,7 @@ const buildCopyStoriesApplyReport = ({
     storySummary: CopyStoriesApplySummary;
     graph?: CopyGraph;
     assetCopyReport?: CopyAssetsApplyReport;
+    translatedSlugs: CopyTranslatedSlugSummary;
     manifestRoot?: string;
 }): CopyStoriesApplyReport => {
     const manifestPaths = getDefaultCopyManifestPaths({
@@ -1581,6 +1690,12 @@ const buildCopyStoriesApplyReport = ({
         rootDir: manifestRoot,
     });
     const graphSummary = graph ? summarizeCopyGraph(graph) : undefined;
+    // What the run left behind survives in the artifact too: an apply report
+    // read a week later is the only record that the slugs were dropped.
+    const translatedSlugsWarning = buildCopyTranslatedSlugsWarning({
+        summary: translatedSlugs,
+        targetSpaceId: targetSpace,
+    });
 
     return {
         schemaVersion: 1,
@@ -1610,11 +1725,13 @@ const buildCopyStoriesApplyReport = ({
                 : {}),
             warnings:
                 (graphSummary?.warnings ?? 0) +
-                (assetCopyReport?.summary.warnings ?? 0),
+                (assetCopyReport?.summary.warnings ?? 0) +
+                (translatedSlugsWarning ? 1 : 0),
             errors:
                 (graphSummary?.errors ?? 0) +
                 (assetCopyReport?.summary.errors ?? 0),
         },
+        translatedSlugs,
         items: plan,
         ...(graph ? { graph } : {}),
         ...(assetCopyReport ? { assetCopy: assetCopyReport } : {}),
@@ -1627,6 +1744,7 @@ const buildCopyStoriesApplyReport = ({
         warnings: [
             ...(graph?.warnings ?? []),
             ...(assetCopyReport?.warnings ?? []),
+            ...(translatedSlugsWarning ? [translatedSlugsWarning] : []),
         ],
         errors: [...(graph?.errors ?? []), ...(assetCopyReport?.errors ?? [])],
     };
@@ -1637,6 +1755,399 @@ const writeDryRunReport = async (outputPath: string, report: unknown) => {
     await fs.mkdir(outputDirectory, { recursive: true });
     await fs.writeFile(outputPath, JSON.stringify(report, null, 2), "utf8");
     Logger.success(`[dry-run] Copy plan written to ${outputPath}`);
+};
+
+/**
+ * One ledger file as the inspector needs to see it. `loadManifest` answers a
+ * missing file with an empty list, which is the right answer for a run and the
+ * wrong one for an inspector: "never written" and "written empty" are
+ * different states, and a file that will not parse is a third.
+ */
+const readCopyManifestFile = async (
+    kind: CopyManifestFileKind,
+    filePath: string,
+): Promise<CopyManifestFileInput> => {
+    let content: string;
+
+    try {
+        content = await fs.readFile(filePath, "utf8");
+    } catch (error: any) {
+        if (error?.code === "ENOENT") {
+            return { kind, path: filePath, exists: false };
+        }
+
+        return {
+            kind,
+            path: filePath,
+            exists: true,
+            error: String(error?.message ?? error),
+        };
+    }
+
+    try {
+        return {
+            kind,
+            path: filePath,
+            exists: true,
+            entries: parseManifestJsonl(content, filePath),
+        };
+    } catch (error: any) {
+        return {
+            kind,
+            path: filePath,
+            exists: true,
+            error: String(error?.message ?? error),
+        };
+    }
+};
+
+const COPY_MANIFEST_FILE_KINDS: [
+    CopyManifestFileKind,
+    keyof CopyManifestPaths,
+][] = [
+    ["combined", "combined"],
+    ["stories", "stories"],
+    ["assets", "assets"],
+    ["assetFolders", "assetFolders"],
+];
+
+const readCopyManifestFiles = async (
+    paths: CopyManifestPaths,
+): Promise<CopyManifestFileInput[]> =>
+    Promise.all(
+        COPY_MANIFEST_FILE_KINDS.map(([kind, key]) =>
+            readCopyManifestFile(kind, paths[key] as string),
+        ),
+    );
+
+/**
+ * Every space pair with a ledger directory on disk. Discovery is the whole
+ * point of the no-argument listing: the answer must come from what was actually
+ * copied, never from the configured space, which is a guess that reads a
+ * different pair's ledger — or an empty one — and calls it healthy.
+ */
+const discoverCopyManifestPairs = async (
+    manifestRoot: string | undefined,
+): Promise<{ sourceSpaceId: string; targetSpaceId: string }[]> => {
+    const root = getCopyManifestRoot(manifestRoot);
+    const pairs: { sourceSpaceId: string; targetSpaceId: string }[] = [];
+
+    let sources: string[];
+
+    try {
+        sources = (await fs.readdir(root, { withFileTypes: true }))
+            .filter((entry) => entry.isDirectory())
+            .map((entry) => entry.name)
+            .sort();
+    } catch (error: any) {
+        if (error?.code === "ENOENT") {
+            return [];
+        }
+
+        throw error;
+    }
+
+    for (const sourceSpaceId of sources) {
+        const targets = (
+            await fs.readdir(path.join(root, sourceSpaceId), {
+                withFileTypes: true,
+            })
+        )
+            .filter((entry) => entry.isDirectory())
+            .map((entry) => entry.name)
+            .sort();
+
+        for (const targetSpaceId of targets) {
+            pairs.push({ sourceSpaceId, targetSpaceId });
+        }
+    }
+
+    return pairs;
+};
+
+type CopyManifestPairSelection = {
+    sourceSpaceId: string;
+    targetSpaceId: string;
+};
+
+/**
+ * The pair to inspect, named explicitly or not at all.
+ *
+ * `copy manifests` never falls back to the configured space: a ledger belongs
+ * to a pair, and defaulting either side reads the wrong file and reports it as
+ * the answer. Half a pair is an error for the same reason.
+ */
+const describeUnsafeCopySpaceSegment = (
+    label: string,
+    value: string,
+    flagName: string,
+): string =>
+    `${flagName} ${label} space id must be a plain number, not '${value}'. A space id becomes a directory name in the copy ledger, so anything else can point outside it.`;
+
+/**
+ * One `<sourceSpaceId>:<targetSpaceId>` value, checked as two path segments
+ * before it is ever joined into a path.
+ */
+const parseCopyManifestPairValue = (
+    raw: string,
+    flagName: string,
+): { pair?: CopyManifestPairSelection; error?: string } => {
+    const [sourceSpaceId, targetSpaceId, ...rest] = raw.split(":");
+
+    if (!sourceSpaceId || !targetSpaceId || rest.length > 0) {
+        return {
+            error: `${flagName} must be written as <sourceSpaceId>:<targetSpaceId>, not '${raw}'.`,
+        };
+    }
+
+    for (const [label, value] of [
+        ["source", sourceSpaceId],
+        ["target", targetSpaceId],
+    ] as const) {
+        if (!isSafeCopySpaceSegment(value)) {
+            return {
+                error: describeUnsafeCopySpaceSegment(label, value, flagName),
+            };
+        }
+    }
+
+    return { pair: { sourceSpaceId, targetSpaceId } };
+};
+
+const resolveCopyManifestPair = (
+    flags: Record<string, any>,
+): { pair?: CopyManifestPairSelection; error?: string } => {
+    const rawPair = readStringFlag(flags, ["pair"]);
+    const from = readStringFlag(flags, ["from", "sourceSpace"]);
+    const to = readStringFlag(flags, ["to", "targetSpace"]);
+
+    if (rawPair) {
+        return parseCopyManifestPairValue(rawPair, "--pair");
+    }
+
+    if (from && to) {
+        for (const [label, value, flagName] of [
+            ["source", from, "--from"],
+            ["target", to, "--to"],
+        ] as const) {
+            if (!isSafeCopySpaceSegment(value)) {
+                return {
+                    error: describeUnsafeCopySpaceSegment(
+                        label,
+                        value,
+                        flagName,
+                    ),
+                };
+            }
+        }
+
+        return { pair: { sourceSpaceId: from, targetSpaceId: to } };
+    }
+
+    if (from || to) {
+        return {
+            error: "Name the whole pair: --pair <sourceSpaceId>:<targetSpaceId>, or both --from and --to. copy manifests never falls back to the configured space.",
+        };
+    }
+
+    return {};
+};
+
+/**
+ * Everything inside the pair directory, walked with `lstat` so a symlink is
+ * recorded as a symlink rather than followed into whatever it points at. The
+ * gate has to be able to name every entry a recursive delete would take.
+ */
+const readCopyManifestRemovalEntries = async (
+    dir: string,
+): Promise<{ exists: boolean; entries: CopyManifestRemovalEntry[] }> => {
+    const entries: CopyManifestRemovalEntry[] = [];
+
+    const walk = async (current: string, prefix: string): Promise<void> => {
+        const names = (await fs.readdir(current)).sort();
+
+        for (const name of names) {
+            const absolute = path.join(current, name);
+            const relative = prefix ? `${prefix}/${name}` : name;
+            const stats = await fs.lstat(absolute);
+
+            if (stats.isSymbolicLink()) {
+                entries.push({
+                    path: relative,
+                    kind: "symlink",
+                    bytes: stats.size,
+                    target: await fs.readlink(absolute),
+                    unexpected: true,
+                });
+                continue;
+            }
+
+            if (stats.isDirectory()) {
+                entries.push({
+                    path: relative,
+                    kind: "directory",
+                    bytes: 0,
+                    unexpected: true,
+                });
+                await walk(absolute, relative);
+                continue;
+            }
+
+            entries.push({
+                path: relative,
+                kind: stats.isFile() ? "file" : "other",
+                bytes: stats.size,
+                unexpected: !isKnownCopyLedgerFile(relative),
+            });
+        }
+    };
+
+    try {
+        await walk(dir, "");
+    } catch (error: any) {
+        if (error?.code === "ENOENT") {
+            return { exists: false, entries: [] };
+        }
+
+        throw error;
+    }
+
+    return { exists: true, entries };
+};
+
+/**
+ * Whether a path lands inside a directory, compared after resolving both. Used
+ * to keep a report out of the directory the same command is about to delete.
+ */
+/**
+ * The real location a path names, for a path that need not exist yet.
+ *
+ * `fs.realpath` fails outright on a missing file, and an output path usually is
+ * missing — it is about to be written. So the deepest ancestor that does exist
+ * is resolved, and the not-yet-existing tail is re-attached to it. That is what
+ * makes a symlinked parent visible: `<tmp>/report-link/report.json` has no
+ * `report.json` to resolve, but `report-link` resolves to whatever it points at.
+ *
+ * When the path itself exists and is a symlink, `realpath` follows it, which is
+ * the other half of the same question.
+ */
+const resolveRealPathOfDeepestExisting = async (
+    target: string,
+): Promise<string> => {
+    const resolved = path.resolve(target);
+    const trailing: string[] = [];
+    let current = resolved;
+
+    for (;;) {
+        try {
+            const real = await fs.realpath(current);
+
+            return trailing.length === 0
+                ? real
+                : path.join(real, ...[...trailing].reverse());
+        } catch (error: any) {
+            if (error?.code !== "ENOENT") {
+                throw error;
+            }
+
+            const parent = path.dirname(current);
+
+            if (parent === current) {
+                // Nothing on this path exists at all; the lexical answer is the
+                // only one there is, and it cannot be hiding a link.
+                return resolved;
+            }
+
+            trailing.push(path.basename(current));
+            current = parent;
+        }
+    }
+};
+
+/**
+ * Whether a path is itself a symbolic link, dangling or not. `lstat` is the
+ * whole point: it reports on the link, where `stat` and `realpath` report on
+ * whatever it points at — and on a dangling link they report nothing at all.
+ */
+const isSymbolicLinkPath = async (target: string): Promise<boolean> => {
+    try {
+        return (await fs.lstat(path.resolve(target))).isSymbolicLink();
+    } catch (error: any) {
+        if (error?.code === "ENOENT") {
+            return false;
+        }
+
+        throw error;
+    }
+};
+
+/**
+ * Whether a path really lands inside a directory, compared after both have been
+ * resolved against the filesystem. Comparing the strings alone is not enough:
+ * a parent component of the output path can be a symlink into the directory
+ * about to be deleted, and the lexical forms will not look alike at all.
+ */
+const isReallyInsideDirectory = async (
+    candidate: string,
+    directory: string,
+): Promise<boolean> => {
+    const [resolved, resolvedDirectory] = await Promise.all([
+        resolveRealPathOfDeepestExisting(candidate),
+        resolveRealPathOfDeepestExisting(directory),
+    ]);
+
+    return (
+        resolved === resolvedDirectory ||
+        resolved.startsWith(resolvedDirectory + path.sep)
+    );
+};
+
+/**
+ * When the ledger file was really last touched. Read from the filesystem rather
+ * than from a `created_at` inside it, which records what a run believed it did.
+ */
+const readCopyManifestMtime = async (
+    filePath: string,
+): Promise<{ lastWrittenAt?: string }> => {
+    try {
+        const stats = await fs.stat(filePath);
+
+        return { lastWrittenAt: stats.mtime.toISOString() };
+    } catch (error: any) {
+        if (error?.code === "ENOENT") {
+            return {};
+        }
+
+        throw error;
+    }
+};
+
+const parseCopyManifestTypes = (
+    flags: Record<string, any>,
+): { types?: CopyResourceType[]; error?: string } => {
+    const raw = readStringListFlag(flags, ["type"]);
+
+    if (raw.length === 0) {
+        return {};
+    }
+
+    const types: CopyResourceType[] = [];
+
+    for (const value of raw) {
+        const normalized = value.trim().toLowerCase().replace(/-/g, "_");
+
+        if (!isCopyResourceType(normalized)) {
+            return {
+                error: `--type must be one of: story, asset, asset_folder. Received '${value}'.`,
+            };
+        }
+
+        if (!types.includes(normalized)) {
+            types.push(normalized);
+        }
+    }
+
+    return { types };
 };
 
 const writeJsonReport = async (outputPath: string, report: unknown) => {
@@ -2245,10 +2756,24 @@ const annotateReferencesWithManifestMaps = ({
     graph,
     copyMaps,
     withAssets,
+    classifyStories,
+    unmappedSourceFullSlugs,
 }: {
     graph: CopyGraph;
     copyMaps: CopyMaps;
     withAssets: boolean;
+    /**
+     * Only a story-copy run rewrites story references, so only it can promise
+     * `will_relink` or warn `will_break`. Asset-only runs leave the scanner's
+     * neutral `unclassified` status in place.
+     */
+    classifyStories: boolean;
+    /**
+     * Planned stories that will have no mapping when content is rewritten.
+     * `copy stories` creates them all and passes nothing; `copy relink` passes
+     * the stories missing from the target, whose references really do break.
+     */
+    unmappedSourceFullSlugs?: ReadonlySet<string>;
 }) => {
     for (const reference of graph.assetReferences) {
         if (hasMappedAssetReference({ ...reference, copyMaps })) {
@@ -2261,15 +2786,33 @@ const annotateReferencesWithManifestMaps = ({
         }
     }
 
-    for (const reference of graph.storyReferences) {
-        if (
-            (reference.referencedStoryId !== undefined &&
-                copyMaps.storyIds.has(reference.referencedStoryId)) ||
-            (reference.referencedStoryUuid !== undefined &&
-                copyMaps.storyUuids.has(reference.referencedStoryUuid))
-        ) {
-            reference.status = "mapped";
-        }
+    if (!classifyStories) {
+        return;
+    }
+
+    // Story references are classified against the copy plan as well as the
+    // ledger: a reference into the selection relinks once phase 2 runs, one
+    // that points outside it dangles. graph.stories already carries the plan.
+    graph.storyReferences = classifyStoryReferences({
+        storyReferences: graph.storyReferences,
+        selection: buildCopyReferenceSelection(graph.stories, {
+            excludeSourceFullSlugs: unmappedSourceFullSlugs,
+        }),
+        copyMaps,
+        sameSpace: graph.sourceSpaceId === graph.targetSpaceId,
+    });
+
+    for (const group of groupBrokenStoryReferences(graph.storyReferences)) {
+        graph.warnings.push({
+            code: "broken_story_reference",
+            message: `Story '${group.sourceStoryFullSlug}' references ${group.references.length} story/stories outside this copy that are not in the ledger; the copied content will point at nothing.`,
+            path: group.references
+                .map((reference) => reference.path)
+                .join(", "),
+            sourceValue: group.references.map(
+                describeBrokenStoryReferenceTarget,
+            ),
+        });
     }
 };
 
@@ -2318,6 +2861,59 @@ const annotateAssetsWithManifestMaps = ({
     }
 };
 
+/**
+ * The languages the target space has, or `undefined` when the space could not
+ * be read. An unknown list is not an empty one: the caller carries everything
+ * rather than drop a slug on a failed lookup.
+ */
+const getTargetLanguageCodes = async (
+    targetSpace: string,
+): Promise<string[] | undefined> => {
+    const space: any = await managementApi.spaces.getSpace(
+        { spaceId: targetSpace },
+        {
+            ...apiConfig,
+            spaceId: targetSpace,
+        },
+    );
+    const languages = space?.space?.languages;
+
+    if (!Array.isArray(languages)) {
+        Logger.warning(
+            `Could not read the languages of space '${targetSpace}'; translated slugs will be sent as they are and the API has the last word.`,
+        );
+
+        return undefined;
+    }
+
+    return languages
+        .map((language: any) =>
+            typeof language === "string" ? language : language?.code,
+        )
+        .filter((code: any): code is string => Boolean(code));
+};
+
+/**
+ * Restricts the scan input to the stories the plan will actually write. The
+ * selection fetch can return more than the plan (children mode fetches the
+ * root folder but does not copy it); scanning those would attribute
+ * references to a run that never touches them.
+ */
+const selectPlannedSourceStories = (
+    sourceStories: any[],
+    plan: CopyPlanItem[],
+): any[] => {
+    const plannedFullSlugs = new Set(plan.map((item) => item.sourceFullSlug));
+
+    return sourceStories
+        .map((item) => item?.story)
+        .filter(
+            (story) =>
+                Boolean(story) &&
+                plannedFullSlugs.has(String(story.full_slug ?? "")),
+        );
+};
+
 const buildStoryReferenceDryRunGraph = ({
     sourceSpace,
     targetSpace,
@@ -2327,6 +2923,7 @@ const buildStoryReferenceDryRunGraph = ({
     sourceStories,
     schemas,
     copyMaps,
+    unmappedSourceFullSlugs,
     onScanProgress,
 }: {
     sourceSpace: string;
@@ -2337,6 +2934,8 @@ const buildStoryReferenceDryRunGraph = ({
     sourceStories: any[];
     schemas: Record<string, any>;
     copyMaps: CopyMaps;
+    /** Planned stories this run will not map; see the annotator. */
+    unmappedSourceFullSlugs?: ReadonlySet<string>;
     onScanProgress?: (progress: {
         scanned: number;
         total: number;
@@ -2350,7 +2949,7 @@ const buildStoryReferenceDryRunGraph = ({
             .map((story) => [String(story.full_slug ?? ""), story] as const),
     );
     const scanResult = scanStoriesReferences({
-        stories: sourceStories.map((item) => item?.story).filter(Boolean),
+        stories: selectPlannedSourceStories(sourceStories, plan),
         schemas,
         options: {
             referencePolicy: "preserve",
@@ -2391,6 +2990,8 @@ const buildStoryReferenceDryRunGraph = ({
         graph,
         copyMaps,
         withAssets: false,
+        classifyStories: true,
+        unmappedSourceFullSlugs,
     });
 
     return graph;
@@ -2407,6 +3008,7 @@ const buildReferencedAssetsGraph = ({
     sourceAssetFolders,
     schemas,
     copyMaps,
+    classifyStories,
     onScanProgress,
 }: {
     sourceSpace: string;
@@ -2419,6 +3021,7 @@ const buildReferencedAssetsGraph = ({
     sourceAssetFolders: any[];
     schemas: Record<string, any>;
     copyMaps: CopyMaps;
+    classifyStories: boolean;
     onScanProgress?: (progress: {
         scanned: number;
         total: number;
@@ -2426,7 +3029,7 @@ const buildReferencedAssetsGraph = ({
     }) => void;
 }): CopyGraph => {
     const scanResult = scanStoriesReferences({
-        stories: sourceStories.map((item) => item?.story).filter(Boolean),
+        stories: selectPlannedSourceStories(sourceStories, plan),
         schemas,
         options: {
             referencePolicy: "preserve",
@@ -2513,6 +3116,7 @@ const buildReferencedAssetsGraph = ({
         graph,
         copyMaps,
         withAssets: true,
+        classifyStories,
     });
     annotateAssetsWithManifestMaps({
         graph,
@@ -2585,12 +3189,14 @@ const buildRewrittenStoryPayload = ({
     targetParentId,
     maps,
     schemas,
+    targetLanguageCodes,
 }: {
     sourceStory: any;
     content: any;
     targetParentId: number | null;
     maps: CopyMaps;
     schemas: CopyComponentSchemaRegistry;
+    targetLanguageCodes?: string[];
 }) => {
     const rewritten = rewriteCopyReferences({
         value: content ?? {},
@@ -2603,6 +3209,7 @@ const buildRewrittenStoryPayload = ({
             sourceStory,
             targetParentId,
             rewrittenContent: rewritten.value,
+            targetLanguageCodes,
         }),
         rewrittenReferences: rewritten.records.length,
     };
@@ -2648,6 +3255,7 @@ const rewriteCopiedStoryContents = async ({
     sourceSpace,
     targetSpace,
     manifestRoot,
+    targetLanguageCodes,
 }: {
     tree: any[];
     realParentId: number | null;
@@ -2658,6 +3266,7 @@ const rewriteCopiedStoryContents = async ({
     sourceSpace: string;
     targetSpace: string;
     manifestRoot?: string;
+    targetLanguageCodes?: string[];
 }) => {
     const manifestPaths = getDefaultCopyManifestPaths({
         sourceSpaceId: sourceSpace,
@@ -2707,8 +3316,7 @@ const rewriteCopiedStoryContents = async ({
             resourcePath: manifestPaths.stories,
             entry,
         });
-        maps.storyIds.set(entry.source_id, entry.target_id);
-        maps.storyUuids.set(entry.source_uuid, entry.target_uuid);
+        applyStoryManifestEntryToMaps(maps, entry);
 
         return entry.target_id;
     };
@@ -2813,6 +3421,7 @@ const rewriteCopiedStoryContents = async ({
                     targetParentId: parentId,
                     maps,
                     schemas,
+                    targetLanguageCodes,
                 });
                 const publishedLayerRecord = publishedLayerRecordBySourceId.get(
                     String(sourceStory.id),
@@ -2833,6 +3442,7 @@ const rewriteCopiedStoryContents = async ({
                         targetParentId: parentId,
                         maps,
                         schemas,
+                        targetLanguageCodes,
                     });
                     const publishedUpdateResult =
                         await managementApi.stories.updateStory(
@@ -3134,8 +3744,7 @@ const createStoriesAndWriteManifests = async ({
                     resourcePath: manifestPaths.stories,
                     entry,
                 });
-                copyMaps.storyIds.set(entry.source_id, entry.target_id);
-                copyMaps.storyUuids.set(entry.source_uuid, entry.target_uuid);
+                applyStoryManifestEntryToMaps(copyMaps, entry);
                 storiesMatched += 1;
 
                 await walk(node.children ?? [], entry.target_id);
@@ -3179,8 +3788,7 @@ const createStoriesAndWriteManifests = async ({
                 resourcePath: manifestPaths.stories,
                 entry,
             });
-            copyMaps.storyIds.set(entry.source_id, entry.target_id);
-            copyMaps.storyUuids.set(entry.source_uuid, entry.target_uuid);
+            applyStoryManifestEntryToMaps(copyMaps, entry);
             storiesCreated += 1;
 
             await walk(node.children ?? [], entry.target_id);
@@ -3553,7 +4161,13 @@ const copyAssetsAndWriteManifests = async ({
     return report;
 };
 
-const logDryRunCopyPlan = async ({ report }: { report: CopyDryRunReport }) => {
+const logDryRunCopyPlan = async ({
+    report,
+    translatedSlugs,
+}: {
+    report: CopyDryRunReport;
+    translatedSlugs?: CopyTranslatedSlugSummary;
+}) => {
     Logger.warning(
         "[dry-run] Copy stories preview only. No Storyblok writes will be made.",
     );
@@ -3580,6 +4194,15 @@ const logDryRunCopyPlan = async ({ report }: { report: CopyDryRunReport }) => {
         Logger.warning(
             "[dry-run] Descendants will not be copied; only the selected story or folder shell is planned.",
         );
+    }
+
+    if (translatedSlugs) {
+        for (const line of describeCopyTranslatedSlugs({
+            summary: translatedSlugs,
+            targetSpaceId: report.normalized.targetSpaceId,
+        })) {
+            Logger.warning(`[dry-run] ${line}`);
+        }
     }
 
     Logger.warning(
@@ -3614,8 +4237,26 @@ const logDryRunCopyPlan = async ({ report }: { report: CopyDryRunReport }) => {
         }
 
         Logger.warning(
-            `[dry-run] Story refs: ${report.summary.storyReferencesMapped} mapped, ${report.summary.storyReferencesPreserved} preserved, ${report.summary.storyReferencesUnresolved} unresolved.`,
+            `[dry-run] Story refs: ${report.summary.storyReferencesWillRelink} will relink, ${report.summary.storyReferencesWillBreak} will break, ${report.summary.storyReferencesExternalKept} external kept, ${report.summary.storyReferencesUnresolved} unresolved.`,
         );
+
+        if (report.summary.storyReferencesWillBreak > 0) {
+            Logger.error(
+                `[dry-run] ${report.summary.storyReferencesWillBreak} story reference(s) WILL BREAK: they point at stories outside this copy and are not in the ledger, so the copied content will point at nothing.`,
+            );
+
+            for (const group of groupBrokenStoryReferences(
+                report.graph.storyReferences,
+            )) {
+                Logger.error(`[dry-run]   ${group.sourceStoryFullSlug}`);
+
+                for (const reference of group.references) {
+                    Logger.error(
+                        `[dry-run]     ${reference.path} -> ${describeBrokenStoryReferenceTarget(reference)}`,
+                    );
+                }
+            }
+        }
 
         for (const folder of report.graph.assetFolders) {
             Logger.warning(
@@ -3748,6 +4389,423 @@ const logDryRunCopyAssetsPlan = async ({
     );
 };
 
+/**
+ * The single gate between planning and the first API write. `--yes` passes
+ * it (the plan still prints); without a terminal there is nobody to ask, so
+ * the run refuses rather than guessing.
+ */
+const confirmCopyPlan = async ({ yes }: { yes: boolean }): Promise<boolean> => {
+    if (yes) {
+        Logger.log("Continuing without confirmation (--yes).");
+        return true;
+    }
+
+    if (!process.stdin.isTTY) {
+        Logger.error(
+            "Refusing to write without confirmation: no interactive terminal. Re-run with --yes to continue, or --dry-run to only plan.",
+        );
+        process.exitCode = 1;
+        return false;
+    }
+
+    const confirmed = await askYesNo("Continue? [y/N]");
+
+    if (!confirmed) {
+        Logger.warning("Copy aborted before any write.");
+    }
+
+    return confirmed;
+};
+
+type CopyRelinkMatchRecord = {
+    item: CopyPlanItem;
+    sourceStory?: any;
+    targetStory?: any;
+    match: CopyRelinkMatch;
+    rewrite?: CopyRelinkStoryRewrite;
+};
+
+/**
+ * Finds the story each planned item already has in the target space: through a
+ * still-valid ledger mapping first, then by target path. Read-only — adopted
+ * mappings are recorded only once the operator has confirmed the plan.
+ */
+const matchRelinkTargets = async ({
+    plan,
+    sourceStories,
+    copyMaps,
+    targetSpace,
+}: {
+    plan: CopyPlanItem[];
+    sourceStories: any[];
+    copyMaps: CopyMaps;
+    targetSpace: string;
+}): Promise<CopyRelinkMatchRecord[]> => {
+    const sourceStoryByFullSlug = new Map<string, any>(
+        sourceStories
+            .map((item: any) => item?.story)
+            .filter(Boolean)
+            .map((story: any) => [String(story.full_slug ?? ""), story]),
+    );
+    let checked = 0;
+
+    Logger.warning(
+        `Matching ${plan.length} planned item(s) against stories in space '${targetSpace}'.`,
+    );
+
+    const records = await mapWithConcurrency(
+        plan,
+        TARGET_CONFLICT_CHECK_CONCURRENCY,
+        async (item): Promise<CopyRelinkMatchRecord> => {
+            const sourceStory = sourceStoryByFullSlug.get(item.sourceFullSlug);
+            const mappedTargetId = sourceStory
+                ? copyMaps.storyIds.get(Number(sourceStory.id))
+                : undefined;
+            let targetStory: any;
+            let match: CopyRelinkMatch = "missing";
+
+            if (sourceStory && mappedTargetId) {
+                targetStory = await getValidMappedTargetStory({
+                    sourceStory,
+                    targetStoryId: mappedTargetId,
+                    targetFullSlug: item.targetFullSlug,
+                    targetSpace,
+                });
+
+                if (targetStory) {
+                    match = "ledger";
+                }
+            }
+
+            if (!targetStory) {
+                const existingTargetStory =
+                    await managementApi.stories.getStoryBySlug(
+                        item.targetFullSlug,
+                        {
+                            ...apiConfig,
+                            spaceId: targetSpace,
+                        },
+                    );
+
+                if (existingTargetStory?.story?.id) {
+                    targetStory = existingTargetStory.story;
+                    match = "adopted";
+                }
+            }
+
+            checked += 1;
+            if (
+                checked === plan.length ||
+                checked % 25 === 0 ||
+                plan.length <= 25
+            ) {
+                Logger.success(
+                    `Matched ${checked} of ${plan.length} planned item(s).`,
+                );
+            }
+
+            return { item, sourceStory, targetStory, match };
+        },
+    );
+
+    return records;
+};
+
+/**
+ * Keeps only the out-of-selection ledger mappings whose target story is still
+ * there, refreshed from the story the check just read. Relink writes THROUGH
+ * these mappings, so an unchecked one turns a broken reference into a reference
+ * to a story that no longer exists — the one outcome worse than leaving the
+ * break alone — and a mapping trusted for its recorded path would rewrite
+ * `cached_url` to wherever the story used to live. Only mappings the target
+ * content actually mentions are checked, so the cost is bounded by the damage.
+ */
+const validateRelinkLedgerMappings = async ({
+    mappings,
+    targetSpace,
+}: {
+    mappings: CopyRelinkStoryMapping[];
+    targetSpace: string;
+}): Promise<{
+    valid: CopyRelinkStoryMapping[];
+    stale: CopyRelinkStoryMapping[];
+}> => {
+    if (mappings.length === 0) {
+        return { valid: [], stale: [] };
+    }
+
+    Logger.warning(
+        `Validating ${mappings.length} ledger mapping(s) referenced by the target content but outside this selection.`,
+    );
+
+    const checked = await mapWithConcurrency(
+        mappings,
+        TARGET_CONFLICT_CHECK_CONCURRENCY,
+        async (mapping) => {
+            const targetStory = await managementApi.stories.getStoryById(
+                String(mapping.targetId),
+                {
+                    ...apiConfig,
+                    spaceId: targetSpace,
+                },
+            );
+            const foundUuid = targetStory?.story?.uuid;
+
+            if (
+                targetStory?.story?.id &&
+                (!mapping.targetUuid ||
+                    String(foundUuid) === mapping.targetUuid)
+            ) {
+                // The ledger records where the story was PUT; the target space
+                // knows where it is now. A story moved since the copy keeps its
+                // mapping and gets its current path.
+                const foundFullSlug = targetStory.story.full_slug;
+
+                return {
+                    mapping: {
+                        ...mapping,
+                        targetFullSlug:
+                            typeof foundFullSlug === "string" &&
+                            foundFullSlug.length > 0
+                                ? foundFullSlug
+                                : mapping.targetFullSlug,
+                    },
+                    valid: true,
+                };
+            }
+
+            Logger.warning(
+                `Ignoring stale story manifest mapping for '${mapping.sourceFullSlug || `#${mapping.sourceId}`}' because target story '${mapping.targetId}' was not found in space '${targetSpace}'. References to it are left as they are.`,
+            );
+
+            return { mapping, valid: false };
+        },
+    );
+
+    return {
+        valid: checked
+            .filter((result) => result.valid)
+            .map((result) => result.mapping),
+        stale: checked
+            .filter((result) => !result.valid)
+            .map((result) => result.mapping),
+    };
+};
+
+/**
+ * Keeps only the asset mappings whose target file is still in the target space,
+ * with the filename that space reports today. Relink rewrites a story's image
+ * fields through these exactly as it rewrites its links, so an unchecked
+ * mapping points a live image at a deleted file — the ledger records what was
+ * copied, and a later deletion in the target invalidates it just as thoroughly
+ * as it invalidates a story mapping.
+ */
+const validateRelinkAssetMappings = async ({
+    mappings,
+    targetSpace,
+}: {
+    mappings: CopyRelinkAssetMapping[];
+    targetSpace: string;
+}): Promise<{
+    valid: CopyRelinkAssetMapping[];
+    stale: CopyRelinkAssetMapping[];
+}> => {
+    if (mappings.length === 0) {
+        return { valid: [], stale: [] };
+    }
+
+    Logger.warning(
+        `Validating ${mappings.length} asset mapping(s) referenced by the target content.`,
+    );
+
+    const checked = await mapWithConcurrency(
+        mappings,
+        TARGET_CONFLICT_CHECK_CONCURRENCY,
+        async (mapping) => {
+            const targetAsset: any = await managementApi.assets.getAssetById(
+                { spaceId: targetSpace, assetId: mapping.targetId },
+                apiConfig,
+            );
+            const foundFilename = targetAsset?.filename;
+
+            if (
+                Number(targetAsset?.id) === mapping.targetId &&
+                typeof foundFilename === "string" &&
+                foundFilename.length > 0
+            ) {
+                return {
+                    mapping: { ...mapping, targetFilename: foundFilename },
+                    valid: true,
+                };
+            }
+
+            Logger.warning(
+                `Ignoring stale asset manifest mapping for '${mapping.sourceFilename || `#${mapping.sourceId}`}' because target asset '${mapping.targetId}' was not found in space '${targetSpace}'. References to it are left as they are.`,
+            );
+
+            return { mapping, valid: false };
+        },
+    );
+
+    return {
+        valid: checked
+            .filter((result) => result.valid)
+            .map((result) => result.mapping),
+        stale: checked
+            .filter((result) => !result.valid)
+            .map((result) => result.mapping),
+    };
+};
+
+/**
+ * The write half of `copy relink`: record the adopted mappings, then store the
+ * rewritten content of every story whose references actually changed. Stories
+ * that already point at the right target are never updated.
+ */
+const relinkTargetStories = async ({
+    matches,
+    manifestPaths,
+    sourceSpace,
+    targetSpace,
+}: {
+    matches: CopyRelinkMatchRecord[];
+    manifestPaths: ReturnType<typeof getDefaultCopyManifestPaths>;
+    sourceSpace: string;
+    targetSpace: string;
+}) => {
+    let adopted = 0;
+
+    for (const record of matches) {
+        if (
+            record.match !== "adopted" ||
+            !record.sourceStory?.uuid ||
+            !record.targetStory?.uuid
+        ) {
+            continue;
+        }
+
+        const entry: CopyStoryManifestEntry = {
+            type: "story",
+            source_space_id: sourceSpace,
+            target_space_id: targetSpace,
+            source_id: Number(record.sourceStory.id),
+            target_id: Number(record.targetStory.id),
+            source_uuid: String(record.sourceStory.uuid),
+            target_uuid: String(record.targetStory.uuid),
+            source_full_slug: String(record.sourceStory.full_slug ?? ""),
+            target_full_slug: String(
+                record.targetStory.full_slug ?? record.item.targetFullSlug,
+            ),
+            action: "matched_by_target_key",
+            created_at: new Date().toISOString(),
+        };
+
+        await appendCopyManifestEntry({
+            combinedPath: manifestPaths.combined,
+            resourcePath: manifestPaths.stories,
+            entry,
+        });
+        adopted += 1;
+    }
+
+    if (adopted > 0) {
+        await dedupeManifestFile(manifestPaths.stories);
+        await dedupeManifestFile(manifestPaths.combined);
+        Logger.success(
+            `Recorded ${adopted} adopted target story mapping(s) in the ledger.`,
+        );
+    }
+
+    let updatedStories = 0;
+    let unchangedStories = 0;
+    let rewrittenReferences = 0;
+    let publishedStories = 0;
+    const failures: Array<{ fullSlug: string; message: string }> = [];
+
+    for (const record of matches) {
+        if (!record.rewrite || !record.targetStory) {
+            continue;
+        }
+
+        const targetLabel = String(
+            record.targetStory.full_slug ?? record.item.targetFullSlug,
+        );
+
+        if (!record.rewrite.changed) {
+            unchangedStories += 1;
+            continue;
+        }
+
+        const result = await managementApi.stories.updateStory(
+            { ...record.targetStory, content: record.rewrite.content },
+            String(record.targetStory.id),
+            {
+                publish: false,
+                force_update: true,
+            },
+            {
+                ...apiConfig,
+                spaceId: targetSpace,
+            },
+        );
+
+        try {
+            assertStoryUpdateSucceeded({
+                result,
+                sourceStory: record.sourceStory ?? record.targetStory,
+                targetStoryId: Number(record.targetStory.id),
+                targetSpace,
+                content: record.rewrite.content,
+            });
+        } catch (error) {
+            const message =
+                error instanceof Error ? error.message : String(error);
+            Logger.error(message);
+            failures.push({ fullSlug: targetLabel, message });
+            continue;
+        }
+
+        updatedStories += 1;
+        rewrittenReferences += record.rewrite.rewrittenReferences;
+
+        if (record.targetStory.published === true) {
+            publishedStories += 1;
+        }
+
+        Logger.success(
+            `  ${targetLabel}: ${record.rewrite.rewrittenReferences} reference(s) rewritten.`,
+        );
+    }
+
+    Logger.success(
+        `Relinked ${updatedStories} story/stories in space '${targetSpace}'; rewrote ${rewrittenReferences} reference(s). ${unchangedStories} story/stories already resolved correctly and were left untouched.`,
+    );
+
+    if (publishedStories > 0) {
+        Logger.warning(
+            `${publishedStories} relinked story/stories are published in the target: the repair is in the DRAFT only. Publish them to update live content.`,
+        );
+    }
+
+    if (failures.length > 0) {
+        Logger.error(
+            `${failures.length} story update(s) failed; the rest of the relink still completed. Failed stories:`,
+        );
+
+        for (const failure of failures) {
+            Logger.error(`  - ${failure.fullSlug || "<unknown>"}`);
+        }
+
+        throw new Error(
+            `Relink finished but ${failures.length} story update(s) failed:\n${failures
+                .map((failure) => failure.message)
+                .join("\n")}`,
+        );
+    }
+
+    return { updatedStories, unchangedStories, rewrittenReferences, failures };
+};
+
 export const copyCommand = async (props: CLIOptions) => {
     const { input, flags } = props;
 
@@ -3772,6 +4830,8 @@ export const copyCommand = async (props: CLIOptions) => {
             const withAssets = Boolean(
                 flags["withAssets"] ?? flags["with-assets"],
             );
+            const yes = Boolean(flags["yes"]);
+            const fresh = Boolean(flags["fresh"]);
             const publication = await resolveCopyPublicationOptions({
                 flags,
                 targetSpace,
@@ -3815,13 +4875,32 @@ export const copyCommand = async (props: CLIOptions) => {
                 rootDir: manifestRoot,
             });
             const manifestEntries = await loadManifest(manifestPaths.combined);
-            const copyMaps = buildCopyMaps(manifestEntries);
+            const ledgerPath = path.resolve(manifestPaths.combined);
+            // --fresh: the ledger on disk is read only to be announced; the
+            // run plans and classifies against an empty one.
+            const copyMaps = fresh
+                ? createEmptyCopyMaps()
+                : buildCopyMaps(manifestEntries);
+            const ledger = {
+                path: ledgerPath,
+                entries: manifestEntries.length,
+                ignored: fresh,
+            };
+            Logger.warning(
+                fresh
+                    ? `Ledger: ${manifestEntries.length} entr${manifestEntries.length === 1 ? "y" : "ies"} at ${ledgerPath} IGNORED (--fresh).`
+                    : manifestEntries.length > 0
+                      ? `Ledger: ${manifestEntries.length} entr${manifestEntries.length === 1 ? "y" : "ies"} loaded from ${ledgerPath} (resuming; use --fresh to ignore).`
+                      : `Ledger: none at ${ledgerPath} (starting empty).`,
+            );
             let dryRunGraph: CopyGraph | undefined;
             let withAssetsGraph: CopyGraph | undefined;
             let sourceAssets: any[] = [];
             let sourceAssetFolders: any[] = [];
 
-            if (dryRun || withAssets) {
+            // The reference scan runs in apply mode too: the plan gate needs
+            // will-relink / will-break counts before the first write.
+            {
                 const schemasPromise =
                     buildComponentSchemaRegistry(sourceSpace);
 
@@ -3867,13 +4946,14 @@ export const copyCommand = async (props: CLIOptions) => {
                         sourceAssetFolders,
                         schemas,
                         copyMaps,
+                        classifyStories: true,
                         onScanProgress: logReferenceScanProgress,
                     });
                     Logger.success(
                         `Reference planning complete. Found ${withAssetsGraph.assets.length} referenced asset(s), ${withAssetsGraph.assetFolders.length} asset folder(s), ${withAssetsGraph.assetReferences.length} asset reference occurrence(s), and ${withAssetsGraph.storyReferences.length} story reference occurrence(s).`,
                     );
                     dryRunGraph = withAssetsGraph;
-                } else if (dryRun) {
+                } else {
                     const schemas = await schemasPromise;
                     Logger.warning(
                         `Scanning ${countStoryItems(sourceStories)} stories for copy references.`,
@@ -3895,8 +4975,38 @@ export const copyCommand = async (props: CLIOptions) => {
                 }
             }
 
+            // Translated slugs are read from the source stories and written in
+            // a different shape, so they are planned like any other write: the
+            // target's languages decide what can land, and both the dry run
+            // and the gate state the count before anything happens.
+            const plannedSourceStories = selectPlannedSourceStories(
+                sourceStories,
+                plan,
+            );
+            const targetLanguageCodes = plannedSourceStories.some(
+                (story: any) => (story?.translated_slugs?.length ?? 0) > 0,
+            )
+                ? await getTargetLanguageCodes(targetSpace)
+                : undefined;
+            const translatedSlugs = summarizeCopyTranslatedSlugs({
+                stories: plannedSourceStories,
+                targetLanguageCodes,
+            });
+
+            const translatedSlugsWarning = buildCopyTranslatedSlugsWarning({
+                summary: translatedSlugs,
+                targetSpaceId: targetSpace,
+            });
+
+            if (translatedSlugsWarning) {
+                Logger.warning(translatedSlugsWarning.message);
+            }
+
             if (dryRun) {
-                const conflicts = await findTargetConflicts(plan, targetSpace);
+                const { conflicts } = await findTargetConflicts(
+                    plan,
+                    targetSpace,
+                );
                 Logger.warning(
                     "Checking source components against the target space schema.",
                 );
@@ -3929,10 +5039,11 @@ export const copyCommand = async (props: CLIOptions) => {
                     conflicts,
                     graph: dryRunGraph,
                     componentCompatibility,
+                    translatedSlugs,
                     outputPath,
                 });
 
-                await logDryRunCopyPlan({ report });
+                await logDryRunCopyPlan({ report, translatedSlugs });
 
                 if (outputPath) {
                     Logger.warning(
@@ -3942,6 +5053,66 @@ export const copyCommand = async (props: CLIOptions) => {
                 }
 
                 break;
+            }
+
+            const { existingTargetStoryIdByFullSlug } =
+                await findTargetConflicts(plan, targetSpace);
+            const sourceStoryByFullSlug = new Map(
+                sourceStories
+                    .map((item: any) => item?.story)
+                    .filter(Boolean)
+                    .map(
+                        (story: any) =>
+                            [String(story.full_slug ?? ""), story] as const,
+                    ),
+            );
+            const planGate = buildCopyPlanGateSummary({
+                sourceSpaceId: sourceSpace,
+                targetSpaceId: targetSpace,
+                plan: plan.map((item) => {
+                    const sourceId = sourceStoryByFullSlug.get(
+                        item.sourceFullSlug,
+                    )?.id;
+
+                    return {
+                        type: item.type,
+                        sourceFullSlug: item.sourceFullSlug,
+                        targetFullSlug: item.targetFullSlug,
+                        // A ledger mapping only survives the gate if the story
+                        // it points at is the one living at the planned target
+                        // path — the same rule `getValidMappedTargetStory`
+                        // applies per story once writing starts, answered here
+                        // from the target check the gate already ran.
+                        ledgerTargetStoryId:
+                            sourceId === undefined
+                                ? undefined
+                                : copyMaps.storyIds.get(Number(sourceId)),
+                        existingTargetStoryId:
+                            existingTargetStoryIdByFullSlug.get(
+                                item.targetFullSlug,
+                            ),
+                    };
+                }),
+                ledger,
+                graph: dryRunGraph,
+                withAssets,
+                translatedSlugs,
+            });
+
+            formatCopyPlanGate(planGate).forEach((line) => Logger.log(line));
+
+            if (!(await confirmCopyPlan({ yes }))) {
+                break;
+            }
+
+            if (fresh) {
+                const archived = await archiveCopyManifests(manifestPaths);
+
+                Logger.warning(
+                    archived.length > 0
+                        ? `--fresh: moved ${archived.length} ledger file(s) aside so this run starts empty: ${archived.join(", ")}`
+                        : "--fresh: no ledger files to move aside; starting empty.",
+                );
             }
 
             let assetCopyReport: CopyAssetsApplyReport | undefined;
@@ -4008,6 +5179,7 @@ export const copyCommand = async (props: CLIOptions) => {
                 sourceSpace,
                 targetSpace,
                 manifestRoot,
+                targetLanguageCodes,
             });
 
             if (outputPath) {
@@ -4022,11 +5194,248 @@ export const copyCommand = async (props: CLIOptions) => {
                     storySummary,
                     graph: withAssetsGraph,
                     assetCopyReport,
+                    translatedSlugs,
                     manifestRoot,
                 });
 
                 await writeJsonReport(outputPath, report);
             }
+
+            break;
+        }
+        case COPY_COMMANDS.relink: {
+            const sourceSpace = getCopySpace(
+                flags,
+                ["from", "sourceSpace"],
+                apiConfig.spaceId,
+            );
+            const targetSpace = getCopySpace(
+                flags,
+                ["to", "targetSpace"],
+                apiConfig.spaceId,
+            );
+            const selection = resolveCopySelection(flags);
+            const dryRun = Boolean(flags["dryRun"]);
+            const manifestRoot = readStringFlag(flags, ["manifestRoot"]);
+            const yes = Boolean(flags["yes"]);
+            const destination = readStringFlag(flags, ["destination", "where"]);
+
+            Logger.warning(
+                `Relinking stories in space '${targetSpace}' against their sources in space '${sourceSpace}'.`,
+            );
+            Logger.log(
+                `Source '${selection.source}', mode '${selection.mode}', destination '${destination ?? "root"}'.`,
+            );
+
+            const sourceStories = await getStoriesForSelection(
+                selection,
+                sourceSpace,
+            );
+            const normalizedStories = normalizeStoriesForTree(
+                sourceStories,
+                selection,
+            );
+            const tree = createTree(normalizedStories);
+            const rootsToRelink = prepareTreeForCreate(
+                selectTreeRoots(tree, selection),
+            );
+
+            if (rootsToRelink.length === 0) {
+                Logger.warning("No stories matched the relink selection.");
+                break;
+            }
+
+            const plan = buildCopyPlan(rootsToRelink, destination);
+            const manifestPaths = getDefaultCopyManifestPaths({
+                sourceSpaceId: sourceSpace,
+                targetSpaceId: targetSpace,
+                rootDir: manifestRoot,
+            });
+            const manifestEntries = await loadManifest(manifestPaths.combined);
+            const ledgerPath = path.resolve(manifestPaths.combined);
+            const ledgerMaps = buildCopyMaps(manifestEntries);
+
+            Logger.warning(
+                manifestEntries.length > 0
+                    ? `Ledger: ${manifestEntries.length} entr${manifestEntries.length === 1 ? "y" : "ies"} loaded from ${ledgerPath}.`
+                    : `Ledger: none at ${ledgerPath}; the mapping is rebuilt from the target space by matching target paths.`,
+            );
+
+            const matches = await matchRelinkTargets({
+                plan,
+                sourceStories,
+                copyMaps: ledgerMaps,
+                targetSpace,
+            });
+
+            // Every mapping must be complete BEFORE a single story is
+            // rewritten: a reference resolved against a half-built map is
+            // exactly the silent breakage this command exists to repair.
+            //
+            // It must also contain nothing but mappings this run VERIFIED.
+            // The ledger is a record of what was true when it was written, and
+            // relinking through a mapping whose target has since been deleted
+            // would replace a broken reference with a dangling one.
+            const matchedStoryMappings: CopyRelinkStoryMapping[] = matches
+                .filter(
+                    (match) =>
+                        match.sourceStory?.uuid && match.targetStory?.uuid,
+                )
+                .map((match) => ({
+                    sourceId: Number(match.sourceStory.id),
+                    sourceUuid: String(match.sourceStory.uuid),
+                    targetId: Number(match.targetStory.id),
+                    targetUuid: String(match.targetStory.uuid),
+                    sourceFullSlug: String(
+                        match.sourceStory.full_slug ??
+                            match.item.sourceFullSlug,
+                    ),
+                    targetFullSlug: String(
+                        match.targetStory.full_slug ??
+                            match.item.targetFullSlug,
+                    ),
+                }));
+            // Stories outside the selection are still repairable — relinking
+            // `pages` alone must fix its links into `shared` — but only once
+            // their mapping is checked against the target the same way.
+            const ledgerStoryMappings = await validateRelinkLedgerMappings({
+                mappings: selectRelinkLedgerStoryMappings({
+                    entries: manifestEntries,
+                    plannedSourceIds: new Set(
+                        matches
+                            .map((match) => Number(match.sourceStory?.id))
+                            .filter((sourceId) => Number.isFinite(sourceId)),
+                    ),
+                    targetContents: matches.map(
+                        (match) => match.targetStory?.content,
+                    ),
+                }),
+                targetSpace,
+            });
+            const validatedStoryMappings = [
+                ...matchedStoryMappings,
+                ...ledgerStoryMappings.valid,
+            ];
+            // Files get the same treatment: the ledger says which asset was
+            // copied, only the target space can say it is still there.
+            const ledgerAssetMappings = await validateRelinkAssetMappings({
+                mappings: selectRelinkLedgerAssetMappings({
+                    entries: manifestEntries,
+                    targetContents: matches.map(
+                        (match) => match.targetStory?.content,
+                    ),
+                }),
+                targetSpace,
+            });
+            const copyMaps = buildCopyRelinkMaps({
+                storyMappings: validatedStoryMappings,
+                assetMappings: ledgerAssetMappings.valid,
+            });
+            // The PLAN counts read against the ledger as corrected by this run:
+            // out-of-selection mappings still count as covered, but everything
+            // proven stale is gone, so the counts cannot promise what the
+            // rewrite above will refuse to do.
+            const classificationMaps = buildCopyRelinkClassificationMaps({
+                ledgerMaps,
+                storyMappings: validatedStoryMappings,
+                staleStoryKeys: [
+                    ...matches
+                        .filter(
+                            (match) =>
+                                match.match === "missing" &&
+                                match.sourceStory?.uuid,
+                        )
+                        .map((match) => ({
+                            sourceId: Number(match.sourceStory.id),
+                            sourceUuid: String(match.sourceStory.uuid),
+                        })),
+                    ...ledgerStoryMappings.stale,
+                ],
+            });
+
+            const schemas = await buildComponentSchemaRegistry(sourceSpace);
+            const relinkPlan: CopyRelinkPlanItem[] = matches.map((match) => {
+                const rewrite =
+                    match.targetStory && match.item.type === "story"
+                        ? planCopyRelinkStoryRewrite({
+                              content: match.targetStory.content,
+                              maps: copyMaps,
+                              schemas,
+                          })
+                        : undefined;
+
+                match.rewrite = rewrite;
+
+                return {
+                    type: match.item.type,
+                    sourceFullSlug: match.item.sourceFullSlug,
+                    targetFullSlug: match.item.targetFullSlug,
+                    match: match.match,
+                    rewrittenReferences: rewrite?.rewrittenReferences ?? 0,
+                    changed: rewrite?.changed ?? false,
+                };
+            });
+            const graph = buildStoryReferenceDryRunGraph({
+                sourceSpace,
+                targetSpace,
+                selection,
+                destination,
+                plan,
+                sourceStories,
+                schemas,
+                copyMaps: classificationMaps,
+                // Relink never creates a story, so a reference into one that is
+                // missing from the target breaks; it cannot relink.
+                unmappedSourceFullSlugs: new Set(
+                    matches
+                        .filter((match) => match.match === "missing")
+                        .map((match) => match.item.sourceFullSlug),
+                ),
+                onScanProgress: logReferenceScanProgress,
+            });
+            const referenceCounts = countStoryReferenceStatuses(
+                graph.storyReferences,
+            );
+            const relinkSummary = buildCopyRelinkPlanSummary({
+                sourceSpaceId: sourceSpace,
+                targetSpaceId: targetSpace,
+                plan: relinkPlan,
+                ledger: {
+                    path: ledgerPath,
+                    entries: manifestEntries.length,
+                    ignored: false,
+                },
+                references: {
+                    scanned: true,
+                    total: graph.storyReferences.length,
+                    willRelink: referenceCounts.willRelink,
+                    willBreak: referenceCounts.willBreak,
+                    externalKept: referenceCounts.externalKept,
+                    breaking: groupBrokenStoryReferences(graph.storyReferences),
+                },
+            });
+
+            formatCopyRelinkPlan(relinkSummary).forEach((line) =>
+                Logger.log(line),
+            );
+
+            if (dryRun) {
+                Logger.warning(
+                    "[dry-run] Relink preview only. No Storyblok writes and no ledger entries were made.",
+                );
+                break;
+            }
+
+            if (!(await confirmCopyPlan({ yes }))) {
+                break;
+            }
+
+            await relinkTargetStories({
+                matches,
+                manifestPaths,
+                sourceSpace,
+                targetSpace,
+            });
 
             break;
         }
@@ -4119,6 +5528,9 @@ export const copyCommand = async (props: CLIOptions) => {
                     sourceAssetFolders,
                     schemas,
                     copyMaps,
+                    // An asset-only run never rewrites stories, so story
+                    // references stay `unclassified` and never warn.
+                    classifyStories: false,
                     onScanProgress: logReferenceScanProgress,
                 });
                 Logger.success(
@@ -4182,9 +5594,253 @@ export const copyCommand = async (props: CLIOptions) => {
 
             break;
         }
+        case COPY_COMMANDS.manifests: {
+            const outputPath = readStringFlag(flags, ["outputPath"]);
+            const manifestRoot = readStringFlag(flags, ["manifestRoot"]);
+            const rawPrune = readStringFlag(flags, ["prune"]);
+            const dryRun = Boolean(flags["dryRun"]);
+            const yes = Boolean(flags["yes"]);
+            const slug = readStringFlag(flags, ["slug"]);
+            const { types, error: typeError } = parseCopyManifestTypes(flags);
+
+            if (typeError) {
+                Logger.error(typeError);
+                process.exitCode = 1;
+                break;
+            }
+
+            // --prune names its own pair, because it deletes that pair and
+            // nothing else. Taking the target of a delete from a second flag is
+            // how the wrong directory gets removed.
+            if (rawPrune !== undefined) {
+                if (readStringFlag(flags, ["pair", "from", "to"])) {
+                    Logger.error(
+                        "--prune already names the pair it deletes. Drop --pair/--from/--to so there is only one answer to which directory is being removed.",
+                    );
+                    process.exitCode = 1;
+                    break;
+                }
+
+                if (types || slug) {
+                    Logger.error(
+                        "--prune deletes a pair's whole ledger directory. It cannot be narrowed by --type or --slug.",
+                    );
+                    process.exitCode = 1;
+                    break;
+                }
+
+                const parsed = parseCopyManifestPairValue(rawPrune, "--prune");
+
+                if (parsed.error) {
+                    Logger.error(parsed.error);
+                    process.exitCode = 1;
+                    break;
+                }
+
+                const { sourceSpaceId, targetSpaceId } = parsed.pair!;
+                let pairDir: string;
+                let pairExists: boolean;
+
+                try {
+                    // Proven against the filesystem, not just the string, and
+                    // before anything is read — let alone deleted.
+                    ({ pairDir, exists: pairExists } =
+                        await assertCopyManifestPairPathIsSafe({
+                            sourceSpaceId,
+                            targetSpaceId,
+                            rootDir: manifestRoot,
+                        }));
+                } catch (error: any) {
+                    if (error instanceof CopyManifestPathError) {
+                        Logger.error(error.message);
+                        process.exitCode = 1;
+                        break;
+                    }
+
+                    throw error;
+                }
+
+                // A report written inside the directory about to be deleted is
+                // a report that does not survive the command that wrote it.
+                // A link is refused outright rather than followed. A dangling
+                // one names a file that does not exist yet, so there is nothing
+                // to resolve and the ascent lands on the link's own directory —
+                // which is how a report aimed into the pair got through. And
+                // where any link points can change between the check and the
+                // write. A report is a plain path or it is not written.
+                if (outputPath && (await isSymbolicLinkPath(outputPath))) {
+                    Logger.error(
+                        `--outputPath '${outputPath}' is a symbolic link. Where it points cannot be proven before the write — a dangling link names a file that does not exist yet — and --prune deletes a directory a link could aim into. Pass a plain path.`,
+                    );
+                    process.exitCode = 1;
+                    break;
+                }
+
+                if (
+                    outputPath &&
+                    (await isReallyInsideDirectory(outputPath, pairDir))
+                ) {
+                    Logger.error(
+                        `--outputPath '${outputPath}' is inside the directory --prune deletes ('${pairDir}'). The report would be destroyed by the delete it describes. Write it somewhere else.`,
+                    );
+                    process.exitCode = 1;
+                    break;
+                }
+
+                const removalPlan = buildCopyManifestRemovalPlan({
+                    sourceSpaceId,
+                    targetSpaceId,
+                    path: pairDir,
+                    ...(pairExists
+                        ? await readCopyManifestRemovalEntries(pairDir)
+                        : { exists: false, entries: [] }),
+                });
+
+                formatCopyManifestRemovalPlan(removalPlan).forEach((line) =>
+                    Logger.log(line),
+                );
+
+                if (outputPath) {
+                    await writeJsonReport(outputPath, removalPlan);
+                }
+
+                if (!removalPlan.exists || dryRun) {
+                    break;
+                }
+
+                if (!(await confirmCopyPlan({ yes }))) {
+                    break;
+                }
+
+                await fs.rm(pairDir, { recursive: true, force: true });
+                Logger.success(`Deleted ${pairDir}`);
+
+                break;
+            }
+
+            const { pair, error: pairError } = resolveCopyManifestPair(flags);
+
+            if (pairError) {
+                Logger.error(pairError);
+                process.exitCode = 1;
+                break;
+            }
+
+            if (!pair) {
+                if (types || slug) {
+                    Logger.error(
+                        "--type and --slug both act on one ledger. Name it with --pair <sourceSpaceId>:<targetSpaceId>.",
+                    );
+                    process.exitCode = 1;
+                    break;
+                }
+
+                // No pair named: say what ledgers exist, and nothing about
+                // whether they are healthy — that answer belongs to a pair.
+                const discovered =
+                    await discoverCopyManifestPairs(manifestRoot);
+                const pairs: CopyManifestPairInput[] = [];
+
+                for (const found of discovered) {
+                    const paths = getDefaultCopyManifestPaths({
+                        sourceSpaceId: found.sourceSpaceId,
+                        targetSpaceId: found.targetSpaceId,
+                        rootDir: manifestRoot,
+                    });
+
+                    pairs.push({
+                        ...found,
+                        rootDir: paths.rootDir,
+                        path: path.resolve(paths.rootDir),
+                        ...(await readCopyManifestMtime(paths.combined)),
+                        files: await readCopyManifestFiles(paths),
+                    });
+                }
+
+                const list = buildCopyManifestPairList({
+                    root: path.resolve(getCopyManifestRoot(manifestRoot)),
+                    pairs,
+                });
+
+                formatCopyManifestPairList(list).forEach((line) =>
+                    Logger.log(line),
+                );
+
+                if (outputPath) {
+                    await writeJsonReport(outputPath, list);
+                }
+
+                break;
+            }
+
+            let pairRootDir: string;
+
+            try {
+                // The same proof --prune makes. Reading through a symlinked
+                // component is not destructive, but it reports another
+                // directory's ledger as this pair's, which is its own lie.
+                ({ pairDir: pairRootDir } =
+                    await assertCopyManifestPairPathIsSafe({
+                        sourceSpaceId: pair.sourceSpaceId,
+                        targetSpaceId: pair.targetSpaceId,
+                        rootDir: manifestRoot,
+                    }));
+            } catch (error: any) {
+                if (error instanceof CopyManifestPathError) {
+                    Logger.error(error.message);
+                    process.exitCode = 1;
+                    break;
+                }
+
+                throw error;
+            }
+
+            const manifestPaths = getDefaultCopyManifestPaths({
+                sourceSpaceId: pair.sourceSpaceId,
+                targetSpaceId: pair.targetSpaceId,
+                rootDir: manifestRoot,
+            });
+
+            Logger.warning(
+                `Reading the copy ledger for space '${pair.sourceSpaceId}' to space '${pair.targetSpaceId}'.`,
+            );
+
+            // Read-only: no Storyblok request is ever made and no ledger file
+            // is written, so this is safe to run against a pair mid-copy.
+            const files = await readCopyManifestFiles(manifestPaths);
+
+            const filters: CopyManifestViewFilters = {
+                ...(types ? { types } : {}),
+                ...(slug ? { slug } : {}),
+            };
+
+            const inspection = inspectCopyManifests({
+                sourceSpaceId: pair.sourceSpaceId,
+                targetSpaceId: pair.targetSpaceId,
+                rootDir: pairRootDir,
+                files,
+                filters,
+            });
+
+            formatCopyManifestInspection(inspection).forEach((line) =>
+                Logger.log(line),
+            );
+
+            if (outputPath) {
+                await writeJsonReport(outputPath, inspection);
+            }
+
+            // A ledger a run would obey wrongly is a failure, not a remark:
+            // this is the one thing CI can gate a copy pipeline on.
+            if (inspection.summary.errors > 0) {
+                process.exitCode = 1;
+            }
+
+            break;
+        }
         default:
             Logger.warning(
-                "Unsupported copy command. Use: sb-mig copy stories --from <sourceSpaceId> --to <targetSpaceId> --source <full_slug> --destination <target_folder>, or sb-mig copy assets --from <sourceSpaceId> --to <targetSpaceId> --all --dry-run",
+                "Unsupported copy command. Use: sb-mig copy stories --from <sourceSpaceId> --to <targetSpaceId> --source <full_slug> --destination <target_folder>, sb-mig copy assets --from <sourceSpaceId> --to <targetSpaceId> --all --dry-run, or sb-mig copy manifests to list the copy ledgers on disk.",
             );
     }
 };

@@ -47,3 +47,21 @@ export const askForConfirmation = async (
         rl.close();
     }
 };
+
+/**
+ * One yes/no question on the terminal. Resolves true only for an explicit
+ * `y`/`yes`; an empty answer or anything else is a no.
+ */
+export const askYesNo = async (message: string): Promise<boolean> => {
+    const rl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout,
+    });
+
+    try {
+        const answer = await rl.question(`${message} `);
+        return ["y", "yes"].includes(answer.trim().toLowerCase());
+    } finally {
+        rl.close();
+    }
+};

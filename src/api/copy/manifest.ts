@@ -3,6 +3,7 @@ import type {
     CopyAssetManifestEntry,
     CopyManifestEntry,
     CopyMaps,
+    CopyResourceType,
     CopyStoryManifestEntry,
 } from "./types.js";
 
@@ -18,6 +19,134 @@ export type CopyManifestPaths = {
     report: string;
 };
 
+/**
+ * The directory every copy pair's ledger lives under. Kept here so the writers,
+ * the readers and anything that enumerates pairs agree on one layout.
+ */
+export const getCopyManifestRoot = (rootDir = ".sb-mig"): string =>
+    path.join(rootDir, "copy");
+
+/**
+ * A space id is a single path segment, and it comes from the command line. The
+ * ledger layout turns it straight into a directory name, so anything that is
+ * not a plain number is a path expression pointing somewhere it was never meant
+ * to reach — `../../outside` resolves out of the ledger root entirely, and the
+ * command would then read, rewrite or DELETE whatever it landed on. Storyblok
+ * space ids are numeric; nothing legitimate is refused by this.
+ */
+export const isSafeCopySpaceSegment = (value: string): boolean =>
+    /^[0-9]+$/.test(value);
+
+export class CopyManifestPathError extends Error {}
+
+/**
+ * The resolved directory of one pair, proven to sit inside the resolved copy
+ * root. Belt and braces on purpose: the segment check above is the rule, and
+ * this is the assertion that the rule was actually enough, made before any read,
+ * write or delete rather than trusted afterwards.
+ */
+export const resolveCopyManifestPairDir = ({
+    sourceSpaceId,
+    targetSpaceId,
+    rootDir,
+}: {
+    sourceSpaceId: string;
+    targetSpaceId: string;
+    rootDir?: string;
+}): string => {
+    for (const [label, value] of [
+        ["source", sourceSpaceId],
+        ["target", targetSpaceId],
+    ] as const) {
+        if (!isSafeCopySpaceSegment(value)) {
+            throw new CopyManifestPathError(
+                `The ${label} space id must be a plain number, not '${value}'. A space id becomes a directory name in the copy ledger, so anything else can point outside it.`,
+            );
+        }
+    }
+
+    const root = path.resolve(getCopyManifestRoot(rootDir));
+    const resolved = path.resolve(root, sourceSpaceId, targetSpaceId);
+
+    if (resolved !== root && !resolved.startsWith(root + path.sep)) {
+        throw new CopyManifestPathError(
+            `The ledger directory for ${sourceSpaceId} to ${targetSpaceId} resolves to '${resolved}', which is outside the copy root '${root}'. Refusing to touch it.`,
+        );
+    }
+
+    return resolved;
+};
+
+/**
+ * The same directory, proven safe against the filesystem rather than against
+ * the string. `path.resolve` collapses `..` textually and knows nothing about
+ * symlinks, so a lexically contained path can still point anywhere: with
+ * `copy/123` symlinked to a directory outside the root, `copy/123/456` resolves
+ * clean and a recursive delete lands on somebody else's files.
+ *
+ * Two independent proofs, because either alone has a gap. No component of
+ * `copy/<src>/<tgt>` may be a symlink — checked with `lstat`, which does not
+ * follow — and the real path of the pair directory must still sit inside the
+ * real path of the copy root.
+ */
+export const assertCopyManifestPairPathIsSafe = async ({
+    sourceSpaceId,
+    targetSpaceId,
+    rootDir,
+}: {
+    sourceSpaceId: string;
+    targetSpaceId: string;
+    rootDir?: string;
+}): Promise<{ pairDir: string; exists: boolean }> => {
+    // Segment shape and lexical containment first: cheapest, and it rejects the
+    // obvious attempt before the filesystem is consulted at all.
+    const pairDir = resolveCopyManifestPairDir({
+        sourceSpaceId,
+        targetSpaceId,
+        rootDir,
+    });
+    const copyRoot = path.resolve(getCopyManifestRoot(rootDir));
+
+    for (const candidate of [
+        copyRoot,
+        path.join(copyRoot, sourceSpaceId),
+        pairDir,
+    ]) {
+        let stats;
+
+        try {
+            stats = await fs.lstat(candidate);
+        } catch (error: any) {
+            if (error?.code === "ENOENT") {
+                // Nothing exists from here down, so there is nothing to follow
+                // and nothing to delete.
+                return { pairDir, exists: false };
+            }
+
+            throw error;
+        }
+
+        if (stats.isSymbolicLink()) {
+            throw new CopyManifestPathError(
+                `'${candidate}' is a symbolic link. The copy ledger is addressed by space id, so a link in that path means the directory being read or deleted is not the one the ids name. Refusing to follow it.`,
+            );
+        }
+    }
+
+    const [realRoot, realPair] = await Promise.all([
+        fs.realpath(copyRoot),
+        fs.realpath(pairDir),
+    ]);
+
+    if (realPair !== realRoot && !realPair.startsWith(realRoot + path.sep)) {
+        throw new CopyManifestPathError(
+            `The ledger directory for ${sourceSpaceId} to ${targetSpaceId} really lives at '${realPair}', which is outside the copy root '${realRoot}'. Refusing to touch it.`,
+        );
+    }
+
+    return { pairDir, exists: true };
+};
+
 export const getDefaultCopyManifestPaths = ({
     sourceSpaceId,
     targetSpaceId,
@@ -27,7 +156,11 @@ export const getDefaultCopyManifestPaths = ({
     targetSpaceId: string;
     rootDir?: string;
 }): CopyManifestPaths => {
-    const copyRoot = path.join(rootDir, "copy", sourceSpaceId, targetSpaceId);
+    const copyRoot = path.join(
+        getCopyManifestRoot(rootDir),
+        sourceSpaceId,
+        targetSpaceId,
+    );
 
     return {
         rootDir: copyRoot,
@@ -39,9 +172,44 @@ export const getDefaultCopyManifestPaths = ({
     };
 };
 
+/**
+ * Moves every existing manifest file of a copy pair aside so the next run
+ * starts with an empty ledger. Nothing is deleted: each file is renamed with
+ * a timestamp suffix next to the original. Returns the archived paths.
+ */
+export const archiveCopyManifests = async (
+    paths: CopyManifestPaths,
+    now: Date = new Date(),
+): Promise<string[]> => {
+    const suffix = now.toISOString().replace(/[:.]/g, "-");
+    const archived: string[] = [];
+
+    for (const filePath of [
+        paths.combined,
+        paths.stories,
+        paths.assets,
+        paths.assetFolders,
+    ]) {
+        const archivePath = `${filePath}.${suffix}.bak`;
+
+        try {
+            await fs.rename(filePath, archivePath);
+            archived.push(archivePath);
+        } catch (error: any) {
+            if (error?.code !== "ENOENT") {
+                throw error;
+            }
+        }
+    }
+
+    return archived;
+};
+
 export const createEmptyCopyMaps = (): CopyMaps => ({
     storyIds: new Map(),
     storyUuids: new Map(),
+    storyFullSlugs: new Map(),
+    storyIdFullSlugs: new Map(),
     assetIds: new Map(),
     assetFilenames: new Map(),
     assetFolderIds: new Map(),
@@ -140,34 +308,222 @@ export const dedupeManifestFile = async (
     return deduped;
 };
 
+/** The runtime maps a ledger entry can write to. */
+export type CopyMapName = keyof CopyMaps;
+
+/**
+ * One write a ledger entry performs on the maps a copy run rewrites content
+ * through. Expressed once, here, so that everything which has to reason about
+ * what a ledger means at runtime — the run itself, and anything that reads the
+ * ledger back — is looking at the same list. A second, hand-kept description of
+ * these writes would drift, and the first thing it would lose is a map nobody
+ * remembered a ledger entry touches.
+ */
+export type CopyMapWrite = {
+    map: CopyMapName;
+    key: string | number;
+    value: unknown;
+};
+
+/**
+ * Every map write one entry performs, in the order a run performs them, so the
+ * last write for a key is the value a run ends up using.
+ *
+ * The target path is only recorded when the entry carries one: an unknown path
+ * must leave `cached_url` alone rather than guess it. An entry of an unknown
+ * shape writes nothing — see `validateCopyManifestEntry`.
+ */
+export const getCopyMapWrites = (entry: CopyManifestEntry): CopyMapWrite[] => {
+    // The single runtime boundary. A ledger is an append-only file that hand
+    // edits, older versions and interrupted writes all reach, and an entry
+    // missing the field a map is keyed on does not map "nothing" once applied —
+    // it maps to `undefined`, which a rewriter then writes into real content.
+    // An asset entry with no `target_id` used to blank the `id` of every image
+    // that referenced it. Rejecting here means `buildCopyMaps` cannot apply
+    // what it cannot read, and the reader and the run agree by construction.
+    if (validateCopyManifestEntry(entry).length > 0) {
+        return [];
+    }
+
+    if (isStoryManifestEntry(entry)) {
+        const writes: CopyMapWrite[] = [
+            { map: "storyIds", key: entry.source_id, value: entry.target_id },
+            {
+                map: "storyUuids",
+                key: entry.source_uuid,
+                value: entry.target_uuid,
+            },
+        ];
+
+        if (entry.target_full_slug) {
+            writes.push(
+                {
+                    map: "storyFullSlugs",
+                    key: entry.source_uuid,
+                    value: entry.target_full_slug,
+                },
+                {
+                    map: "storyFullSlugs",
+                    key: entry.target_uuid,
+                    value: entry.target_full_slug,
+                },
+                {
+                    map: "storyIdFullSlugs",
+                    key: entry.source_id,
+                    value: entry.target_full_slug,
+                },
+                {
+                    map: "storyIdFullSlugs",
+                    key: entry.target_id,
+                    value: entry.target_full_slug,
+                },
+            );
+        }
+
+        return writes;
+    }
+
+    if (isAssetManifestEntry(entry)) {
+        return [
+            {
+                map: "assetIds",
+                key: entry.source_id,
+                value: { id: entry.target_id, filename: entry.target_filename },
+            },
+            {
+                map: "assetFilenames",
+                key: entry.source_filename,
+                value: entry.target_filename,
+            },
+        ];
+    }
+
+    if (isAssetFolderManifestEntry(entry)) {
+        return [
+            {
+                map: "assetFolderIds",
+                key: entry.source_id,
+                value: entry.target_id,
+            },
+        ];
+    }
+
+    return [];
+};
+
+export const applyCopyMapWrites = (maps: CopyMaps, writes: CopyMapWrite[]) => {
+    for (const write of writes) {
+        (maps[write.map] as Map<unknown, unknown>).set(write.key, write.value);
+    }
+};
+
+/**
+ * Records one written story mapping in the maps the rewriter reads.
+ */
+export const applyStoryManifestEntryToMaps = (
+    maps: CopyMaps,
+    entry: CopyStoryManifestEntry,
+) => {
+    applyCopyMapWrites(maps, getCopyMapWrites(entry));
+};
+
 export const buildCopyMaps = (entries: CopyManifestEntry[]): CopyMaps => {
     const maps = createEmptyCopyMaps();
 
     for (const entry of entries) {
-        if (isStoryManifestEntry(entry)) {
-            maps.storyIds.set(entry.source_id, entry.target_id);
-            maps.storyUuids.set(entry.source_uuid, entry.target_uuid);
-        }
-
-        if (isAssetManifestEntry(entry)) {
-            maps.assetIds.set(entry.source_id, {
-                id: entry.target_id,
-                filename: entry.target_filename,
-            });
-            maps.assetFilenames.set(
-                entry.source_filename,
-                entry.target_filename,
-            );
-        }
-
-        if (isAssetFolderManifestEntry(entry)) {
-            maps.assetFolderIds.set(entry.source_id, entry.target_id);
-        }
+        applyCopyMapWrites(maps, getCopyMapWrites(entry));
     }
 
     return maps;
 };
 
+const COPY_RESOURCE_TYPES: CopyResourceType[] = [
+    "story",
+    "asset",
+    "asset_folder",
+];
+
+export const isCopyResourceType = (value: unknown): value is CopyResourceType =>
+    COPY_RESOURCE_TYPES.includes(value as CopyResourceType);
+
+const isPresentNumber = (value: unknown): boolean =>
+    typeof value === "number" && Number.isFinite(value);
+
+const isPresentString = (value: unknown): boolean =>
+    typeof value === "string" && value.length > 0;
+
+/**
+ * The fields a ledger entry must carry for a run to make any use of it, checked
+ * because a ledger is an append-only file that hand edits, older versions and
+ * interrupted writes all reach. An entry that fails here maps nothing: reading
+ * it as if it did would invent identities out of `undefined`, and every value
+ * derived from it — counts, mappings, conflict findings — would be a fiction.
+ *
+ * Returns one plain reason per problem, and nothing when the entry is usable.
+ */
+export const validateCopyManifestEntry = (entry: unknown): string[] => {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+        return ["the entry is not a JSON object"];
+    }
+
+    const candidate = entry as Record<string, unknown>;
+    const problems: string[] = [];
+
+    if (!isPresentString(candidate["source_space_id"])) {
+        problems.push("no source_space_id");
+    }
+
+    if (!isPresentString(candidate["target_space_id"])) {
+        problems.push("no target_space_id");
+    }
+
+    if (!isCopyResourceType(candidate["type"])) {
+        problems.push(
+            `unknown resource type ${JSON.stringify(candidate["type"] ?? null)}`,
+        );
+
+        return problems;
+    }
+
+    if (!isPresentNumber(candidate["source_id"])) {
+        problems.push("no numeric source_id");
+    }
+
+    if (!isPresentNumber(candidate["target_id"])) {
+        problems.push("no numeric target_id");
+    }
+
+    if (candidate["type"] === "story") {
+        if (!isPresentString(candidate["source_uuid"])) {
+            problems.push("no source_uuid");
+        }
+
+        if (!isPresentString(candidate["target_uuid"])) {
+            problems.push("no target_uuid");
+        }
+    }
+
+    if (candidate["type"] === "asset") {
+        if (!isPresentString(candidate["source_filename"])) {
+            problems.push("no source_filename");
+        }
+
+        if (!isPresentString(candidate["target_filename"])) {
+            problems.push("no target_filename");
+        }
+    }
+
+    return problems;
+};
+
+/**
+ * The identity `dedupeManifestEntries` treats as one mapping: the source side of
+ * an entry, within its own space pair.
+ */
+export /**
+ * The identity `dedupeManifestEntries` treats as one mapping: the source side of
+ * an entry, within its own space pair.
+ */
 const getManifestEntrySourceKey = (entry: CopyManifestEntry): string => {
     if (isStoryManifestEntry(entry)) {
         return [
