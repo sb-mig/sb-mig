@@ -263,19 +263,20 @@ jobs:
           name: dist
           path: .
 
-      - name: Retry Release
-        uses: nick-fields/retry@v4
+      # semantic-release is NOT idempotent: it tags, commits the changelog and
+      # publishes the GitHub release before npm. A retry after a partial failure
+      # sees the tag and reports "nothing to release" (exit 0), turning a failed npm
+      # publish into a green job. Run it exactly once and let a failure fail.
+      # NPM_TOKEN must be an npm automation token or a granular token with
+      # "Bypass 2FA": semantic-release cannot answer a one-time-password prompt.
+      - name: Release
         env:
           NO_HUSKY: 1
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           NODE_OPTIONS: "--max_old_space_size=8192"
-        with:
-          command: npx semantic-release
-          max_attempts: 3
-          retry_wait_seconds: 300
-          timeout_minutes: 10
+        run: npx semantic-release
 
   # ============================================================================
   # Summary Job
