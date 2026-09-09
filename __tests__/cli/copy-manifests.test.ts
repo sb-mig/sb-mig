@@ -277,6 +277,10 @@ describe("copy manifests", () => {
         expect(report).toMatchObject({
             schemaVersion: 1,
             command: "copy manifests",
+            // The three artifacts this command writes share a command name;
+            // `mode` is what lets a consumer tell them apart without guessing
+            // from which keys happen to be present.
+            mode: "pair",
             normalized: {
                 sourceSpaceId: "source-space",
                 targetSpaceId: "target-space",

@@ -98,6 +98,8 @@ export type CopyManifestPairView = {
 export type CopyManifestInspection = {
     schemaVersion: 1;
     command: "copy manifests";
+    /** Which of the command's three artifacts this is. */
+    mode: "pair";
     generatedAt: string;
     normalized: {
         sourceSpaceId: string;
@@ -469,6 +471,7 @@ export const inspectCopyManifests = ({
     return {
         schemaVersion: 1,
         command: "copy manifests",
+        mode: "pair",
         generatedAt,
         normalized: { sourceSpaceId, targetSpaceId, rootDir },
         files: files.map(({ kind, path, exists, entries, error }) => ({
@@ -695,6 +698,7 @@ export type CopyManifestPairSummary = {
 export type CopyManifestPairList = {
     schemaVersion: 1;
     command: "copy manifests";
+    mode: "ledgers";
     generatedAt: string;
     root: string;
     pairs: CopyManifestPairSummary[];
@@ -723,6 +727,7 @@ export const buildCopyManifestPairList = ({
 }): CopyManifestPairList => ({
     schemaVersion: 1,
     command: "copy manifests",
+    mode: "ledgers",
     generatedAt,
     root,
     pairs: pairs.map((pair) => {
@@ -820,6 +825,7 @@ export type CopyManifestPruneFilePlan = {
 export type CopyManifestPrunePlan = {
     schemaVersion: 1;
     command: "copy manifests --prune";
+    mode: "prune";
     generatedAt: string;
     normalized: {
         sourceSpaceId: string;
@@ -952,6 +958,7 @@ export const planCopyManifestPrune = ({
     return {
         schemaVersion: 1,
         command: "copy manifests --prune",
+        mode: "prune",
         generatedAt,
         normalized: { sourceSpaceId, targetSpaceId, rootDir },
         files: filePlans,
