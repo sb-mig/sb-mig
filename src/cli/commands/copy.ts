@@ -2019,9 +2019,65 @@ const readCopyManifestRemovalEntries = async (
  * Whether a path lands inside a directory, compared after resolving both. Used
  * to keep a report out of the directory the same command is about to delete.
  */
-const isInsideDirectory = (candidate: string, directory: string): boolean => {
-    const resolvedDirectory = path.resolve(directory);
-    const resolved = path.resolve(candidate);
+/**
+ * The real location a path names, for a path that need not exist yet.
+ *
+ * `fs.realpath` fails outright on a missing file, and an output path usually is
+ * missing — it is about to be written. So the deepest ancestor that does exist
+ * is resolved, and the not-yet-existing tail is re-attached to it. That is what
+ * makes a symlinked parent visible: `<tmp>/report-link/report.json` has no
+ * `report.json` to resolve, but `report-link` resolves to whatever it points at.
+ *
+ * When the path itself exists and is a symlink, `realpath` follows it, which is
+ * the other half of the same question.
+ */
+const resolveRealPathOfDeepestExisting = async (
+    target: string,
+): Promise<string> => {
+    const resolved = path.resolve(target);
+    const trailing: string[] = [];
+    let current = resolved;
+
+    for (;;) {
+        try {
+            const real = await fs.realpath(current);
+
+            return trailing.length === 0
+                ? real
+                : path.join(real, ...[...trailing].reverse());
+        } catch (error: any) {
+            if (error?.code !== "ENOENT") {
+                throw error;
+            }
+
+            const parent = path.dirname(current);
+
+            if (parent === current) {
+                // Nothing on this path exists at all; the lexical answer is the
+                // only one there is, and it cannot be hiding a link.
+                return resolved;
+            }
+
+            trailing.push(path.basename(current));
+            current = parent;
+        }
+    }
+};
+
+/**
+ * Whether a path really lands inside a directory, compared after both have been
+ * resolved against the filesystem. Comparing the strings alone is not enough:
+ * a parent component of the output path can be a symlink into the directory
+ * about to be deleted, and the lexical forms will not look alike at all.
+ */
+const isReallyInsideDirectory = async (
+    candidate: string,
+    directory: string,
+): Promise<boolean> => {
+    const [resolved, resolvedDirectory] = await Promise.all([
+        resolveRealPathOfDeepestExisting(candidate),
+        resolveRealPathOfDeepestExisting(directory),
+    ]);
 
     return (
         resolved === resolvedDirectory ||
@@ -5589,7 +5645,10 @@ export const copyCommand = async (props: CLIOptions) => {
 
                 // A report written inside the directory about to be deleted is
                 // a report that does not survive the command that wrote it.
-                if (outputPath && isInsideDirectory(outputPath, pairDir)) {
+                if (
+                    outputPath &&
+                    (await isReallyInsideDirectory(outputPath, pairDir))
+                ) {
                     Logger.error(
                         `--outputPath '${outputPath}' is inside the directory --prune deletes ('${pairDir}'). The report would be destroyed by the delete it describes. Write it somewhere else.`,
                     );
@@ -5715,8 +5774,8 @@ export const copyCommand = async (props: CLIOptions) => {
                 `Reading the copy ledger for space '${pair.sourceSpaceId}' to space '${pair.targetSpaceId}'.`,
             );
 
-            // Read-only unless --compact is asked for: no Storyblok request is
-            // ever made, so this is safe to run against a pair mid-copy.
+            // Read-only: no Storyblok request is ever made and no ledger file
+            // is written, so this is safe to run against a pair mid-copy.
             const files = await readCopyManifestFiles(manifestPaths);
 
             const filters: CopyManifestViewFilters = {

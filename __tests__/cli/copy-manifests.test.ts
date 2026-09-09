@@ -826,4 +826,66 @@ describe("copy manifests", () => {
         // The report survived the delete it describes.
         await expect(readdir(ledgerDir())).rejects.toThrow();
     });
+
+    it("refuses an --outputPath whose parent is a symlink into the deletion target", async () => {
+        // The lexical forms do not look alike at all: the output path is under
+        // tempDir, the pair is under manifestRoot. Only the filesystem knows
+        // report-link is the pair directory wearing another name.
+        await writeLedger({ combined: `${storyLine()}\n` });
+        await symlink(ledgerDir(), path.join(tempDir, "report-link"), "dir");
+
+        await runInspector({
+            prune: "111:222",
+            yes: true,
+            outputPath: path.join(tempDir, "report-link", "report.json"),
+        });
+
+        expect(errorLines()[0]).toContain(
+            "is inside the directory --prune deletes",
+        );
+        expect(process.exitCode).toBe(1);
+        expect(await readdir(ledgerDir())).toContain("manifest.jsonl");
+    });
+
+    it("refuses an --outputPath that is itself a symlink into the deletion target", async () => {
+        await writeLedger({ combined: `${storyLine()}\n` });
+        await writeFile(path.join(ledgerDir(), "report.json"), "{}");
+
+        const outputPath = path.join(tempDir, "linked-report.json");
+        await symlink(
+            path.join(ledgerDir(), "report.json"),
+            outputPath,
+            "file",
+        );
+
+        await runInspector({ prune: "111:222", yes: true, outputPath });
+
+        expect(errorLines()[0]).toContain(
+            "is inside the directory --prune deletes",
+        );
+        expect(process.exitCode).toBe(1);
+        expect(await readdir(ledgerDir())).toContain("manifest.jsonl");
+    });
+
+    it("still accepts an --outputPath that only looks nearby", async () => {
+        // The guard must not be so eager that it refuses a legitimate path
+        // sitting beside the pair directory.
+        const outputPath = path.join(
+            manifestRoot,
+            "copy",
+            "111",
+            "222-reports",
+            "prune.json",
+        );
+
+        await writeLedger({ combined: `${storyLine()}\n` });
+
+        await runInspector({ prune: "111:222", yes: true, outputPath });
+
+        expect(errorLines()).toEqual([]);
+        expect(JSON.parse(await readFile(outputPath, "utf8")).mode).toBe(
+            "prune",
+        );
+        await expect(readdir(ledgerDir())).rejects.toThrow();
+    });
 });
