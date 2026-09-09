@@ -13,9 +13,8 @@ import type {
     CopyManifestFileInput,
     CopyManifestFileKind,
     CopyManifestPairInput,
-    CopyManifestRemovalFile,
+    CopyManifestRemovalEntry,
     CopyManifestPaths,
-    CopyManifestCompactionPlan,
     CopyManifestViewFilters,
     CopyResourceType,
     CopyStoryManifestEntry,
@@ -50,7 +49,6 @@ import {
     describeCopyTranslatedSlugs,
     formatCopyManifestInspection,
     formatCopyManifestPairList,
-    formatCopyManifestCompactionPlan,
     formatCopyManifestRemovalPlan,
     formatCopyPlanGate,
     formatCopyRelinkPlan,
@@ -59,11 +57,11 @@ import {
     getDefaultCopyManifestPaths,
     groupBrokenStoryReferences,
     inspectCopyManifests,
+    assertCopyManifestPairPathIsSafe,
     isCopyResourceType,
+    isKnownCopyLedgerFile,
     isSafeCopySpaceSegment,
     buildCopyManifestRemovalPlan,
-    planCopyManifestCompaction,
-    resolveCopyManifestPairDir,
     CopyManifestPathError,
     loadManifest,
     normalizeAssetFolderParentId,
@@ -71,7 +69,6 @@ import {
     planCopyRelinkStoryRewrite,
     planStoryTranslatedSlugs,
     rewriteCopyReferences,
-    writeManifest,
     scanStoriesReferences,
     selectRelinkLedgerAssetMappings,
     selectRelinkLedgerStoryMappings,
@@ -1956,33 +1953,80 @@ const resolveCopyManifestPair = (
     return {};
 };
 
-/** The files `--prune` would delete, so the gate can name every one of them. */
-const readCopyManifestDirectory = async (
+/**
+ * Everything inside the pair directory, walked with `lstat` so a symlink is
+ * recorded as a symlink rather than followed into whatever it points at. The
+ * gate has to be able to name every entry a recursive delete would take.
+ */
+const readCopyManifestRemovalEntries = async (
     dir: string,
-): Promise<{ exists: boolean; files: CopyManifestRemovalFile[] }> => {
-    let names: string[];
+): Promise<{ exists: boolean; entries: CopyManifestRemovalEntry[] }> => {
+    const entries: CopyManifestRemovalEntry[] = [];
+
+    const walk = async (current: string, prefix: string): Promise<void> => {
+        const names = (await fs.readdir(current)).sort();
+
+        for (const name of names) {
+            const absolute = path.join(current, name);
+            const relative = prefix ? `${prefix}/${name}` : name;
+            const stats = await fs.lstat(absolute);
+
+            if (stats.isSymbolicLink()) {
+                entries.push({
+                    path: relative,
+                    kind: "symlink",
+                    bytes: stats.size,
+                    target: await fs.readlink(absolute),
+                    unexpected: true,
+                });
+                continue;
+            }
+
+            if (stats.isDirectory()) {
+                entries.push({
+                    path: relative,
+                    kind: "directory",
+                    bytes: 0,
+                    unexpected: true,
+                });
+                await walk(absolute, relative);
+                continue;
+            }
+
+            entries.push({
+                path: relative,
+                kind: stats.isFile() ? "file" : "other",
+                bytes: stats.size,
+                unexpected: !isKnownCopyLedgerFile(relative),
+            });
+        }
+    };
 
     try {
-        names = (await fs.readdir(dir, { withFileTypes: true }))
-            .filter((entry) => entry.isFile())
-            .map((entry) => entry.name)
-            .sort();
+        await walk(dir, "");
     } catch (error: any) {
         if (error?.code === "ENOENT") {
-            return { exists: false, files: [] };
+            return { exists: false, entries: [] };
         }
 
         throw error;
     }
 
-    const files: CopyManifestRemovalFile[] = [];
+    return { exists: true, entries };
+};
 
-    for (const name of names) {
-        const stats = await fs.stat(path.join(dir, name));
-        files.push({ name, bytes: stats.size });
-    }
+/**
+ * Whether a path lands inside a directory, compared after resolving both. Used
+ * to keep a report out of the directory the same command is about to delete.
+ */
+const isInsideDirectory = (candidate: string, directory: string): boolean => {
+    const resolvedDirectory = path.resolve(directory);
+    const resolved = path.resolve(candidate);
 
-    return { exists: true, files };
+    return (
+        resolved === resolvedDirectory ||
+        resolved.startsWith(resolvedDirectory + path.sep)
+    );
 };
 
 /**
@@ -2031,35 +2075,6 @@ const parseCopyManifestTypes = (
     }
 
     return { types };
-};
-
-/**
- * Rewrites the files a compaction plan found something to remove in. Each one is
- * archived with a timestamp suffix before it is replaced, so a compaction is
- * always undoable by moving one file back — the promise `--fresh` makes too.
- */
-const applyCopyManifestCompaction = async (
-    plan: CopyManifestCompactionPlan,
-    now: Date = new Date(),
-): Promise<{ archived: string[]; rewritten: string[] }> => {
-    const suffix = now.toISOString().replace(/[:.]/g, "-");
-    const archived: string[] = [];
-    const rewritten: string[] = [];
-
-    for (const file of plan.files) {
-        if (file.skipped || file.remove === 0) {
-            continue;
-        }
-
-        const archivePath = `${file.path}.${suffix}.bak`;
-        await fs.copyFile(file.path, archivePath);
-        archived.push(archivePath);
-
-        await writeManifest(file.path, file.entries);
-        rewritten.push(file.path);
-    }
-
-    return { archived, rewritten };
 };
 
 const writeJsonReport = async (outputPath: string, report: unknown) => {
@@ -5510,7 +5525,6 @@ export const copyCommand = async (props: CLIOptions) => {
             const outputPath = readStringFlag(flags, ["outputPath"]);
             const manifestRoot = readStringFlag(flags, ["manifestRoot"]);
             const rawPrune = readStringFlag(flags, ["prune"]);
-            const compact = Boolean(flags["compact"]);
             const dryRun = Boolean(flags["dryRun"]);
             const yes = Boolean(flags["yes"]);
             const slug = readStringFlag(flags, ["slug"]);
@@ -5534,9 +5548,9 @@ export const copyCommand = async (props: CLIOptions) => {
                     break;
                 }
 
-                if (compact || types || slug) {
+                if (types || slug) {
                     Logger.error(
-                        "--prune deletes a pair's whole ledger directory. It cannot be combined with --compact, --type or --slug.",
+                        "--prune deletes a pair's whole ledger directory. It cannot be narrowed by --type or --slug.",
                     );
                     process.exitCode = 1;
                     break;
@@ -5552,15 +5566,17 @@ export const copyCommand = async (props: CLIOptions) => {
 
                 const { sourceSpaceId, targetSpaceId } = parsed.pair!;
                 let pairDir: string;
+                let pairExists: boolean;
 
                 try {
-                    // Resolved and proven inside the copy root BEFORE anything
-                    // is read, let alone deleted.
-                    pairDir = resolveCopyManifestPairDir({
-                        sourceSpaceId,
-                        targetSpaceId,
-                        rootDir: manifestRoot,
-                    });
+                    // Proven against the filesystem, not just the string, and
+                    // before anything is read — let alone deleted.
+                    ({ pairDir, exists: pairExists } =
+                        await assertCopyManifestPairPathIsSafe({
+                            sourceSpaceId,
+                            targetSpaceId,
+                            rootDir: manifestRoot,
+                        }));
                 } catch (error: any) {
                     if (error instanceof CopyManifestPathError) {
                         Logger.error(error.message);
@@ -5571,11 +5587,23 @@ export const copyCommand = async (props: CLIOptions) => {
                     throw error;
                 }
 
+                // A report written inside the directory about to be deleted is
+                // a report that does not survive the command that wrote it.
+                if (outputPath && isInsideDirectory(outputPath, pairDir)) {
+                    Logger.error(
+                        `--outputPath '${outputPath}' is inside the directory --prune deletes ('${pairDir}'). The report would be destroyed by the delete it describes. Write it somewhere else.`,
+                    );
+                    process.exitCode = 1;
+                    break;
+                }
+
                 const removalPlan = buildCopyManifestRemovalPlan({
                     sourceSpaceId,
                     targetSpaceId,
                     path: pairDir,
-                    ...(await readCopyManifestDirectory(pairDir)),
+                    ...(pairExists
+                        ? await readCopyManifestRemovalEntries(pairDir)
+                        : { exists: false, entries: [] }),
                 });
 
                 formatCopyManifestRemovalPlan(removalPlan).forEach((line) =>
@@ -5609,9 +5637,9 @@ export const copyCommand = async (props: CLIOptions) => {
             }
 
             if (!pair) {
-                if (compact || types || slug) {
+                if (types || slug) {
                     Logger.error(
-                        "--compact, --type and --slug all act on one ledger. Name it with --pair <sourceSpaceId>:<targetSpaceId>.",
+                        "--type and --slug both act on one ledger. Name it with --pair <sourceSpaceId>:<targetSpaceId>.",
                     );
                     process.exitCode = 1;
                     break;
@@ -5658,12 +5686,15 @@ export const copyCommand = async (props: CLIOptions) => {
             let pairRootDir: string;
 
             try {
-                // Same proof as --prune, before the first read.
-                pairRootDir = resolveCopyManifestPairDir({
-                    sourceSpaceId: pair.sourceSpaceId,
-                    targetSpaceId: pair.targetSpaceId,
-                    rootDir: manifestRoot,
-                });
+                // The same proof --prune makes. Reading through a symlinked
+                // component is not destructive, but it reports another
+                // directory's ledger as this pair's, which is its own lie.
+                ({ pairDir: pairRootDir } =
+                    await assertCopyManifestPairPathIsSafe({
+                        sourceSpaceId: pair.sourceSpaceId,
+                        targetSpaceId: pair.targetSpaceId,
+                        rootDir: manifestRoot,
+                    }));
             } catch (error: any) {
                 if (error instanceof CopyManifestPathError) {
                     Logger.error(error.message);
@@ -5687,61 +5718,6 @@ export const copyCommand = async (props: CLIOptions) => {
             // Read-only unless --compact is asked for: no Storyblok request is
             // ever made, so this is safe to run against a pair mid-copy.
             const files = await readCopyManifestFiles(manifestPaths);
-
-            if (compact && (types || slug)) {
-                // --type and --slug narrow a view. A compaction that quietly
-                // ignored them would remove lines the caller believed it had
-                // excluded.
-                Logger.error(
-                    "--compact rewrites the whole ledger and cannot be narrowed by --type or --slug. Run them separately.",
-                );
-                process.exitCode = 1;
-                break;
-            }
-
-            if (compact) {
-                const compactionPlan = planCopyManifestCompaction({
-                    sourceSpaceId: pair.sourceSpaceId,
-                    targetSpaceId: pair.targetSpaceId,
-                    rootDir: pairRootDir,
-                    files,
-                });
-
-                formatCopyManifestCompactionPlan(compactionPlan).forEach(
-                    (line) => Logger.log(line),
-                );
-
-                if (compactionPlan.summary.remove === 0 || dryRun) {
-                    if (outputPath) {
-                        await writeJsonReport(outputPath, compactionPlan);
-                    }
-
-                    break;
-                }
-
-                if (!(await confirmCopyPlan({ yes }))) {
-                    break;
-                }
-
-                const compacted =
-                    await applyCopyManifestCompaction(compactionPlan);
-
-                compacted.archived.forEach((archivePath) =>
-                    Logger.success(`Archived ${archivePath}`),
-                );
-                compacted.rewritten.forEach((filePath) =>
-                    Logger.success(`Compacted ${filePath}`),
-                );
-
-                if (outputPath) {
-                    await writeJsonReport(outputPath, {
-                        ...compactionPlan,
-                        applied: compacted,
-                    });
-                }
-
-                break;
-            }
 
             const filters: CopyManifestViewFilters = {
                 ...(types ? { types } : {}),

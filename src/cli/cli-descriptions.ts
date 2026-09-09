@@ -228,8 +228,6 @@ export const copyDescription = `
         $ sb-mig copy manifests
         $ sb-mig copy manifests --pair [sourceSpaceId]:[targetSpaceId]
         $ sb-mig copy manifests --pair [sourceSpaceId]:[targetSpaceId] --type story --slug blog
-        $ sb-mig copy manifests --pair [sourceSpaceId]:[targetSpaceId] --compact --dry-run
-        $ sb-mig copy manifests --pair [sourceSpaceId]:[targetSpaceId] --compact --yes
         $ sb-mig copy manifests --prune [sourceSpaceId]:[targetSpaceId] --dry-run
         $ sb-mig copy manifests --prune [sourceSpaceId]:[targetSpaceId] --yes
         $ sb-mig copy manifests --pair [sourceSpaceId]:[targetSpaceId] --outputPath sbmig/copy-plans/ledger.json
@@ -249,7 +247,6 @@ export const copyDescription = `
         --pair          Ledger to read, written as <sourceSpaceId>:<targetSpaceId>. Omit to list every ledger on disk. [manifests only]
         --type          Restrict the mapping view to story, asset, or asset_folder. Repeatable. Requires --pair. [manifests only]
         --slug          Restrict the mapping view to mappings whose source or target path contains this text. Requires --pair. [manifests only]
-        --compact       Rewrite the pair's ledger with only the lines a run would act on. Requires --pair, and asks before writing. [manifests only]
         --prune         DELETE one pair's whole ledger directory, written as <sourceSpaceId>:<targetSpaceId>. Names its own pair, and asks before deleting. [manifests only]
         --source        Source story or folder full_slug. Use folder/* to copy a folder's children without the folder root.
         --destination   Target folder full_slug where copied stories are attached. Omit, '/', or 'root' to copy into target root.
@@ -264,8 +261,8 @@ export const copyDescription = `
         --assetFolder   Select one source asset folder by numeric ID or folder path. Includes descendants and assets in that subtree. Repeatable. [assets only]
         --referenced-by-stories
                        Select assets referenced by a story/folder scope. Requires --source. [assets only]
-        --dry-run       Preview story paths, manifest-mapped references, and likely target conflicts without writing to Storyblok. With copy manifests --compact or --prune, print the plan and stop.
-        --yes           Skip the confirmation gate shown after a PLAN block, before the first write. Required in non-interactive runs (CI). [stories, relink, and manifests --compact/--prune]
+        --dry-run       Preview story paths, manifest-mapped references, and likely target conflicts without writing to Storyblok. With copy manifests --prune, print the plan and stop.
+        --yes           Skip the confirmation gate shown after a PLAN block, before the first write. Required in non-interactive runs (CI). [stories, relink, and manifests --prune]
         --fresh         Ignore the existing copy ledger for this run; every manifest file of this space pair, the asset and asset-folder ledgers included, is moved aside with a timestamp suffix, never deleted. A later --with-assets run therefore starts without the archived asset mappings too. [stories only]
         --manifestRoot  Directory holding the copy ledger. Default: .sb-mig
         --outputPath    Optional JSON file path for a dry-run copy plan artifact. Only writes locally when passed.
@@ -286,9 +283,8 @@ export const copyDescription = `
         copy assets writes JSONL manifests under .sb-mig/copy/<source>/<target>/ during apply.
         --outputPath writes a local JSON report for dry-run or apply.
         copy manifests makes no Storyblok request in any mode.
-        copy manifests leaves every ledger file untouched unless --compact or --prune is passed and confirmed.
-        copy manifests --compact copies each file it rewrites to a timestamped .bak next to it first; no file is deleted.
-        copy manifests --prune DELETES one pair's ledger directory and everything in it. It is not archived, and a copy run that would have resumed from it starts over.
+        copy manifests leaves every ledger file untouched unless --prune is passed and confirmed.
+        copy manifests --prune DELETES one pair's ledger directory and everything in it, including anything it did not write. It is not archived, and a copy run that would have resumed from it starts over.
 
     GOTCHAS
         --source must resolve to an existing source story or folder.
@@ -325,9 +321,10 @@ export const copyDescription = `
         copy manifests reports conflicts against the runtime map that would be poisoned, taken from the same projection a copy run builds its maps with. One story writes six mappings across four maps: its id, its uuid, and its target path under both uuids and both ids.
         copy manifests exits 1 when it finds an error: a source key mapped to two different targets, an entry it cannot read, an entry belonging to another space pair, an unreadable file, or a mapping recorded only in a per-resource file.
         copy manifests warns about duplicate lines and about story mappings with no target path, which is why stored link paths such as cached_url stay stale until a copy relink fills them in.
-        copy manifests --compact removes only lines a run would never act on: unusable entries, entries from another space pair, and lines already overridden by a later line for the same source. What survives is what buildCopyMaps already ends up with.
-        copy manifests --compact never rewrites a file it could not parse.
-        copy manifests --prune names the pair it deletes itself, so it cannot be combined with --pair, --from, --to, --compact, --type or --slug. It deletes exactly that pair directory and nothing above it.
+        copy manifests --prune names the pair it deletes itself, so it cannot be combined with --pair, --from, --to, --type or --slug. It deletes exactly that pair directory and nothing above it.
+        copy manifests --prune lists every entry it would delete first, walking the directory recursively and reporting files, subdirectories and symlinks, with anything copy manifests did not write called out.
+        copy manifests --prune refuses when any part of copy/<source>/<target> is a symbolic link, and checks the directory's real path is still inside the copy root's real path, because a link there means the directory being deleted is not the one the space ids name.
+        copy manifests --prune refuses an --outputPath inside the directory it is deleting, because the report would not survive the delete it describes.
         copy manifests cannot tell whether the target space still holds the stories these mappings name. A ledger that is clean here can still be stale against the space.
         copy assets matches by manifest first, then safe target folder path or unique asset file name before creating.
         copy assets uploads assets, finalizes the upload, and writes source-to-target asset/folder manifests.
@@ -342,7 +339,6 @@ export const copyDescription = `
         $ sb-mig copy manifests
         $ sb-mig copy manifests --pair 12345:67890
         $ sb-mig copy manifests --pair 12345:67890 --type story --slug blog
-        $ sb-mig copy manifests --pair 12345:67890 --compact --yes
         $ sb-mig copy manifests --prune 12345:67890 --yes
         $ sb-mig copy stories --from 12345 --to 67890 --source blog --destination imported --publicationMode collapse-draft --publicationLanguages default,fr,de
         $ sb-mig copy stories --from 12345 --to 67890 --source blog --destination imported --publicationMode save-only

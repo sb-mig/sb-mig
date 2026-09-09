@@ -9,9 +9,7 @@ import {
     buildCopyManifestPairList,
     formatCopyManifestInspection,
     formatCopyManifestPairList,
-    formatCopyManifestCompactionPlan,
     inspectCopyManifests,
-    planCopyManifestCompaction,
 } from "../../src/api/copy/manifest-inspector.js";
 
 const storyEntry = (
@@ -452,70 +450,6 @@ describe("copy manifest inspector", () => {
     /* --------------------------------------------------------------- *
      * Pruning
      * --------------------------------------------------------------- */
-
-    it("plans a compaction that removes only lines a run would never act on", () => {
-        const plan = planCopyManifestCompaction({
-            sourceSpaceId: "111",
-            targetSpaceId: "222",
-            rootDir: ".sb-mig/copy/111/222",
-            generatedAt: "2026-09-09T00:00:00.000Z",
-            files: [
-                combined([
-                    storyEntry({ target_full_slug: "dst/OLD-PATH" }),
-                    storyEntry({ target_full_slug: "dst/NEW-PATH" }),
-                    storyEntry({ target_space_id: "999" }),
-                    {
-                        type: "banana",
-                        source_space_id: "111",
-                        target_space_id: "222",
-                    },
-                    assetEntry(),
-                ]),
-            ],
-        });
-
-        expect(plan.summary).toMatchObject({
-            lines: 5,
-            keep: 2,
-            remove: 3,
-            filesToRewrite: 1,
-            removedBy: {
-                superseded: 1,
-                foreign_pair: 1,
-                invalid_entry: 1,
-            },
-        });
-        // What survives is exactly what buildCopyMaps ends up with today: the
-        // compacted ledger says out loud what the fat one already meant.
-        expect(
-            plan.files[0]?.entries.map((entry: any) => entry.target_full_slug),
-        ).toEqual(["dst/NEW-PATH", undefined]);
-    });
-
-    it("never rewrites a file it could not read", () => {
-        const plan = planCopyManifestCompaction({
-            sourceSpaceId: "111",
-            targetSpaceId: "222",
-            rootDir: ".sb-mig/copy/111/222",
-            generatedAt: "2026-09-09T00:00:00.000Z",
-            files: [
-                {
-                    kind: "combined",
-                    path: ".sb-mig/copy/111/222/manifest.jsonl",
-                    exists: true,
-                    error: "Failed to parse manifest at line 3",
-                },
-            ],
-        });
-
-        expect(plan.files[0]?.skipped).toBe(
-            "unreadable, left exactly as it is",
-        );
-        expect(plan.summary.remove).toBe(0);
-        expect(formatCopyManifestCompactionPlan(plan)).toContain(
-            "  combined: unreadable, left exactly as it is",
-        );
-    });
 
     it("lists every pair on disk without judging any of them", () => {
         const list = buildCopyManifestPairList({

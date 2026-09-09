@@ -77,6 +77,76 @@ export const resolveCopyManifestPairDir = ({
     return resolved;
 };
 
+/**
+ * The same directory, proven safe against the filesystem rather than against
+ * the string. `path.resolve` collapses `..` textually and knows nothing about
+ * symlinks, so a lexically contained path can still point anywhere: with
+ * `copy/123` symlinked to a directory outside the root, `copy/123/456` resolves
+ * clean and a recursive delete lands on somebody else's files.
+ *
+ * Two independent proofs, because either alone has a gap. No component of
+ * `copy/<src>/<tgt>` may be a symlink — checked with `lstat`, which does not
+ * follow — and the real path of the pair directory must still sit inside the
+ * real path of the copy root.
+ */
+export const assertCopyManifestPairPathIsSafe = async ({
+    sourceSpaceId,
+    targetSpaceId,
+    rootDir,
+}: {
+    sourceSpaceId: string;
+    targetSpaceId: string;
+    rootDir?: string;
+}): Promise<{ pairDir: string; exists: boolean }> => {
+    // Segment shape and lexical containment first: cheapest, and it rejects the
+    // obvious attempt before the filesystem is consulted at all.
+    const pairDir = resolveCopyManifestPairDir({
+        sourceSpaceId,
+        targetSpaceId,
+        rootDir,
+    });
+    const copyRoot = path.resolve(getCopyManifestRoot(rootDir));
+
+    for (const candidate of [
+        copyRoot,
+        path.join(copyRoot, sourceSpaceId),
+        pairDir,
+    ]) {
+        let stats;
+
+        try {
+            stats = await fs.lstat(candidate);
+        } catch (error: any) {
+            if (error?.code === "ENOENT") {
+                // Nothing exists from here down, so there is nothing to follow
+                // and nothing to delete.
+                return { pairDir, exists: false };
+            }
+
+            throw error;
+        }
+
+        if (stats.isSymbolicLink()) {
+            throw new CopyManifestPathError(
+                `'${candidate}' is a symbolic link. The copy ledger is addressed by space id, so a link in that path means the directory being read or deleted is not the one the ids name. Refusing to follow it.`,
+            );
+        }
+    }
+
+    const [realRoot, realPair] = await Promise.all([
+        fs.realpath(copyRoot),
+        fs.realpath(pairDir),
+    ]);
+
+    if (realPair !== realRoot && !realPair.startsWith(realRoot + path.sep)) {
+        throw new CopyManifestPathError(
+            `The ledger directory for ${sourceSpaceId} to ${targetSpaceId} really lives at '${realPair}', which is outside the copy root '${realRoot}'. Refusing to touch it.`,
+        );
+    }
+
+    return { pairDir, exists: true };
+};
+
 export const getDefaultCopyManifestPaths = ({
     sourceSpaceId,
     targetSpaceId,

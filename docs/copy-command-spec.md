@@ -548,11 +548,7 @@ sb-mig copy manifests --pair 12345:67890
 sb-mig copy manifests --pair 12345:67890 --type story --slug blog
 sb-mig copy manifests --pair 12345:67890 --outputPath sbmig/copy-plans/ledger.json
 
-# compact a fat ledger, behind the same gate as every other write
-sb-mig copy manifests --pair 12345:67890 --compact --dry-run
-sb-mig copy manifests --pair 12345:67890 --compact --yes
-
-# delete one pair's ledger directory outright
+# delete one pair's ledger directory outright, behind the confirmation gate
 sb-mig copy manifests --prune 12345:67890 --dry-run
 sb-mig copy manifests --prune 12345:67890 --yes
 ```
@@ -605,23 +601,33 @@ Requirements:
   would do the wrong thing, and the command exits 1 so a pipeline can gate on
   it. Warnings (`duplicate_mapping`, `missing_target_full_slug`) cost the run
   something without misdirecting it.
-- **Two writes, both behind the same PLAN-block-then-confirm gate** as
-  `copy stories` and `copy relink`: `--dry-run` plans and stops, `--yes` skips
-  the question, and without a terminal and without `--yes` both refuse.
-    - **`--compact`** rewrites a pair's ledger with only the lines a run would act
-      on — dropping unusable entries, entries from another pair, and lines already
-      overridden by a later line for the same source — so what survives is exactly
-      what `buildCopyMaps` ends up with today. Every rewritten file is copied to a
-      timestamped `.bak` first; no file is deleted, and a file that would not parse
-      is never rewritten.
-    - **`--prune <source>:<target>`** DELETES that pair's ledger directory and
-      everything in it. It **names its own pair** rather than reading one from
-      `--pair`, because taking the target of a delete from a second flag is how the
-      wrong directory gets removed; combining it with `--pair`, `--from`, `--to`,
-      `--compact`, `--type` or `--slug` is refused. It deletes exactly that pair
-      directory and nothing above it, the plan lists every file by name and size
-      first, and the deletion is **not** archived — a run that would have resumed
-      from that ledger starts over.
+- **`--prune <source>:<target>` is the only mutation**, and it sits behind the
+  same PLAN-block-then-confirm gate as `copy stories` and `copy relink`:
+  `--dry-run` plans and stops, `--yes` skips the question, and without a terminal
+  and without `--yes` it refuses. It DELETES that pair's ledger directory and
+  everything in it. It **names its own pair** rather than reading one from
+  `--pair`, because taking the target of a delete from a second flag is how the
+  wrong directory gets removed; combining it with `--pair`, `--from`, `--to`,
+  `--type` or `--slug` is refused. It deletes exactly that pair directory and
+  nothing above it, and the deletion is **not** archived — a run that would have
+  resumed from that ledger starts over.
+- **The plan discloses everything the delete removes.** The directory is walked
+  recursively with `lstat`, and every entry is listed — files, subdirectories,
+  and symlinks with their targets — because a recursive delete takes whatever it
+  finds and a plan naming only the ledger files lies by omission. Anything
+  `copy manifests` did not write is called out in the listing and counted in the
+  summary.
+- **Containment is proven against the filesystem, not the string.**
+  `path.resolve` collapses `..` textually and knows nothing about symlinks, so a
+  lexically contained path can still point anywhere: with `copy/123` symlinked to
+  a directory outside the root, `copy/123/456` resolves clean and the recursive
+  delete lands on somebody else's files. Two independent proofs — no component of
+  `copy/<source>/<target>` may be a symlink (`lstat`, which does not follow), and
+  the pair directory's **real** path must sit inside the copy root's **real**
+  path.
+- **An `--outputPath` inside the deletion target is refused** before anything is
+  deleted. A report written into the directory the same command then removes
+  does not survive the command that wrote it.
 - `--outputPath` writes the same account as JSON, whichever mode ran.
 
 What it deliberately does not do: it cannot tell whether the target space
