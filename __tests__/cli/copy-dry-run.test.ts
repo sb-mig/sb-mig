@@ -1475,7 +1475,13 @@ describe("copy stories dry-run", () => {
         const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-copy-"));
 
         withTranslatedSlugs([
-            { id: 555, story_id: 2, lang: "de", slug: "seite-eins", name: "Seite Eins" },
+            {
+                id: 555,
+                story_id: 2,
+                lang: "de",
+                slug: "seite-eins",
+                name: "Seite Eins",
+            },
         ]);
 
         await copyCommand({
@@ -1568,6 +1574,89 @@ describe("copy stories dry-run", () => {
         expect(
             planGateLines().some((line) => line.includes("translated slug")),
         ).toBe(false);
+
+        await rm(tempDir, { recursive: true, force: true });
+    });
+
+    it("writes the translated-slug account into the dry-run artifact", async () => {
+        const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-copy-"));
+        const outputPath = path.join(tempDir, "plans", "copy-plan.json");
+
+        withTranslatedSlugs([
+            { lang: "de", slug: "seite-eins", name: "Seite Eins" },
+            { lang: "fr", slug: "page-une" },
+        ]);
+
+        await copyCommand({
+            input: ["copy", "stories"],
+            flags: {
+                from: "source-space",
+                to: "target-space",
+                source: "blog",
+                destination: "imported",
+                dryRun: true,
+                outputPath,
+            },
+        } as any);
+
+        const report = JSON.parse(await readFile(outputPath, "utf8"));
+
+        // A plan read back from its file has to say what the console said;
+        // console-only accounting is invisible to whoever reviews the artifact.
+        expect(report.translatedSlugs).toEqual({
+            stories: 1,
+            carried: 1,
+            unsupported: 1,
+            unsupportedLangs: ["fr"],
+        });
+        expect(report.warnings).toContainEqual({
+            code: "translated_slugs_unsupported_language",
+            message:
+                "1 translated slug(s) will be left behind: space 'target-space' has no language(s) fr. Add them to the target space and copy again to carry them.",
+        });
+
+        await rm(tempDir, { recursive: true, force: true });
+    });
+
+    it("writes the translated-slug account into the apply artifact", async () => {
+        const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-copy-"));
+        const outputPath = path.join(tempDir, "reports", "copy-report.json");
+
+        withTranslatedSlugs([
+            { lang: "de", slug: "seite-eins", name: "Seite Eins" },
+            { lang: "fr", slug: "page-une" },
+        ]);
+
+        await copyCommand({
+            input: ["copy", "stories"],
+            flags: {
+                from: "source-space",
+                to: "target-space",
+                source: "blog",
+                destination: "imported",
+                manifestRoot: path.join(tempDir, ".sb-mig"),
+                yes: true,
+                outputPath,
+            },
+        } as any);
+
+        const report = JSON.parse(await readFile(outputPath, "utf8"));
+
+        expect(report.dryRun).toBe(false);
+        expect(report.translatedSlugs).toEqual({
+            stories: 1,
+            carried: 1,
+            unsupported: 1,
+            unsupportedLangs: ["fr"],
+        });
+        expect(report.warnings).toContainEqual({
+            code: "translated_slugs_unsupported_language",
+            message:
+                "1 translated slug(s) will be left behind: space 'target-space' has no language(s) fr. Add them to the target space and copy again to carry them.",
+        });
+        // The count has to move with the warning, or the summary understates
+        // the run it belongs to.
+        expect(report.summary.warnings).toBe(1);
 
         await rm(tempDir, { recursive: true, force: true });
     });

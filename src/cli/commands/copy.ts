@@ -32,6 +32,7 @@ import {
     buildCopyRelinkClassificationMaps,
     buildCopyRelinkMaps,
     buildCopyRelinkPlanSummary,
+    buildCopyTranslatedSlugsWarning,
     classifyStoryReferences,
     countStoryReferenceStatuses,
     createCopyGraph,
@@ -191,6 +192,7 @@ type CopyDryRunReport = {
         errors: number;
         componentIssues: number;
     };
+    translatedSlugs: CopyTranslatedSlugSummary;
     items: CopyPlanItem[];
     graph?: CopyGraph;
     assetReferenceSummary?: CopyDryRunAssetReferenceSummary;
@@ -295,6 +297,7 @@ type CopyStoriesApplyReport = {
         warnings: number;
         errors: number;
     };
+    translatedSlugs: CopyTranslatedSlugSummary;
     items: CopyPlanItem[];
     graph?: CopyGraph;
     assetCopy?: CopyAssetsApplyReport;
@@ -1453,6 +1456,7 @@ const buildCopyDryRunReport = ({
     conflicts,
     graph,
     componentCompatibility,
+    translatedSlugs,
     outputPath,
 }: {
     sourceSpace: string;
@@ -1465,12 +1469,20 @@ const buildCopyDryRunReport = ({
     conflicts: CopyPlanItem[];
     graph?: CopyGraph;
     componentCompatibility?: CopyDryRunComponentCompatibility;
+    translatedSlugs: CopyTranslatedSlugSummary;
     outputPath?: string;
 }): CopyDryRunReport => {
     const items = withConflictFlags(plan, conflicts);
+    // The artifact carries the same translated-slug account the console gives,
+    // so a run read back from its JSON is not missing what the terminal said.
+    const translatedSlugsWarning = buildCopyTranslatedSlugsWarning({
+        summary: translatedSlugs,
+        targetSpaceId: targetSpace,
+    });
     const warnings = [
         ...buildDryRunWarnings({ conflicts, withAssets }),
         ...buildComponentCompatibilityWarnings(componentCompatibility),
+        ...(translatedSlugsWarning ? [translatedSlugsWarning] : []),
     ];
     const graphSummary = graph ? summarizeCopyGraph(graph) : undefined;
     const assetReferencesMapped =
@@ -1539,6 +1551,7 @@ const buildCopyDryRunReport = ({
             errors: graphSummary?.errors ?? 0,
             componentIssues: componentCompatibility?.findings.length ?? 0,
         },
+        translatedSlugs,
         items,
         ...(graph ? { graph } : {}),
         ...(assetReferenceSummary ? { assetReferenceSummary } : {}),
@@ -1634,6 +1647,7 @@ const buildCopyStoriesApplyReport = ({
     storySummary,
     graph,
     assetCopyReport,
+    translatedSlugs,
     manifestRoot,
 }: {
     sourceSpace: string;
@@ -1646,6 +1660,7 @@ const buildCopyStoriesApplyReport = ({
     storySummary: CopyStoriesApplySummary;
     graph?: CopyGraph;
     assetCopyReport?: CopyAssetsApplyReport;
+    translatedSlugs: CopyTranslatedSlugSummary;
     manifestRoot?: string;
 }): CopyStoriesApplyReport => {
     const manifestPaths = getDefaultCopyManifestPaths({
@@ -1654,6 +1669,12 @@ const buildCopyStoriesApplyReport = ({
         rootDir: manifestRoot,
     });
     const graphSummary = graph ? summarizeCopyGraph(graph) : undefined;
+    // What the run left behind survives in the artifact too: an apply report
+    // read a week later is the only record that the slugs were dropped.
+    const translatedSlugsWarning = buildCopyTranslatedSlugsWarning({
+        summary: translatedSlugs,
+        targetSpaceId: targetSpace,
+    });
 
     return {
         schemaVersion: 1,
@@ -1683,11 +1704,13 @@ const buildCopyStoriesApplyReport = ({
                 : {}),
             warnings:
                 (graphSummary?.warnings ?? 0) +
-                (assetCopyReport?.summary.warnings ?? 0),
+                (assetCopyReport?.summary.warnings ?? 0) +
+                (translatedSlugsWarning ? 1 : 0),
             errors:
                 (graphSummary?.errors ?? 0) +
                 (assetCopyReport?.summary.errors ?? 0),
         },
+        translatedSlugs,
         items: plan,
         ...(graph ? { graph } : {}),
         ...(assetCopyReport ? { assetCopy: assetCopyReport } : {}),
@@ -1700,6 +1723,7 @@ const buildCopyStoriesApplyReport = ({
         warnings: [
             ...(graph?.warnings ?? []),
             ...(assetCopyReport?.warnings ?? []),
+            ...(translatedSlugsWarning ? [translatedSlugsWarning] : []),
         ],
         errors: [...(graph?.errors ?? []), ...(assetCopyReport?.errors ?? [])],
     };
@@ -4555,10 +4579,13 @@ export const copyCommand = async (props: CLIOptions) => {
                 targetLanguageCodes,
             });
 
-            if (translatedSlugs.unsupported > 0) {
-                Logger.warning(
-                    `${translatedSlugs.unsupported} translated slug(s) will be left behind: space '${targetSpace}' has no language(s) ${translatedSlugs.unsupportedLangs.join(", ")}. Add them to the target space and copy again to carry them.`,
-                );
+            const translatedSlugsWarning = buildCopyTranslatedSlugsWarning({
+                summary: translatedSlugs,
+                targetSpaceId: targetSpace,
+            });
+
+            if (translatedSlugsWarning) {
+                Logger.warning(translatedSlugsWarning.message);
             }
 
             if (dryRun) {
@@ -4598,6 +4625,7 @@ export const copyCommand = async (props: CLIOptions) => {
                     conflicts,
                     graph: dryRunGraph,
                     componentCompatibility,
+                    translatedSlugs,
                     outputPath,
                 });
 
@@ -4752,6 +4780,7 @@ export const copyCommand = async (props: CLIOptions) => {
                     storySummary,
                     graph: withAssetsGraph,
                     assetCopyReport,
+                    translatedSlugs,
                     manifestRoot,
                 });
 

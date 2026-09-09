@@ -474,6 +474,12 @@ Requirements:
   dropped: they address rows in the source space.
 - The PLAN and the dry run state how many translated slugs will be carried,
   and across how many stories, before anything is written.
+- The `--outputPath` artifact carries the same account, for a dry run and for
+  an apply alike: a `translatedSlugs` block with the carried and unsupported
+  counts and the missing languages, plus the
+  `translated_slugs_unsupported_language` warning when there is one. A report
+  read back a week later is often the only record of what a run left behind, so
+  it must not be poorer than the terminal was.
 - A slug whose language the target space does not have is **left behind with a
   warning naming the languages**, not sent — an unknown language would fail the
   whole story write, which is a heavier answer than the loss it prevents. The
@@ -484,6 +490,17 @@ Requirements:
 - `copy relink` never writes `translated_slugs_attributes`. It repairs
   reference values in content and nothing else, so the target's own translated
   slugs are untouched by a repair pass.
+
+**Rerun behavior rests on an API guarantee, not on bookkeeping of ours.**
+Because the source row ids are deliberately omitted, a rerun sends the same
+`{lang, slug, name}` rows again with no identity attached, and the Management
+API **upserts them by language**: the second run updates the existing row for
+that language rather than appending a duplicate. Verified against a live space —
+an identical copy rerun left exactly one row per language, keeping the row id
+the target assigned on the first run. If that behavior ever changed to keying
+rows by id, omitting ids would start appending duplicates on every rerun, and
+this command would have to read the target's existing translated slugs and send
+their ids back. Nothing else here compensates for it.
 
 Translated _content_ — `__i18n__<lang>` field values — is a separate concern
 and is handled by the reference rewriter like any other field.

@@ -152,3 +152,25 @@ export const describeCopyTranslatedSlugs = ({
 
     return lines;
 };
+
+/**
+ * The one warning a run has to give about translated slugs, in the shape a
+ * report carries and the console prints. Built once so the JSON artifact and
+ * the terminal cannot drift into two different accounts of the same loss.
+ */
+export const buildCopyTranslatedSlugsWarning = ({
+    summary,
+    targetSpaceId,
+}: {
+    summary: CopyTranslatedSlugSummary;
+    targetSpaceId: string;
+}): { code: string; message: string } | undefined => {
+    if (summary.unsupported === 0) {
+        return undefined;
+    }
+
+    return {
+        code: "translated_slugs_unsupported_language",
+        message: `${summary.unsupported} translated slug(s) will be left behind: space '${targetSpaceId}' has no language(s) ${summary.unsupportedLangs.join(", ")}. Add them to the target space and copy again to carry them.`,
+    };
+};
