@@ -1,3 +1,31 @@
+# [6.5.0-beta.3](https://github.com/sb-mig/sb-mig/compare/v6.5.0-beta.2...v6.5.0-beta.3) (2026-09-09)
+
+
+### Bug Fixes
+
+* **copy:** keep the copy help text free of question marks (MAR-2669) ([f4414d0](https://github.com/sb-mig/sb-mig/commit/f4414d0ab54fac9df73f8120b1aa5256ac476c70))
+* **copy:** make copy manifests --prune delete, and its paths safe (MAR-2673) ([3f0c021](https://github.com/sb-mig/sb-mig/commit/3f0c0212a55a060f105518d801eb744d03120b4d))
+* **copy:** name which artifact copy manifests wrote (MAR-2673) ([77dd708](https://github.com/sb-mig/sb-mig/commit/77dd70820527224ca046bf3a598139b3e224cdf3))
+* **copy:** prove the prune report path on disk too (MAR-2673) ([7d96992](https://github.com/sb-mig/sb-mig/commit/7d9699245d8a753d270789813a3f87e691d3f109))
+* **copy:** prove the prune target on disk, and disclose all of it (MAR-2673) ([853f669](https://github.com/sb-mig/sb-mig/commit/853f669c4a51049bdb04ac4c298bf3ee7e82cb6b))
+* **copy:** refuse a symlinked prune report path outright (MAR-2673) ([16d9c5d](https://github.com/sb-mig/sb-mig/commit/16d9c5d93b22ef710cf64aef60ac77b56877a869))
+* **copy:** relink only through mappings it verified (MAR-2671) ([3a39695](https://github.com/sb-mig/sb-mig/commit/3a39695598d2d04b2aaad841fefc2f2a4bbcfe99))
+* **copy:** report translated slugs in the --outputPath artifact (MAR-2675) ([0d63d67](https://github.com/sb-mig/sb-mig/commit/0d63d677744cad33efa94726d375fae5a7681297))
+* **copy:** scan only planned stories and classify only story-copy runs (MAR-2670) ([6b1e5d0](https://github.com/sb-mig/sb-mig/commit/6b1e5d002e261343ad62fd413d25ee25445b08ee))
+* **copy:** validate the ledger and name breaking references at the plan gate (MAR-2669) ([759dd5a](https://github.com/sb-mig/sb-mig/commit/759dd5ad7d9fa8dcd4f0b1260fbd0eb37f3c977d))
+* **copy:** verify every mapping relink writes through (MAR-2672) ([6193a43](https://github.com/sb-mig/sb-mig/commit/6193a433320d5fdd9fc72d203eaed5f15cc175eb))
+
+
+### Features
+
+* **copy:** add copy relink, a standalone reference repair pass (MAR-2671) ([972216c](https://github.com/sb-mig/sb-mig/commit/972216c7e64bf3d2c98e5b7bc4152f286c0a3a8b))
+* **copy:** carry translated slugs into the target space (MAR-2675) ([f60ee2a](https://github.com/sb-mig/sb-mig/commit/f60ee2a0ec8cf5822a198442417dd984a6f7e1cd))
+* **copy:** classify story references by scope (MAR-2670) ([8f0179d](https://github.com/sb-mig/sb-mig/commit/8f0179dfdf90376c6112e69eb871a61e48f609fe))
+* **copy:** list, read and prune the copy ledgers with copy manifests (MAR-2673) ([84830f1](https://github.com/sb-mig/sb-mig/commit/84830f17b1b04fc5a2643f175993a7c87d68bcb1))
+* **copy:** plan gate before any write, --yes and --fresh (MAR-2669) ([0672ad3](https://github.com/sb-mig/sb-mig/commit/0672ad3e15abf8155e5a480d9457c01aef9c8ff7))
+* **copy:** read the copy ledger back with copy manifests (MAR-2673) ([b73c150](https://github.com/sb-mig/sb-mig/commit/b73c1502d31a103fca63a12168cbaf1a871deedc))
+* **copy:** rewrite stored link paths when relinking stories (MAR-2672) ([32c35ad](https://github.com/sb-mig/sb-mig/commit/32c35ad145db1cae42f6d2450281ee75a5632d50))
+
 # [6.5.0-beta.2](https://github.com/sb-mig/sb-mig/compare/v6.5.0-beta.1...v6.5.0-beta.2) (2026-08-04)
 
 
