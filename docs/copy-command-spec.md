@@ -548,18 +548,30 @@ sb-mig copy manifests --pair 12345:67890
 sb-mig copy manifests --pair 12345:67890 --type story --slug blog
 sb-mig copy manifests --pair 12345:67890 --outputPath sbmig/copy-plans/ledger.json
 
-# the one write it can make, behind the same gate as every other write
-sb-mig copy manifests --pair 12345:67890 --prune --dry-run
-sb-mig copy manifests --pair 12345:67890 --prune --yes
+# compact a fat ledger, behind the same gate as every other write
+sb-mig copy manifests --pair 12345:67890 --compact --dry-run
+sb-mig copy manifests --pair 12345:67890 --compact --yes
+
+# delete one pair's ledger directory outright
+sb-mig copy manifests --prune 12345:67890 --dry-run
+sb-mig copy manifests --prune 12345:67890 --yes
 ```
 
 Requirements:
 
 - **No Storyblok request, in any mode.** It is safe to run at any moment,
   including mid-copy and in CI.
-- **With no `--pair`, it lists every ledger under `--manifestRoot`** and says
-  nothing about whether any of them is healthy — health is a question about a
-  pair, and the listing exists to tell you which pairs there are to ask about.
+- **With no `--pair`, it lists every ledger under `--manifestRoot`** — each with
+  its **absolute resolved path** and the ledger file's **real mtime**, not a
+  `created_at` from inside it: the file's own timestamp is the one a hand edit
+  cannot fake, and "how stale is this?" is the question the listing is for. It
+  says nothing about whether any of them is healthy — health is a question about
+  a pair, and the listing exists to tell you which pairs there are to ask about.
+- **A space id is a path segment, and it comes from the command line.** Every id
+  must be a plain number (Storyblok issues nothing else), and the resolved pair
+  directory is asserted to lie inside the resolved copy root **before any read,
+  write or delete**. `--prune ../../outside:target` is refused before the disk is
+  touched at all; without both checks it would delete whatever it landed on.
 - **It never falls back to the configured space.** A ledger belongs to a pair;
   defaulting either side reads a different pair's file — or a file that was
   never written — and reports the result as the answer. Naming half a pair is
@@ -581,23 +593,35 @@ Requirements:
   exactly those, and reported a poisoned ledger as healthy. The report names the
   value that wins, since a run keeps the last line it reads and the loser is
   invisible at runtime.
-- **An entry the run could not read is not a mapping.** Entries are validated
-  for shape first (`invalid_entry`); counting an unknown type or an asset with
-  no ids as coverage invents identities out of `undefined`, and every number
-  derived from them is a fiction.
+- **An entry the run could not read is not a mapping**, and the check lives at
+  the shared runtime boundary rather than in the reader. `getCopyMapWrites`
+  rejects a malformed entry, so `buildCopyMaps` cannot apply one: an asset entry
+  with no `target_id` used to put `{ id: undefined }` into `assetIds`, and the
+  rewriter then assigned that `undefined` over a real image's `id` — the
+  reference was not repaired, it was destroyed. Reporting it as `invalid_entry`
+  is the reader's half of the same fact.
 - Errors (`conflicting_mapping`, `invalid_entry`, `space_pair_mismatch`,
   `unreadable_file`, `missing_from_combined`) mean a run reading this ledger
   would do the wrong thing, and the command exits 1 so a pipeline can gate on
   it. Warnings (`duplicate_mapping`, `missing_target_full_slug`) cost the run
   something without misdirecting it.
-- **`--prune` is the only write**, and it sits behind the same PLAN-block-then-
-  confirm gate as `copy stories` and `copy relink`: `--dry-run` plans and stops,
-  `--yes` skips the question, and without a terminal and without `--yes` it
-  refuses. It removes only lines a run would never act on — unusable entries,
-  entries from another pair, and lines already overridden by a later line for
-  the same source — so what survives is exactly what `buildCopyMaps` ends up
-  with today. Every rewritten file is copied to a timestamped `.bak` next to it
-  first; nothing is deleted, and a file that would not parse is never rewritten.
+- **Two writes, both behind the same PLAN-block-then-confirm gate** as
+  `copy stories` and `copy relink`: `--dry-run` plans and stops, `--yes` skips
+  the question, and without a terminal and without `--yes` both refuse.
+    - **`--compact`** rewrites a pair's ledger with only the lines a run would act
+      on — dropping unusable entries, entries from another pair, and lines already
+      overridden by a later line for the same source — so what survives is exactly
+      what `buildCopyMaps` ends up with today. Every rewritten file is copied to a
+      timestamped `.bak` first; no file is deleted, and a file that would not parse
+      is never rewritten.
+    - **`--prune <source>:<target>`** DELETES that pair's ledger directory and
+      everything in it. It **names its own pair** rather than reading one from
+      `--pair`, because taking the target of a delete from a second flag is how the
+      wrong directory gets removed; combining it with `--pair`, `--from`, `--to`,
+      `--compact`, `--type` or `--slug` is refused. It deletes exactly that pair
+      directory and nothing above it, the plan lists every file by name and size
+      first, and the deletion is **not** archived — a run that would have resumed
+      from that ledger starts over.
 - `--outputPath` writes the same account as JSON, whichever mode ran.
 
 What it deliberately does not do: it cannot tell whether the target space

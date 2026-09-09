@@ -13,8 +13,9 @@ import type {
     CopyManifestFileInput,
     CopyManifestFileKind,
     CopyManifestPairInput,
+    CopyManifestRemovalFile,
     CopyManifestPaths,
-    CopyManifestPrunePlan,
+    CopyManifestCompactionPlan,
     CopyManifestViewFilters,
     CopyResourceType,
     CopyStoryManifestEntry,
@@ -49,7 +50,8 @@ import {
     describeCopyTranslatedSlugs,
     formatCopyManifestInspection,
     formatCopyManifestPairList,
-    formatCopyManifestPrunePlan,
+    formatCopyManifestCompactionPlan,
+    formatCopyManifestRemovalPlan,
     formatCopyPlanGate,
     formatCopyRelinkPlan,
     buildCopyManifestPairList,
@@ -58,7 +60,11 @@ import {
     groupBrokenStoryReferences,
     inspectCopyManifests,
     isCopyResourceType,
-    planCopyManifestPrune,
+    isSafeCopySpaceSegment,
+    buildCopyManifestRemovalPlan,
+    planCopyManifestCompaction,
+    resolveCopyManifestPairDir,
+    CopyManifestPathError,
     loadManifest,
     normalizeAssetFolderParentId,
     parseManifestJsonl,
@@ -1874,6 +1880,43 @@ type CopyManifestPairSelection = {
  * to a pair, and defaulting either side reads the wrong file and reports it as
  * the answer. Half a pair is an error for the same reason.
  */
+const describeUnsafeCopySpaceSegment = (
+    label: string,
+    value: string,
+    flagName: string,
+): string =>
+    `${flagName} ${label} space id must be a plain number, not '${value}'. A space id becomes a directory name in the copy ledger, so anything else can point outside it.`;
+
+/**
+ * One `<sourceSpaceId>:<targetSpaceId>` value, checked as two path segments
+ * before it is ever joined into a path.
+ */
+const parseCopyManifestPairValue = (
+    raw: string,
+    flagName: string,
+): { pair?: CopyManifestPairSelection; error?: string } => {
+    const [sourceSpaceId, targetSpaceId, ...rest] = raw.split(":");
+
+    if (!sourceSpaceId || !targetSpaceId || rest.length > 0) {
+        return {
+            error: `${flagName} must be written as <sourceSpaceId>:<targetSpaceId>, not '${raw}'.`,
+        };
+    }
+
+    for (const [label, value] of [
+        ["source", sourceSpaceId],
+        ["target", targetSpaceId],
+    ] as const) {
+        if (!isSafeCopySpaceSegment(value)) {
+            return {
+                error: describeUnsafeCopySpaceSegment(label, value, flagName),
+            };
+        }
+    }
+
+    return { pair: { sourceSpaceId, targetSpaceId } };
+};
+
 const resolveCopyManifestPair = (
     flags: Record<string, any>,
 ): { pair?: CopyManifestPairSelection; error?: string } => {
@@ -1882,18 +1925,25 @@ const resolveCopyManifestPair = (
     const to = readStringFlag(flags, ["to", "targetSpace"]);
 
     if (rawPair) {
-        const [sourceSpaceId, targetSpaceId, ...rest] = rawPair.split(":");
-
-        if (!sourceSpaceId || !targetSpaceId || rest.length > 0) {
-            return {
-                error: `--pair must be written as <sourceSpaceId>:<targetSpaceId>, not '${rawPair}'.`,
-            };
-        }
-
-        return { pair: { sourceSpaceId, targetSpaceId } };
+        return parseCopyManifestPairValue(rawPair, "--pair");
     }
 
     if (from && to) {
+        for (const [label, value, flagName] of [
+            ["source", from, "--from"],
+            ["target", to, "--to"],
+        ] as const) {
+            if (!isSafeCopySpaceSegment(value)) {
+                return {
+                    error: describeUnsafeCopySpaceSegment(
+                        label,
+                        value,
+                        flagName,
+                    ),
+                };
+            }
+        }
+
         return { pair: { sourceSpaceId: from, targetSpaceId: to } };
     }
 
@@ -1904,6 +1954,55 @@ const resolveCopyManifestPair = (
     }
 
     return {};
+};
+
+/** The files `--prune` would delete, so the gate can name every one of them. */
+const readCopyManifestDirectory = async (
+    dir: string,
+): Promise<{ exists: boolean; files: CopyManifestRemovalFile[] }> => {
+    let names: string[];
+
+    try {
+        names = (await fs.readdir(dir, { withFileTypes: true }))
+            .filter((entry) => entry.isFile())
+            .map((entry) => entry.name)
+            .sort();
+    } catch (error: any) {
+        if (error?.code === "ENOENT") {
+            return { exists: false, files: [] };
+        }
+
+        throw error;
+    }
+
+    const files: CopyManifestRemovalFile[] = [];
+
+    for (const name of names) {
+        const stats = await fs.stat(path.join(dir, name));
+        files.push({ name, bytes: stats.size });
+    }
+
+    return { exists: true, files };
+};
+
+/**
+ * When the ledger file was really last touched. Read from the filesystem rather
+ * than from a `created_at` inside it, which records what a run believed it did.
+ */
+const readCopyManifestMtime = async (
+    filePath: string,
+): Promise<{ lastWrittenAt?: string }> => {
+    try {
+        const stats = await fs.stat(filePath);
+
+        return { lastWrittenAt: stats.mtime.toISOString() };
+    } catch (error: any) {
+        if (error?.code === "ENOENT") {
+            return {};
+        }
+
+        throw error;
+    }
 };
 
 const parseCopyManifestTypes = (
@@ -1935,12 +2034,12 @@ const parseCopyManifestTypes = (
 };
 
 /**
- * Rewrites the files a prune plan found something to remove in. Each one is
- * archived with a timestamp suffix before it is replaced, so a prune is always
- * undoable by moving one file back — the same promise `--fresh` makes.
+ * Rewrites the files a compaction plan found something to remove in. Each one is
+ * archived with a timestamp suffix before it is replaced, so a compaction is
+ * always undoable by moving one file back — the promise `--fresh` makes too.
  */
-const applyCopyManifestPrune = async (
-    plan: CopyManifestPrunePlan,
+const applyCopyManifestCompaction = async (
+    plan: CopyManifestCompactionPlan,
     now: Date = new Date(),
 ): Promise<{ archived: string[]; rewritten: string[] }> => {
     const suffix = now.toISOString().replace(/[:.]/g, "-");
@@ -5410,23 +5509,109 @@ export const copyCommand = async (props: CLIOptions) => {
         case COPY_COMMANDS.manifests: {
             const outputPath = readStringFlag(flags, ["outputPath"]);
             const manifestRoot = readStringFlag(flags, ["manifestRoot"]);
-            const prune = Boolean(flags["prune"]);
+            const rawPrune = readStringFlag(flags, ["prune"]);
+            const compact = Boolean(flags["compact"]);
             const dryRun = Boolean(flags["dryRun"]);
             const yes = Boolean(flags["yes"]);
             const slug = readStringFlag(flags, ["slug"]);
             const { types, error: typeError } = parseCopyManifestTypes(flags);
+
+            if (typeError) {
+                Logger.error(typeError);
+                process.exitCode = 1;
+                break;
+            }
+
+            // --prune names its own pair, because it deletes that pair and
+            // nothing else. Taking the target of a delete from a second flag is
+            // how the wrong directory gets removed.
+            if (rawPrune !== undefined) {
+                if (readStringFlag(flags, ["pair", "from", "to"])) {
+                    Logger.error(
+                        "--prune already names the pair it deletes. Drop --pair/--from/--to so there is only one answer to which directory is being removed.",
+                    );
+                    process.exitCode = 1;
+                    break;
+                }
+
+                if (compact || types || slug) {
+                    Logger.error(
+                        "--prune deletes a pair's whole ledger directory. It cannot be combined with --compact, --type or --slug.",
+                    );
+                    process.exitCode = 1;
+                    break;
+                }
+
+                const parsed = parseCopyManifestPairValue(rawPrune, "--prune");
+
+                if (parsed.error) {
+                    Logger.error(parsed.error);
+                    process.exitCode = 1;
+                    break;
+                }
+
+                const { sourceSpaceId, targetSpaceId } = parsed.pair!;
+                let pairDir: string;
+
+                try {
+                    // Resolved and proven inside the copy root BEFORE anything
+                    // is read, let alone deleted.
+                    pairDir = resolveCopyManifestPairDir({
+                        sourceSpaceId,
+                        targetSpaceId,
+                        rootDir: manifestRoot,
+                    });
+                } catch (error: any) {
+                    if (error instanceof CopyManifestPathError) {
+                        Logger.error(error.message);
+                        process.exitCode = 1;
+                        break;
+                    }
+
+                    throw error;
+                }
+
+                const removalPlan = buildCopyManifestRemovalPlan({
+                    sourceSpaceId,
+                    targetSpaceId,
+                    path: pairDir,
+                    ...(await readCopyManifestDirectory(pairDir)),
+                });
+
+                formatCopyManifestRemovalPlan(removalPlan).forEach((line) =>
+                    Logger.log(line),
+                );
+
+                if (outputPath) {
+                    await writeJsonReport(outputPath, removalPlan);
+                }
+
+                if (!removalPlan.exists || dryRun) {
+                    break;
+                }
+
+                if (!(await confirmCopyPlan({ yes }))) {
+                    break;
+                }
+
+                await fs.rm(pairDir, { recursive: true, force: true });
+                Logger.success(`Deleted ${pairDir}`);
+
+                break;
+            }
+
             const { pair, error: pairError } = resolveCopyManifestPair(flags);
 
-            if (pairError ?? typeError) {
-                Logger.error(String(pairError ?? typeError));
+            if (pairError) {
+                Logger.error(pairError);
                 process.exitCode = 1;
                 break;
             }
 
             if (!pair) {
-                if (prune || types || slug) {
+                if (compact || types || slug) {
                     Logger.error(
-                        "--prune, --type and --slug all act on one ledger. Name it with --pair <sourceSpaceId>:<targetSpaceId>.",
+                        "--compact, --type and --slug all act on one ledger. Name it with --pair <sourceSpaceId>:<targetSpaceId>.",
                     );
                     process.exitCode = 1;
                     break;
@@ -5448,12 +5633,14 @@ export const copyCommand = async (props: CLIOptions) => {
                     pairs.push({
                         ...found,
                         rootDir: paths.rootDir,
+                        path: path.resolve(paths.rootDir),
+                        ...(await readCopyManifestMtime(paths.combined)),
                         files: await readCopyManifestFiles(paths),
                     });
                 }
 
                 const list = buildCopyManifestPairList({
-                    root: getCopyManifestRoot(manifestRoot),
+                    root: path.resolve(getCopyManifestRoot(manifestRoot)),
                     pairs,
                 });
 
@@ -5468,6 +5655,25 @@ export const copyCommand = async (props: CLIOptions) => {
                 break;
             }
 
+            let pairRootDir: string;
+
+            try {
+                // Same proof as --prune, before the first read.
+                pairRootDir = resolveCopyManifestPairDir({
+                    sourceSpaceId: pair.sourceSpaceId,
+                    targetSpaceId: pair.targetSpaceId,
+                    rootDir: manifestRoot,
+                });
+            } catch (error: any) {
+                if (error instanceof CopyManifestPathError) {
+                    Logger.error(error.message);
+                    process.exitCode = 1;
+                    break;
+                }
+
+                throw error;
+            }
+
             const manifestPaths = getDefaultCopyManifestPaths({
                 sourceSpaceId: pair.sourceSpaceId,
                 targetSpaceId: pair.targetSpaceId,
@@ -5478,35 +5684,36 @@ export const copyCommand = async (props: CLIOptions) => {
                 `Reading the copy ledger for space '${pair.sourceSpaceId}' to space '${pair.targetSpaceId}'.`,
             );
 
-            // Read-only unless --prune is asked for: no Storyblok request is
+            // Read-only unless --compact is asked for: no Storyblok request is
             // ever made, so this is safe to run against a pair mid-copy.
             const files = await readCopyManifestFiles(manifestPaths);
 
-            if (prune && (types || slug)) {
-                // --type and --slug narrow a view. A prune that quietly ignored
-                // them would remove lines the caller believed it had excluded.
+            if (compact && (types || slug)) {
+                // --type and --slug narrow a view. A compaction that quietly
+                // ignored them would remove lines the caller believed it had
+                // excluded.
                 Logger.error(
-                    "--prune rewrites the whole ledger and cannot be narrowed by --type or --slug. Run them separately.",
+                    "--compact rewrites the whole ledger and cannot be narrowed by --type or --slug. Run them separately.",
                 );
                 process.exitCode = 1;
                 break;
             }
 
-            if (prune) {
-                const prunePlan = planCopyManifestPrune({
+            if (compact) {
+                const compactionPlan = planCopyManifestCompaction({
                     sourceSpaceId: pair.sourceSpaceId,
                     targetSpaceId: pair.targetSpaceId,
-                    rootDir: manifestPaths.rootDir,
+                    rootDir: pairRootDir,
                     files,
                 });
 
-                formatCopyManifestPrunePlan(prunePlan).forEach((line) =>
-                    Logger.log(line),
+                formatCopyManifestCompactionPlan(compactionPlan).forEach(
+                    (line) => Logger.log(line),
                 );
 
-                if (prunePlan.summary.remove === 0 || dryRun) {
+                if (compactionPlan.summary.remove === 0 || dryRun) {
                     if (outputPath) {
-                        await writeJsonReport(outputPath, prunePlan);
+                        await writeJsonReport(outputPath, compactionPlan);
                     }
 
                     break;
@@ -5516,19 +5723,20 @@ export const copyCommand = async (props: CLIOptions) => {
                     break;
                 }
 
-                const pruned = await applyCopyManifestPrune(prunePlan);
+                const compacted =
+                    await applyCopyManifestCompaction(compactionPlan);
 
-                pruned.archived.forEach((archivePath) =>
+                compacted.archived.forEach((archivePath) =>
                     Logger.success(`Archived ${archivePath}`),
                 );
-                pruned.rewritten.forEach((filePath) =>
-                    Logger.success(`Pruned ${filePath}`),
+                compacted.rewritten.forEach((filePath) =>
+                    Logger.success(`Compacted ${filePath}`),
                 );
 
                 if (outputPath) {
                     await writeJsonReport(outputPath, {
-                        ...prunePlan,
-                        applied: pruned,
+                        ...compactionPlan,
+                        applied: compacted,
                     });
                 }
 
@@ -5543,7 +5751,7 @@ export const copyCommand = async (props: CLIOptions) => {
             const inspection = inspectCopyManifests({
                 sourceSpaceId: pair.sourceSpaceId,
                 targetSpaceId: pair.targetSpaceId,
-                rootDir: manifestPaths.rootDir,
+                rootDir: pairRootDir,
                 files,
                 filters,
             });

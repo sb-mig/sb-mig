@@ -407,7 +407,7 @@ export const inspectCopyManifests = ({
         findings.push({
             code: "duplicate_mapping",
             severity: "warning",
-            message: `${label} is recorded ${values.length} times with the same target. Harmless, and cleared by copy manifests --prune.`,
+            message: `${label} is recorded ${values.length} times with the same target. Harmless, and cleared by copy manifests --compact.`,
             resource,
             key: label,
             file: "combined",
@@ -685,13 +685,20 @@ export type CopyManifestPairSummary = {
     sourceSpaceId: string;
     targetSpaceId: string;
     rootDir: string;
+    /** The resolved absolute directory, so the line names a real place on disk. */
+    path: string;
     files: CopyManifestFileReport[];
     entries: number;
     stories: number;
     assets: number;
     assetFolders: number;
-    /** The newest `created_at` any combined entry carries, when readable. */
-    lastRecordedAt?: string;
+    /**
+     * The combined ledger file's real mtime. The newest `created_at` inside the
+     * file is when a copy run said it wrote something; this is when the file
+     * was actually last touched, which is the question "how stale is this?"
+     * really asks — and the only one of the two a hand edit cannot fake.
+     */
+    lastWrittenAt?: string;
     unreadable: boolean;
 };
 
@@ -708,6 +715,9 @@ export type CopyManifestPairInput = {
     sourceSpaceId: string;
     targetSpaceId: string;
     rootDir: string;
+    path: string;
+    /** ISO mtime of the combined ledger file, absent when it does not exist. */
+    lastWrittenAt?: string;
     files: CopyManifestFileInput[];
 };
 
@@ -737,15 +747,12 @@ export const buildCopyManifestPairList = ({
         const combined = combinedFile?.entries ?? [];
         const countType = (type: CopyResourceType) =>
             combined.filter((entry) => entry.type === type).length;
-        const recordedAt = combined
-            .map((entry) => entry.created_at)
-            .filter((value): value is string => typeof value === "string")
-            .sort();
 
         return {
             sourceSpaceId: pair.sourceSpaceId,
             targetSpaceId: pair.targetSpaceId,
             rootDir: pair.rootDir,
+            path: pair.path,
             files: pair.files.map(({ kind, path, exists, entries, error }) => ({
                 kind,
                 path,
@@ -757,8 +764,8 @@ export const buildCopyManifestPairList = ({
             stories: countType("story"),
             assets: countType("asset"),
             assetFolders: countType("asset_folder"),
-            ...(recordedAt.length > 0
-                ? { lastRecordedAt: recordedAt[recordedAt.length - 1] }
+            ...(pair.lastWrittenAt
+                ? { lastWrittenAt: pair.lastWrittenAt }
                 : {}),
             unreadable: pair.files.some((file) => Boolean(file.error)),
         };
@@ -784,11 +791,9 @@ export const formatCopyManifestPairList = (
 
     for (const pair of list.pairs) {
         lines.push(
-            `    ${pair.sourceSpaceId} -> ${pair.targetSpaceId}  ${pair.entries} ${plural(pair.entries, "entry", "entries")} (${pair.stories} story, ${pair.assets} asset, ${pair.assetFolders} asset folder)${
-                pair.lastRecordedAt
-                    ? `, last recorded ${pair.lastRecordedAt}`
-                    : ""
-            }${pair.unreadable ? ", SOME FILES UNREADABLE" : ""}`,
+            `    ${pair.sourceSpaceId} -> ${pair.targetSpaceId}  ${pair.entries} ${plural(pair.entries, "entry", "entries")} (${pair.stories} story, ${pair.assets} asset, ${pair.assetFolders} asset folder)${pair.unreadable ? ", SOME FILES UNREADABLE" : ""}`,
+            `      ${pair.path}`,
+            `      last written ${pair.lastWrittenAt ?? "never"}`,
         );
     }
 
@@ -800,64 +805,64 @@ export const formatCopyManifestPairList = (
 };
 
 /* ------------------------------------------------------------------ *
- * Pruning a pair's ledger
+ * Compacting a pair's ledger (--compact)
  * ------------------------------------------------------------------ */
 
-export type CopyManifestPruneReason =
+export type CopyManifestCompactionReason =
     | "superseded"
     | "foreign_pair"
     | "invalid_entry";
 
-export type CopyManifestPruneFilePlan = {
+export type CopyManifestCompactionFilePlan = {
     kind: CopyManifestFileKind;
     path: string;
     exists: boolean;
     lines: number;
     keep: number;
     remove: number;
-    removedBy: Partial<Record<CopyManifestPruneReason, number>>;
+    removedBy: Partial<Record<CopyManifestCompactionReason, number>>;
     /** The exact content the file would be rewritten with. */
     entries: CopyManifestEntry[];
     /** Set when the file is left alone: an unreadable file is never rewritten. */
     skipped?: string;
 };
 
-export type CopyManifestPrunePlan = {
+export type CopyManifestCompactionPlan = {
     schemaVersion: 1;
-    command: "copy manifests --prune";
-    mode: "prune";
+    command: "copy manifests --compact";
+    mode: "compact";
     generatedAt: string;
     normalized: {
         sourceSpaceId: string;
         targetSpaceId: string;
         rootDir: string;
     };
-    files: CopyManifestPruneFilePlan[];
+    files: CopyManifestCompactionFilePlan[];
     summary: {
         lines: number;
         keep: number;
         remove: number;
-        removedBy: Partial<Record<CopyManifestPruneReason, number>>;
+        removedBy: Partial<Record<CopyManifestCompactionReason, number>>;
         filesToRewrite: number;
     };
 };
 
-const PRUNE_REASON_LABELS: Record<CopyManifestPruneReason, string> = {
+const COMPACTION_REASON_LABELS: Record<CopyManifestCompactionReason, string> = {
     superseded: "superseded by a later line for the same source",
     foreign_pair: "recorded for another space pair",
     invalid_entry: "unusable shape",
 };
 
 /**
- * What a prune would remove, and what each file would be left holding.
+ * What a compaction would remove, and what each file would be left holding.
  *
  * Only lines a run would never act on are removed: an entry it cannot read, an
  * entry belonging to another pair, and any line already overridden by a later
  * one for the same source. The surviving set is exactly what `buildCopyMaps`
- * ends up with today, which is what makes this safe — the pruned ledger says
+ * ends up with today, which is what makes this safe — the compacted ledger says
  * out loud what the fat one already meant.
  */
-export const planCopyManifestPrune = ({
+export const planCopyManifestCompaction = ({
     sourceSpaceId,
     targetSpaceId,
     rootDir,
@@ -869,8 +874,8 @@ export const planCopyManifestPrune = ({
     rootDir: string;
     files: CopyManifestFileInput[];
     generatedAt?: string;
-}): CopyManifestPrunePlan => {
-    const filePlans: CopyManifestPruneFilePlan[] = files.map((file) => {
+}): CopyManifestCompactionPlan => {
+    const filePlans: CopyManifestCompactionFilePlan[] = files.map((file) => {
         if (!file.exists || file.error || !file.entries) {
             return {
                 kind: file.kind,
@@ -887,8 +892,9 @@ export const planCopyManifestPrune = ({
             };
         }
 
-        const removedBy: Partial<Record<CopyManifestPruneReason, number>> = {};
-        const count = (reason: CopyManifestPruneReason) => {
+        const removedBy: Partial<Record<CopyManifestCompactionReason, number>> =
+            {};
+        const count = (reason: CopyManifestCompactionReason) => {
             removedBy[reason] = (removedBy[reason] ?? 0) + 1;
         };
         const usable: CopyManifestEntry[] = [];
@@ -936,7 +942,7 @@ export const planCopyManifestPrune = ({
             acc.remove += plan.remove;
 
             for (const [reason, value] of Object.entries(plan.removedBy)) {
-                const key = reason as CopyManifestPruneReason;
+                const key = reason as CopyManifestCompactionReason;
                 acc.removedBy[key] = (acc.removedBy[key] ?? 0) + value;
             }
 
@@ -950,15 +956,17 @@ export const planCopyManifestPrune = ({
             lines: 0,
             keep: 0,
             remove: 0,
-            removedBy: {} as Partial<Record<CopyManifestPruneReason, number>>,
+            removedBy: {} as Partial<
+                Record<CopyManifestCompactionReason, number>
+            >,
             filesToRewrite: 0,
         },
     );
 
     return {
         schemaVersion: 1,
-        command: "copy manifests --prune",
-        mode: "prune",
+        command: "copy manifests --compact",
+        mode: "compact",
         generatedAt,
         normalized: { sourceSpaceId, targetSpaceId, rootDir },
         files: filePlans,
@@ -966,12 +974,12 @@ export const planCopyManifestPrune = ({
     };
 };
 
-export const formatCopyManifestPrunePlan = (
-    plan: CopyManifestPrunePlan,
+export const formatCopyManifestCompactionPlan = (
+    plan: CopyManifestCompactionPlan,
 ): string[] => {
     const { normalized, summary, files } = plan;
     const lines = [
-        "PRUNE PLAN",
+        "COMPACT PLAN",
         `  pair: ${normalized.sourceSpaceId} to ${normalized.targetSpaceId}`,
         `  root: ${normalized.rootDir}`,
     ];
@@ -994,7 +1002,7 @@ export const formatCopyManifestPrunePlan = (
         const reasons = Object.entries(file.removedBy)
             .map(
                 ([reason, count]) =>
-                    `${count} ${PRUNE_REASON_LABELS[reason as CopyManifestPruneReason]}`,
+                    `${count} ${COMPACTION_REASON_LABELS[reason as CopyManifestCompactionReason]}`,
             )
             .join(", ");
 
@@ -1005,8 +1013,106 @@ export const formatCopyManifestPrunePlan = (
 
     lines.push(
         summary.remove === 0
-            ? "  nothing to prune: every line in this ledger is one a run would use."
-            : `  ${summary.remove} of ${summary.lines} ${plural(summary.lines, "line", "lines")} would be removed from ${summary.filesToRewrite} ${plural(summary.filesToRewrite, "file", "files")}. Every rewritten file is archived first with a timestamp suffix; nothing is deleted.`,
+            ? "  nothing to compact: every line in this ledger is one a run would use."
+            : `  ${summary.remove} of ${summary.lines} ${plural(summary.lines, "line", "lines")} would be removed from ${summary.filesToRewrite} ${plural(summary.filesToRewrite, "file", "files")}. Every rewritten file is archived first with a timestamp suffix; no file is deleted.`,
+    );
+
+    return lines;
+};
+
+/* ------------------------------------------------------------------ *
+ * Removing a pair's ledger entirely (--prune)
+ * ------------------------------------------------------------------ */
+
+export type CopyManifestRemovalFile = {
+    name: string;
+    bytes: number;
+};
+
+export type CopyManifestRemovalPlan = {
+    schemaVersion: 1;
+    command: "copy manifests --prune";
+    mode: "prune";
+    generatedAt: string;
+    normalized: {
+        sourceSpaceId: string;
+        targetSpaceId: string;
+    };
+    /** The one resolved absolute directory that will be deleted, and nothing else. */
+    path: string;
+    exists: boolean;
+    files: CopyManifestRemovalFile[];
+    summary: {
+        files: number;
+        bytes: number;
+    };
+};
+
+/**
+ * What `--prune` would delete: one pair's ledger directory, named absolutely so
+ * the confirmation gate is asked about a real place rather than a pair of ids.
+ *
+ * Deleting is the point — a pair whose spaces are gone leaves a ledger that can
+ * only mislead a later run — so the plan lists every file by name and size
+ * first. Nothing here resolves the path; the caller passes a directory already
+ * proven to sit inside the copy root.
+ */
+export const buildCopyManifestRemovalPlan = ({
+    sourceSpaceId,
+    targetSpaceId,
+    path: dir,
+    exists,
+    files,
+    generatedAt = new Date().toISOString(),
+}: {
+    sourceSpaceId: string;
+    targetSpaceId: string;
+    path: string;
+    exists: boolean;
+    files: CopyManifestRemovalFile[];
+    generatedAt?: string;
+}): CopyManifestRemovalPlan => ({
+    schemaVersion: 1,
+    command: "copy manifests --prune",
+    mode: "prune",
+    generatedAt,
+    normalized: { sourceSpaceId, targetSpaceId },
+    path: dir,
+    exists,
+    files,
+    summary: {
+        files: files.length,
+        bytes: files.reduce((total, file) => total + file.bytes, 0),
+    },
+});
+
+export const formatCopyManifestRemovalPlan = (
+    plan: CopyManifestRemovalPlan,
+): string[] => {
+    const lines = [
+        "PRUNE PLAN",
+        `  pair: ${plan.normalized.sourceSpaceId} to ${plan.normalized.targetSpaceId}`,
+        `  delete: ${plan.path}`,
+    ];
+
+    if (!plan.exists) {
+        lines.push(
+            "  nothing to prune: there is no ledger directory for this pair.",
+        );
+
+        return lines;
+    }
+
+    for (const file of plan.files) {
+        lines.push(`    ${file.name} (${file.bytes} bytes)`);
+    }
+
+    if (plan.files.length === 0) {
+        lines.push("    (the directory is empty)");
+    }
+
+    lines.push(
+        `  ${plan.summary.files} ${plural(plan.summary.files, "file", "files")}, ${plan.summary.bytes} bytes. This DELETES the directory above; it is not archived, and a copy run that resumed from it will start over.`,
     );
 
     return lines;

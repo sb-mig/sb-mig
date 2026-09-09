@@ -9,9 +9,9 @@ import {
     buildCopyManifestPairList,
     formatCopyManifestInspection,
     formatCopyManifestPairList,
-    formatCopyManifestPrunePlan,
+    formatCopyManifestCompactionPlan,
     inspectCopyManifests,
-    planCopyManifestPrune,
+    planCopyManifestCompaction,
 } from "../../src/api/copy/manifest-inspector.js";
 
 const storyEntry = (
@@ -453,8 +453,8 @@ describe("copy manifest inspector", () => {
      * Pruning
      * --------------------------------------------------------------- */
 
-    it("plans a prune that removes only lines a run would never act on", () => {
-        const plan = planCopyManifestPrune({
+    it("plans a compaction that removes only lines a run would never act on", () => {
+        const plan = planCopyManifestCompaction({
             sourceSpaceId: "111",
             targetSpaceId: "222",
             rootDir: ".sb-mig/copy/111/222",
@@ -486,14 +486,14 @@ describe("copy manifest inspector", () => {
             },
         });
         // What survives is exactly what buildCopyMaps ends up with today: the
-        // pruned ledger says out loud what the fat one already meant.
+        // compacted ledger says out loud what the fat one already meant.
         expect(
             plan.files[0]?.entries.map((entry: any) => entry.target_full_slug),
         ).toEqual(["dst/NEW-PATH", undefined]);
     });
 
     it("never rewrites a file it could not read", () => {
-        const plan = planCopyManifestPrune({
+        const plan = planCopyManifestCompaction({
             sourceSpaceId: "111",
             targetSpaceId: "222",
             rootDir: ".sb-mig/copy/111/222",
@@ -512,7 +512,7 @@ describe("copy manifest inspector", () => {
             "unreadable, left exactly as it is",
         );
         expect(plan.summary.remove).toBe(0);
-        expect(formatCopyManifestPrunePlan(plan)).toContain(
+        expect(formatCopyManifestCompactionPlan(plan)).toContain(
             "  combined: unreadable, left exactly as it is",
         );
     });
@@ -526,12 +526,15 @@ describe("copy manifest inspector", () => {
                     sourceSpaceId: "111",
                     targetSpaceId: "222",
                     rootDir: ".sb-mig/copy/111/222",
+                    path: "/repo/.sb-mig/copy/111/222",
+                    lastWrittenAt: "2026-09-08T07:00:00.000Z",
                     files: [combined([storyEntry(), assetEntry()])],
                 },
                 {
                     sourceSpaceId: "333",
                     targetSpaceId: "444",
                     rootDir: ".sb-mig/copy/333/444",
+                    path: "/repo/.sb-mig/copy/333/444",
                     files: [
                         {
                             kind: "combined",
@@ -549,7 +552,9 @@ describe("copy manifest inspector", () => {
             entries: 2,
             stories: 1,
             assets: 1,
-            lastRecordedAt: "2026-09-04T10:00:00.000Z",
+            path: "/repo/.sb-mig/copy/111/222",
+            // The file's real mtime, not a created_at from inside it.
+            lastWrittenAt: "2026-09-08T07:00:00.000Z",
             unreadable: false,
         });
         expect(list.pairs[1]?.entries).toBe(0);
@@ -557,8 +562,12 @@ describe("copy manifest inspector", () => {
             "LEDGERS",
             "  root: .sb-mig/copy",
             "  2 pairs:",
-            "    111 -> 222  2 entries (1 story, 1 asset, 0 asset folder), last recorded 2026-09-04T10:00:00.000Z",
+            "    111 -> 222  2 entries (1 story, 1 asset, 0 asset folder)",
+            "      /repo/.sb-mig/copy/111/222",
+            "      last written 2026-09-08T07:00:00.000Z",
             "    333 -> 444  0 entries (0 story, 0 asset, 0 asset folder)",
+            "      /repo/.sb-mig/copy/333/444",
+            "      last written never",
             "  inspect one with: sb-mig copy manifests --pair <sourceSpaceId>:<targetSpaceId>",
         ]);
     });

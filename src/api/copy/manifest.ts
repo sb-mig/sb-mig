@@ -26,6 +26,57 @@ export type CopyManifestPaths = {
 export const getCopyManifestRoot = (rootDir = ".sb-mig"): string =>
     path.join(rootDir, "copy");
 
+/**
+ * A space id is a single path segment, and it comes from the command line. The
+ * ledger layout turns it straight into a directory name, so anything that is
+ * not a plain number is a path expression pointing somewhere it was never meant
+ * to reach — `../../outside` resolves out of the ledger root entirely, and the
+ * command would then read, rewrite or DELETE whatever it landed on. Storyblok
+ * space ids are numeric; nothing legitimate is refused by this.
+ */
+export const isSafeCopySpaceSegment = (value: string): boolean =>
+    /^[0-9]+$/.test(value);
+
+export class CopyManifestPathError extends Error {}
+
+/**
+ * The resolved directory of one pair, proven to sit inside the resolved copy
+ * root. Belt and braces on purpose: the segment check above is the rule, and
+ * this is the assertion that the rule was actually enough, made before any read,
+ * write or delete rather than trusted afterwards.
+ */
+export const resolveCopyManifestPairDir = ({
+    sourceSpaceId,
+    targetSpaceId,
+    rootDir,
+}: {
+    sourceSpaceId: string;
+    targetSpaceId: string;
+    rootDir?: string;
+}): string => {
+    for (const [label, value] of [
+        ["source", sourceSpaceId],
+        ["target", targetSpaceId],
+    ] as const) {
+        if (!isSafeCopySpaceSegment(value)) {
+            throw new CopyManifestPathError(
+                `The ${label} space id must be a plain number, not '${value}'. A space id becomes a directory name in the copy ledger, so anything else can point outside it.`,
+            );
+        }
+    }
+
+    const root = path.resolve(getCopyManifestRoot(rootDir));
+    const resolved = path.resolve(root, sourceSpaceId, targetSpaceId);
+
+    if (resolved !== root && !resolved.startsWith(root + path.sep)) {
+        throw new CopyManifestPathError(
+            `The ledger directory for ${sourceSpaceId} to ${targetSpaceId} resolves to '${resolved}', which is outside the copy root '${root}'. Refusing to touch it.`,
+        );
+    }
+
+    return resolved;
+};
+
 export const getDefaultCopyManifestPaths = ({
     sourceSpaceId,
     targetSpaceId,
@@ -213,6 +264,17 @@ export type CopyMapWrite = {
  * shape writes nothing — see `validateCopyManifestEntry`.
  */
 export const getCopyMapWrites = (entry: CopyManifestEntry): CopyMapWrite[] => {
+    // The single runtime boundary. A ledger is an append-only file that hand
+    // edits, older versions and interrupted writes all reach, and an entry
+    // missing the field a map is keyed on does not map "nothing" once applied —
+    // it maps to `undefined`, which a rewriter then writes into real content.
+    // An asset entry with no `target_id` used to blank the `id` of every image
+    // that referenced it. Rejecting here means `buildCopyMaps` cannot apply
+    // what it cannot read, and the reader and the run agree by construction.
+    if (validateCopyManifestEntry(entry).length > 0) {
+        return [];
+    }
+
     if (isStoryManifestEntry(entry)) {
         const writes: CopyMapWrite[] = [
             { map: "storyIds", key: entry.source_id, value: entry.target_id },

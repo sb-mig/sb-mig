@@ -1,4 +1,12 @@
-import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "fs/promises";
+import {
+    mkdir,
+    mkdtemp,
+    readdir,
+    readFile,
+    rm,
+    utimes,
+    writeFile,
+} from "fs/promises";
 import { tmpdir } from "os";
 import path from "path";
 
@@ -72,8 +80,8 @@ const errorLines = () =>
 const storyLine = (overrides: Record<string, unknown> = {}) =>
     JSON.stringify({
         type: "story",
-        source_space_id: "source-space",
-        target_space_id: "target-space",
+        source_space_id: "111",
+        target_space_id: "222",
         action: "created",
         created_at: "2026-09-04T10:00:00.000Z",
         source_id: 1,
@@ -88,8 +96,8 @@ const storyLine = (overrides: Record<string, unknown> = {}) =>
 const assetLine = (overrides: Record<string, unknown> = {}) =>
     JSON.stringify({
         type: "asset",
-        source_space_id: "source-space",
-        target_space_id: "target-space",
+        source_space_id: "111",
+        target_space_id: "222",
         action: "created",
         created_at: "2026-09-04T10:00:00.000Z",
         source_id: 9,
@@ -106,7 +114,7 @@ let exitCodeBefore: typeof process.exitCode;
 const writeLedger = async (
     files: Partial<Record<"combined" | "stories", string>>,
 ) => {
-    const dir = path.join(manifestRoot, "copy", "source-space", "target-space");
+    const dir = path.join(manifestRoot, "copy", "111", "222");
     await mkdir(dir, { recursive: true });
 
     if (files.combined !== undefined) {
@@ -131,8 +139,7 @@ const writePairLedger = async (
     await writeFile(path.join(dir, "manifest.jsonl"), combined);
 };
 
-const ledgerDir = () =>
-    path.join(manifestRoot, "copy", "source-space", "target-space");
+const ledgerDir = () => path.join(manifestRoot, "copy", "111", "222");
 
 const combinedPath = () => path.join(ledgerDir(), "manifest.jsonl");
 
@@ -151,7 +158,7 @@ const runInspector = (flags: Record<string, unknown> = {}) =>
     } as any);
 
 const runPairInspector = (flags: Record<string, unknown> = {}) =>
-    runInspector({ from: "source-space", to: "target-space", ...flags });
+    runInspector({ from: "111", to: "222", ...flags });
 
 describe("copy manifests", () => {
     beforeEach(async () => {
@@ -179,7 +186,7 @@ describe("copy manifests", () => {
 
         await runPairInspector();
 
-        expect(ledgerLines()).toContain("  pair: source-space to target-space");
+        expect(ledgerLines()).toContain("  pair: 111 to 222");
         expect(ledgerLines()).toContain("  combined: 2 entries");
         expect(ledgerLines()).toContain(
             "  mappings: 2 story, 0 asset, 0 asset folder",
@@ -282,8 +289,8 @@ describe("copy manifests", () => {
             // from which keys happen to be present.
             mode: "pair",
             normalized: {
-                sourceSpaceId: "source-space",
-                targetSpaceId: "target-space",
+                sourceSpaceId: "111",
+                targetSpaceId: "222",
             },
             summary: {
                 entries: 1,
@@ -297,13 +304,7 @@ describe("copy manifests", () => {
         // The ledger itself is never rewritten by a read.
         expect(
             await readFile(
-                path.join(
-                    manifestRoot,
-                    "copy",
-                    "source-space",
-                    "target-space",
-                    "manifest.jsonl",
-                ),
+                path.join(manifestRoot, "copy", "111", "222", "manifest.jsonl"),
                 "utf8",
             ),
         ).toBe(`${storyLine({ target_full_slug: undefined })}\n`);
@@ -316,11 +317,11 @@ describe("copy manifests", () => {
     it("lists every ledger pair on disk when no pair is named", async () => {
         await writeLedger({ combined: `${storyLine()}\n` });
         await writePairLedger(
-            "111",
-            "222",
+            "333",
+            "444",
             `${storyLine({
-                source_space_id: "111",
-                target_space_id: "222",
+                source_space_id: "333",
+                target_space_id: "444",
             })}\n`,
         );
 
@@ -332,11 +333,37 @@ describe("copy manifests", () => {
             ledgerLines().some((line) => line.includes("111 -> 222  1 entry")),
         ).toBe(true);
         expect(
-            ledgerLines().some((line) =>
-                line.includes("source-space -> target-space  1 entry"),
-            ),
+            ledgerLines().some((line) => line.includes("333 -> 444  1 entry")),
         ).toBe(true);
         expect(process.exitCode).toBeUndefined();
+    });
+
+    it("names each pair by its absolute path and the ledger's real mtime", async () => {
+        await writeLedger({ combined: `${storyLine()}\n` });
+
+        // The filesystem is the authority on when a file was last touched. A
+        // created_at inside the file only says what a run believed it did, and
+        // a hand edit does not update it at all.
+        const touched = new Date("2026-03-01T12:00:00.000Z");
+        await utimes(combinedPath(), touched, touched);
+
+        await runInspector({});
+
+        expect(ledgerLines()).toContain(`      ${path.resolve(ledgerDir())}`);
+        expect(ledgerLines()).toContain(
+            "      last written 2026-03-01T12:00:00.000Z",
+        );
+        expect(path.isAbsolute(path.resolve(ledgerDir()))).toBe(true);
+    });
+
+    it("says 'never' for a pair directory that holds no combined ledger", async () => {
+        await mkdir(path.join(manifestRoot, "copy", "555", "666"), {
+            recursive: true,
+        });
+
+        await runInspector({});
+
+        expect(ledgerLines()).toContain("      last written never");
     });
 
     it("never falls back to the configured space when no pair is named", async () => {
@@ -370,7 +397,7 @@ describe("copy manifests", () => {
     it("refuses half a pair rather than guessing the other half", async () => {
         await copyCommand({
             input: ["copy", "manifests"],
-            flags: { from: "source-space", manifestRoot },
+            flags: { from: "111", manifestRoot },
         } as any);
 
         expect(errorLines()[0]).toContain("Name the whole pair");
@@ -378,7 +405,7 @@ describe("copy manifests", () => {
     });
 
     it("refuses a --pair that is not written as source:target", async () => {
-        await runInspector({ pair: "source-space" });
+        await runInspector({ pair: "111" });
 
         expect(errorLines()[0]).toContain(
             "--pair must be written as <sourceSpaceId>:<targetSpaceId>",
@@ -386,11 +413,11 @@ describe("copy manifests", () => {
         expect(process.exitCode).toBe(1);
     });
 
-    it("refuses --type, --slug and --prune without a pair to apply them to", async () => {
+    it("refuses --type, --slug and --compact without a pair to apply them to", async () => {
         await runInspector({ type: "story" });
 
         expect(errorLines()[0]).toContain(
-            "--prune, --type and --slug all act on one ledger",
+            "--compact, --type and --slug all act on one ledger",
         );
         expect(process.exitCode).toBe(1);
     });
@@ -409,7 +436,7 @@ describe("copy manifests", () => {
             })}\n`,
         });
 
-        await runInspector({ pair: "source-space:target-space" });
+        await runInspector({ pair: "111:222" });
 
         expect(ledgerLines()).toContain("MAPPINGS");
         expect(
@@ -432,7 +459,7 @@ describe("copy manifests", () => {
         });
 
         await runInspector({
-            pair: "source-space:target-space",
+            pair: "111:222",
             type: "asset",
         });
 
@@ -450,7 +477,7 @@ describe("copy manifests", () => {
         vi.clearAllMocks();
 
         await runInspector({
-            pair: "source-space:target-space",
+            pair: "111:222",
             slug: "post-1",
         });
 
@@ -461,20 +488,20 @@ describe("copy manifests", () => {
         ).toBe(true);
     });
 
-    it("refuses to narrow a prune, rather than quietly ignoring the filter", async () => {
+    it("refuses to narrow a compaction, rather than quietly ignoring the filter", async () => {
         const before = `${storyLine()}\n${storyLine()}\n`;
 
         await writeLedger({ combined: before });
 
         await runInspector({
-            pair: "source-space:target-space",
-            prune: true,
+            pair: "111:222",
+            compact: true,
             yes: true,
             type: "story",
         });
 
         expect(errorLines()[0]).toContain(
-            "--prune rewrites the whole ledger and cannot be narrowed",
+            "--compact rewrites the whole ledger and cannot be narrowed",
         );
         expect(await readFile(combinedPath(), "utf8")).toBe(before);
         expect(process.exitCode).toBe(1);
@@ -482,7 +509,7 @@ describe("copy manifests", () => {
 
     it("refuses a --type it does not know", async () => {
         await runInspector({
-            pair: "source-space:target-space",
+            pair: "111:222",
             type: "banana",
         });
 
@@ -493,10 +520,10 @@ describe("copy manifests", () => {
     });
 
     /* --------------------------------------------------------------- *
-     * The contract: --prune, behind the same gate every write sits behind
+     * The contract: --compact, behind the same gate every write sits behind
      * --------------------------------------------------------------- */
 
-    it("prunes only behind the confirmation gate, and archives before rewriting", async () => {
+    it("compacts only behind the confirmation gate, and archives before rewriting", async () => {
         mocks.askYesNo.mockResolvedValue(true);
 
         await writeLedger({
@@ -508,12 +535,12 @@ describe("copy manifests", () => {
         });
 
         await runInspector({
-            pair: "source-space:target-space",
-            prune: true,
+            pair: "111:222",
+            compact: true,
             yes: true,
         });
 
-        expect(ledgerLines()).toContain("PRUNE PLAN");
+        expect(ledgerLines()).toContain("COMPACT PLAN");
         expect(
             ledgerLines().some(
                 (line) =>
@@ -531,7 +558,7 @@ describe("copy manifests", () => {
             `${storyLine({ target_full_slug: "imported/NEW" })}\n`,
         );
 
-        // Nothing is deleted: the pre-prune file is still on disk.
+        // Nothing is deleted: the pre-compaction file is still on disk.
         const archives = (await readdir(ledgerDir())).filter((name) =>
             name.endsWith(".bak"),
         );
@@ -545,18 +572,18 @@ describe("copy manifests", () => {
         ).toContain("imported/OLD");
     });
 
-    it("plans a prune without writing anything under --dry-run", async () => {
+    it("plans a compaction without writing anything under --dry-run", async () => {
         const before = `${storyLine()}\n${storyLine()}\n`;
 
         await writeLedger({ combined: before });
 
         await runInspector({
-            pair: "source-space:target-space",
-            prune: true,
+            pair: "111:222",
+            compact: true,
             dryRun: true,
         });
 
-        expect(ledgerLines()).toContain("PRUNE PLAN");
+        expect(ledgerLines()).toContain("COMPACT PLAN");
         expect(await readFile(combinedPath(), "utf8")).toBe(before);
         expect(mocks.askYesNo).not.toHaveBeenCalled();
         expect(
@@ -566,7 +593,7 @@ describe("copy manifests", () => {
         ).toHaveLength(0);
     });
 
-    it("refuses to prune without a terminal and without --yes", async () => {
+    it("refuses to compact without a terminal and without --yes", async () => {
         const before = `${storyLine()}\n${storyLine()}\n`;
 
         await writeLedger({ combined: before });
@@ -579,8 +606,8 @@ describe("copy manifests", () => {
 
         try {
             await runInspector({
-                pair: "source-space:target-space",
-                prune: true,
+                pair: "111:222",
+                compact: true,
             });
         } finally {
             Object.defineProperty(process.stdin, "isTTY", {
@@ -593,25 +620,25 @@ describe("copy manifests", () => {
         expect(process.exitCode).toBe(1);
     });
 
-    it("leaves a healthy ledger alone and says there is nothing to prune", async () => {
+    it("leaves a healthy ledger alone and says there is nothing to compact", async () => {
         const before = `${storyLine()}\n`;
 
         await writeLedger({ combined: before });
 
         await runInspector({
-            pair: "source-space:target-space",
-            prune: true,
+            pair: "111:222",
+            compact: true,
             yes: true,
         });
 
         expect(ledgerLines()).toContain(
-            "  nothing to prune: every line in this ledger is one a run would use.",
+            "  nothing to compact: every line in this ledger is one a run would use.",
         );
         expect(await readFile(combinedPath(), "utf8")).toBe(before);
         expect(mocks.askYesNo).not.toHaveBeenCalled();
     });
 
-    it("makes an unhealthy ledger healthy: prune, then inspect finds nothing", async () => {
+    it("makes an unhealthy ledger healthy: compact, then inspect finds nothing", async () => {
         await writeLedger({
             combined: `${storyLine({
                 target_full_slug: "imported/OLD",
@@ -619,19 +646,19 @@ describe("copy manifests", () => {
         });
 
         await runInspector({
-            pair: "source-space:target-space",
-            prune: true,
+            pair: "111:222",
+            compact: true,
             yes: true,
         });
 
         process.exitCode = exitCodeBefore;
         vi.clearAllMocks();
 
-        await runInspector({ pair: "source-space:target-space" });
+        await runInspector({ pair: "111:222" });
 
         // Named explicitly, so a clean bill of health cannot come from having
         // read some other pair's ledger — or nobody's.
-        expect(ledgerLines()).toContain("  pair: source-space to target-space");
+        expect(ledgerLines()).toContain("  pair: 111 to 222");
         expect(ledgerLines()).toContain("  combined: 1 entry");
         expect(
             ledgerLines().some((line) =>
@@ -642,5 +669,175 @@ describe("copy manifests", () => {
             "  no problems found in the ledger itself.",
         );
         expect(process.exitCode).toBeUndefined();
+    });
+
+    /* --------------------------------------------------------------- *
+     * The contract: --prune deletes exactly one pair directory
+     * --------------------------------------------------------------- */
+
+    it("deletes exactly the named pair directory, behind the gate", async () => {
+        await writeLedger({ combined: `${storyLine()}\n` });
+        await writePairLedger(
+            "333",
+            "444",
+            `${storyLine({
+                source_space_id: "333",
+                target_space_id: "444",
+            })}\n`,
+        );
+
+        await runInspector({ prune: "111:222", yes: true });
+
+        expect(ledgerLines()).toContain("PRUNE PLAN");
+        expect(ledgerLines()).toContain(
+            `  delete: ${path.resolve(ledgerDir())}`,
+        );
+        expect(
+            ledgerLines().some(
+                (line) =>
+                    line.includes("manifest.jsonl (") && line.includes("bytes"),
+            ),
+        ).toBe(true);
+
+        // Exactly that pair directory, and nothing beside it.
+        await expect(readdir(ledgerDir())).rejects.toThrow();
+        expect(
+            await readdir(path.join(manifestRoot, "copy", "333", "444")),
+        ).toContain("manifest.jsonl");
+        // The now-empty source directory is left standing: "exactly that pair
+        // directory" is the contract, and removing its parent would be
+        // deleting something nobody named. It lists as no pair at all.
+        expect(await readdir(path.join(manifestRoot, "copy", "111"))).toEqual(
+            [],
+        );
+    });
+
+    it("deletes nothing under --dry-run", async () => {
+        await writeLedger({ combined: `${storyLine()}\n` });
+
+        await runInspector({ prune: "111:222", dryRun: true });
+
+        expect(ledgerLines()).toContain("PRUNE PLAN");
+        expect(await readdir(ledgerDir())).toContain("manifest.jsonl");
+        expect(mocks.askYesNo).not.toHaveBeenCalled();
+    });
+
+    it("refuses to delete without a terminal and without --yes", async () => {
+        await writeLedger({ combined: `${storyLine()}\n` });
+
+        const isTTY = process.stdin.isTTY;
+        Object.defineProperty(process.stdin, "isTTY", {
+            value: false,
+            configurable: true,
+        });
+
+        try {
+            await runInspector({ prune: "111:222" });
+        } finally {
+            Object.defineProperty(process.stdin, "isTTY", {
+                value: isTTY,
+                configurable: true,
+            });
+        }
+
+        expect(await readdir(ledgerDir())).toContain("manifest.jsonl");
+        expect(process.exitCode).toBe(1);
+    });
+
+    it("asks before deleting, and deletes nothing when the answer is no", async () => {
+        mocks.askYesNo.mockResolvedValue(false);
+        await writeLedger({ combined: `${storyLine()}\n` });
+
+        const isTTY = process.stdin.isTTY;
+        Object.defineProperty(process.stdin, "isTTY", {
+            value: true,
+            configurable: true,
+        });
+
+        try {
+            await runInspector({ prune: "111:222" });
+        } finally {
+            Object.defineProperty(process.stdin, "isTTY", {
+                value: isTTY,
+                configurable: true,
+            });
+        }
+
+        expect(mocks.askYesNo).toHaveBeenCalled();
+        expect(await readdir(ledgerDir())).toContain("manifest.jsonl");
+    });
+
+    it("says there is nothing to prune for a pair with no ledger directory", async () => {
+        await runInspector({ prune: "777:888", yes: true });
+
+        expect(ledgerLines()).toContain(
+            "  nothing to prune: there is no ledger directory for this pair.",
+        );
+        expect(mocks.askYesNo).not.toHaveBeenCalled();
+        expect(process.exitCode).toBeUndefined();
+    });
+
+    /* --------------------------------------------------------------- *
+     * A space id is a path segment, and it comes from the command line
+     * --------------------------------------------------------------- */
+
+    it("refuses a pair id that is not a plain number, before touching the disk", async () => {
+        // `../../outside` resolves clean out of the ledger root. Joined into a
+        // path by --prune it would delete whatever it landed on.
+        await writeLedger({ combined: `${storyLine()}\n` });
+
+        await runInspector({ prune: "../../outside:target" });
+
+        expect(errorLines()[0]).toContain(
+            "--prune source space id must be a plain number, not '../../outside'",
+        );
+        expect(process.exitCode).toBe(1);
+        // Nothing was read, nothing was deleted.
+        expect(await readdir(ledgerDir())).toContain("manifest.jsonl");
+        expect(ledgerLines()).toEqual([]);
+    });
+
+    it("refuses a traversing pair id on the read paths too", async () => {
+        await runInspector({ pair: "../../outside:222" });
+
+        expect(errorLines()[0]).toContain(
+            "--pair source space id must be a plain number",
+        );
+        expect(process.exitCode).toBe(1);
+
+        vi.clearAllMocks();
+        process.exitCode = exitCodeBefore;
+
+        await copyCommand({
+            input: ["copy", "manifests"],
+            flags: { from: "111", to: "../outside", manifestRoot },
+        } as any);
+
+        expect(errorLines()[0]).toContain(
+            "--to target space id must be a plain number",
+        );
+        expect(process.exitCode).toBe(1);
+    });
+
+    it("refuses --prune together with a second way of naming the pair", async () => {
+        await writeLedger({ combined: `${storyLine()}\n` });
+
+        await runInspector({ prune: "111:222", pair: "333:444" });
+
+        expect(errorLines()[0]).toContain("--prune already names the pair");
+        expect(process.exitCode).toBe(1);
+        expect(await readdir(ledgerDir())).toContain("manifest.jsonl");
+    });
+
+    it("refuses --prune combined with --compact or a filter", async () => {
+        await writeLedger({ combined: `${storyLine()}\n` });
+
+        await runInspector({ prune: "111:222", compact: true });
+
+        expect(errorLines()[0]).toContain(
+            "--prune deletes a pair's whole ledger directory",
+        );
+        expect(process.exitCode).toBe(1);
+        expect(await readdir(ledgerDir())).toContain("manifest.jsonl");
     });
 });

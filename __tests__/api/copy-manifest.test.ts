@@ -16,6 +16,7 @@ import {
     getDefaultCopyManifestPaths,
     loadManifest,
     parseManifestJsonl,
+    rewriteCopyReferences,
     summarizeCopyGraph,
 } from "../../src/api/copy/index.js";
 
@@ -215,6 +216,73 @@ describe("copy manifest store", () => {
         // guess would be worse than the stale value.
         expect(maps.storyFullSlugs.has("source-story-uuid")).toBe(false);
         expect(maps.storyIdFullSlugs.has(100)).toBe(false);
+    });
+
+    it("refuses a ledger entry it cannot read, so a rewrite cannot blank real content", () => {
+        // An asset entry with no `target_id`. Applied, it puts `{ id: undefined }`
+        // into `assetIds`; the rewriter then finds a truthy mapping for the
+        // image's id and assigns `undefined` over it — the reference is not
+        // repaired, it is destroyed. Rejecting at the map boundary is what makes
+        // that impossible, rather than every reader remembering to check.
+        const maps = buildCopyMaps([
+            {
+                type: "asset",
+                source_space_id: "111",
+                target_space_id: "222",
+                action: "created",
+                created_at: "2026-09-09T10:00:00.000Z",
+                source_id: 900,
+                source_filename: "https://a.storyblok.com/f/111/x/hero.jpg",
+                target_filename: "https://a.storyblok.com/f/222/x/hero.jpg",
+            } as any,
+        ]);
+
+        expect(maps.assetIds.has(900)).toBe(false);
+        expect(
+            maps.assetFilenames.has("https://a.storyblok.com/f/111/x/hero.jpg"),
+        ).toBe(false);
+
+        const { value, records } = rewriteCopyReferences({
+            value: {
+                image: {
+                    id: 900,
+                    filename: "https://a.storyblok.com/f/111/x/hero.jpg",
+                },
+            },
+            maps,
+        });
+
+        expect(value.image.id).toBe(900);
+        expect(value.image.filename).toBe(
+            "https://a.storyblok.com/f/111/x/hero.jpg",
+        );
+        expect(records).toEqual([]);
+    });
+
+    it("still applies the entries around an unreadable one", () => {
+        const maps = buildCopyMaps([
+            {
+                type: "asset",
+                source_space_id: "111",
+                target_space_id: "222",
+            } as any,
+            {
+                type: "asset",
+                source_space_id: "111",
+                target_space_id: "222",
+                action: "created",
+                created_at: "2026-09-09T10:00:00.000Z",
+                source_id: 901,
+                target_id: 9001,
+                source_filename: "https://a.storyblok.com/f/111/x/ok.jpg",
+                target_filename: "https://a.storyblok.com/f/222/x/ok.jpg",
+            } as any,
+        ]);
+
+        expect(maps.assetIds.get(901)).toEqual({
+            id: 9001,
+            filename: "https://a.storyblok.com/f/222/x/ok.jpg",
+        });
     });
 });
 

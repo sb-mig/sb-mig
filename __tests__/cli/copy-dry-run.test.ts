@@ -1583,11 +1583,13 @@ describe("copy stories dry-run", () => {
         const manifestRoot = path.join(tempDir, ".sb-mig");
         const outputPath = path.join(tempDir, "reports", "ledger.json");
 
+        // Numeric space ids, as Storyblok issues them: copy manifests treats a
+        // space id as the path segment it becomes and refuses anything else.
         await copyCommand({
             input: ["copy", "stories"],
             flags: {
-                from: "source-space",
-                to: "target-space",
+                from: "111",
+                to: "222",
                 source: "blog",
                 destination: "imported",
                 manifestRoot,
@@ -1598,8 +1600,8 @@ describe("copy stories dry-run", () => {
         await copyCommand({
             input: ["copy", "manifests"],
             flags: {
-                from: "source-space",
-                to: "target-space",
+                from: "111",
+                to: "222",
                 manifestRoot,
                 outputPath,
             },
