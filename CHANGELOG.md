@@ -1,3 +1,10 @@
+# [6.5.0-beta.4](https://github.com/sb-mig/sb-mig/compare/v6.5.0-beta.3...v6.5.0-beta.4) (2026-09-09)
+
+
+### Bug Fixes
+
+* **ci:** run semantic-release once so a failed npm publish fails the job ([806e8d3](https://github.com/sb-mig/sb-mig/commit/806e8d307ab02dcf9778e1c1f80687563a6403f9))
+
 # [6.5.0-beta.3](https://github.com/sb-mig/sb-mig/compare/v6.5.0-beta.2...v6.5.0-beta.3) (2026-09-09)
 
 
