@@ -1,5 +1,6 @@
 export * from "./graph.js";
 export * from "./manifest.js";
+export * from "./manifest-inspector.js";
 export * from "./plan-gate.js";
 export * from "./relink.js";
 export * from "./reference-classifier.js";

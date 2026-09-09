@@ -225,6 +225,8 @@ export const copyDescription = `
         $ sb-mig copy assets --from [spaceId] --to [spaceId] --assetFolder [folder_id_or_path]
         $ sb-mig copy assets --from [spaceId] --to [spaceId] --referenced-by-stories --source [story_or_folder_full_slug]
         $ sb-mig copy assets --from [spaceId] --to [spaceId] --all --dry-run
+        $ sb-mig copy manifests --from [spaceId] --to [spaceId]
+        $ sb-mig copy manifests --from [spaceId] --to [spaceId] --outputPath sbmig/copy-plans/ledger.json
 
     DESCRIPTION
         Copy Storyblok stories, folders, assets, or asset folders from one space to another.
@@ -233,6 +235,7 @@ export const copyDescription = `
         stories         Copy one story, one folder subtree, a folder's children, or one folder shell.
         relink          Repair references in stories that were already copied, without copying content again.
         assets          Copy or plan all assets and asset folders with durable manifests.
+        manifests       Read back the copy ledger of a space pair and report what a run would make of it.
 
     FLAGS
         --from          Source Storyblok space ID. Falls back to configured spaceId.
@@ -253,6 +256,7 @@ export const copyDescription = `
         --dry-run       Preview story paths, manifest-mapped references, and likely target conflicts without writing to Storyblok.
         --yes           Skip the confirmation gate that copy stories and copy relink show after their PLAN block, before their first write. Required in non-interactive runs (CI). [stories and relink only]
         --fresh         Ignore the existing copy ledger for this run; every manifest file of this space pair, the asset and asset-folder ledgers included, is moved aside with a timestamp suffix, never deleted. A later --with-assets run therefore starts without the archived asset mappings too. [stories only]
+        --manifestRoot  Directory holding the copy ledger. Default: .sb-mig
         --outputPath    Optional JSON file path for a dry-run copy plan artifact. Only writes locally when passed.
 
     LEGACY FLAGS
@@ -270,6 +274,7 @@ export const copyDescription = `
         copy assets writes asset folders and assets into the target Storyblok space unless --dry-run is passed.
         copy assets writes JSONL manifests under .sb-mig/copy/<source>/<target>/ during apply.
         --outputPath writes a local JSON report for dry-run or apply.
+        copy manifests writes nothing at all. It makes no Storyblok request and leaves every ledger file untouched.
 
     GOTCHAS
         --source must resolve to an existing source story or folder.
@@ -298,6 +303,11 @@ export const copyDescription = `
         copy assets --asset includes the selected asset's folder ancestors so target folder mappings can be preserved.
         copy assets --assetFolder includes the selected folder, descendants, folder ancestors, and assets inside that selected subtree.
         copy assets --referenced-by-stories scans selected stories with source component schemas and copies only source-space assets referenced by that story scope.
+        copy manifests reads .sb-mig/copy/<source>/<target>/ and reports entry counts per file, mappings per resource, and the actions they were recorded under.
+        copy manifests treats the combined manifest.jsonl as the authority, because that is the only ledger file a copy run reads when it builds its maps.
+        copy manifests exits 1 when it finds an error: a source key mapped to two different targets, an entry belonging to another space pair, an unreadable file, or a mapping recorded only in a per-resource file.
+        copy manifests warns about duplicate lines and about story mappings with no target path, which is why stored link paths such as cached_url stay stale until a copy relink fills them in.
+        copy manifests cannot tell whether the target space still holds the stories these mappings name. A ledger that is clean here can still be stale against the space.
         copy assets matches by manifest first, then safe target folder path or unique asset file name before creating.
         copy assets uploads assets, finalizes the upload, and writes source-to-target asset/folder manifests.
 

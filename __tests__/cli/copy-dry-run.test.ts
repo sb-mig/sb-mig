@@ -1578,6 +1578,53 @@ describe("copy stories dry-run", () => {
         await rm(tempDir, { recursive: true, force: true });
     });
 
+    it("hands copy manifests a ledger it can read back cleanly", async () => {
+        const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-copy-"));
+        const manifestRoot = path.join(tempDir, ".sb-mig");
+        const outputPath = path.join(tempDir, "reports", "ledger.json");
+
+        await copyCommand({
+            input: ["copy", "stories"],
+            flags: {
+                from: "source-space",
+                to: "target-space",
+                source: "blog",
+                destination: "imported",
+                manifestRoot,
+                yes: true,
+            },
+        } as any);
+
+        await copyCommand({
+            input: ["copy", "manifests"],
+            flags: {
+                from: "source-space",
+                to: "target-space",
+                manifestRoot,
+                outputPath,
+            },
+        } as any);
+
+        const inspection = JSON.parse(await readFile(outputPath, "utf8"));
+
+        // The inspector is only worth anything if it understands the ledger the
+        // copier actually writes, not a fixture shaped like one.
+        expect(inspection.summary).toMatchObject({
+            stories: 2,
+            conflicts: 0,
+            errors: 0,
+            storiesWithoutTargetPath: 0,
+        });
+        expect(inspection.findings).toEqual([]);
+        expect(
+            inspection.files.every(
+                (file: any) => file.kind === "combined" || !file.error,
+            ),
+        ).toBe(true);
+
+        await rm(tempDir, { recursive: true, force: true });
+    });
+
     it("writes the translated-slug account into the dry-run artifact", async () => {
         const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-copy-"));
         const outputPath = path.join(tempDir, "plans", "copy-plan.json");

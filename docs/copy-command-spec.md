@@ -532,6 +532,44 @@ The report should show:
 
 Partial failure must be resumable from existing manifest state.
 
+### Reading the Ledger Back: `copy manifests`
+
+Everything above rests on the ledger being right, and until now nothing could
+say whether it was. `copy manifests` reads one pair's ledger back and reports
+what a copy run would make of it.
+
+```bash
+sb-mig copy manifests --from 12345 --to 67890
+sb-mig copy manifests --from 12345 --to 67890 --outputPath sbmig/copy-plans/ledger.json
+```
+
+Requirements:
+
+- Read-only from end to end. No Storyblok request is made, and no ledger file
+  is written, deduplicated, or archived. It is safe to run at any moment,
+  including mid-copy and in CI.
+- The **combined** `manifest.jsonl` is the authority, because it is the only
+  file `buildCopyMaps` reads. The per-resource files are records; a mapping
+  that lives only in one of them is a mapping no run will ever use, and is
+  reported as `missing_from_combined`.
+- Conflicts are reported against the map that would actually be poisoned. A
+  story writes two mappings, not one — the numeric id and the uuid live in
+  separate maps — so `story id 1` can conflict while `story uuid …` does not.
+  The report names the value that wins, since a run keeps the last line it
+  reads and the loser is invisible at runtime.
+- Errors (`conflicting_mapping`, `space_pair_mismatch`, `unreadable_file`,
+  `missing_from_combined`) mean a run reading this ledger would do the wrong
+  thing, and the command exits 1 so a pipeline can gate on it. Warnings
+  (`duplicate_mapping`, `missing_target_full_slug`) cost the run something
+  without misdirecting it.
+- `--outputPath` writes the same account as JSON.
+
+What it deliberately does not do: it cannot tell whether the target space
+still holds the stories these mappings name. **A ledger that is clean here can
+still be stale against the space** — that is the failure mode the plan gate and
+`copy relink` validate against, at the cost of API calls, and it stays their
+job.
+
 ## Proposed Copy Command Surface
 
 ### MVP: Stories With Assets

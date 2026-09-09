@@ -10,6 +10,8 @@ import type {
     CopyAssetManifestEntry,
     CopyComponentSchemaRegistry,
     CopyManifestEntry,
+    CopyManifestFileInput,
+    CopyManifestFileKind,
     CopyStoryManifestEntry,
     CopyTranslatedSlugSummary,
 } from "../../api/copy/index.js";
@@ -40,12 +42,15 @@ import {
     dedupeManifestFile,
     describeBrokenStoryReferenceTarget,
     describeCopyTranslatedSlugs,
+    formatCopyManifestInspection,
     formatCopyPlanGate,
     formatCopyRelinkPlan,
     getDefaultCopyManifestPaths,
     groupBrokenStoryReferences,
+    inspectCopyManifests,
     loadManifest,
     normalizeAssetFolderParentId,
+    parseManifestJsonl,
     planCopyRelinkStoryRewrite,
     planStoryTranslatedSlugs,
     rewriteCopyReferences,
@@ -75,6 +80,7 @@ const COPY_COMMANDS = {
     stories: "stories",
     assets: "assets",
     relink: "relink",
+    manifests: "manifests",
 };
 
 const COPY_MODES = ["subtree", "children", "self"] as const;
@@ -1734,6 +1740,50 @@ const writeDryRunReport = async (outputPath: string, report: unknown) => {
     await fs.mkdir(outputDirectory, { recursive: true });
     await fs.writeFile(outputPath, JSON.stringify(report, null, 2), "utf8");
     Logger.success(`[dry-run] Copy plan written to ${outputPath}`);
+};
+
+/**
+ * One ledger file as the inspector needs to see it. `loadManifest` answers a
+ * missing file with an empty list, which is the right answer for a run and the
+ * wrong one for an inspector: "never written" and "written empty" are
+ * different states, and a file that will not parse is a third.
+ */
+const readCopyManifestFile = async (
+    kind: CopyManifestFileKind,
+    filePath: string,
+): Promise<CopyManifestFileInput> => {
+    let content: string;
+
+    try {
+        content = await fs.readFile(filePath, "utf8");
+    } catch (error: any) {
+        if (error?.code === "ENOENT") {
+            return { kind, path: filePath, exists: false };
+        }
+
+        return {
+            kind,
+            path: filePath,
+            exists: true,
+            error: String(error?.message ?? error),
+        };
+    }
+
+    try {
+        return {
+            kind,
+            path: filePath,
+            exists: true,
+            entries: parseManifestJsonl(content, filePath),
+        };
+    } catch (error: any) {
+        return {
+            kind,
+            path: filePath,
+            exists: true,
+            error: String(error?.message ?? error),
+        };
+    }
 };
 
 const writeJsonReport = async (outputPath: string, report: unknown) => {
@@ -5177,6 +5227,68 @@ export const copyCommand = async (props: CLIOptions) => {
                 outputPath,
                 manifestRoot,
             });
+
+            break;
+        }
+        case COPY_COMMANDS.manifests: {
+            const sourceSpace = getCopySpace(
+                flags,
+                ["from", "sourceSpace"],
+                apiConfig.spaceId,
+            );
+            const targetSpace = getCopySpace(
+                flags,
+                ["to", "targetSpace"],
+                apiConfig.spaceId,
+            );
+            const outputPath = readStringFlag(flags, ["outputPath"]);
+            const manifestRoot = readStringFlag(flags, ["manifestRoot"]);
+            const manifestPaths = getDefaultCopyManifestPaths({
+                sourceSpaceId: sourceSpace,
+                targetSpaceId: targetSpace,
+                rootDir: manifestRoot,
+            });
+
+            Logger.warning(
+                `Reading the copy ledger for space '${sourceSpace}' to space '${targetSpace}'.`,
+            );
+
+            // Read-only from end to end: no Storyblok request is made and no
+            // ledger file is touched, so this is safe to run against a pair
+            // mid-copy or in CI.
+            const files = await Promise.all(
+                (
+                    [
+                        ["combined", manifestPaths.combined],
+                        ["stories", manifestPaths.stories],
+                        ["assets", manifestPaths.assets],
+                        ["assetFolders", manifestPaths.assetFolders],
+                    ] as [CopyManifestFileKind, string][]
+                ).map(([kind, filePath]) =>
+                    readCopyManifestFile(kind, filePath),
+                ),
+            );
+
+            const inspection = inspectCopyManifests({
+                sourceSpaceId: sourceSpace,
+                targetSpaceId: targetSpace,
+                rootDir: manifestPaths.rootDir,
+                files,
+            });
+
+            formatCopyManifestInspection(inspection).forEach((line) =>
+                Logger.log(line),
+            );
+
+            if (outputPath) {
+                await writeJsonReport(outputPath, inspection);
+            }
+
+            // A ledger a run would obey wrongly is a failure, not a remark:
+            // this is the one thing CI can gate a copy pipeline on.
+            if (inspection.summary.errors > 0) {
+                process.exitCode = 1;
+            }
 
             break;
         }
