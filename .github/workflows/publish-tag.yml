@@ -1,0 +1,82 @@
+# Publish an EXISTING release tag to npm.
+#
+# semantic-release creates the git tag, the changelog commit and the GitHub
+# release before it publishes to npm. If the npm step fails (credential rotten,
+# token 2FA-gated), the version exists everywhere except the registry and a
+# re-run of semantic-release will not republish it. This workflow closes that
+# gap: check out the tag, build, publish exactly that version on the given
+# dist-tag. It never bumps, tags or commits.
+#
+# NPM_TOKEN must be able to publish without a one-time password: an npm
+# automation token, or a granular access token with "Bypass 2FA". The package's
+# own "Publishing access" setting must also allow tokens.
+name: Publish existing tag to npm
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing git tag to publish, e.g. v6.5.0-beta.4"
+        required: true
+        type: string
+      dist_tag:
+        description: "npm dist-tag to publish under (beta or latest)"
+        required: true
+        default: beta
+        type: choice
+        options:
+          - beta
+          - latest
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.x
+          registry-url: https://registry.npmjs.org
+
+      - name: Verify the tag matches package.json
+        run: |
+          set -euo pipefail
+          PKG_VERSION="$(node -p "require('./package.json').version")"
+          TAG="${{ inputs.tag }}"
+          if [ "v${PKG_VERSION}" != "${TAG}" ]; then
+            echo "package.json is ${PKG_VERSION} but the tag is ${TAG}; refusing to publish a mismatched version." >&2
+            exit 1
+          fi
+          echo "Publishing ${PKG_VERSION} on dist-tag ${{ inputs.dist_tag }}"
+
+      - name: Install
+        run: npm ci
+        env:
+          NO_HUSKY: 1
+
+      - name: Build
+        run: npm run build
+        env:
+          NODE_OPTIONS: "--max_old_space_size=8192"
+
+      - name: Publish
+        run: npm publish --tag "${{ inputs.dist_tag }}" --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Verify on the registry
+        run: |
+          set -euo pipefail
+          PKG_VERSION="$(node -p "require('./package.json').version")"
+          npm view "sb-mig@${PKG_VERSION}" version
+          echo "dist-tag ${{ inputs.dist_tag }} -> $(npm view sb-mig "dist-tags.${{ inputs.dist_tag }}")"
