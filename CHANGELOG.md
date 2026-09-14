@@ -1,3 +1,16 @@
+# [6.5.0-beta.5](https://github.com/sb-mig/sb-mig/compare/v6.5.0-beta.4...v6.5.0-beta.5) (2026-09-14)
+
+
+### Bug Fixes
+
+* **copy:** restore a default preset only after its writes land (MAR-3025) ([155b540](https://github.com/sb-mig/sb-mig/commit/155b540fa08477d5357a80a21ba6d9ed5e52c01a))
+* **copy:** stop copy space carrying source ids and losing its report (MAR-3025) ([3cbb34f](https://github.com/sb-mig/sb-mig/commit/3cbb34fdc890549af52796244cec887110d20102))
+
+
+### Features
+
+* **copy:** copy a space's schema into another space with copy space (MAR-3025) ([17583b1](https://github.com/sb-mig/sb-mig/commit/17583b1cba591421693d005149299dfa2550a4d5))
+
 # [6.5.0-beta.4](https://github.com/sb-mig/sb-mig/compare/v6.5.0-beta.3...v6.5.0-beta.4) (2026-09-09)
 
 
