@@ -81,6 +81,8 @@ const sourceSpace: SpaceFixture = {
             id: 501,
             name: "hero",
             space_id: 111,
+            // Its default preset, by the source's own preset id.
+            preset_id: 7,
             component_group_uuid: "src-child",
             schema: {
                 body: {
@@ -243,6 +245,19 @@ const installFakeStoryblok = () => {
         if (spaceWrite && body?.space) {
             const fixture = spaces[spaceWrite[1] as string] as SpaceFixture;
             fixture.space = { ...fixture.space, ...body.space };
+        }
+
+        const componentWrite = url.match(/^spaces\/(\d+)\/components\/(\d+)$/);
+
+        if (componentWrite && body?.component) {
+            const fixture = spaces[componentWrite[1] as string] as SpaceFixture;
+            const component = fixture.components.find(
+                (item) => item.id === Number(componentWrite[2]),
+            );
+
+            if (component) {
+                Object.assign(component, body.component);
+            }
         }
 
         return { data: {} };
@@ -541,5 +556,183 @@ describe("copy space", () => {
         expect(
             writeCalls().some((call) => call.includes("/components/1")),
         ).toBe(false);
+    });
+    /* ------------------------------------------------------------------ *
+     * Round 3 findings
+     * ------------------------------------------------------------------ */
+
+    // F1 canary. Mutation that must turn it red: skip the default-preset
+    // restore step in applyCopySpace.
+    it("restores a component's default preset to the target's own preset id", async () => {
+        const outputPath = path.join(tempDir, "applied.json");
+
+        await runCopySpace({ from: "111", to: "222", yes: true, outputPath });
+
+        const target = spaces["222"] as SpaceFixture;
+        const hero = target.components.find(
+            (component) => component.name === "hero",
+        );
+        const createBody = mocks.post.mock.calls.find((call) =>
+            String(call[0]).endsWith("/components/"),
+        )?.[1];
+
+        // The create payload never carries the source's preset id.
+        expect(createBody.component).not.toHaveProperty("preset_id");
+        // After the presets step it points at the preset the run created.
+        expect(hero.preset_id).toBe(target.presets[0].id);
+        expect(hero.preset_id).not.toBe(7);
+        expect(mocks.put).toHaveBeenCalledWith(
+            `spaces/222/components/${hero.id}`,
+            { component: { preset_id: target.presets[0].id } },
+        );
+        expect(process.exitCode).toBeUndefined();
+    });
+
+    it("prints the default preset count in the PLAN block", async () => {
+        await runCopySpace({ from: "111", to: "222", dryRun: true });
+
+        expect(logLines()).toContain(
+            "  default presets: 1 restored, 0 not restorable",
+        );
+    });
+
+    const matchedColorsTarget = ({
+        dimensionValue,
+        entryValue = "user",
+    }: {
+        dimensionValue: string | null;
+        entryValue?: string;
+    }) => {
+        const target = spaces["222"] as SpaceFixture;
+
+        target.datasources = [
+            {
+                id: 30,
+                name: "colors",
+                slug: "colors",
+                dimensions: [
+                    { id: 3001, name: "user", entry_value: entryValue },
+                ],
+            },
+        ];
+        target.entries = {
+            30: [
+                {
+                    id: 3010,
+                    name: "red",
+                    value: "#f00",
+                    dimension_value: dimensionValue,
+                },
+            ],
+        };
+    };
+
+    const dimensionPuts = () =>
+        mocks.put.mock.calls.filter(
+            (call) => call[1]?.dimension_id !== undefined,
+        );
+
+    // F2 canary. Mutation that must turn it red: in readEntries, drop empty
+    // dimension values again (skip `null` / `""`).
+    it("clears a target translation the source has cleared", async () => {
+        (
+            (spaces["111"] as SpaceFixture).entries[3] as any[]
+        )[0].dimension_value = "";
+        matchedColorsTarget({ dimensionValue: "STALE" });
+
+        await runCopySpace({
+            from: "111",
+            to: "222",
+            yes: true,
+            only: "datasources",
+        });
+
+        expect(dimensionPuts()).toHaveLength(1);
+        expect(dimensionPuts()[0]?.[1]).toMatchObject({
+            datasource_entry: { name: "red", dimension_value: "" },
+            dimension_id: 3001,
+        });
+    });
+
+    // F2 canary. Mutation that must turn it red: write every dimension value
+    // without comparing it to the target's.
+    it("spends no dimension write when the target already holds the value", async () => {
+        matchedColorsTarget({ dimensionValue: "#e00" });
+
+        await runCopySpace({
+            from: "111",
+            to: "222",
+            yes: true,
+            only: "datasources",
+        });
+
+        expect(dimensionPuts()).toHaveLength(0);
+    });
+
+    // F3 canary. Mutation that must turn it red: send only the dimensions the
+    // target is missing in `dimensions_attributes`.
+    it("updates a matched dimension's entry_value under the target dimension id", async () => {
+        matchedColorsTarget({ dimensionValue: "#e00", entryValue: "user-old" });
+
+        await runCopySpace({
+            from: "111",
+            to: "222",
+            yes: true,
+            only: "datasources",
+        });
+
+        const datasourcePut = mocks.put.mock.calls.find(
+            (call) => call[0] === "spaces/222/datasources/30",
+        );
+
+        expect(datasourcePut?.[1].datasource.dimensions_attributes).toEqual([
+            { id: 3001, name: "user", entry_value: "user" },
+        ]);
+    });
+
+    // F4 canary. Mutation that must turn it red: call readAll for the groups
+    // refresh without the guard.
+    it("keeps the failure report when a read after the first write fails", async () => {
+        const fakeGet = mocks.get.getMockImplementation() as (
+            url: string,
+            params?: any,
+        ) => Promise<any>;
+
+        mocks.get.mockImplementation(async (url: string, params?: any) => {
+            if (mocks.post.mock.calls.length > 0) {
+                throw Object.assign(new Error("Service Unavailable"), {
+                    response: { data: { error: "503 Service Unavailable" } },
+                });
+            }
+
+            return fakeGet(url, params);
+        });
+
+        const outputPath = path.join(tempDir, "applied-after-5xx.json");
+
+        await runCopySpace({ from: "111", to: "222", yes: true, outputPath });
+
+        expect(process.exitCode).toBe(1);
+
+        const report = JSON.parse(await readFile(outputPath, "utf8"));
+        const refreshFailures = report.applied.failures.filter(
+            (failure: any) => failure.name === "refresh",
+        );
+
+        expect(refreshFailures.map((failure: any) => failure.resource)).toEqual(
+            ["groups", "components", "datasources"],
+        );
+        // The run carried on from what it already knew.
+        expect(
+            mocks.post.mock.calls.some((call) =>
+                String(call[0]).endsWith("/presets/"),
+            ),
+        ).toBe(true);
+        expect(dimensionPuts()).toHaveLength(1);
+        expect(
+            (spaces["222"] as SpaceFixture).components.find(
+                (component) => component.name === "hero",
+            )?.preset_id,
+        ).toBe((spaces["222"] as SpaceFixture).presets[0].id);
     });
 });

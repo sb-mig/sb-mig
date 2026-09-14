@@ -7,6 +7,10 @@ import type {
 import { describe, expect, it } from "vitest";
 
 import {
+    buildCopySpacePlanGateSummary,
+    formatCopySpacePlanGate,
+} from "../../src/api/copy/plan-gate.js";
+import {
     buildCopySpacePlan,
     buildGroupNameMap,
     buildGroupPaths,
@@ -424,5 +428,180 @@ describe("copy space: the plan", () => {
                 reason: "component 'hero' does not exist in the target space",
             },
         ]);
+    });
+});
+
+describe("copy space: round 3 findings", () => {
+    // F5 canary. Mutation that must turn it red: in buildCopySpacePlan's
+    // projected groups, always set parent_uuid to `planned:<parent_uuid>`
+    // instead of the existing target parent's uuid.
+    it("does not report a whitelist as dropped when a new child group sits under an existing parent", () => {
+        const source: CopySpaceSnapshot = {
+            ...emptySnapshot(),
+            groups: sourceGroups,
+            components: [
+                {
+                    id: 501,
+                    name: "hero",
+                    schema: {
+                        body: {
+                            type: "bloks",
+                            component_group_whitelist: ["src-child"],
+                        },
+                    },
+                },
+            ],
+        };
+        const target: CopySpaceSnapshot = {
+            ...emptySnapshot(),
+            // `Layout` already exists under its own uuid; `Layout/Heroes` is new.
+            groups: [
+                { id: 91, uuid: "tgt-parent", name: "Layout", parent_id: null },
+            ],
+        };
+
+        const plan = buildCopySpacePlan({
+            sourceSpaceId: "111",
+            targetSpaceId: "222",
+            resources: ["groups", "components"],
+            source,
+            target,
+        });
+
+        expect(plan.groups?.update).toEqual(["Layout"]);
+        expect(plan.groups?.create).toEqual(["Layout/Heroes"]);
+        expect(plan.droppedWhitelistGroups).toEqual([]);
+    });
+
+    // F6 canary. Mutation that must turn it red: remove "preset_id",
+    // "internal_tag_ids" or "internal_tags_list" from COMPONENT_GENERATED_KEYS.
+    it("never carries the source default preset id or source internal tag ids", () => {
+        const { payload } = remapComponentForTarget({
+            component: {
+                id: 1,
+                name: "hero",
+                preset_id: 7,
+                internal_tag_ids: ["12"],
+                internal_tags_list: [{ id: 12, name: "legacy" }],
+            },
+            groupMap: buildGroupNameMap({ sourceGroups: [], targetGroups: [] }),
+        });
+
+        expect(payload).not.toHaveProperty("preset_id");
+        expect(payload).not.toHaveProperty("internal_tag_ids");
+        expect(payload).not.toHaveProperty("internal_tags_list");
+        expect(payload.name).toBe("hero");
+    });
+
+    // F6 canary. Mutation that must turn it red: stop collecting
+    // componentsWithSourceImageUrls / componentsWithInternalTags in the plan.
+    it("counts components whose image points at the source space and components with internal tags", () => {
+        const plan = buildCopySpacePlan({
+            sourceSpaceId: "111",
+            targetSpaceId: "222",
+            resources: ["components"],
+            source: {
+                ...emptySnapshot(),
+                components: [
+                    {
+                        id: 1,
+                        name: "with-image",
+                        image: "https://a.storyblok.com/f/111/a.png",
+                        internal_tag_ids: ["3"],
+                    },
+                    {
+                        id: 2,
+                        name: "no-image",
+                        image: null,
+                        internal_tags_list: [],
+                    },
+                    { id: 3, name: "plain" },
+                ],
+            },
+            target: emptySnapshot(),
+        });
+
+        expect(plan.componentsWithSourceImageUrls).toEqual(["with-image"]);
+        expect(plan.componentsWithInternalTags).toBe(1);
+    });
+
+    // F1: which default presets a run can restore, decided before any write.
+    it("plans restoring a default preset only when components and presets are both copied", () => {
+        const source: CopySpaceSnapshot = {
+            ...emptySnapshot(),
+            components: [
+                { id: 501, name: "hero", preset_id: 7 },
+                { id: 502, name: "teaser", preset_id: 999 },
+                { id: 503, name: "plain" },
+            ],
+            presets: [{ id: 7, name: "Hero dark", component_id: 501 }],
+        };
+
+        const full = buildCopySpacePlan({
+            sourceSpaceId: "111",
+            targetSpaceId: "222",
+            resources: ["components", "presets"],
+            source,
+            target: emptySnapshot(),
+        });
+
+        expect(full.defaultPresets?.restore).toEqual(["hero"]);
+        expect(full.defaultPresets?.notRestorable).toEqual([
+            {
+                name: "teaser",
+                reason: "its default preset (id 999) is not in the source space",
+            },
+        ]);
+
+        const componentsOnly = buildCopySpacePlan({
+            sourceSpaceId: "111",
+            targetSpaceId: "222",
+            resources: ["components"],
+            source,
+            target: emptySnapshot(),
+        });
+
+        expect(componentsOnly.defaultPresets?.restore).toEqual([]);
+        expect(
+            componentsOnly.defaultPresets?.notRestorable.map(
+                (item) => item.name,
+            ),
+        ).toEqual(["hero", "teaser"]);
+    });
+
+    it("prints component images, internal tags and default presets beside the preset line", () => {
+        const plan = buildCopySpacePlan({
+            sourceSpaceId: "111",
+            targetSpaceId: "222",
+            resources: parseCopySpaceOnly([]).resources,
+            source: {
+                ...emptySnapshot(),
+                components: [
+                    {
+                        id: 501,
+                        name: "hero",
+                        preset_id: 7,
+                        image: "https://a.storyblok.com/f/111/hero.png",
+                        internal_tag_ids: ["4"],
+                    },
+                ],
+                presets: [{ id: 7, name: "Hero dark", component_id: 501 }],
+            },
+            target: emptySnapshot(),
+        });
+        const lines = formatCopySpacePlanGate(
+            buildCopySpacePlanGateSummary(plan),
+        );
+
+        expect(lines).toContain(
+            "  component images: 1 keep URLs that point at space 111",
+        );
+        expect(lines).toContain(
+            "  internal tags: not copied (1 component had tags)",
+        );
+        expect(lines).toContain(
+            "  default presets: 1 restored, 0 not restorable",
+        );
+        expect(lines[lines.length - 1]).toContain("internal tags");
     });
 });

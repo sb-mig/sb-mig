@@ -219,6 +219,12 @@ const COMPONENT_GENERATED_KEYS = [
     "created_at",
     "updated_at",
     "all_presets",
+    // Its default preset, by the source's own preset id. Restored after the
+    // presets step, against the target's preset of the same name.
+    "preset_id",
+    // Tag ids are space-scoped; internal tags are not copied in v1.
+    "internal_tag_ids",
+    "internal_tags_list",
 ];
 
 export type CopySpaceDroppedWhitelistGroup = {
@@ -398,6 +404,95 @@ export const remapPresetForTarget = ({
 export const presetMatchKey = (componentName: string, presetName: string) =>
     JSON.stringify([componentName, presetName]);
 
+export const hasInternalTags = (component: CopySpaceComponent): boolean =>
+    (Array.isArray(component.internal_tag_ids) &&
+        component.internal_tag_ids.length > 0) ||
+    (Array.isArray(component.internal_tags_list) &&
+        component.internal_tags_list.length > 0);
+
+export type CopySpaceDefaultPresetRestore = {
+    /** The component whose `preset_id` is restored. */
+    componentName: string;
+    /** The preset it points at, identified the way presets are matched. */
+    presetComponentName: string;
+    presetName: string;
+};
+
+/**
+ * Which components' default presets a run can point at the target's own preset.
+ * `preset_id` is never copied as-is — it is a source preset id — so it is
+ * restored after the presets step, and only when this run writes both the
+ * component and its preset. Otherwise the target keeps its own default preset.
+ */
+export const planDefaultPresetRestores = ({
+    source,
+    resources,
+}: {
+    source: CopySpaceSnapshot;
+    resources: CopySpaceResource[];
+}): {
+    restore: CopySpaceDefaultPresetRestore[];
+    notRestorable: CopySpaceSkip[];
+} => {
+    const restore: CopySpaceDefaultPresetRestore[] = [];
+    const notRestorable: CopySpaceSkip[] = [];
+    const sourceComponentNameById = new Map(
+        source.components.map((component) => [
+            component.id as number,
+            component.name,
+        ]),
+    );
+
+    for (const component of source.components) {
+        if (component.preset_id === undefined || component.preset_id === null) {
+            continue;
+        }
+
+        if (
+            !resources.includes("components") ||
+            !resources.includes("presets")
+        ) {
+            notRestorable.push({
+                name: component.name,
+                reason: `${resources.includes("components") ? "presets" : "components"} are not copied in this run, so the target keeps its own default preset`,
+            });
+            continue;
+        }
+
+        const preset = source.presets.find(
+            (item) => item.id === component.preset_id,
+        );
+
+        if (!preset) {
+            notRestorable.push({
+                name: component.name,
+                reason: `its default preset (id ${component.preset_id}) is not in the source space`,
+            });
+            continue;
+        }
+
+        const presetComponentName = sourceComponentNameById.get(
+            preset.component_id,
+        );
+
+        if (!presetComponentName) {
+            notRestorable.push({
+                name: component.name,
+                reason: `its default preset '${preset.name}' belongs to a component that is not in the source space`,
+            });
+            continue;
+        }
+
+        restore.push({
+            componentName: component.name,
+            presetComponentName,
+            presetName: preset.name,
+        });
+    }
+
+    return { restore, notRestorable };
+};
+
 /* ------------------------------------------------------------------ *
  * Languages
  * ------------------------------------------------------------------ */
@@ -479,6 +574,12 @@ export type CopySpacePlan = {
     entries?: CopySpaceResourcePlan;
     droppedWhitelistGroups: CopySpaceDroppedWhitelistGroup[];
     presetsWithSourceAssetUrls: { preset: string; urls: string[] }[];
+    /** Components whose `image` still points at the source space (kept, reported). */
+    componentsWithSourceImageUrls: string[];
+    /** Components carrying internal tags, which v1 does not copy. */
+    componentsWithInternalTags: number;
+    /** Components whose default preset a run restores, and those it cannot. */
+    defaultPresets?: { restore: string[]; notRestorable: CopySpaceSkip[] };
 };
 
 const emptyResourcePlan = (): CopySpaceResourcePlan => ({
@@ -517,6 +618,8 @@ export const buildCopySpacePlan = ({
         resources,
         droppedWhitelistGroups: [],
         presetsWithSourceAssetUrls: [],
+        componentsWithSourceImageUrls: [],
+        componentsWithInternalTags: 0,
     };
 
     if (inScope("languages")) {
@@ -555,15 +658,29 @@ export const buildCopySpacePlan = ({
     const projectedTargetGroups: CopySpaceGroup[] = [...target.groups];
 
     if (inScope("groups")) {
+        const targetUuidByPath = new Map(
+            [...buildGroupPaths(target.groups).entries()].map(
+                ([uuid, groupPath]) => [groupPath, uuid],
+            ),
+        );
+
         for (const group of source.groups) {
             const groupPath = sourceGroupPaths.get(group.uuid);
 
             if (groupPath && !targetGroupPaths.has(groupPath)) {
+                const parentPath = group.parent_uuid
+                    ? sourceGroupPaths.get(group.parent_uuid)
+                    : undefined;
+
                 projectedTargetGroups.push({
                     ...group,
                     uuid: `planned:${group.uuid}`,
+                    // A new child under a parent the target already has hangs
+                    // off that parent's real uuid; only a parent the run also
+                    // creates is itself planned.
                     parent_uuid: group.parent_uuid
-                        ? `planned:${group.parent_uuid}`
+                        ? ((parentPath && targetUuidByPath.get(parentPath)) ??
+                          `planned:${group.parent_uuid}`)
                         : null,
                 });
             }
@@ -591,9 +708,24 @@ export const buildCopySpacePlan = ({
                 ...remapComponentForTarget({ component, groupMap })
                     .droppedWhitelistGroups,
             );
+
+            if (isUrl(component.image)) {
+                plan.componentsWithSourceImageUrls.push(component.name);
+            }
+
+            if (hasInternalTags(component)) {
+                plan.componentsWithInternalTags += 1;
+            }
         }
 
         plan.components = components;
+
+        const defaultPresets = planDefaultPresetRestores({ source, resources });
+
+        plan.defaultPresets = {
+            restore: defaultPresets.restore.map((item) => item.componentName),
+            notRestorable: defaultPresets.notRestorable,
+        };
     }
 
     if (inScope("presets")) {

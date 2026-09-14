@@ -20,6 +20,7 @@ import {
     buildGroupPaths,
     mergeLanguagesForTarget,
     orderGroupsParentsFirst,
+    planDefaultPresetRestores,
     presetMatchKey,
     remapComponentForTarget,
     remapPresetForTarget,
@@ -130,6 +131,10 @@ const readSpaceLanguages = async (
     };
 };
 
+/** `undefined`, `null` and `""` all mean "no translation" on both sides. */
+const normaliseDimensionValue = (value: unknown): string =>
+    value === undefined || value === null ? "" : String(value);
+
 const readEntries = async (
     sbApi: CopySpaceSbApi,
     spaceId: string,
@@ -160,14 +165,19 @@ const readEntries = async (
         );
 
         for (const entry of entries) {
-            const value = valueByName.get(entry.name);
-
-            if (value !== undefined && value !== null && value !== "") {
-                entry.dimension_values = {
-                    ...(entry.dimension_values ?? {}),
-                    [dimension.name]: value,
-                };
+            if (!valueByName.has(entry.name)) {
+                continue;
             }
+
+            // A cleared translation is a value too: dropping it here is how a
+            // clear in the source used to leave a stale target translation in
+            // place while reporting success.
+            entry.dimension_values = {
+                ...(entry.dimension_values ?? {}),
+                [dimension.name]: normaliseDimensionValue(
+                    valueByName.get(entry.name),
+                ),
+            };
         }
     }
 
@@ -302,6 +312,30 @@ export const applyCopySpace = async ({
             return undefined;
         }
     };
+    // A read after the first write must not throw the run away: the writes
+    // already sent, and every failure collected so far, have to reach the
+    // report. On failure the run carries on from what it already knows.
+    const refresh = async <T>(
+        resource: CopySpaceFailure["resource"],
+        read: () => Promise<T>,
+    ): Promise<T | undefined> => {
+        try {
+            return await read();
+        } catch (error) {
+            const failure = {
+                resource,
+                name: "refresh",
+                message: describeError(error),
+            };
+
+            failures.push(failure);
+            Logger.error(
+                `copy space: re-reading ${resource} after writing them failed; carrying on with what this run already knows. ${failure.message}`,
+            );
+
+            return undefined;
+        }
+    };
 
     if (inScope("languages")) {
         const merged = mergeLanguagesForTarget({
@@ -383,14 +417,16 @@ export const applyCopySpace = async ({
         }
 
         Logger.log("copy space: component groups written.");
-        targetGroups = await readAll(
-            sbApi,
-            `${base}/component_groups/`,
-            "component_groups",
-        );
+        targetGroups = (await refresh("groups", () =>
+            readAll(sbApi, `${base}/component_groups/`, "component_groups"),
+        )) ??
+            // The target's own groups plus every group this run created.
+            [...targetByPath.values()];
     }
 
     let targetComponents = target.components;
+    let componentIdsUnknown = new Set<string>();
+    const presetIdByKey = new Map<string, number | undefined>();
 
     if (inScope("components")) {
         const groupMap = buildGroupNameMap({
@@ -403,6 +439,8 @@ export const applyCopySpace = async ({
                 component.id,
             ]),
         );
+        const createdComponents: CopySpaceComponent[] = [];
+        const createdWithoutId = new Set<string>();
 
         await mapWithConcurrency(
             source.components,
@@ -413,25 +451,48 @@ export const applyCopySpace = async ({
                     groupMap,
                 });
                 const existingId = targetIdByName.get(component.name);
-
-                await attempt("components", component.name, () =>
-                    existingId !== undefined
-                        ? sbApi.put(`${base}/components/${existingId}`, {
-                              component: payload,
-                          })
-                        : sbApi.post(`${base}/components/`, {
-                              component: payload,
-                          }),
+                const response = await attempt(
+                    "components",
+                    component.name,
+                    () =>
+                        existingId !== undefined
+                            ? sbApi.put(`${base}/components/${existingId}`, {
+                                  component: payload,
+                              })
+                            : sbApi.post(`${base}/components/`, {
+                                  component: payload,
+                              }),
                 );
+
+                if (existingId === undefined && response) {
+                    const createdId = response?.data?.component?.id;
+
+                    if (createdId === undefined) {
+                        createdWithoutId.add(component.name);
+                    } else {
+                        createdComponents.push({
+                            ...payload,
+                            id: createdId,
+                            name: component.name,
+                        });
+                    }
+                }
             },
         );
 
         Logger.log("copy space: components written.");
-        targetComponents = await readAll(
-            sbApi,
-            `${base}/components/`,
-            "components",
+
+        const refreshed = await refresh("components", () =>
+            readAll(sbApi, `${base}/components/`, "components"),
         );
+
+        targetComponents = refreshed ?? [
+            ...target.components,
+            ...createdComponents,
+        ];
+        // A refreshed list knows every id; without it, a component created
+        // without an id in its response cannot be pointed at.
+        componentIdsUnknown = refreshed ? new Set() : createdWithoutId;
     }
 
     if (inScope("presets")) {
@@ -463,6 +524,10 @@ export const applyCopySpace = async ({
             ]),
         );
 
+        for (const [key, id] of targetPresetIdByKey) {
+            presetIdByKey.set(key, id);
+        }
+
         await mapWithConcurrency(
             source.presets,
             concurrency,
@@ -473,17 +538,27 @@ export const applyCopySpace = async ({
                     targetComponentIdByName,
                 });
 
+                if (
+                    remap.componentName &&
+                    componentIdsUnknown.has(remap.componentName)
+                ) {
+                    failures.push({
+                        resource: "presets",
+                        name: `${remap.componentName}/${preset.name}`,
+                        message: `skipped: component '${remap.componentName}' was created but its id could not be read back, so this preset cannot point at it.`,
+                    });
+                    return;
+                }
+
                 if (!remap.payload || !remap.componentName) {
                     // Planned as a skip; nothing to write.
                     return;
                 }
 
                 const label = `${remap.componentName}/${preset.name}`;
-                const existingId = targetPresetIdByKey.get(
-                    presetMatchKey(remap.componentName, preset.name),
-                );
-
-                await attempt("presets", label, () =>
+                const key = presetMatchKey(remap.componentName, preset.name);
+                const existingId = targetPresetIdByKey.get(key);
+                const response = await attempt("presets", label, () =>
                     existingId !== undefined
                         ? sbApi.put(`${base}/presets/${existingId}`, {
                               preset: remap.payload,
@@ -492,10 +567,52 @@ export const applyCopySpace = async ({
                               preset: remap.payload,
                           }),
                 );
+
+                if (existingId === undefined && response?.data?.preset?.id) {
+                    presetIdByKey.set(key, response.data.preset.id);
+                }
             },
         );
 
         Logger.log("copy space: presets written.");
+    }
+
+    if (inScope("components") && inScope("presets")) {
+        const componentIdByName = new Map(
+            targetComponents.map((component) => [component.name, component.id]),
+        );
+
+        await mapWithConcurrency(
+            planDefaultPresetRestores({ source, resources }).restore,
+            concurrency,
+            async ({ componentName, presetComponentName, presetName }) => {
+                const name = `${componentName}@preset_id`;
+                const componentId = componentIdByName.get(componentName);
+                const presetId = presetIdByKey.get(
+                    presetMatchKey(presetComponentName, presetName),
+                );
+
+                if (componentId === undefined || presetId === undefined) {
+                    failures.push({
+                        resource: "components",
+                        name,
+                        message:
+                            componentId === undefined
+                                ? `the component's id in the target is unknown, so its default preset '${presetName}' was not restored.`
+                                : `its default preset '${presetComponentName}/${presetName}' was not written, so it was not restored.`,
+                    });
+                    return;
+                }
+
+                await attempt("components", name, () =>
+                    sbApi.put(`${base}/components/${componentId}`, {
+                        component: { preset_id: presetId },
+                    }),
+                );
+            },
+        );
+
+        Logger.log("copy space: default presets restored.");
     }
 
     if (inScope("datasources")) {
@@ -508,24 +625,31 @@ export const applyCopySpace = async ({
 
         for (const datasource of source.datasources) {
             const existing = targetByName.get(datasource.name);
-            const existingDimensionNames = new Set(
-                (existing?.dimensions ?? []).map((dimension) => dimension.name),
+            const targetDimensionByName = new Map(
+                (existing?.dimensions ?? []).map((dimension) => [
+                    dimension.name,
+                    dimension,
+                ]),
             );
-            // Dimensions are merged by name: the target keeps its own and gains
-            // the source's missing ones.
-            const dimensionsToAdd = (datasource.dimensions ?? [])
-                .filter(
-                    (dimension) => !existingDimensionNames.has(dimension.name),
-                )
-                .map(({ name, entry_value }: CopySpaceDimension) => ({
-                    name,
-                    entry_value,
-                }));
+            // Dimensions are merged by name. A source dimension the target also
+            // has is sent with the target's id, so a changed entry_value updates
+            // it in place; one the target lacks is created. Target-only
+            // dimensions are not mentioned, and nothing is ever marked for
+            // deletion.
+            const dimensionsAttributes = (datasource.dimensions ?? []).map(
+                ({ name, entry_value }: CopySpaceDimension) => {
+                    const matchedId = targetDimensionByName.get(name)?.id;
+
+                    return matchedId !== undefined
+                        ? { id: matchedId, name, entry_value }
+                        : { name, entry_value };
+                },
+            );
             const body = {
                 datasource: {
                     name: datasource.name,
                     slug: datasource.slug,
-                    dimensions_attributes: dimensionsToAdd,
+                    dimensions_attributes: dimensionsAttributes,
                 },
             };
             const response = await attempt(
@@ -553,21 +677,28 @@ export const applyCopySpace = async ({
                 continue;
             }
 
-            // Re-read so dimension ids are the target's own.
-            const written = await sbApi.get(
-                `${base}/datasources/${datasourceId}`,
+            // Re-read so dimension ids are the target's own; fall back to what
+            // the write itself returned.
+            const refreshedDatasource = await refresh("datasources", () =>
+                sbApi.get(`${base}/datasources/${datasourceId}`),
+            );
+            const writtenDatasource =
+                refreshedDatasource?.data?.datasource ??
+                response?.data?.datasource;
+            const dimensionIdsKnown = Array.isArray(
+                writtenDatasource?.dimensions,
             );
             const targetDimensionIdByName = new Map(
                 (
-                    (written?.data?.datasource?.dimensions ??
+                    (writtenDatasource?.dimensions ??
                         []) as CopySpaceDimension[]
                 ).map((dimension) => [dimension.name, dimension.id]),
             );
-            const targetEntryIdByName = new Map(
+            const targetEntryByName = new Map(
                 (existing
                     ? (target.entriesByDatasource.get(datasource.name) ?? [])
                     : []
-                ).map((entry) => [entry.name, entry.id]),
+                ).map((entry) => [entry.name, entry]),
             );
 
             await mapWithConcurrency(
@@ -580,7 +711,8 @@ export const applyCopySpace = async ({
                         value: entry.value,
                         datasource_id: datasourceId,
                     };
-                    const existingEntryId = targetEntryIdByName.get(entry.name);
+                    const targetEntry = targetEntryByName.get(entry.name);
+                    const existingEntryId = targetEntry?.id;
                     const entryResponse = await attempt("entries", label, () =>
                         existingEntryId !== undefined
                             ? sbApi.put(
@@ -605,6 +737,20 @@ export const applyCopySpace = async ({
                         dimensionName,
                         dimensionValue,
                     ] of Object.entries(entry.dimension_values ?? {})) {
+                        const wanted = normaliseDimensionValue(dimensionValue);
+
+                        // Only a value that differs costs a write: a clear
+                        // propagates, an unchanged translation does not cost a
+                        // PUT per entry per dimension on every rerun.
+                        if (
+                            wanted ===
+                            normaliseDimensionValue(
+                                targetEntry?.dimension_values?.[dimensionName],
+                            )
+                        ) {
+                            continue;
+                        }
+
                         const dimensionId =
                             targetDimensionIdByName.get(dimensionName);
 
@@ -612,7 +758,9 @@ export const applyCopySpace = async ({
                             failures.push({
                                 resource: "entries",
                                 name: `${label}@${dimensionName}`,
-                                message: `dimension '${dimensionName}' does not exist on the target datasource.`,
+                                message: dimensionIdsKnown
+                                    ? `dimension '${dimensionName}' does not exist on the target datasource.`
+                                    : `dimension '${dimensionName}' has no known id: the datasource could not be read back after writing.`,
                             });
                             continue;
                         }
@@ -626,7 +774,7 @@ export const applyCopySpace = async ({
                                     {
                                         datasource_entry: {
                                             ...entryBody,
-                                            dimension_value: dimensionValue,
+                                            dimension_value: wanted,
                                         },
                                         dimension_id: dimensionId,
                                     },

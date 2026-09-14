@@ -357,6 +357,9 @@ export type CopySpacePlanGateSummary = {
     droppedWhitelistGroups: CopySpaceDroppedWhitelistGroup[];
     skipped: CopySpaceSkip[];
     presetsWithSourceAssetUrls: number;
+    componentsWithSourceImageUrls: number;
+    componentsWithInternalTags: number;
+    defaultPresets?: { restore: number; notRestorable: number };
 };
 
 export const buildCopySpacePlanGateSummary = (
@@ -409,6 +412,17 @@ export const buildCopySpacePlanGateSummary = (
         droppedWhitelistGroups: plan.droppedWhitelistGroups,
         skipped,
         presetsWithSourceAssetUrls: plan.presetsWithSourceAssetUrls.length,
+        componentsWithSourceImageUrls:
+            plan.componentsWithSourceImageUrls.length,
+        componentsWithInternalTags: plan.componentsWithInternalTags,
+        ...(plan.defaultPresets
+            ? {
+                  defaultPresets: {
+                      restore: plan.defaultPresets.restore.length,
+                      notRestorable: plan.defaultPresets.notRestorable.length,
+                  },
+              }
+            : {}),
     };
 };
 
@@ -474,8 +488,30 @@ export const formatCopySpacePlanGate = (
         );
     }
 
+    if (summary.componentsWithSourceImageUrls > 0) {
+        lines.push(
+            `  component images: ${summary.componentsWithSourceImageUrls} keep URLs that point at space ${summary.sourceSpaceId}`,
+        );
+    }
+
+    if (
+        summary.defaultPresets &&
+        summary.defaultPresets.restore + summary.defaultPresets.notRestorable >
+            0
+    ) {
+        lines.push(
+            `  default presets: ${summary.defaultPresets.restore} restored, ${summary.defaultPresets.notRestorable} not restorable`,
+        );
+    }
+
+    if (summary.componentsWithInternalTags > 0) {
+        lines.push(
+            `  internal tags: not copied (${summary.componentsWithInternalTags} ${summary.componentsWithInternalTags === 1 ? "component" : "components"} had tags)`,
+        );
+    }
+
     lines.push(
-        "  not copied: stories, assets, workflow stages, roles, webhooks, environments, collaborators.",
+        "  not copied: stories, assets, workflow stages, roles, webhooks, environments, collaborators, internal tags.",
     );
 
     return lines;
