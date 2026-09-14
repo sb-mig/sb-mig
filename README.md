@@ -18,8 +18,8 @@ If you've found an issue or you have feature request - <a href="https://github.c
 
 # Requirements:
 
-|      |                    |
-| ---- | ------------------ |
+|      |              |
+| ---- | ------------ |
 | Node | 22.x.x or >=24.x.x |
 
 # Current release notes: 6.x.x
@@ -157,29 +157,29 @@ The public management API exposes asset helpers for uploading a local file and u
 import { managementApi } from "sb-mig/dist/api/managementApi.js";
 
 await managementApi.assets.createAsset(
-    {
-        spaceId: "12345",
-        pathToFile: "./public/image.jpg",
-        payload: {
-            asset_folder_id: 67890,
-            validate_upload: 1,
-        },
+  {
+    spaceId: "12345",
+    pathToFile: "./public/image.jpg",
+    payload: {
+      asset_folder_id: 67890,
+      validate_upload: 1,
     },
-    config,
+  },
+  config,
 );
 
 await managementApi.assets.updateAsset(
-    {
-        spaceId: "12345",
-        assetId: 98765,
-        payload: {
-            meta_data: {
-                alt: "Image alt text",
-                title: "Image title",
-            },
-        },
+  {
+    spaceId: "12345",
+    assetId: 98765,
+    payload: {
+      meta_data: {
+        alt: "Image alt text",
+        title: "Image title",
+      },
     },
-    config,
+  },
+  config,
 );
 ```
 
