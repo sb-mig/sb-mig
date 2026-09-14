@@ -1,3 +1,8 @@
+import type {
+    CopySpaceDroppedWhitelistGroup,
+    CopySpacePlan,
+    CopySpaceSkip,
+} from "./space.js";
 import type { CopyTranslatedSlugSummary } from "./translated-slugs.js";
 import type { CopyGraph } from "./types.js";
 
@@ -324,6 +329,190 @@ const formatBreakingReferences = (
             `      ...and ${hidden} more ${plural(hidden, "story", "stories")} with breaking references; run with --dryRun for the full list.`,
         );
     }
+
+    return lines;
+};
+
+/* ------------------------------------------------------------------ *
+ * copy space
+ * ------------------------------------------------------------------ */
+
+export type CopySpacePlanGateLine = {
+    resource: string;
+    create: number;
+    update: number;
+    skip: number;
+};
+
+/**
+ * The facts a `copy space` PLAN block states. Separate from the story-shaped
+ * summary on purpose: a schema copy has no ledger, no references and no paths,
+ * and bending that type to fit would change what every story command prints.
+ */
+export type CopySpacePlanGateSummary = {
+    sourceSpaceId: string;
+    targetSpaceId: string;
+    resources: string[];
+    lines: CopySpacePlanGateLine[];
+    droppedWhitelistGroups: CopySpaceDroppedWhitelistGroup[];
+    skipped: CopySpaceSkip[];
+    presetsWithSourceAssetUrls: number;
+    componentsWithSourceImageUrls: number;
+    componentsWithInternalTags: number;
+    defaultPresets?: { restore: number; notRestorable: number };
+};
+
+export const buildCopySpacePlanGateSummary = (
+    plan: CopySpacePlan,
+): CopySpacePlanGateSummary => {
+    const lines: CopySpacePlanGateLine[] = [];
+    const skipped: CopySpaceSkip[] = [];
+
+    if (plan.languages) {
+        lines.push({
+            resource: "languages",
+            create: plan.languages.add.length,
+            update: plan.languages.update.length,
+            skip: 0,
+        });
+    }
+
+    for (const resource of [
+        "groups",
+        "components",
+        "presets",
+        "datasources",
+        "entries",
+    ] as const) {
+        const resourcePlan = plan[resource];
+
+        if (!resourcePlan) {
+            continue;
+        }
+
+        lines.push({
+            resource,
+            create: resourcePlan.create.length,
+            update: resourcePlan.update.length,
+            skip: resourcePlan.skip.length,
+        });
+        skipped.push(
+            ...resourcePlan.skip.map((skip) => ({
+                name: `${resource} ${skip.name}`,
+                reason: skip.reason,
+            })),
+        );
+    }
+
+    return {
+        sourceSpaceId: plan.sourceSpaceId,
+        targetSpaceId: plan.targetSpaceId,
+        resources: plan.resources,
+        lines,
+        droppedWhitelistGroups: plan.droppedWhitelistGroups,
+        skipped,
+        presetsWithSourceAssetUrls: plan.presetsWithSourceAssetUrls.length,
+        componentsWithSourceImageUrls:
+            plan.componentsWithSourceImageUrls.length,
+        componentsWithInternalTags: plan.componentsWithInternalTags,
+        ...(plan.defaultPresets
+            ? {
+                  defaultPresets: {
+                      restore: plan.defaultPresets.restore.length,
+                      notRestorable: plan.defaultPresets.notRestorable.length,
+                  },
+              }
+            : {}),
+    };
+};
+
+const COPY_SPACE_LIST_LIMIT = 20;
+
+export const formatCopySpacePlanGate = (
+    summary: CopySpacePlanGateSummary,
+): string[] => {
+    const lines = [
+        "PLAN",
+        `  schema of space ${summary.sourceSpaceId} -> space ${summary.targetSpaceId} (${summary.resources.join(", ")})`,
+    ];
+
+    for (const line of summary.lines) {
+        lines.push(
+            `  ${line.resource}: ${line.create} create, ${line.update} update, ${line.skip} skip`,
+        );
+    }
+
+    lines.push(
+        `  never deletes: anything that exists only in space ${summary.targetSpaceId} is left as it is.`,
+    );
+
+    if (summary.droppedWhitelistGroups.length === 0) {
+        lines.push("  dropped whitelist groups: none");
+    } else {
+        lines.push(
+            `  dropped whitelist groups: ${summary.droppedWhitelistGroups.length} (no group of that path will exist in space ${summary.targetSpaceId})`,
+        );
+
+        for (const dropped of summary.droppedWhitelistGroups.slice(
+            0,
+            COPY_SPACE_LIST_LIMIT,
+        )) {
+            lines.push(
+                `    ${dropped.component}.${dropped.field}: ${dropped.groupPath ?? "unknown group"} (${dropped.sourceGroupUuid})`,
+            );
+        }
+    }
+
+    if (summary.skipped.length > 0) {
+        lines.push(`  skipped: ${summary.skipped.length}`);
+
+        for (const skip of summary.skipped.slice(0, COPY_SPACE_LIST_LIMIT)) {
+            lines.push(`    ${skip.name}: ${skip.reason}`);
+        }
+    }
+
+    const listed = [...summary.droppedWhitelistGroups, ...summary.skipped];
+
+    if (
+        summary.droppedWhitelistGroups.length > COPY_SPACE_LIST_LIMIT ||
+        summary.skipped.length > COPY_SPACE_LIST_LIMIT
+    ) {
+        lines.push(
+            `    the full lists (${listed.length} items) are in the --outputPath report.`,
+        );
+    }
+
+    if (summary.presetsWithSourceAssetUrls > 0) {
+        lines.push(
+            `  preset images: ${summary.presetsWithSourceAssetUrls} ${summary.presetsWithSourceAssetUrls === 1 ? "preset keeps" : "presets keep"} image or icon URLs that point at space ${summary.sourceSpaceId}; they are reported, not rewritten.`,
+        );
+    }
+
+    if (summary.componentsWithSourceImageUrls > 0) {
+        lines.push(
+            `  component images: ${summary.componentsWithSourceImageUrls} keep URLs that point at space ${summary.sourceSpaceId}`,
+        );
+    }
+
+    if (
+        summary.defaultPresets &&
+        summary.defaultPresets.restore + summary.defaultPresets.notRestorable >
+            0
+    ) {
+        lines.push(
+            `  default presets: ${summary.defaultPresets.restore} restored, ${summary.defaultPresets.notRestorable} not restorable`,
+        );
+    }
+
+    if (summary.componentsWithInternalTags > 0) {
+        lines.push(
+            `  internal tags: not copied (${summary.componentsWithInternalTags} ${summary.componentsWithInternalTags === 1 ? "component" : "components"} had tags)`,
+        );
+    }
+
+    lines.push(
+        "  not copied: stories, assets, workflow stages, roles, webhooks, environments, collaborators, internal tags.",
+    );
 
     return lines;
 };

@@ -51,6 +51,9 @@ import {
     formatCopyManifestPairList,
     formatCopyManifestRemovalPlan,
     formatCopyPlanGate,
+    formatCopySpacePlanGate,
+    buildCopySpacePlanGateSummary,
+    parseCopySpaceOnly,
     formatCopyRelinkPlan,
     buildCopyManifestPairList,
     getCopyManifestRoot,
@@ -76,6 +79,10 @@ import {
     summarizeCopyTranslatedSlugs,
 } from "../../api/copy/index.js";
 import {
+    resolveCopySpaceConcurrency,
+    runCopySpace,
+} from "../../api/copy/space-apply.js";
+import {
     buildPublishedLayerContext,
     resolveStoryLayerState,
 } from "../../api/data-migration/published-layer.js";
@@ -96,6 +103,7 @@ const COPY_COMMANDS = {
     assets: "assets",
     relink: "relink",
     manifests: "manifests",
+    space: "space",
 };
 
 const COPY_MODES = ["subtree", "children", "self"] as const;
@@ -5835,6 +5843,92 @@ export const copyCommand = async (props: CLIOptions) => {
             if (inspection.summary.errors > 0) {
                 process.exitCode = 1;
             }
+
+            break;
+        }
+        case COPY_COMMANDS.space: {
+            const sourceSpace = getCopySpace(
+                flags,
+                ["from", "sourceSpace"],
+                apiConfig.spaceId,
+            );
+            const targetSpace = getCopySpace(
+                flags,
+                ["to", "targetSpace"],
+                apiConfig.spaceId,
+            );
+            const dryRun = Boolean(flags["dryRun"]);
+            const yes = Boolean(flags["yes"]);
+            const outputPath = readStringFlag(flags, ["outputPath"]);
+            const only = parseCopySpaceOnly(
+                readStringListFlag(flags, ["only"]),
+            );
+
+            if (only.error) {
+                Logger.error(only.error);
+                process.exitCode = 1;
+                break;
+            }
+
+            // Copying a space's schema onto itself would PUT every component
+            // back over itself at best; it is never what was meant.
+            if (String(sourceSpace) === String(targetSpace)) {
+                Logger.error(
+                    `--from and --to both resolve to space ${sourceSpace}. copy space needs two different spaces.`,
+                );
+                process.exitCode = 1;
+                break;
+            }
+
+            Logger.warning(
+                `Copying the schema of space '${sourceSpace}' into space '${targetSpace}'.`,
+            );
+
+            const result = await runCopySpace({
+                sbApi: apiConfig.sbApi as any,
+                sourceSpaceId: String(sourceSpace),
+                targetSpaceId: String(targetSpace),
+                resources: only.resources,
+                dryRun,
+                concurrency: resolveCopySpaceConcurrency(apiConfig.rateLimit),
+                showPlan: async (plan) => {
+                    formatCopySpacePlanGate(
+                        buildCopySpacePlanGateSummary(plan),
+                    ).forEach((line) => Logger.log(line));
+
+                    if (outputPath) {
+                        await writeJsonReport(outputPath, plan);
+                    }
+                },
+                confirm: () => confirmCopyPlan({ yes }),
+            });
+
+            if (!result.applied) {
+                if (dryRun) {
+                    Logger.log("Dry run: nothing was written.");
+                }
+
+                break;
+            }
+
+            if (outputPath) {
+                await writeJsonReport(outputPath, {
+                    ...result.plan,
+                    applied: { failures: result.failures },
+                });
+            }
+
+            if (result.failures.length > 0) {
+                Logger.error(
+                    `copy space finished with ${result.failures.length} failed ${result.failures.length === 1 ? "write" : "writes"}; every other write went through.`,
+                );
+                process.exitCode = 1;
+                break;
+            }
+
+            Logger.success(
+                `copy space finished: the schema of space ${sourceSpace} is in space ${targetSpace}.`,
+            );
 
             break;
         }

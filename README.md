@@ -259,6 +259,15 @@ This command will look for `row.sb.js` and `column.sb.js` files inside a directo
 
 ## Syncing datasources
 
+## Copying a space's schema
+
+`sb-mig copy space --from <sourceSpaceId> --to <targetSpaceId>` copies a space's schema into another, already existing space: languages, component groups (nesting included), components, presets, and datasources with their entries and dimension values. It copies no stories and no assets — run `copy stories` and `copy assets` into the prepared space afterwards. Resources are matched by name and overwritten with the source version; anything that exists only in the target is left untouched, so a rerun updates instead of duplicating. Group uuids, `component_group_whitelist` entries and preset component ids are rewritten to the target's own. The command prints a PLAN block with per-resource create/update/skip counts and asks before its first write; `--dry-run` stops after the plan, `--only groups,components` narrows the resources, and `--outputPath` writes the plan as JSON.
+
+```
+sb-mig copy space --from 12345 --to 67890 --dry-run
+sb-mig copy space --from 12345 --to 67890 --yes
+```
+
 ## Migrating content
 
 Use `sb-mig migrate content` to run one or more migration configs against
