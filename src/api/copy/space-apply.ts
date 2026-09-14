@@ -427,6 +427,11 @@ export const applyCopySpace = async ({
     let targetComponents = target.components;
     let componentIdsUnknown = new Set<string>();
     const presetIdByKey = new Map<string, number | undefined>();
+    // Outcomes, not ids. A component or preset the target already had has an id
+    // before this run touches it, so an id proves nothing about whether this
+    // run's write to it landed. These hold only writes that did.
+    const componentsWritten = new Set<string>();
+    const presetsWritten = new Set<string>();
 
     if (inScope("components")) {
         const groupMap = buildGroupNameMap({
@@ -463,6 +468,10 @@ export const applyCopySpace = async ({
                                   component: payload,
                               }),
                 );
+
+                if (response) {
+                    componentsWritten.add(component.name);
+                }
 
                 if (existingId === undefined && response) {
                     const createdId = response?.data?.component?.id;
@@ -568,6 +577,10 @@ export const applyCopySpace = async ({
                           }),
                 );
 
+                if (response) {
+                    presetsWritten.add(key);
+                }
+
                 if (existingId === undefined && response?.data?.preset?.id) {
                     presetIdByKey.set(key, response.data.preset.id);
                 }
@@ -587,10 +600,29 @@ export const applyCopySpace = async ({
             concurrency,
             async ({ componentName, presetComponentName, presetName }) => {
                 const name = `${componentName}@preset_id`;
-                const componentId = componentIdByName.get(componentName);
-                const presetId = presetIdByKey.get(
-                    presetMatchKey(presetComponentName, presetName),
+                const presetKey = presetMatchKey(
+                    presetComponentName,
+                    presetName,
                 );
+                const componentId = componentIdByName.get(componentName);
+                const presetId = presetIdByKey.get(presetKey);
+                const componentWritten = componentsWritten.has(componentName);
+                const presetWritten = presetsWritten.has(presetKey);
+
+                // A default preset is only pointed at a preset this run wrote,
+                // on a component this run wrote. A rejected preset update would
+                // otherwise switch the component to a stale preset, and a
+                // rejected component update would still have its preset_id
+                // rewritten. Either way the target's own preset_id is left alone.
+                if (!componentWritten || !presetWritten) {
+                    const message = !componentWritten
+                        ? `the component was not written, so its default preset '${presetComponentName}/${presetName}' was left as it is in the target.`
+                        : `its default preset '${presetComponentName}/${presetName}' was not written, so the component's default preset was left as it is in the target.`;
+
+                    failures.push({ resource: "components", name, message });
+                    Logger.error(`copy space: components '${name}' ${message}`);
+                    return;
+                }
 
                 if (componentId === undefined || presetId === undefined) {
                     failures.push({

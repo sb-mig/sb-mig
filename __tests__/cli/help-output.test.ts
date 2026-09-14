@@ -123,6 +123,9 @@ describe("CLI help output", () => {
             "never deletes anything in the target space",
         );
         expect(copyHelp).toContain("component_group_whitelist");
+        expect(copyHelp).toContain(
+            "environments, collaborators or internal tags",
+        );
         expect(copyHelp).toContain("matched_by_target_key");
         expect(copyHelp).toContain("--source");
         expect(copyHelp).toContain("--destination");

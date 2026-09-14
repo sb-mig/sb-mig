@@ -735,4 +735,123 @@ describe("copy space", () => {
             )?.preset_id,
         ).toBe((spaces["222"] as SpaceFixture).presets[0].id);
     });
+    /* ------------------------------------------------------------------ *
+     * Round 6: a default preset is only restored onto writes that landed
+     * ------------------------------------------------------------------ */
+
+    /**
+     * A target that already carries `hero` and its `Hero dark` preset, so the
+     * run UPDATES both, with `hero` still pointing at a third preset of its own.
+     */
+    const targetWithHeroAndPreset = () => {
+        const target = spaces["222"] as SpaceFixture;
+
+        target.components = [{ id: 9001, name: "hero", preset_id: 9003 }];
+        target.presets = [
+            {
+                id: 9002,
+                name: "Hero dark",
+                component_id: 9001,
+                preset: { title: "STALE" },
+            },
+        ];
+    };
+
+    const presetIdRestores = () =>
+        mocks.put.mock.calls.filter(
+            (call) => call[1]?.component?.preset_id !== undefined,
+        );
+
+    const failWritesTo = (
+        predicate: (url: string, body: any) => boolean,
+        message: string,
+    ) => {
+        const fakePut = mocks.put.getMockImplementation() as (
+            url: string,
+            body?: any,
+        ) => Promise<any>;
+
+        mocks.put.mockImplementation(async (url: string, body?: any) => {
+            if (predicate(url, body)) {
+                throw Object.assign(new Error("Unprocessable"), {
+                    response: { data: { error: message } },
+                });
+            }
+
+            return fakePut(url, body);
+        });
+    };
+
+    // F8 (a) canary. Mutation that must turn it red: seed presetsWritten from
+    // target.presets again, so an existing preset counts as written before its
+    // update has run.
+    it("does not restore a default preset whose preset update was rejected", async () => {
+        targetWithHeroAndPreset();
+        failWritesTo(
+            (url) => url === "spaces/222/presets/9002",
+            "preset rejected",
+        );
+
+        await runCopySpace({
+            from: "111",
+            to: "222",
+            yes: true,
+            only: "components,presets",
+        });
+
+        // The component is left pointing at its own preset, not switched to a
+        // preset whose update never landed.
+        expect(presetIdRestores()).toEqual([]);
+        expect(
+            (spaces["222"] as SpaceFixture).components.find(
+                (component) => component.name === "hero",
+            )?.preset_id,
+        ).toBe(9003);
+        expect(
+            errorLines().some(
+                (line) =>
+                    line.includes("hero@preset_id") &&
+                    line.includes("Hero dark") &&
+                    line.includes("was not written"),
+            ),
+        ).toBe(true);
+        expect(process.exitCode).toBe(1);
+    });
+
+    // F8 (b) canary. Mutation that must turn it red: drop the componentsWritten
+    // check from the restore step.
+    it("does not restore a default preset onto a component whose update was rejected", async () => {
+        targetWithHeroAndPreset();
+        // Reject the schema write only; a restore PUT to the same URL would
+        // still go through, which is exactly what must not happen.
+        failWritesTo(
+            (url, body) =>
+                url === "spaces/222/components/9001" &&
+                body?.component?.preset_id === undefined,
+            "component rejected",
+        );
+
+        await runCopySpace({
+            from: "111",
+            to: "222",
+            yes: true,
+            only: "components,presets",
+        });
+
+        expect(presetIdRestores()).toEqual([]);
+        expect(
+            (spaces["222"] as SpaceFixture).components.find(
+                (component) => component.name === "hero",
+            )?.preset_id,
+        ).toBe(9003);
+        expect(
+            errorLines().some(
+                (line) =>
+                    line.includes("hero@preset_id") &&
+                    line.includes("component") &&
+                    line.includes("was not written"),
+            ),
+        ).toBe(true);
+        expect(process.exitCode).toBe(1);
+    });
 });

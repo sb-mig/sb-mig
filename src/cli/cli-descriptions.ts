@@ -339,7 +339,7 @@ export const copyDescription = `
         copy space rewrites component group uuids and every component_group_whitelist entry to the target's groups, and every preset component_id to the target's components. A whitelisted group with no counterpart in the target is dropped and listed in the PLAN block.
         copy space keeps target-only languages: the target's language list gains the source languages instead of being replaced by them.
         copy space leaves preset image and icon URLs pointing at the source space. They are reported, not rewritten.
-        copy space does not copy stories, assets, workflow stages, roles, webhooks, environments or collaborators. Use copy stories and copy assets to move content afterwards.
+        copy space does not copy stories, assets, workflow stages, roles, webhooks, environments, collaborators or internal tags. Use copy stories and copy assets to move content afterwards.
         copy space prints a PLAN block with create, update and skip counts per resource and asks before the first write; without a terminal and without --yes it refuses. A failed write is reported and the run carries on, then exits 1.
         copy assets matches by manifest first, then safe target folder path or unique asset file name before creating.
         copy assets uploads assets, finalizes the upload, and writes source-to-target asset/folder manifests.
