@@ -231,15 +231,19 @@ export const copyDescription = `
         $ sb-mig copy manifests --prune [sourceSpaceId]:[targetSpaceId] --dry-run
         $ sb-mig copy manifests --prune [sourceSpaceId]:[targetSpaceId] --yes
         $ sb-mig copy manifests --pair [sourceSpaceId]:[targetSpaceId] --outputPath sbmig/copy-plans/ledger.json
+        $ sb-mig copy space --from [spaceId] --to [spaceId] --dry-run
+        $ sb-mig copy space --from [spaceId] --to [spaceId] --yes
+        $ sb-mig copy space --from [spaceId] --to [spaceId] --only groups,components --outputPath sbmig/copy-plans/space.json
 
     DESCRIPTION
-        Copy Storyblok stories, folders, assets, or asset folders from one space to another.
+        Copy Storyblok stories, folders, assets, or asset folders from one space to another, or copy a space's schema (languages, component groups, components, presets, datasources) into another space.
 
     COMMANDS
         stories         Copy one story, one folder subtree, a folder's children, or one folder shell.
         relink          Repair references in stories that were already copied, without copying content again.
         assets          Copy or plan all assets and asset folders with durable manifests.
         manifests       List the copy ledgers on disk, or read one pair's ledger back and report what a run would make of it.
+        space           Copy a space's schema into another existing space: languages, component groups, components, presets, datasources and their entries. No stories, no assets.
 
     FLAGS
         --from          Source Storyblok space ID. Falls back to configured spaceId, except for copy manifests.
@@ -261,8 +265,9 @@ export const copyDescription = `
         --assetFolder   Select one source asset folder by numeric ID or folder path. Includes descendants and assets in that subtree. Repeatable. [assets only]
         --referenced-by-stories
                        Select assets referenced by a story/folder scope. Requires --source. [assets only]
-        --dry-run       Preview story paths, manifest-mapped references, and likely target conflicts without writing to Storyblok. With copy manifests --prune, print the plan and stop.
-        --yes           Skip the confirmation gate shown after a PLAN block, before the first write. Required in non-interactive runs (CI). [stories, relink, and manifests --prune]
+        --dry-run       Preview story paths, manifest-mapped references, and likely target conflicts without writing to Storyblok. With copy manifests --prune, print the plan and stop. With copy space, print the schema PLAN and write nothing.
+        --yes           Skip the confirmation gate shown after a PLAN block, before the first write. Required in non-interactive runs (CI). [stories, relink, space, and manifests --prune]
+        --only          Restrict copy space to some of: languages, groups, components, presets, datasources. Comma-separated or repeatable. The write order stays languages, groups, components, presets, datasources. [space only]
         --fresh         Ignore the existing copy ledger for this run; every manifest file of this space pair, the asset and asset-folder ledgers included, is moved aside with a timestamp suffix, never deleted. A later --with-assets run therefore starts without the archived asset mappings too. [stories only]
         --manifestRoot  Directory holding the copy ledger. Default: .sb-mig
         --outputPath    Optional JSON file path for a dry-run copy plan artifact. Only writes locally when passed.
@@ -285,6 +290,8 @@ export const copyDescription = `
         copy manifests makes no Storyblok request in any mode.
         copy manifests leaves every ledger file untouched unless --prune is passed and confirmed.
         copy manifests --prune DELETES one pair's ledger directory and everything in it, including anything it did not write. It is not archived, and a copy run that would have resumed from it starts over.
+        copy space writes languages, component groups, components, presets, datasources and datasource entries into the target Storyblok space unless --dry-run is passed.
+        copy space never deletes anything in the target space. Resources that exist only there are left as they are.
 
     GOTCHAS
         --source must resolve to an existing source story or folder.
@@ -327,6 +334,13 @@ export const copyDescription = `
         copy manifests --prune refuses an --outputPath inside the directory it is deleting, because the report would not survive the delete it describes.
         copy manifests --prune refuses an --outputPath that is a symbolic link, dangling or not, because where a link points cannot be proven before the write.
         copy manifests cannot tell whether the target space still holds the stories these mappings name. A ledger that is clean here can still be stale against the space.
+        copy space needs an existing target space. Create a blank space in Storyblok first. --from and --to must be two different spaces.
+        copy space matches by name: a component group by its full path, a component by name, a preset by component name plus preset name, a datasource by name, and an entry by name within its datasource. A match is overwritten with the source version; anything unmatched is created.
+        copy space rewrites component group uuids and every component_group_whitelist entry to the target's groups, and every preset component_id to the target's components. A whitelisted group with no counterpart in the target is dropped and listed in the PLAN block.
+        copy space keeps target-only languages: the target's language list gains the source languages instead of being replaced by them.
+        copy space leaves preset image and icon URLs pointing at the source space. They are reported, not rewritten.
+        copy space does not copy stories, assets, workflow stages, roles, webhooks, environments or collaborators. Use copy stories and copy assets to move content afterwards.
+        copy space prints a PLAN block with create, update and skip counts per resource and asks before the first write; without a terminal and without --yes it refuses. A failed write is reported and the run carries on, then exits 1.
         copy assets matches by manifest first, then safe target folder path or unique asset file name before creating.
         copy assets uploads assets, finalizes the upload, and writes source-to-target asset/folder manifests.
 
@@ -337,6 +351,8 @@ export const copyDescription = `
         $ sb-mig copy stories --from 12345 --to 67890 --source blog --mode self --destination /
         $ sb-mig copy stories --from 12345 --to 67890 --source blog --destination imported --with-assets
         $ sb-mig copy stories --from 12345 --to 67890 --source blog --destination imported --with-assets --publicationMode preserve-layers
+        $ sb-mig copy space --from 12345 --to 67890 --dry-run
+        $ sb-mig copy space --from 12345 --to 67890 --yes
         $ sb-mig copy manifests
         $ sb-mig copy manifests --pair 12345:67890
         $ sb-mig copy manifests --pair 12345:67890 --type story --slug blog

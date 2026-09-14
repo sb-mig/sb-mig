@@ -18,8 +18,8 @@ If you've found an issue or you have feature request - <a href="https://github.c
 
 # Requirements:
 
-|      |              |
-| ---- | ------------ |
+|      |                    |
+| ---- | ------------------ |
 | Node | 22.x.x or >=24.x.x |
 
 # Current release notes: 6.x.x
@@ -157,29 +157,29 @@ The public management API exposes asset helpers for uploading a local file and u
 import { managementApi } from "sb-mig/dist/api/managementApi.js";
 
 await managementApi.assets.createAsset(
-  {
-    spaceId: "12345",
-    pathToFile: "./public/image.jpg",
-    payload: {
-      asset_folder_id: 67890,
-      validate_upload: 1,
+    {
+        spaceId: "12345",
+        pathToFile: "./public/image.jpg",
+        payload: {
+            asset_folder_id: 67890,
+            validate_upload: 1,
+        },
     },
-  },
-  config,
+    config,
 );
 
 await managementApi.assets.updateAsset(
-  {
-    spaceId: "12345",
-    assetId: 98765,
-    payload: {
-      meta_data: {
-        alt: "Image alt text",
-        title: "Image title",
-      },
+    {
+        spaceId: "12345",
+        assetId: 98765,
+        payload: {
+            meta_data: {
+                alt: "Image alt text",
+                title: "Image title",
+            },
+        },
     },
-  },
-  config,
+    config,
 );
 ```
 
@@ -258,6 +258,15 @@ sb-mig sync components row column
 This command will look for `row.sb.js` and `column.sb.js` files inside a directories mentioned in `componentDirectories` field. (You can change directories name mapping by modifying `componentDirectories` inside `storyblok.config.js`). You can also change the extension searched by changing `schemaFileExt`. [How to install and configure](#how-to-install-and-configure))
 
 ## Syncing datasources
+
+## Copying a space's schema
+
+`sb-mig copy space --from <sourceSpaceId> --to <targetSpaceId>` copies a space's schema into another, already existing space: languages, component groups (nesting included), components, presets, and datasources with their entries and dimension values. It copies no stories and no assets — run `copy stories` and `copy assets` into the prepared space afterwards. Resources are matched by name and overwritten with the source version; anything that exists only in the target is left untouched, so a rerun updates instead of duplicating. Group uuids, `component_group_whitelist` entries and preset component ids are rewritten to the target's own. The command prints a PLAN block with per-resource create/update/skip counts and asks before its first write; `--dry-run` stops after the plan, `--only groups,components` narrows the resources, and `--outputPath` writes the plan as JSON.
+
+```
+sb-mig copy space --from 12345 --to 67890 --dry-run
+sb-mig copy space --from 12345 --to 67890 --yes
+```
 
 ## Migrating content
 

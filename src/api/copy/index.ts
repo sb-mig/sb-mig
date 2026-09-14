@@ -6,6 +6,7 @@ export * from "./relink.js";
 export * from "./reference-classifier.js";
 export * from "./reference-scanner.js";
 export * from "./reference-rewriter.js";
+export * from "./space.js";
 export * from "./translated-slugs.js";
 export * from "./assets.js";
 export * from "./types.js";
