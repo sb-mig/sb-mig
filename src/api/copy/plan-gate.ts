@@ -369,6 +369,7 @@ export type CopySpacePlanGateSummary = {
     componentsWithInternalTags: number;
     defaultPresets?: { restore: number; notRestorable: number };
     fieldTypePlugins?: CopySpaceFieldTypePluginsPlan;
+    entriesStoryblokWillReject?: CopySpacePlan["entriesStoryblokWillReject"];
 };
 
 export const buildCopySpacePlanGateSummary = (
@@ -434,6 +435,9 @@ export const buildCopySpacePlanGateSummary = (
             : {}),
         ...(plan.fieldTypePlugins
             ? { fieldTypePlugins: plan.fieldTypePlugins }
+            : {}),
+        ...(plan.entriesStoryblokWillReject
+            ? { entriesStoryblokWillReject: plan.entriesStoryblokWillReject }
             : {}),
     };
 };
@@ -507,6 +511,20 @@ export const formatCopySpacePlanGate = (
                 `    ${dropped.component}.${dropped.field}: ${dropped.groupPath ?? "unknown group"} (${dropped.sourceGroupUuid})`,
             );
         }
+    }
+
+    if (
+        summary.entriesStoryblokWillReject &&
+        summary.entriesStoryblokWillReject.length > 0
+    ) {
+        lines.push(
+            `  entries Storyblok will reject: ${summary.entriesStoryblokWillReject
+                .map(
+                    (rejected) =>
+                        `${rejected.datasource} ${rejected.count} of ${rejected.total}`,
+                )
+                .join(", ")}`,
+        );
     }
 
     if (summary.skipped.length > 0) {

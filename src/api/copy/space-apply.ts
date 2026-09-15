@@ -20,6 +20,7 @@ import {
     buildGroupNameMap,
     buildGroupPaths,
     collectFieldTypePlugins,
+    isEntryNameStoryblokRejects,
     mergeLanguagesForTarget,
     orderGroupsParentsFirst,
     parseMissingFieldTypePlugins,
@@ -756,6 +757,12 @@ export const applyCopySpace = async ({
                 source.entriesByDatasource.get(datasource.name) ?? [],
                 concurrency,
                 async (entry: CopySpaceEntry) => {
+                    // Planned as a skip: Storyblok rejects the name, so no
+                    // create, update or dimension write is spent on it.
+                    if (isEntryNameStoryblokRejects(entry.name)) {
+                        return;
+                    }
+
                     const label = `${datasource.name}/${entry.name}`;
                     const entryBody = {
                         name: entry.name,

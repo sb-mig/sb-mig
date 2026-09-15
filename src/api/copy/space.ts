@@ -585,7 +585,36 @@ export type CopySpacePlan = {
      * target has. Absent when components are not copied or none uses one.
      */
     fieldTypePlugins?: CopySpaceFieldTypePluginsPlan;
+    /**
+     * Per datasource, the entries whose name Storyblok rejects on write. They
+     * are planned as skips. Absent when datasources are not copied.
+     */
+    entriesStoryblokWillReject?: CopySpaceRejectedEntryNames[];
 };
+
+/* ------------------------------------------------------------------ *
+ * Entry names Storyblok rejects
+ * ------------------------------------------------------------------ */
+
+export type CopySpaceRejectedEntryNames = {
+    datasource: string;
+    count: number;
+    /** Every source entry of that datasource, so the count reads "n of total". */
+    total: number;
+    names: string[];
+};
+
+export const ENTRY_NAME_STORYBLOK_REJECTS_REASON =
+    "name starts with a character Storyblok rejects (-, =, @)";
+
+/**
+ * Storyblok answers a datasource entry created with such a name with `The
+ * following characters are not allowed at the beginning of name: -, =, @`.
+ * Entries that already carry one are kept by Storyblok, but cannot be written
+ * again through the Management API.
+ */
+export const isEntryNameStoryblokRejects = (name: string): boolean =>
+    /^[-=@]/.test(name);
 
 /* ------------------------------------------------------------------ *
  * Field-type plugins
@@ -983,6 +1012,7 @@ export const buildCopySpacePlan = ({
     if (inScope("datasources")) {
         const datasources = emptyResourcePlan();
         const entries = emptyResourcePlan();
+        const entriesStoryblokWillReject: CopySpaceRejectedEntryNames[] = [];
         const targetDatasourceNames = new Set(
             target.datasources.map((datasource) => datasource.name),
         );
@@ -1001,19 +1031,43 @@ export const buildCopySpacePlan = ({
                       ).map((entry) => entry.name)
                     : [],
             );
+            const sourceEntries =
+                source.entriesByDatasource.get(datasource.name) ?? [];
+            const rejectedNames: string[] = [];
 
-            for (const entry of source.entriesByDatasource.get(
-                datasource.name,
-            ) ?? []) {
+            for (const entry of sourceEntries) {
+                const label = `${datasource.name}/${entry.name}`;
+
+                // Planned as a skip and never written. Never renamed either:
+                // the plugin reading this datasource looks entries up by name.
+                if (isEntryNameStoryblokRejects(entry.name)) {
+                    entries.skip.push({
+                        name: label,
+                        reason: ENTRY_NAME_STORYBLOK_REJECTS_REASON,
+                    });
+                    rejectedNames.push(entry.name);
+                    continue;
+                }
+
                 (targetEntryNames.has(entry.name)
                     ? entries.update
                     : entries.create
-                ).push(`${datasource.name}/${entry.name}`);
+                ).push(label);
+            }
+
+            if (rejectedNames.length > 0) {
+                entriesStoryblokWillReject.push({
+                    datasource: datasource.name,
+                    count: rejectedNames.length,
+                    total: sourceEntries.length,
+                    names: rejectedNames,
+                });
             }
         }
 
         plan.datasources = datasources;
         plan.entries = entries;
+        plan.entriesStoryblokWillReject = entriesStoryblokWillReject;
     }
 
     return plan;

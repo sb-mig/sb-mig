@@ -1057,4 +1057,62 @@ describe("copy space", () => {
             ]),
         );
     });
+
+    /* ------------------------------------------------------------------ *
+     * MAR-3046: entry names Storyblok rejects
+     * ------------------------------------------------------------------ */
+
+    // MAR-3046 R3 canary. Mutation that must turn it red: drop the `^[-=@]`
+    // check, so the entry is planned and written like any other.
+    it("never writes an entry named --x and still writes a plain name", async () => {
+        (spaces["111"] as SpaceFixture).entries[3]?.push({
+            id: 302,
+            name: "--x",
+            value: "1",
+            dimension_value: "2",
+        });
+
+        const outputPath = path.join(tempDir, "entries.json");
+
+        await runCopySpace({
+            from: "111",
+            to: "222",
+            yes: true,
+            only: "datasources",
+            outputPath,
+        });
+
+        const entryWrites = [
+            ...mocks.post.mock.calls,
+            ...mocks.put.mock.calls,
+        ].filter((call) => String(call[0]).includes("datasource_entries"));
+
+        expect(
+            entryWrites.some(
+                (call) => call[1]?.datasource_entry?.name === "--x",
+            ),
+        ).toBe(false);
+        expect(
+            entryWrites.some(
+                (call) => call[1]?.datasource_entry?.name === "red",
+            ),
+        ).toBe(true);
+        expect(logLines()).toContain(
+            "  entries Storyblok will reject: colors 1 of 2",
+        );
+        expect(logLines()).toContain("  entries: 1 create, 0 update, 1 skip");
+        expect(process.exitCode).not.toBe(1);
+
+        const report = JSON.parse(await readFile(outputPath, "utf8"));
+
+        expect(report.entriesStoryblokWillReject).toEqual([
+            { datasource: "colors", count: 1, total: 2, names: ["--x"] },
+        ]);
+        expect(report.entries.skip).toEqual([
+            {
+                name: "colors/--x",
+                reason: "name starts with a character Storyblok rejects (-, =, @)",
+            },
+        ]);
+    });
 });
