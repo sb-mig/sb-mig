@@ -85,6 +85,18 @@ async function ensureComponentGroupsExist(
     }
 }
 
+// Ids and timestamps belong to the space a file was exported from; a create
+// payload must never carry them into the target space.
+const REMOTE_ONLY_FIELDS = ["id", "space_id", "created_at", "updated_at"];
+
+const stripRemoteIdentity = (source: any): any => {
+    const payload = { ...source };
+    for (const field of REMOTE_ONLY_FIELDS) {
+        delete payload[field];
+    }
+    return payload;
+};
+
 function resolveGroupUuid(component: any, remoteGroups: any[]): any {
     if (!component.component_group_name) {
         return { ...component, component_group_uuid: null };
@@ -219,9 +231,11 @@ export async function syncComponentsData(
             (rc: any) => rc.name === component.name,
         );
         if (remote) {
-            componentsToUpdate.push({ id: remote.id, ...component });
+            // Spread first: a local file exported from another space can carry a
+            // stale id, and it must never win over the id we are updating.
+            componentsToUpdate.push({ ...component, id: remote.id });
         } else {
-            componentsToCreate.push(component);
+            componentsToCreate.push(stripRemoteIdentity(component));
         }
     }
 
