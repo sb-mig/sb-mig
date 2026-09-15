@@ -23,12 +23,27 @@ const _decorateWithDimensions: _DecorateWithDimensions = async (
 ) => {
     const { currentDatasource, dimensionsData, _callback } = args;
     const { spaceId, sbApi } = config;
+    const { finalDatasource_entry } = dimensionsData;
     // callback for create or update
-    await _callback();
+    const syncedEntry = await _callback();
+
+    // On the create path the local entry has no id yet, so the entry the
+    // callback just wrote is the only place the dimension PUTs can read it from.
+    const entryId =
+        syncedEntry?.datasource_entry?.id ?? finalDatasource_entry.id;
 
     const dimensionValueEntries = Object.entries(
         dimensionsData.dimensionValues,
     );
+
+    if (entryId === undefined || entryId === null) {
+        return dimensionValueEntries.map(([name]) => {
+            Logger.warning(
+                `Skipping dimension value for '${finalDatasource_entry.name}' and dimension '${name}' in '${currentDatasource.datasource.name}' datasource, because the entry has no id.`,
+            );
+            return false;
+        });
+    }
 
     return dimensionValueEntries.map(([name, value]) => {
         const data = dimensionsData.datasourceDimensions.find(
@@ -37,8 +52,8 @@ const _decorateWithDimensions: _DecorateWithDimensions = async (
 
         const params = {
             datasource_entry: {
-                ...dimensionsData.finalDatasource_entry,
-                id: dimensionsData.finalDatasource_entry.datasource_id,
+                ...finalDatasource_entry,
+                id: entryId,
                 dimension_value: value,
             },
             dimension_id: data.id,
@@ -46,7 +61,7 @@ const _decorateWithDimensions: _DecorateWithDimensions = async (
 
         return sbApi
             .put(
-                `spaces/${spaceId}/datasource_entries/${dimensionsData.finalDatasource_entry.id}`,
+                `spaces/${spaceId}/datasource_entries/${entryId}`,
                 params as any,
             )
             .then((_: any) => {
@@ -54,7 +69,7 @@ const _decorateWithDimensions: _DecorateWithDimensions = async (
                     `${chalk.green(
                         "✓ Datasource Entry Dimension value for",
                     )} ${chalk.blue(
-                        dimensionsData.finalDatasource_entry.name,
+                        finalDatasource_entry.name,
                     )} and dimension ${chalk.blue(name)} in ${chalk.red(
                         currentDatasource.datasource.name,
                     )} datasource ${chalk.green("was successfully updated.")}`,

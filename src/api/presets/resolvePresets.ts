@@ -5,6 +5,18 @@ import Logger from "../../utils/logger.js";
 import { getComponentPresets } from "./componentPresets.js";
 import { updatePreset, createPreset } from "./presets.js";
 
+// Ids and timestamps belong to the space a file was exported from; a create
+// payload must never carry them into the target space.
+const REMOTE_ONLY_FIELDS = ["id", "space_id", "created_at", "updated_at"];
+
+const stripRemoteIdentity = (source: any): any => {
+    const payload = { ...source };
+    for (const field of REMOTE_ONLY_FIELDS) {
+        delete payload[field];
+    }
+    return payload;
+};
+
 const _resolvePresets = async (
     res: any,
     all_presets: any,
@@ -38,13 +50,18 @@ const _resolvePresets = async (
             if (shouldBeUpdated) {
                 presetsToUpdate.push({
                     ...componentPreset,
+                    // Spread first: a stale local preset id must never win over
+                    // the id of the remote preset we are updating.
                     preset: {
-                        id: shouldBeUpdated.preset.id,
                         ...componentPreset.preset,
+                        id: shouldBeUpdated.preset.id,
                     },
                 });
             } else {
-                presetsToCreate.push(componentPreset);
+                presetsToCreate.push({
+                    ...componentPreset,
+                    preset: stripRemoteIdentity(componentPreset.preset),
+                });
             }
         }
 
