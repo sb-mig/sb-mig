@@ -141,6 +141,10 @@ describe("CLI help output", () => {
         );
         expect(copyHelp).toContain("matched_by_target_key");
         expect(copyHelp).toContain("--source");
+        expect(copyHelp).toContain("repeatable or comma-separated");
+        expect(copyHelp).toContain(
+            "--source [full_slug] --source [folder_full_slug]",
+        );
         expect(copyHelp).toContain("--destination");
         expect(copyHelp).toContain("--mode");
         expect(copyHelp).toContain("--all");

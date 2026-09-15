@@ -218,6 +218,8 @@ export const copyDescription = `
         $ sb-mig copy stories --from [spaceId] --to [spaceId] --source [folder_full_slug]
         $ sb-mig copy stories --from [spaceId] --to [spaceId] --source [folder_full_slug]/* --destination [target_folder_full_slug]
         $ sb-mig copy stories --from [spaceId] --to [spaceId] --source [folder_full_slug] --mode self --destination /
+        $ sb-mig copy stories --from [spaceId] --to [spaceId] --source [full_slug] --source [folder_full_slug] --destination [target_folder_full_slug]
+        $ sb-mig copy stories --from [spaceId] --to [spaceId] --source [folder_full_slug]/*,[other_folder_full_slug] --destination /
         $ sb-mig copy relink --from [spaceId] --to [spaceId] --source [folder_full_slug] --destination [target_folder_full_slug]
         $ sb-mig copy relink --from [spaceId] --to [spaceId] --source [folder_full_slug] --dry-run
         $ sb-mig copy assets --from [spaceId] --to [spaceId] --all
@@ -252,7 +254,7 @@ export const copyDescription = `
         --type          Restrict the mapping view to story, asset, or asset_folder. Repeatable. Requires --pair. [manifests only]
         --slug          Restrict the mapping view to mappings whose source or target path contains this text. Requires --pair. [manifests only]
         --prune         DELETE one pair's whole ledger directory, written as <sourceSpaceId>:<targetSpaceId>. Names its own pair, and asks before deleting. [manifests only]
-        --source        Source story or folder full_slug. Use folder/* to copy a folder's children without the folder root.
+        --source        Source story or folder full_slug, repeatable or comma-separated. Use folder/* to copy a folder's children without the folder root. Several values are planned as one run; a story inside a selected folder is planned once, under the folder. [stories and relink]
         --destination   Target folder full_slug where copied stories are attached. Omit, '/', or 'root' to copy into target root.
         --mode          Copy mode: subtree, children, or self. Default: subtree. folder/* defaults to children.
         --with-assets   For copy stories, copy referenced assets first and rewrite copied stories to target asset IDs/filenames.

@@ -3500,4 +3500,219 @@ describe("copy stories dry-run", () => {
             expect(report.summary.storiesWillFail).toBe(1);
         });
     });
+
+    describe("several --source selections in one run (MAR-3067)", () => {
+        let tempDir: string;
+        let outputPath: string;
+        let manifestRoot: string;
+
+        const story = (
+            id: number,
+            fullSlug: string,
+            extra: Record<string, unknown> = {},
+        ) => ({
+            id,
+            name: fullSlug,
+            slug: fullSlug.split("/").at(-1),
+            full_slug: fullSlug,
+            is_folder: false,
+            parent_id: 0,
+            uuid: `source-${id}-uuid`,
+            content: { component: "page" },
+            ...extra,
+        });
+
+        /**
+         * `blog` holds `post-1`, which links to `news/item` inside `news`.
+         * Ids are deliberately not in slug order.
+         */
+        const sourceStories: Record<string, any> = {
+            blog: story(1, "blog", { is_folder: true }),
+            "blog/post-1": story(2, "blog/post-1", {
+                parent_id: 1,
+                content: {
+                    component: "page",
+                    cta: { linktype: "story", id: 3, uuid: "source-3-uuid" },
+                },
+            }),
+            news: story(4, "news", { is_folder: true }),
+            "news/item": story(3, "news/item", { parent_id: 4 }),
+        };
+
+        beforeEach(async () => {
+            tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-copy-"));
+            outputPath = path.join(tempDir, "plan.json");
+            manifestRoot = path.join(tempDir, ".sb-mig");
+
+            mocks.getStoryBySlug.mockImplementation(async (slug: string) => {
+                if (slug === "imported") {
+                    return {
+                        story: {
+                            id: 900,
+                            name: "Imported",
+                            slug: "imported",
+                            full_slug: "imported",
+                            is_folder: true,
+                            uuid: "target-imported-uuid",
+                        },
+                    };
+                }
+
+                return sourceStories[slug]
+                    ? { story: sourceStories[slug] }
+                    : undefined;
+            });
+            mocks.getAllStories.mockImplementation(async (args: any) => {
+                const prefix = String(args?.options?.starts_with ?? "");
+
+                return Object.values(sourceStories)
+                    .filter((item) => item.full_slug.startsWith(prefix))
+                    .map((item) => ({ story: item }));
+            });
+            // A tree built by parent_id, the way createTree builds it.
+            mocks.createTree.mockImplementation((stories: any[]) => {
+                const build = (parentId: number | null): any[] =>
+                    stories
+                        .filter((item) => (item.parent_id ?? null) === parentId)
+                        .map((item) => ({
+                            id: item.id,
+                            parent_id: item.parent_id,
+                            story: item,
+                            children: build(item.id),
+                        }));
+
+                return build(null);
+            });
+        });
+
+        afterEach(async () => {
+            await rm(tempDir, { recursive: true, force: true });
+        });
+
+        const runStories = (
+            source: unknown,
+            extra: Record<string, unknown> = {},
+        ) =>
+            copyCommand({
+                input: ["copy", "stories"],
+                flags: {
+                    from: "source-space",
+                    to: "target-space",
+                    source,
+                    destination: "imported",
+                    dryRun: true,
+                    outputPath,
+                    manifestRoot,
+                    ...extra,
+                },
+            } as any);
+
+        const readReport = async () =>
+            JSON.parse(await readFile(outputPath, "utf8"));
+
+        const planned = (report: any) =>
+            report.items.map(
+                (item: any) =>
+                    `${item.sourceFullSlug} -> ${item.targetFullSlug}`,
+            );
+
+        // MAR-3067 R8 (a) canary. Mutation that must turn it red: classify the
+        // references against the first selection's plan instead of the union.
+        it("classifies a reference between two selections as will_relink with no ledger", async () => {
+            await runStories(["blog/post-1", "news/item"]);
+
+            const report = await readReport();
+
+            expect(planned(report)).toEqual([
+                "blog/post-1 -> imported/post-1",
+                "news/item -> imported/item",
+            ]);
+            // The link carries both an id and a uuid, and the scanner reports
+            // each; what matters is that none of them breaks.
+            expect(report.summary.storyReferencesWillBreak).toBe(0);
+            expect(report.summary.storyReferencesWillRelink).toBeGreaterThan(0);
+        });
+
+        // MAR-3067 R8 (b) canary. Mutation that must turn it red: drop the
+        // dedupe, so the story is planned a second time at the destination.
+        it("plans a story inside a selected folder once, under the folder", async () => {
+            await runStories(["blog/post-1", "blog"]);
+
+            expect(planned(await readReport())).toEqual([
+                "blog -> imported/blog",
+                "blog/post-1 -> imported/blog/post-1",
+            ]);
+        });
+
+        it("reads comma-separated values and plans two identical values once", async () => {
+            await runStories("news,news");
+
+            expect(planned(await readReport())).toEqual([
+                "news -> imported/news",
+                "news/item -> imported/news/item",
+            ]);
+        });
+
+        // MAR-3067 R8 (c).
+        it("mixes one folder's children with another folder's subtree", async () => {
+            await runStories("blog/*,news");
+
+            expect(planned(await readReport())).toEqual([
+                "blog/post-1 -> imported/post-1",
+                "news -> imported/news",
+                "news/item -> imported/news/item",
+            ]);
+        });
+
+        // MAR-3067 R8 (e) canary. Mutation that must turn it red: resolve the
+        // destination in the target before reading the sources again.
+        it("fails on a value that resolves to nothing before reading the target", async () => {
+            await expect(runStories(["blog", "nope"])).rejects.toThrow(
+                "Source story or folder not found: nope",
+            );
+            expect(
+                mocks.getStoryBySlug.mock.calls.map((call) => call[0]),
+            ).not.toContain("imported");
+        });
+
+        it("states every selection in the source line, the report and the PLAN block", async () => {
+            await runStories(["blog/post-1", "blog"]);
+
+            expect(planGateLines()).toContain(
+                "Sources 'blog/post-1' (mode 'subtree'), 'blog' (mode 'subtree'), destination 'imported'.",
+            );
+
+            const report = await readReport();
+
+            expect(report.input.source).toEqual(["blog/post-1", "blog"]);
+            expect(report.normalized.selections).toEqual([
+                { source: "blog/post-1", mode: "subtree" },
+                { source: "blog", mode: "subtree" },
+            ]);
+
+            vi.mocked(Logger.log).mockClear();
+
+            await runStories(["blog/post-1", "blog"], {
+                dryRun: false,
+                yes: true,
+            });
+
+            expect(planGateLines()).toContain(
+                "  selections: 2 (1 story, 1 folder after dedupe)",
+            );
+        });
+
+        it("keeps a single value exactly as before", async () => {
+            await runStories("blog", { dryRun: false, yes: true });
+
+            const lines = planGateLines();
+
+            expect(lines).toContain(
+                "Source 'blog', mode 'subtree', destination 'imported'.",
+            );
+            expect(lines.some((line) => line.includes("selections:"))).toBe(
+                false,
+            );
+        });
+    });
 });

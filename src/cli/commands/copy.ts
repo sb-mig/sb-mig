@@ -255,6 +255,8 @@ type CopyDryRunReport = {
         destination: string;
         mode: CopyMode;
         withAssets: boolean;
+        /** Every selection, when the run was given more than one. */
+        selections?: CopySelection[];
     };
     summary: {
         plannedCreates: number;
@@ -399,6 +401,8 @@ type CopyStoriesApplyReport = {
         destination: string;
         mode: CopyMode;
         withAssets: boolean;
+        /** Every selection, when the run was given more than one. */
+        selections?: CopySelection[];
     };
     summary: CopyStoriesApplySummary & {
         assetFoldersCreated?: number;
@@ -668,6 +672,178 @@ const resolveCopySelection = (flags: Record<string, any>): CopySelection => {
         source: rawSource,
         mode: explicitMode ?? "subtree",
     };
+};
+
+/**
+ * Every `--source` (or legacy `--what`) value, repeated or comma-separated, as
+ * its own selection. `x/*` is the children of x; any other value takes
+ * `--mode`. Order is kept, and a value given twice is planned once.
+ */
+const resolveCopySelections = (flags: Record<string, any>): CopySelection[] => {
+    const sourceValues = readStringListFlag(flags, ["source"]);
+    const rawValues = (
+        sourceValues.length > 0
+            ? sourceValues
+            : readStringListFlag(flags, ["what"])
+    )
+        .flatMap((value) => value.split(","))
+        .map((value) => value.trim())
+        .filter((value) => value.length > 0);
+
+    if (rawValues.length === 0) {
+        throw new Error(
+            "Missing source. Pass --source <full_slug> (or legacy --what <full_slug>).",
+        );
+    }
+
+    const rawMode = readStringFlag(flags, ["mode"]);
+    if (rawMode && !isCopyMode(rawMode)) {
+        throw new Error(
+            `Unsupported copy mode '${rawMode}'. Use one of: ${COPY_MODES.join(", ")}.`,
+        );
+    }
+    const explicitMode = rawMode as CopyMode | undefined;
+    const selections: CopySelection[] = [];
+    const seen = new Set<string>();
+
+    for (const rawValue of rawValues) {
+        const selection: CopySelection = rawValue.endsWith("/*")
+            ? {
+                  source: rawValue.slice(0, -2),
+                  mode: explicitMode ?? "children",
+              }
+            : { source: rawValue, mode: explicitMode ?? "subtree" };
+        const key = `${selection.mode} ${selection.source}`;
+
+        if (!seen.has(key)) {
+            seen.add(key);
+            selections.push(selection);
+        }
+    }
+
+    return selections;
+};
+
+/**
+ * Several selections are planned as one forest. Each is read on its own, its
+ * roots are concatenated in order and deduped by source story id: a root that
+ * already sits inside another selection's tree is dropped, so a folder and a
+ * story inside it plan the story once, under the folder. With one selection
+ * this is exactly the tree that selection always produced.
+ */
+const collectSelectionForest = async (
+    selections: CopySelection[],
+    sourceSpace: string,
+): Promise<{ sourceStories: any[]; roots: any[] }> => {
+    const forests: { stories: any[]; roots: any[] }[] = [];
+
+    for (const selection of selections) {
+        const stories = await getStoriesForSelection(selection, sourceSpace);
+        const tree = createTree(normalizeStoriesForTree(stories, selection));
+
+        forests.push({ stories, roots: selectTreeRoots(tree, selection) });
+    }
+
+    if (forests.length === 1) {
+        return {
+            sourceStories: forests[0]!.stories,
+            roots: forests[0]!.roots,
+        };
+    }
+
+    const nodeId = (node: any) => Number(node?.id ?? node?.story?.id);
+    const descendantIds = forests.map(({ roots }) => {
+        const ids = new Set<number>();
+        const visit = (node: any) => {
+            for (const child of node?.children ?? []) {
+                ids.add(nodeId(child));
+                visit(child);
+            }
+        };
+
+        roots.forEach(visit);
+
+        return ids;
+    });
+    const roots: any[] = [];
+    const plannedRootIds = new Set<number>();
+
+    forests.forEach((forest, index) => {
+        for (const root of forest.roots) {
+            const id = nodeId(root);
+            const insideAnotherSelection = descendantIds.some(
+                (ids, other) => other !== index && ids.has(id),
+            );
+
+            if (plannedRootIds.has(id) || insideAnotherSelection) {
+                continue;
+            }
+
+            plannedRootIds.add(id);
+            roots.push(root);
+        }
+    });
+
+    const storiesById = new Map<number, any>();
+
+    for (const forest of forests) {
+        for (const item of forest.stories) {
+            const id = Number(item?.story?.id);
+
+            if (!storiesById.has(id)) {
+                storiesById.set(id, item);
+            }
+        }
+    }
+
+    return { sourceStories: [...storiesById.values()], roots };
+};
+
+/** `'blog' (mode 'subtree'), 'news' (mode 'children')` */
+const describeCopySelections = (selections: CopySelection[]): string =>
+    selections
+        .map((selection) => `'${selection.source}' (mode '${selection.mode}')`)
+        .join(", ");
+
+/**
+ * The single selection reports, graph scopes and commands have always
+ * carried. Several values fold into it as the comma-separated `--source` that
+ * reproduces the run, with `x/*` for a children selection.
+ */
+const toReportedSelection = (selections: CopySelection[]): CopySelection => {
+    if (selections.length === 1) {
+        return selections[0]!;
+    }
+
+    const plainMode =
+        selections.find((selection) => selection.mode !== "children")?.mode ??
+        "children";
+
+    return {
+        source: selections
+            .map((selection) =>
+                selection.mode === plainMode
+                    ? selection.source
+                    : `${selection.source}/*`,
+            )
+            .join(","),
+        mode: plainMode,
+    };
+};
+
+/** The PLAN line for several selections; nothing for one. */
+const formatCopySelectionsLine = (
+    selections: CopySelection[],
+    plan: { type: "folder" | "story" }[],
+): string | undefined => {
+    if (selections.length < 2) {
+        return undefined;
+    }
+
+    const folders = plan.filter((item) => item.type === "folder").length;
+    const stories = plan.length - folders;
+
+    return `  selections: ${selections.length} (${stories} ${stories === 1 ? "story" : "stories"}, ${folders} ${folders === 1 ? "folder" : "folders"} after dedupe)`;
 };
 
 const resolveDestinationParentId = async (
@@ -1822,6 +1998,7 @@ const buildCopyDryRunReport = ({
     sourceSpace,
     targetSpace,
     selection,
+    selections,
     destination,
     withAssets,
     input,
@@ -1837,6 +2014,8 @@ const buildCopyDryRunReport = ({
     sourceSpace: string;
     targetSpace: string;
     selection: CopySelection;
+    /** Every selection, when the run was given more than one. */
+    selections?: CopySelection[];
     destination: string | undefined;
     withAssets: boolean;
     input: Record<string, any>;
@@ -1906,6 +2085,7 @@ const buildCopyDryRunReport = ({
             destination: normalizeDestination(destination) || "root",
             mode: selection.mode,
             withAssets,
+            ...(selections && selections.length > 1 ? { selections } : {}),
         },
         summary: {
             plannedCreates: items.length,
@@ -2081,6 +2261,7 @@ const buildCopyStoriesApplyReport = ({
     sourceSpace,
     targetSpace,
     selection,
+    selections,
     destination,
     withAssets,
     input,
@@ -2096,6 +2277,8 @@ const buildCopyStoriesApplyReport = ({
     sourceSpace: string;
     targetSpace: string;
     selection: CopySelection;
+    /** Every selection, when the run was given more than one. */
+    selections?: CopySelection[];
     destination: string | undefined;
     withAssets: boolean;
     input: Record<string, any>;
@@ -2148,6 +2331,7 @@ const buildCopyStoriesApplyReport = ({
             destination: normalizeDestination(destination) || "root",
             mode: selection.mode,
             withAssets,
+            ...(selections && selections.length > 1 ? { selections } : {}),
         },
         summary: {
             ...storySummary,
@@ -5835,7 +6019,8 @@ export const copyCommand = async (props: CLIOptions) => {
                 ["to", "targetSpace"],
                 apiConfig.spaceId,
             );
-            const selection = resolveCopySelection(flags);
+            const selections = resolveCopySelections(flags);
+            const selection = toReportedSelection(selections);
             const dryRun = Boolean(flags["dryRun"]);
             const outputPath = readStringFlag(flags, ["outputPath"]);
             const manifestRoot = readStringFlag(flags, ["manifestRoot"]);
@@ -5844,36 +6029,31 @@ export const copyCommand = async (props: CLIOptions) => {
             );
             const yes = Boolean(flags["yes"]);
             const fresh = Boolean(flags["fresh"]);
-            const publication = await resolveCopyPublicationOptions({
-                flags,
-                targetSpace,
-                dryRun,
-            });
             const destination = readStringFlag(flags, ["destination", "where"]);
-            const destinationParentId = await resolveDestinationParentId(
-                destination,
-                targetSpace,
-            );
 
             Logger.warning(
                 `Copying stories from space '${sourceSpace}' to space '${targetSpace}'.`,
             );
             Logger.log(
-                `Source '${selection.source}', mode '${selection.mode}', destination '${destination ?? "root"}'.`,
+                selections.length === 1
+                    ? `Source '${selection.source}', mode '${selection.mode}', destination '${destination ?? "root"}'.`
+                    : `Sources ${describeCopySelections(selections)}, destination '${destination ?? "root"}'.`,
             );
 
-            const sourceStories = await getStoriesForSelection(
-                selection,
-                sourceSpace,
+            // Every source value is read before the target is touched, so a
+            // value that resolves to nothing fails first, and by name.
+            const { sourceStories, roots: selectedRoots } =
+                await collectSelectionForest(selections, sourceSpace);
+            const publication = await resolveCopyPublicationOptions({
+                flags,
+                targetSpace,
+                dryRun,
+            });
+            const destinationParentId = await resolveDestinationParentId(
+                destination,
+                targetSpace,
             );
-            const normalizedStories = normalizeStoriesForTree(
-                sourceStories,
-                selection,
-            );
-            const tree = createTree(normalizedStories);
-            const rootsToCreate = prepareTreeForCreate(
-                selectTreeRoots(tree, selection),
-            );
+            const rootsToCreate = prepareTreeForCreate(selectedRoots);
 
             if (rootsToCreate.length === 0) {
                 Logger.warning("No stories matched the copy selection.");
@@ -6052,6 +6232,7 @@ export const copyCommand = async (props: CLIOptions) => {
                     sourceSpace,
                     targetSpace,
                     selection,
+                    selections,
                     destination,
                     withAssets,
                     input: { ...flags },
@@ -6146,6 +6327,12 @@ export const copyCommand = async (props: CLIOptions) => {
             });
 
             formatCopyPlanGate(planGate).forEach((line) => Logger.log(line));
+
+            const selectionsLine = formatCopySelectionsLine(selections, plan);
+
+            if (selectionsLine) {
+                Logger.log(selectionsLine);
+            }
             // Printed here rather than by formatCopyPlanGate: the story-shaped
             // plan-gate types are frozen for this run.
             formatSchemaDriftLines(gatePreflight.schemaDrift).forEach((line) =>
@@ -6293,6 +6480,7 @@ export const copyCommand = async (props: CLIOptions) => {
                 sourceSpace,
                 targetSpace,
                 selection,
+                selections,
                 destination,
                 withAssets,
                 input: { ...flags },
@@ -6334,7 +6522,8 @@ export const copyCommand = async (props: CLIOptions) => {
                 ["to", "targetSpace"],
                 apiConfig.spaceId,
             );
-            const selection = resolveCopySelection(flags);
+            const selections = resolveCopySelections(flags);
+            const selection = toReportedSelection(selections);
             const dryRun = Boolean(flags["dryRun"]);
             const manifestRoot = readStringFlag(flags, ["manifestRoot"]);
             const yes = Boolean(flags["yes"]);
@@ -6344,21 +6533,14 @@ export const copyCommand = async (props: CLIOptions) => {
                 `Relinking stories in space '${targetSpace}' against their sources in space '${sourceSpace}'.`,
             );
             Logger.log(
-                `Source '${selection.source}', mode '${selection.mode}', destination '${destination ?? "root"}'.`,
+                selections.length === 1
+                    ? `Source '${selection.source}', mode '${selection.mode}', destination '${destination ?? "root"}'.`
+                    : `Sources ${describeCopySelections(selections)}, destination '${destination ?? "root"}'.`,
             );
 
-            const sourceStories = await getStoriesForSelection(
-                selection,
-                sourceSpace,
-            );
-            const normalizedStories = normalizeStoriesForTree(
-                sourceStories,
-                selection,
-            );
-            const tree = createTree(normalizedStories);
-            const rootsToRelink = prepareTreeForCreate(
-                selectTreeRoots(tree, selection),
-            );
+            const { sourceStories, roots: relinkRoots } =
+                await collectSelectionForest(selections, sourceSpace);
+            const rootsToRelink = prepareTreeForCreate(relinkRoots);
 
             if (rootsToRelink.length === 0) {
                 Logger.warning("No stories matched the relink selection.");
@@ -6539,6 +6721,15 @@ export const copyCommand = async (props: CLIOptions) => {
                 Logger.log(line),
             );
 
+            const relinkSelectionsLine = formatCopySelectionsLine(
+                selections,
+                plan,
+            );
+
+            if (relinkSelectionsLine) {
+                Logger.log(relinkSelectionsLine);
+            }
+
             const outputPath = readStringFlag(flags, ["outputPath"]);
             // One report shape for both modes: the plan on --dry-run; on apply
             // the same items, each with what happened to it, plus every failure.
@@ -6572,6 +6763,7 @@ export const copyCommand = async (props: CLIOptions) => {
                         destination:
                             normalizeDestination(destination) || "root",
                         mode: selection.mode,
+                        ...(selections.length > 1 ? { selections } : {}),
                     },
                     summary: applied
                         ? {

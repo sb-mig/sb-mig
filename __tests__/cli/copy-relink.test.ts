@@ -908,4 +908,74 @@ describe("copy relink", () => {
 
         await rm(tempDir, { recursive: true, force: true });
     });
+
+    // MAR-3067 R8 (d) canary. Mutation that must turn it red: relink only the
+    // first selection.
+    it("relinks two selections in one run and states them in the PLAN", async () => {
+        const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-relink-"));
+        const sourceItem = {
+            id: 3,
+            name: "Item",
+            slug: "item",
+            full_slug: "news/item",
+            is_folder: false,
+            parent_id: 4,
+            uuid: "source-item-uuid",
+            content: brokenTargetContent(),
+        };
+        const targetItem = {
+            id: 1003,
+            name: "Item",
+            slug: "item",
+            full_slug: "imported/item",
+            is_folder: false,
+            uuid: "target-item-uuid",
+            published: false,
+            content: brokenTargetContent(),
+        };
+        const baseGetStoryBySlug = mocks.getStoryBySlug.getMockImplementation();
+
+        mocks.getStoryBySlug.mockImplementation((slug: string, config: any) => {
+            if (slug === "news/item") {
+                return Promise.resolve({ story: sourceItem });
+            }
+
+            if (slug === "imported/item") {
+                return Promise.resolve({ story: targetItem });
+            }
+
+            return baseGetStoryBySlug!(slug, config);
+        });
+        // A tree built by parent_id, the way createTree builds it.
+        mocks.createTree.mockImplementation((stories: any[]) => {
+            const build = (parentId: number | null): any[] =>
+                stories
+                    .filter((item) => (item.parent_id ?? null) === parentId)
+                    .map((item) => ({
+                        id: item.id,
+                        parent_id: item.parent_id,
+                        story: item,
+                        children: build(item.id),
+                    }));
+
+            return build(null);
+        });
+
+        await copyCommand(
+            relinkFlags({
+                manifestRoot: path.join(tempDir, ".sb-mig"),
+                yes: true,
+                source: ["blog", "news/item"],
+            }) as any,
+        );
+
+        expect(
+            mocks.updateStory.mock.calls.map((call) => call[1]).sort(),
+        ).toEqual(["1002", "1003"]);
+        expect(planLines()).toContain(
+            "  selections: 2 (2 stories, 1 folder after dedupe)",
+        );
+
+        await rm(tempDir, { recursive: true, force: true });
+    });
 });
