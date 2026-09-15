@@ -835,4 +835,77 @@ describe("copy relink", () => {
 
         await rm(tempDir, { recursive: true, force: true });
     });
+
+    // MAR-3056 R1 canary for relink. Mutation that must turn it red: restore
+    // the throw at the end of relinkTargetStories (no report is written).
+    it("records a rejected update, writes the report, and exits 1 instead of throwing", async () => {
+        const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-relink-"));
+        const outputPath = path.join(tempDir, "relink-report.json");
+
+        process.exitCode = undefined;
+        mocks.updateStory.mockResolvedValue({
+            ok: false,
+            status: 422,
+            response:
+                "The value of the field body must be a prosemirror document",
+        });
+
+        await copyCommand(
+            relinkFlags({
+                manifestRoot: path.join(tempDir, ".sb-mig"),
+                outputPath,
+                yes: true,
+            }) as any,
+        );
+
+        expect(process.exitCode).toBe(1);
+
+        const report = JSON.parse(await readFile(outputPath, "utf8"));
+
+        expect(report).toMatchObject({ command: "copy relink", dryRun: false });
+        expect(
+            report.items.map((item: any) => [
+                item.targetFullSlug,
+                item.outcome,
+            ]),
+        ).toEqual([
+            ["imported/blog", "matched"],
+            ["imported/blog/post-1", "update_failed"],
+        ]);
+        expect(report.failures).toEqual([
+            expect.objectContaining({
+                resource: "story",
+                path: "imported/blog/post-1",
+                phase: "update",
+                status: 422,
+                targetId: 1002,
+            }),
+        ]);
+
+        await rm(tempDir, { recursive: true, force: true });
+    });
+
+    it("writes the relink plan with an empty failures array on --dry-run", async () => {
+        const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-relink-"));
+        const outputPath = path.join(tempDir, "relink-plan.json");
+
+        await copyCommand(
+            relinkFlags({
+                manifestRoot: path.join(tempDir, ".sb-mig"),
+                outputPath,
+                dryRun: true,
+            }) as any,
+        );
+
+        const report = JSON.parse(await readFile(outputPath, "utf8"));
+
+        expect(report).toMatchObject({
+            command: "copy relink",
+            dryRun: true,
+            failures: [],
+        });
+        expect(mocks.updateStory).not.toHaveBeenCalled();
+
+        await rm(tempDir, { recursive: true, force: true });
+    });
 });

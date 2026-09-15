@@ -270,7 +270,7 @@ export const copyDescription = `
         --only          Restrict copy space to some of: languages, groups, components, presets, datasources. Comma-separated or repeatable. The write order stays languages, groups, components, presets, datasources. [space only]
         --fresh         Ignore the existing copy ledger for this run; every manifest file of this space pair, the asset and asset-folder ledgers included, is moved aside with a timestamp suffix, never deleted. A later --with-assets run therefore starts without the archived asset mappings too. [stories only]
         --manifestRoot  Directory holding the copy ledger. Default: .sb-mig
-        --outputPath    Optional JSON file path for a dry-run copy plan artifact. Only writes locally when passed.
+        --outputPath    Optional JSON file path for the run's report: the plan on --dry-run, and on apply an outcome for every item plus every failed write. Only writes locally when passed.
 
     LEGACY FLAGS
         --sourceSpace   Alias for --from.
@@ -310,6 +310,8 @@ export const copyDescription = `
         copy stories rewrites mapped asset and story references after story manifests exist.
         copy stories creates shells as save-only drafts, then applies publicationMode after full rewritten content is saved.
         copy stories never publishes folders; publish state applies to stories only. A folder publish in Storyblok cascades to every story inside it, so each story's own publish state is reproduced instead.
+        copy stories, copy relink and copy assets never stop at a failed write: every other item is still written, each failure is listed at the end and in the --outputPath report, and the command exits 1. A story whose create failed takes its children with it, since they have no parent to be created under.
+        In an apply report, each item's outcome says what the target holds: updated, published or publish_skipped mean its content was written; created or matched mean only its shell was reached; update_failed, create_failed and skipped_parent_failed mean its content is not there.
         publicationMode preserve-layers publishes clean published source stories; for dirty published source stories it copies the source published version, publishes it in target, then restores the source draft/current layer as save-only.
         publicationMode collapse-draft publishes published source stories from their current draft/current JSON.
         publicationMode save-only never publishes copied stories.

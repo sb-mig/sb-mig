@@ -131,6 +131,44 @@ type CopyPlanItem = {
     conflict?: boolean;
     /** What the ledger's mapping for this item resolves to, when it has one. */
     ledger?: CopyLedgerMatch;
+    /** What the apply run did with this item. Absent on a dry-run. */
+    outcome?: CopyItemOutcome;
+    targetId?: number;
+};
+
+/**
+ * What happened to one item in an apply run, readable from the report without
+ * parsing stdout. `updated`, `published` and `publish_skipped` mean the target
+ * holds the item's content; `created` and `matched` mean only its shell was
+ * reached; `update_failed`, `create_failed` and `skipped_parent_failed` mean
+ * its content is not there.
+ */
+type CopyItemOutcome =
+    | "created"
+    | "matched"
+    | "updated"
+    | "update_failed"
+    | "create_failed"
+    | "skipped_parent_failed"
+    | "published"
+    | "publish_skipped";
+
+type CopyOutcomeRecord = { outcome: CopyItemOutcome; targetId?: number };
+
+/**
+ * One failed write, collected so the run carries on past it. Stories are named
+ * by `path` (source full_slug), assets and asset folders by `name`. A `run`
+ * failure is an unexpected error that stopped the writes early.
+ */
+type CopyRunFailure = {
+    resource: "story" | "asset" | "asset_folder" | "run";
+    path?: string;
+    name?: string;
+    phase: "create" | "update" | "publish" | "unexpected";
+    status?: number;
+    message: string;
+    sourceId?: number;
+    targetId?: number;
 };
 
 /**
@@ -142,14 +180,6 @@ type CopyLedgerMatch = {
     match: "matched" | "moved" | "missing";
     targetId: number;
     currentFullSlug?: string;
-};
-
-type CopyStoryCreateFailure = {
-    sourceId: number;
-    sourceFullSlug: string;
-    phase: "create";
-    status?: number;
-    message: string;
 };
 
 type CopyAssetsSelection =
@@ -249,6 +279,8 @@ type CopyDryRunReport = {
     componentCompatibility?: CopyDryRunComponentCompatibility;
     warnings: CopyPlanWarning[];
     errors: any[];
+    /** Always empty: a dry-run writes nothing. Present so every report has it. */
+    failures: CopyRunFailure[];
     limitations: string[];
     commands: {
         dryRun: string;
@@ -307,8 +339,13 @@ type CopyAssetsApplyReport = {
         assetsMatched: number;
         warnings: number;
         errors: number;
+        outcomes: Record<CopyItemOutcome, number>;
+        failed: number;
     };
     graph: ReturnType<typeof buildCopyAssetsGraph>;
+    /** One line per asset folder and asset, in write order, with what happened to it. */
+    items: CopyAssetsApplyItem[];
+    failures: CopyRunFailure[];
     manifestPaths: {
         assets: string;
         assetFolders: string;
@@ -316,6 +353,14 @@ type CopyAssetsApplyReport = {
     };
     warnings: any[];
     errors: any[];
+};
+
+type CopyAssetsApplyItem = {
+    resource: "asset_folder" | "asset";
+    sourceId: number;
+    name: string;
+    targetId?: number;
+    outcome: CopyItemOutcome;
 };
 
 type CopyStoriesApplySummary = {
@@ -350,9 +395,15 @@ type CopyStoriesApplyReport = {
         assetsMatched?: number;
         warnings: number;
         errors: number;
+        /** How many planned items ended in each outcome. */
+        outcomes: Record<CopyItemOutcome, number>;
+        /** Failed writes, stories and --with-assets assets together. */
+        failed: number;
     };
     translatedSlugs: CopyTranslatedSlugSummary;
+    /** The plan, each item carrying its `outcome` and `targetId`. */
     items: CopyPlanItem[];
+    failures: CopyRunFailure[];
     graph?: CopyGraph;
     assetCopy?: CopyAssetsApplyReport;
     manifestPaths: {
@@ -1854,6 +1905,7 @@ const buildCopyDryRunReport = ({
         ...(componentCompatibility ? { componentCompatibility } : {}),
         warnings,
         errors: graph?.errors ?? [],
+        failures: [],
         limitations,
         commands: {
             dryRun: buildCopyCommand({
@@ -1932,6 +1984,64 @@ const buildCopyAssetsDryRunReport = ({
     };
 };
 
+const COPY_ITEM_OUTCOMES: CopyItemOutcome[] = [
+    "created",
+    "matched",
+    "updated",
+    "published",
+    "publish_skipped",
+    "update_failed",
+    "create_failed",
+    "skipped_parent_failed",
+];
+
+const countCopyOutcomes = (
+    outcomes: Iterable<CopyItemOutcome | undefined>,
+): Record<CopyItemOutcome, number> => {
+    const counts = Object.fromEntries(
+        COPY_ITEM_OUTCOMES.map((outcome) => [outcome, 0]),
+    ) as Record<CopyItemOutcome, number>;
+
+    for (const outcome of outcomes) {
+        if (outcome) {
+            counts[outcome] += 1;
+        }
+    }
+
+    return counts;
+};
+
+/** `updated 1, update_failed 1` — only the outcomes that happened. */
+const formatCopyOutcomeCounts = (
+    counts: Record<CopyItemOutcome, number>,
+): string => {
+    const parts = COPY_ITEM_OUTCOMES.filter(
+        (outcome) => counts[outcome] > 0,
+    ).map((outcome) => `${outcome} ${counts[outcome]}`);
+
+    return parts.length > 0 ? parts.join(", ") : "nothing written";
+};
+
+const resolveThrownStatus = (error: any): number | undefined => {
+    const status = Number(
+        error?.status ?? error?.response?.status ?? error?.message?.status,
+    );
+
+    return Number.isFinite(status) && status > 0 ? status : undefined;
+};
+
+const describeThrown = (error: any): string => {
+    if (error instanceof Error) {
+        return error.message;
+    }
+
+    if (typeof error?.message === "string") {
+        return error.message;
+    }
+
+    return typeof error === "string" ? error : JSON.stringify(error);
+};
+
 const buildCopyStoriesApplyReport = ({
     sourceSpace,
     targetSpace,
@@ -1945,6 +2055,8 @@ const buildCopyStoriesApplyReport = ({
     assetCopyReport,
     translatedSlugs,
     manifestRoot,
+    failures,
+    outcomes,
 }: {
     sourceSpace: string;
     targetSpace: string;
@@ -1958,7 +2070,23 @@ const buildCopyStoriesApplyReport = ({
     assetCopyReport?: CopyAssetsApplyReport;
     translatedSlugs: CopyTranslatedSlugSummary;
     manifestRoot?: string;
+    failures: CopyRunFailure[];
+    /** Keyed by source full_slug, the key every plan item carries. */
+    outcomes: Map<string, CopyOutcomeRecord>;
 }): CopyStoriesApplyReport => {
+    const items = plan.map((item) => {
+        const record = outcomes.get(item.sourceFullSlug);
+
+        return record
+            ? {
+                  ...item,
+                  outcome: record.outcome,
+                  ...(record.targetId !== undefined
+                      ? { targetId: record.targetId }
+                      : {}),
+              }
+            : item;
+    });
     const manifestPaths = getDefaultCopyManifestPaths({
         sourceSpaceId: sourceSpace,
         targetSpaceId: targetSpace,
@@ -2005,9 +2133,12 @@ const buildCopyStoriesApplyReport = ({
             errors:
                 (graphSummary?.errors ?? 0) +
                 (assetCopyReport?.summary.errors ?? 0),
+            outcomes: countCopyOutcomes(items.map((item) => item.outcome)),
+            failed: failures.length,
         },
         translatedSlugs,
-        items: plan,
+        items,
+        failures,
         ...(graph ? { graph } : {}),
         ...(assetCopyReport ? { assetCopy: assetCopyReport } : {}),
         manifestPaths: {
@@ -2751,6 +2882,8 @@ const buildCopyAssetsApplyReport = ({
     assetFoldersMatched,
     assetsCreated,
     assetsMatched,
+    items,
+    failures,
 }: {
     sourceSpace: string;
     targetSpace: string;
@@ -2762,6 +2895,8 @@ const buildCopyAssetsApplyReport = ({
     assetFoldersMatched: number;
     assetsCreated: number;
     assetsMatched: number;
+    items: CopyAssetsApplyItem[];
+    failures: CopyRunFailure[];
 }): CopyAssetsApplyReport => ({
     schemaVersion: 1,
     command: "copy assets",
@@ -2780,8 +2915,12 @@ const buildCopyAssetsApplyReport = ({
         assetsMatched,
         warnings: graph.warnings.length,
         errors: graph.errors.length,
+        outcomes: countCopyOutcomes(items.map((item) => item.outcome)),
+        failed: failures.length,
     },
     graph,
+    items,
+    failures,
     manifestPaths: {
         assets: manifestPaths.assets,
         assetFolders: manifestPaths.assetFolders,
@@ -3543,6 +3682,7 @@ const rewriteCopiedStoryContents = async ({
     manifestRoot,
     targetLanguageCodes,
     skippedSourceIds,
+    outcomes = new Map<string, CopyOutcomeRecord>(),
 }: {
     tree: any[];
     realParentId: number | null;
@@ -3556,6 +3696,8 @@ const rewriteCopiedStoryContents = async ({
     targetLanguageCodes?: string[];
     /** Items phase 1 could not create a parent for; never written here either. */
     skippedSourceIds?: Set<number>;
+    /** Per source full_slug, what happened; shared with phase 1 and the report. */
+    outcomes?: Map<string, CopyOutcomeRecord>;
 }) => {
     const manifestPaths = getDefaultCopyManifestPaths({
         sourceSpaceId: sourceSpace,
@@ -3567,13 +3709,7 @@ const rewriteCopiedStoryContents = async ({
     const schemas = await buildComponentSchemaRegistry(sourceSpace);
     let updatedStories = 0;
     let rewrittenReferences = 0;
-    const failures: Array<{
-        sourceId: number;
-        targetId?: number;
-        fullSlug: string;
-        stage: "create-shell" | "update";
-        message: string;
-    }> = [];
+    const failures: CopyRunFailure[] = [];
 
     const writeStoryMapping = async ({
         sourceStory,
@@ -3702,6 +3838,21 @@ const rewriteCopiedStoryContents = async ({
                 continue;
             }
 
+            const sourceFullSlug = String(
+                sourceStory.full_slug ?? sourceStory.slug ?? "",
+            );
+            // No target shell means children cannot be parented: each one is
+            // reported as skipped, and the rest of the tree carries on.
+            const skipChildrenOfFailedCreate = () =>
+                skipSubtree(node, new Set<number>(), (childFullSlug) => {
+                    outcomes.set(childFullSlug, {
+                        outcome: "skipped_parent_failed",
+                    });
+                    Logger.error(
+                        `  skipped: '${childFullSlug}', because its parent '${sourceFullSlug}' was not created.`,
+                    );
+                });
+
             let targetStoryId = maps.storyIds.get(Number(sourceStory.id));
             if (!targetStoryId) {
                 try {
@@ -3715,20 +3866,30 @@ const rewriteCopiedStoryContents = async ({
                         error instanceof Error ? error.message : String(error);
                     Logger.error(message);
                     failures.push({
-                        sourceId: Number(sourceStory.id),
-                        fullSlug: String(
-                            sourceStory.full_slug ?? sourceStory.slug ?? "",
-                        ),
-                        stage: "create-shell",
+                        resource: "story",
+                        path: sourceFullSlug,
+                        phase: "create",
                         message,
+                        sourceId: Number(sourceStory.id),
                     });
-                    // No target shell means children cannot be parented; skip
-                    // this branch but keep copying the rest of the tree.
+                    outcomes.set(sourceFullSlug, { outcome: "create_failed" });
+                    skipChildrenOfFailedCreate();
                     continue;
                 }
             }
 
-            const writeStory = async (id: number) => {
+            // `phase` names the call whose result is returned, so a rejected
+            // publish is never mistaken for content that was not written.
+            // `publish` says whether this story ended up published.
+            const writeStory = async (
+                id: number,
+            ): Promise<{
+                result: any;
+                phase: "update" | "publish";
+                publish: "published" | "skipped" | "none";
+                content: any;
+                rewrittenReferences: number;
+            }> => {
                 const current = buildRewrittenStoryPayload({
                     sourceStory,
                     content: sourceStory.content,
@@ -3775,6 +3936,8 @@ const rewriteCopiedStoryContents = async ({
                     if (!publishedUpdateResult?.ok) {
                         return {
                             result: publishedUpdateResult,
+                            phase: "update",
+                            publish: "none",
                             content: publishedLayer.payload?.content,
                             rewrittenReferences:
                                 current.rewrittenReferences +
@@ -3792,6 +3955,8 @@ const rewriteCopiedStoryContents = async ({
                     if (!publishResult?.ok) {
                         return {
                             result: publishResult,
+                            phase: "publish",
+                            publish: "none",
                             content: publishedLayer.payload?.content,
                             rewrittenReferences:
                                 current.rewrittenReferences +
@@ -3815,12 +3980,19 @@ const rewriteCopiedStoryContents = async ({
 
                     return {
                         result: restoreDraftResult,
+                        phase: "update",
+                        publish:
+                            publishResult.stage === "publish_skipped"
+                                ? "skipped"
+                                : "published",
                         content: current.payload?.content,
                         rewrittenReferences:
                             current.rewrittenReferences +
                             publishedLayer.rewrittenReferences,
                     };
                 }
+
+                let publish: "published" | "skipped" | "none" = "none";
 
                 if (
                     sourceStory.is_folder !== true &&
@@ -3830,6 +4002,7 @@ const rewriteCopiedStoryContents = async ({
                     Logger.warning(
                         `Skipping publish for copied story '${sourceStory.full_slug ?? sourceStory.slug}' because source story has unpublished changes and no published layer could be resolved.`,
                     );
+                    publish = "skipped";
                 }
 
                 const result = await managementApi.stories.updateStory(
@@ -3859,14 +4032,23 @@ const rewriteCopiedStoryContents = async ({
                     if (!publishResult?.ok) {
                         return {
                             result: publishResult,
+                            phase: "publish",
+                            publish: "none",
                             content: current.payload?.content,
                             rewrittenReferences: current.rewrittenReferences,
                         };
                     }
+
+                    publish =
+                        publishResult.stage === "publish_skipped"
+                            ? "skipped"
+                            : "published";
                 }
 
                 return {
                     result,
+                    phase: "update",
+                    publish,
                     content: current.payload?.content,
                     rewrittenReferences: current.rewrittenReferences,
                 };
@@ -3877,11 +4059,15 @@ const rewriteCopiedStoryContents = async ({
             // its already-created shell as the parent for descendants, and move
             // on to the next story.
             let targetInvalidated = false;
+            let update: Awaited<ReturnType<typeof writeStory>> | undefined;
 
             try {
-                let update = await writeStory(Number(targetStoryId));
+                update = await writeStory(Number(targetStoryId));
 
-                if (isStoryUpdateNotFound(update.result)) {
+                if (
+                    update.phase === "update" &&
+                    isStoryUpdateNotFound(update.result)
+                ) {
                     Logger.warning(
                         `Ignoring stale story manifest mapping for '${sourceStory.full_slug ?? sourceStory.slug}' because target story '${targetStoryId}' could not be updated in space '${targetSpace}'.`,
                     );
@@ -3898,28 +4084,93 @@ const rewriteCopiedStoryContents = async ({
                     update = await writeStory(Number(targetStoryId));
                 }
 
-                assertStoryUpdateSucceeded({
-                    result: update.result,
-                    sourceStory,
-                    targetStoryId: Number(targetStoryId),
-                    targetSpace,
-                    content: update.content,
-                });
-                updatedStories += 1;
-                rewrittenReferences += update.rewrittenReferences;
+                const targetId = Number(targetStoryId);
+
+                if (update.phase === "publish" && update.result?.ok === false) {
+                    // The content is in the target; only its publish was
+                    // refused. Reporting it as a failed update would tell the
+                    // verifier the story is empty when it is not.
+                    updatedStories += 1;
+                    rewrittenReferences += update.rewrittenReferences;
+
+                    const status = Number(update.result?.status);
+                    const message = `Content of '${sourceFullSlug}' was written to target story '${targetId}', but publishing it failed (${describeCreateFailure(update.result)}). It is not published in the target.`;
+
+                    Logger.error(message);
+                    failures.push({
+                        resource: "story",
+                        path: sourceFullSlug,
+                        phase: "publish",
+                        ...(Number.isFinite(status) && status > 0
+                            ? { status }
+                            : {}),
+                        message,
+                        sourceId: Number(sourceStory.id),
+                        targetId,
+                    });
+                    outcomes.set(sourceFullSlug, {
+                        outcome: "publish_skipped",
+                        targetId,
+                    });
+                } else {
+                    assertStoryUpdateSucceeded({
+                        result: update.result,
+                        sourceStory,
+                        targetStoryId: targetId,
+                        targetSpace,
+                        content: update.content,
+                    });
+                    updatedStories += 1;
+                    rewrittenReferences += update.rewrittenReferences;
+                    outcomes.set(sourceFullSlug, {
+                        outcome:
+                            update.publish === "published"
+                                ? "published"
+                                : update.publish === "skipped"
+                                  ? "publish_skipped"
+                                  : "updated",
+                        targetId,
+                    });
+                }
             } catch (error) {
                 const message =
                     error instanceof Error ? error.message : String(error);
                 Logger.error(message);
-                failures.push({
-                    sourceId: Number(sourceStory.id),
-                    targetId: targetStoryId ? Number(targetStoryId) : undefined,
-                    fullSlug: String(
-                        sourceStory.full_slug ?? sourceStory.slug ?? "",
-                    ),
-                    stage: "update",
-                    message,
-                });
+
+                if (targetInvalidated) {
+                    // The mapped story was gone and its replacement could not
+                    // be created: there is nothing to parent the children under.
+                    failures.push({
+                        resource: "story",
+                        path: sourceFullSlug,
+                        phase: "create",
+                        message,
+                        sourceId: Number(sourceStory.id),
+                    });
+                    outcomes.set(sourceFullSlug, { outcome: "create_failed" });
+                    skipChildrenOfFailedCreate();
+                } else {
+                    const status = Number(update?.result?.status);
+                    const targetId = targetStoryId
+                        ? Number(targetStoryId)
+                        : undefined;
+
+                    failures.push({
+                        resource: "story",
+                        path: sourceFullSlug,
+                        phase: "update",
+                        ...(Number.isFinite(status) && status > 0
+                            ? { status }
+                            : {}),
+                        message,
+                        sourceId: Number(sourceStory.id),
+                        ...(targetId !== undefined ? { targetId } : {}),
+                    });
+                    outcomes.set(sourceFullSlug, {
+                        outcome: "update_failed",
+                        ...(targetId !== undefined ? { targetId } : {}),
+                    });
+                }
             }
 
             // Only recurse into children when we still have a usable target
@@ -3949,17 +4200,12 @@ const rewriteCopiedStoryContents = async ({
                 ? `, target id ${failure.targetId}`
                 : "";
             Logger.error(
-                `  - ${failure.fullSlug || "<unknown>"} (source id ${failure.sourceId}${targetLabel}) [${failure.stage}]`,
+                `  - ${failure.path || "<unknown>"} (source id ${failure.sourceId}${targetLabel}) [${failure.phase}]`,
             );
         }
 
-        // Every story was still attempted (no early abort), but surface the
-        // failures so apply mode exits non-zero instead of reporting success.
-        throw new Error(
-            `Copy finished but ${failures.length} story/story shell update(s) failed:\n${failures
-                .map((failure) => failure.message)
-                .join("\n")}`,
-        );
+        // Every story was still attempted. The caller writes the report and
+        // sets the exit code: throwing here would lose the report.
     }
 
     return { updatedStories, rewrittenReferences, failures };
@@ -3973,6 +4219,7 @@ const createStoriesAndWriteManifests = async ({
     sourceSpace,
     targetSpace,
     manifestRoot,
+    outcomes = new Map<string, CopyOutcomeRecord>(),
 }: {
     tree: any[];
     realParentId: number | null;
@@ -3981,6 +4228,8 @@ const createStoriesAndWriteManifests = async ({
     sourceSpace: string;
     targetSpace: string;
     manifestRoot?: string;
+    /** Per source full_slug, what happened; shared with phase 2 and the report. */
+    outcomes?: Map<string, CopyOutcomeRecord>;
 }) => {
     const manifestPaths = getDefaultCopyManifestPaths({
         sourceSpaceId: sourceSpace,
@@ -3992,7 +4241,7 @@ const createStoriesAndWriteManifests = async ({
     let storiesCreated = 0;
     let storiesMatched = 0;
     let storiesSkippedParentFailed = 0;
-    const createFailures: CopyStoryCreateFailure[] = [];
+    const createFailures: CopyRunFailure[] = [];
     const skippedSourceIds = new Set<number>();
 
     const walk = async (nodes: any[], parentId: number | null) => {
@@ -4004,11 +4253,34 @@ const createStoriesAndWriteManifests = async ({
                 sourceStory?.full_slug ?? node.story.full_slug ?? "",
             );
             const targetFullSlug = targetSlugBySourceSlug.get(sourceFullSlug);
+            const skipChildren = () =>
+                skipSubtree(node, skippedSourceIds, (childFullSlug) => {
+                    outcomes.set(childFullSlug, {
+                        outcome: "skipped_parent_failed",
+                    });
+                    Logger.error(
+                        `  skipped: '${childFullSlug}', because its parent '${sourceFullSlug}' was not created.`,
+                    );
+                });
 
             if (!sourceStory?.uuid) {
-                throw new Error(
-                    `Cannot write story manifest for '${sourceFullSlug}' because source uuid is missing.`,
-                );
+                // Without a source uuid no ledger entry can be written, so the
+                // story is not created: recorded, never thrown mid-run.
+                const message = `Cannot write story manifest for '${sourceFullSlug}' because source uuid is missing. Its children are skipped: they have no parent to be created under.`;
+
+                Logger.error(message);
+                createFailures.push({
+                    resource: "story",
+                    path: sourceFullSlug,
+                    phase: "create",
+                    message,
+                    ...(sourceStory?.id !== undefined
+                        ? { sourceId: Number(sourceStory.id) }
+                        : {}),
+                });
+                outcomes.set(sourceFullSlug, { outcome: "create_failed" });
+                storiesSkippedParentFailed += skipChildren();
+                continue;
             }
 
             const mappedTargetId = copyMaps.storyIds.get(
@@ -4037,6 +4309,10 @@ const createStoriesAndWriteManifests = async ({
                     }
 
                     storiesMatched += 1;
+                    outcomes.set(sourceFullSlug, {
+                        outcome: "matched",
+                        targetId: Number(mappedTargetId),
+                    });
                     await walk(node.children ?? [], mappedTargetId);
                     continue;
                 }
@@ -4076,6 +4352,10 @@ const createStoriesAndWriteManifests = async ({
                 });
                 applyStoryManifestEntryToMaps(copyMaps, entry);
                 storiesMatched += 1;
+                outcomes.set(sourceFullSlug, {
+                    outcome: "matched",
+                    targetId: entry.target_id,
+                });
 
                 await walk(node.children ?? [], entry.target_id);
                 continue;
@@ -4106,8 +4386,8 @@ const createStoriesAndWriteManifests = async ({
 
                 if (!existingAtPath) {
                     createFailures.push({
-                        sourceId: Number(sourceStory.id),
-                        sourceFullSlug,
+                        resource: "story",
+                        path: sourceFullSlug,
                         phase: "create",
                         ...(createdStoryResult?.status
                             ? { status: Number(createdStoryResult.status) }
@@ -4116,18 +4396,13 @@ const createStoriesAndWriteManifests = async ({
                             createdStoryResult?.response ??
                                 "the create response carried no story",
                         ),
+                        sourceId: Number(sourceStory.id),
                     });
+                    outcomes.set(sourceFullSlug, { outcome: "create_failed" });
                     Logger.error(
                         `Failed to create target story for '${sourceFullSlug}' (${describeCreateFailure(createdStoryResult)}). Its children are skipped: they have no parent to be created under.`,
                     );
-                    storiesSkippedParentFailed += skipSubtree(
-                        node,
-                        skippedSourceIds,
-                        (childFullSlug) =>
-                            Logger.error(
-                                `  skipped: '${childFullSlug}', because its parent '${sourceFullSlug}' was not created.`,
-                            ),
-                    );
+                    storiesSkippedParentFailed += skipChildren();
                     continue;
                 }
 
@@ -4163,6 +4438,10 @@ const createStoriesAndWriteManifests = async ({
             } else {
                 storiesMatched += 1;
             }
+            outcomes.set(sourceFullSlug, {
+                outcome: action === "created" ? "created" : "matched",
+                targetId: entry.target_id,
+            });
 
             await walk(node.children ?? [], entry.target_id);
         }
@@ -4256,6 +4535,12 @@ const copyAssetsAndWriteManifests = async ({
     let assetFoldersMatched = 0;
     let assetsCreated = 0;
     let assetsMatched = 0;
+    const items: CopyAssetsApplyItem[] = [];
+    const failures: CopyRunFailure[] = [];
+    // Source folders that do not exist in the target after this run, because
+    // their create failed or their own parent's did. Nothing is created inside
+    // them: it would land in the root, silently misplaced.
+    const unavailableFolderIds = new Set<number>();
 
     Logger.warning(
         `Copying assets from space '${sourceSpace}' to space '${targetSpace}'.`,
@@ -4271,6 +4556,9 @@ const copyAssetsAndWriteManifests = async ({
         const sourceParentId = normalizeAssetFolderParentId(
             sourceFolder.parent_id,
         );
+        const folderName = String(
+            folderNode.sourcePath || sourceFolder.name || folderNode.sourceId,
+        );
 
         const mappedTargetFolderId = copyMaps.assetFolderIds.get(
             folderNode.sourceId,
@@ -4283,6 +4571,13 @@ const copyAssetsAndWriteManifests = async ({
                     : (copyMaps.assetFolderIds.get(sourceParentId) ?? null);
             folderNode.action = "match";
             assetFoldersMatched += 1;
+            items.push({
+                resource: "asset_folder",
+                sourceId: folderNode.sourceId,
+                name: folderName,
+                targetId: Number(mappedTargetFolderId),
+                outcome: "matched",
+            });
             continue;
         }
 
@@ -4319,6 +4614,30 @@ const copyAssetsAndWriteManifests = async ({
             folderNode.targetParentId = entry.target_parent_id;
             folderNode.action = "match";
             assetFoldersMatched += 1;
+            items.push({
+                resource: "asset_folder",
+                sourceId: folderNode.sourceId,
+                name: folderName,
+                targetId: entry.target_id,
+                outcome: "matched",
+            });
+            continue;
+        }
+
+        if (
+            sourceParentId !== null &&
+            unavailableFolderIds.has(sourceParentId)
+        ) {
+            unavailableFolderIds.add(folderNode.sourceId);
+            items.push({
+                resource: "asset_folder",
+                sourceId: folderNode.sourceId,
+                name: folderName,
+                outcome: "skipped_parent_failed",
+            });
+            Logger.error(
+                `  skipped: asset folder '${folderName}', because its parent folder was not created.`,
+            );
             continue;
         }
 
@@ -4326,20 +4645,52 @@ const copyAssetsAndWriteManifests = async ({
             sourceParentId === null
                 ? null
                 : (copyMaps.assetFolderIds.get(sourceParentId) ?? null);
-        const createdFolder = await managementApi.assets.createAssetFolder(
-            {
-                spaceId: targetSpace,
-                payload: {
-                    name: String(sourceFolder.name),
-                    parent_id: targetParentId,
+        let targetFolder: any;
+        let createError: unknown;
+
+        try {
+            const createdFolder = await managementApi.assets.createAssetFolder(
+                {
+                    spaceId: targetSpace,
+                    payload: {
+                        name: String(sourceFolder.name),
+                        parent_id: targetParentId,
+                    },
                 },
-            },
-            {
-                ...apiConfig,
-                spaceId: targetSpace,
-            },
-        );
-        const targetFolder = createdFolder.asset_folder;
+                {
+                    ...apiConfig,
+                    spaceId: targetSpace,
+                },
+            );
+
+            targetFolder = createdFolder?.asset_folder;
+        } catch (error) {
+            createError = error;
+        }
+
+        if (!targetFolder?.id) {
+            const status = resolveThrownStatus(createError);
+            const message = `Failed to create asset folder '${folderName}' in space '${targetSpace}'${status ? ` (status ${status})` : ""}: ${createError ? describeThrown(createError) : "the create response carried no asset folder"}. Nothing inside it is copied.`;
+
+            Logger.error(message);
+            failures.push({
+                resource: "asset_folder",
+                name: folderName,
+                phase: "create",
+                ...(status ? { status } : {}),
+                message,
+                sourceId: folderNode.sourceId,
+            });
+            unavailableFolderIds.add(folderNode.sourceId);
+            items.push({
+                resource: "asset_folder",
+                sourceId: folderNode.sourceId,
+                name: folderName,
+                outcome: "create_failed",
+            });
+            continue;
+        }
+
         const entry: CopyAssetFolderManifestEntry = {
             type: "asset_folder",
             source_space_id: sourceSpace,
@@ -4367,6 +4718,13 @@ const copyAssetsAndWriteManifests = async ({
         folderNode.targetParentId = entry.target_parent_id;
         folderNode.action = "create";
         assetFoldersCreated += 1;
+        items.push({
+            resource: "asset_folder",
+            sourceId: folderNode.sourceId,
+            name: folderName,
+            targetId: entry.target_id,
+            outcome: "created",
+        });
     }
 
     for (const asset of sourceAssets) {
@@ -4376,6 +4734,7 @@ const copyAssetsAndWriteManifests = async ({
             continue;
         }
 
+        const assetName = String(asset.filename ?? asset.id);
         const mappedTargetAsset = copyMaps.assetIds.get(Number(asset.id));
 
         if (mappedTargetAsset) {
@@ -4389,6 +4748,13 @@ const copyAssetsAndWriteManifests = async ({
                       ) ?? null);
             graphAsset.action = "match";
             assetsMatched += 1;
+            items.push({
+                resource: "asset",
+                sourceId: Number(asset.id),
+                name: assetName,
+                targetId: Number(mappedTargetAsset.id),
+                outcome: "matched",
+            });
             continue;
         }
 
@@ -4438,40 +4804,80 @@ const copyAssetsAndWriteManifests = async ({
             graphAsset.targetAssetFolderId = entry.target_asset_folder_id;
             graphAsset.action = "match";
             assetsMatched += 1;
+            items.push({
+                resource: "asset",
+                sourceId: Number(asset.id),
+                name: assetName,
+                targetId: entry.target_id,
+                outcome: "matched",
+            });
             continue;
         }
 
-        const pathToFile = await managementApi.assets.downloadAsset(
-            { payload: asset },
-            apiConfig,
-        );
-        const targetAsset = await managementApi.assets.createAssetAndFinalize(
-            {
-                spaceId: targetSpace,
-                pathToFile,
-                payload: {
-                    filename: asset.filename,
-                    asset_folder_id: targetAssetFolderId,
-                },
-            },
-            {
-                ...apiConfig,
-                spaceId: targetSpace,
-            },
-        );
+        if (
+            asset.asset_folder_id !== null &&
+            asset.asset_folder_id !== undefined &&
+            unavailableFolderIds.has(Number(asset.asset_folder_id))
+        ) {
+            items.push({
+                resource: "asset",
+                sourceId: Number(asset.id),
+                name: assetName,
+                outcome: "skipped_parent_failed",
+            });
+            Logger.error(
+                `  skipped: asset '${assetName}', because its asset folder was not created.`,
+            );
+            continue;
+        }
 
-        if (Object.keys(getAssetMetadataPayload(asset)).length > 0) {
-            await managementApi.assets.updateAsset(
+        let targetAsset: any;
+        let createError: unknown;
+
+        try {
+            const pathToFile = await managementApi.assets.downloadAsset(
+                { payload: asset },
+                apiConfig,
+            );
+
+            targetAsset = await managementApi.assets.createAssetAndFinalize(
                 {
                     spaceId: targetSpace,
-                    assetId: Number(targetAsset.id),
-                    payload: getAssetMetadataPayload(asset),
+                    pathToFile,
+                    payload: {
+                        filename: asset.filename,
+                        asset_folder_id: targetAssetFolderId,
+                    },
                 },
                 {
                     ...apiConfig,
                     spaceId: targetSpace,
                 },
             );
+        } catch (error) {
+            createError = error;
+        }
+
+        if (!targetAsset?.id) {
+            const status = resolveThrownStatus(createError);
+            const message = `Failed to copy asset '${assetName}' into space '${targetSpace}'${status ? ` (status ${status})` : ""}: ${createError ? describeThrown(createError) : "the upload response carried no asset"}.`;
+
+            Logger.error(message);
+            failures.push({
+                resource: "asset",
+                name: assetName,
+                phase: "create",
+                ...(status ? { status } : {}),
+                message,
+                sourceId: Number(asset.id),
+            });
+            items.push({
+                resource: "asset",
+                sourceId: Number(asset.id),
+                name: assetName,
+                outcome: "create_failed",
+            });
+            continue;
         }
 
         const entry: CopyAssetManifestEntry = {
@@ -4505,6 +4911,49 @@ const copyAssetsAndWriteManifests = async ({
         graphAsset.targetAssetFolderId = entry.target_asset_folder_id;
         graphAsset.action = "create";
         assetsCreated += 1;
+
+        // The ledger entry is written first: the asset exists in the target
+        // now, and a rerun must find it even if its metadata never lands.
+        let outcome: CopyItemOutcome = "created";
+
+        if (Object.keys(getAssetMetadataPayload(asset)).length > 0) {
+            try {
+                await managementApi.assets.updateAsset(
+                    {
+                        spaceId: targetSpace,
+                        assetId: Number(targetAsset.id),
+                        payload: getAssetMetadataPayload(asset),
+                    },
+                    {
+                        ...apiConfig,
+                        spaceId: targetSpace,
+                    },
+                );
+            } catch (error) {
+                const status = resolveThrownStatus(error);
+                const message = `Asset '${assetName}' was copied as target asset '${entry.target_id}', but its metadata (alt, title, copyright) could not be written${status ? ` (status ${status})` : ""}: ${describeThrown(error)}.`;
+
+                Logger.error(message);
+                failures.push({
+                    resource: "asset",
+                    name: assetName,
+                    phase: "update",
+                    ...(status ? { status } : {}),
+                    message,
+                    sourceId: Number(asset.id),
+                    targetId: entry.target_id,
+                });
+                outcome = "update_failed";
+            }
+        }
+
+        items.push({
+            resource: "asset",
+            sourceId: Number(asset.id),
+            name: assetName,
+            targetId: entry.target_id,
+            outcome,
+        });
     }
 
     await dedupeManifestFile(manifestPaths.assetFolders);
@@ -4523,15 +4972,24 @@ const copyAssetsAndWriteManifests = async ({
         assetFoldersMatched,
         assetsCreated,
         assetsMatched,
+        items,
+        failures,
     });
 
     if (outputPath) {
         await writeJsonReport(outputPath, report);
     }
 
-    Logger.success(
-        `Asset copy complete. Created ${assetsCreated} asset(s), matched ${assetsMatched} asset(s).`,
-    );
+    if (failures.length > 0) {
+        Logger.error(
+            `Asset copy finished with ${failures.length} failed write(s); every other asset went through. Outcomes: ${formatCopyOutcomeCounts(report.summary.outcomes)}.`,
+        );
+        process.exitCode = 1;
+    } else {
+        Logger.success(
+            `Asset copy complete. Created ${assetsCreated} asset(s), matched ${assetsMatched} asset(s).`,
+        );
+    }
     Logger.success(`Asset manifest written to ${manifestPaths.assets}`);
     Logger.success(
         `Asset folder manifest written to ${manifestPaths.assetFolders}`,
@@ -5111,10 +5569,24 @@ const relinkTargetStories = async ({
     let unchangedStories = 0;
     let rewrittenReferences = 0;
     let publishedStories = 0;
-    const failures: Array<{ fullSlug: string; message: string }> = [];
+    const failures: CopyRunFailure[] = [];
+    // Keyed by planned target full_slug, the key every relink plan item has.
+    // A planned story missing from the target gets no outcome: nothing was
+    // written and nothing could be.
+    const outcomes = new Map<string, CopyOutcomeRecord>();
 
     for (const record of matches) {
-        if (!record.rewrite || !record.targetStory) {
+        if (!record.targetStory) {
+            continue;
+        }
+
+        const targetId = Number(record.targetStory.id);
+
+        if (!record.rewrite) {
+            outcomes.set(record.item.targetFullSlug, {
+                outcome: "matched",
+                targetId,
+            });
             continue;
         }
 
@@ -5124,6 +5596,10 @@ const relinkTargetStories = async ({
 
         if (!record.rewrite.changed) {
             unchangedStories += 1;
+            outcomes.set(record.item.targetFullSlug, {
+                outcome: "matched",
+                targetId,
+            });
             continue;
         }
 
@@ -5151,13 +5627,30 @@ const relinkTargetStories = async ({
         } catch (error) {
             const message =
                 error instanceof Error ? error.message : String(error);
+            const status = Number(result?.status);
+
             Logger.error(message);
-            failures.push({ fullSlug: targetLabel, message });
+            failures.push({
+                resource: "story",
+                path: targetLabel,
+                phase: "update",
+                ...(Number.isFinite(status) && status > 0 ? { status } : {}),
+                message,
+                targetId,
+            });
+            outcomes.set(record.item.targetFullSlug, {
+                outcome: "update_failed",
+                targetId,
+            });
             continue;
         }
 
         updatedStories += 1;
         rewrittenReferences += record.rewrite.rewrittenReferences;
+        outcomes.set(record.item.targetFullSlug, {
+            outcome: "updated",
+            targetId,
+        });
 
         if (record.targetStory.published === true) {
             publishedStories += 1;
@@ -5184,17 +5677,20 @@ const relinkTargetStories = async ({
         );
 
         for (const failure of failures) {
-            Logger.error(`  - ${failure.fullSlug || "<unknown>"}`);
+            Logger.error(`  - ${failure.path || "<unknown>"}`);
         }
 
-        throw new Error(
-            `Relink finished but ${failures.length} story update(s) failed:\n${failures
-                .map((failure) => failure.message)
-                .join("\n")}`,
-        );
+        // The caller writes the report and sets the exit code: throwing here
+        // would lose the report.
     }
 
-    return { updatedStories, unchangedStories, rewrittenReferences, failures };
+    return {
+        updatedStories,
+        unchangedStories,
+        rewrittenReferences,
+        failures,
+        outcomes,
+    };
 };
 
 export const copyCommand = async (props: CLIOptions) => {
@@ -5538,102 +6034,152 @@ export const copyCommand = async (props: CLIOptions) => {
             }
 
             let assetCopyReport: CopyAssetsApplyReport | undefined;
+            const outcomes = new Map<string, CopyOutcomeRecord>();
+            const failures: CopyRunFailure[] = [];
+            const plannedTreeCounts = countTreeStories(rootsToCreate);
+            let storySummary: CopyStoriesApplySummary = {
+                storyFoldersPlanned: plannedTreeCounts.folders,
+                storiesPlanned: plannedTreeCounts.stories,
+                storiesCreated: 0,
+                storiesMatched: 0,
+                storiesCreateFailed: 0,
+                storiesSkippedParentFailed: 0,
+            };
 
-            if (withAssetsGraph) {
-                Logger.warning(
-                    "Copying referenced assets before stories because --with-assets was passed.",
-                );
-                assetCopyReport = await copyAssetsAndWriteManifests({
+            // From here on the target is being written. Whatever fails is
+            // recorded and the report is still written: an uncaught throw would
+            // lose the only record of what did land.
+            try {
+                if (withAssetsGraph) {
+                    Logger.warning(
+                        "Copying referenced assets before stories because --with-assets was passed.",
+                    );
+                    assetCopyReport = await copyAssetsAndWriteManifests({
+                        sourceSpace,
+                        targetSpace,
+                        selection: {
+                            type: "asset",
+                            values: withAssetsGraph.assets.map((asset) =>
+                                String(asset.sourceId),
+                            ),
+                        },
+                        input: { ...flags },
+                        graph: withAssetsGraph,
+                        sourceAssets,
+                        sourceAssetFolders,
+                        manifestRoot,
+                    });
+                }
+
+                const publishedLayerRecordBySourceId = new Map<
+                    string,
+                    PublishedLayerRecord
+                >();
+
+                if (publication.mode === "preserve-layers") {
+                    const publishedLayerContext =
+                        await buildPublishedLayerContext(
+                            {
+                                items: sourceStories,
+                                from: sourceSpace,
+                            },
+                            apiConfig,
+                        );
+
+                    for (const record of publishedLayerContext.records) {
+                        publishedLayerRecordBySourceId.set(
+                            String(record.storyId),
+                            record,
+                        );
+                    }
+                }
+
+                // One map for both phases, so a mapping phase 1 finds moved re-bases
+                // the paths phase 2 works under.
+                const targetSlugBySourceSlug =
+                    buildTargetSlugBySourceSlug(plan);
+                const phaseOne = await createStoriesAndWriteManifests({
+                    tree: rootsToCreate,
+                    realParentId: destinationParentId,
+                    sourceStoryById: buildSourceStoryById(sourceStories),
+                    targetSlugBySourceSlug,
                     sourceSpace,
                     targetSpace,
-                    selection: {
-                        type: "asset",
-                        values: withAssetsGraph.assets.map((asset) =>
-                            String(asset.sourceId),
-                        ),
-                    },
-                    input: { ...flags },
-                    graph: withAssetsGraph,
-                    sourceAssets,
-                    sourceAssetFolders,
                     manifestRoot,
+                    outcomes,
+                });
+                storySummary = phaseOne.summary;
+                failures.push(...phaseOne.createFailures);
+
+                if (phaseOne.createFailures.length > 0) {
+                    Logger.error(
+                        `${phaseOne.createFailures.length} target story/stories could not be created and ${storySummary.storiesSkippedParentFailed} item(s) under them were skipped. The run carries on with everything else and exits 1.`,
+                    );
+                }
+
+                const phaseTwo = await rewriteCopiedStoryContents({
+                    tree: rootsToCreate,
+                    realParentId: destinationParentId,
+                    sourceStoryById: buildSourceStoryById(sourceStories),
+                    targetSlugBySourceSlug,
+                    skippedSourceIds: phaseOne.skippedSourceIds,
+                    publication,
+                    publishedLayerRecordBySourceId,
+                    sourceSpace,
+                    targetSpace,
+                    manifestRoot,
+                    targetLanguageCodes,
+                    outcomes,
+                });
+
+                failures.push(...phaseTwo.failures);
+            } catch (error) {
+                const message = describeThrown(error);
+
+                Logger.error(
+                    `copy stories stopped on an unexpected error after writing started: ${message}. Everything recorded up to that point is in the report.`,
+                );
+                failures.push({
+                    resource: "run",
+                    phase: "unexpected",
+                    message,
                 });
             }
 
-            const publishedLayerRecordBySourceId = new Map<
-                string,
-                PublishedLayerRecord
-            >();
-
-            if (publication.mode === "preserve-layers") {
-                const publishedLayerContext = await buildPublishedLayerContext(
-                    {
-                        items: sourceStories,
-                        from: sourceSpace,
-                    },
-                    apiConfig,
-                );
-
-                for (const record of publishedLayerContext.records) {
-                    publishedLayerRecordBySourceId.set(
-                        String(record.storyId),
-                        record,
-                    );
-                }
-            }
-
-            // One map for both phases, so a mapping phase 1 finds moved re-bases
-            // the paths phase 2 works under.
-            const targetSlugBySourceSlug = buildTargetSlugBySourceSlug(plan);
-            const phaseOne = await createStoriesAndWriteManifests({
-                tree: rootsToCreate,
-                realParentId: destinationParentId,
-                sourceStoryById: buildSourceStoryById(sourceStories),
-                targetSlugBySourceSlug,
+            const allFailures = [
+                ...(assetCopyReport?.failures ?? []),
+                ...failures,
+            ];
+            const report = buildCopyStoriesApplyReport({
                 sourceSpace,
                 targetSpace,
+                selection,
+                destination,
+                withAssets,
+                input: { ...flags },
+                plan,
+                storySummary,
+                graph: withAssetsGraph,
+                assetCopyReport,
+                translatedSlugs,
                 manifestRoot,
-            });
-            const storySummary = phaseOne.summary;
-
-            if (phaseOne.createFailures.length > 0) {
-                Logger.error(
-                    `${phaseOne.createFailures.length} target story/stories could not be created and ${storySummary.storiesSkippedParentFailed} item(s) under them were skipped. The run carries on with everything else and exits 1.`,
-                );
-                process.exitCode = 1;
-            }
-
-            await rewriteCopiedStoryContents({
-                tree: rootsToCreate,
-                realParentId: destinationParentId,
-                sourceStoryById: buildSourceStoryById(sourceStories),
-                targetSlugBySourceSlug,
-                skippedSourceIds: phaseOne.skippedSourceIds,
-                publication,
-                publishedLayerRecordBySourceId,
-                sourceSpace,
-                targetSpace,
-                manifestRoot,
-                targetLanguageCodes,
+                failures: allFailures,
+                outcomes,
             });
 
             if (outputPath) {
-                const report = buildCopyStoriesApplyReport({
-                    sourceSpace,
-                    targetSpace,
-                    selection,
-                    destination,
-                    withAssets,
-                    input: { ...flags },
-                    plan,
-                    storySummary,
-                    graph: withAssetsGraph,
-                    assetCopyReport,
-                    translatedSlugs,
-                    manifestRoot,
-                });
-
                 await writeJsonReport(outputPath, report);
+            }
+
+            const outcomeLine = `Outcomes: ${formatCopyOutcomeCounts(report.summary.outcomes)}.`;
+
+            if (allFailures.length > 0) {
+                Logger.error(
+                    `copy stories finished with ${allFailures.length} failed write(s); every other item went through. ${outcomeLine}`,
+                );
+                process.exitCode = 1;
+            } else {
+                Logger.success(`copy stories finished. ${outcomeLine}`);
             }
 
             break;
@@ -5854,10 +6400,70 @@ export const copyCommand = async (props: CLIOptions) => {
                 Logger.log(line),
             );
 
+            const outputPath = readStringFlag(flags, ["outputPath"]);
+            // One report shape for both modes: the plan on --dry-run; on apply
+            // the same items, each with what happened to it, plus every failure.
+            const buildRelinkReport = (
+                applied?: Awaited<ReturnType<typeof relinkTargetStories>>,
+            ) => {
+                const items = relinkPlan.map((item) => {
+                    const record = applied?.outcomes.get(item.targetFullSlug);
+
+                    return record
+                        ? {
+                              ...item,
+                              outcome: record.outcome,
+                              ...(record.targetId !== undefined
+                                  ? { targetId: record.targetId }
+                                  : {}),
+                          }
+                        : item;
+                });
+
+                return {
+                    schemaVersion: 1,
+                    command: "copy relink",
+                    dryRun: !applied,
+                    generatedAt: new Date().toISOString(),
+                    input: { ...flags },
+                    normalized: {
+                        sourceSpaceId: sourceSpace,
+                        targetSpaceId: targetSpace,
+                        source: selection.source,
+                        destination:
+                            normalizeDestination(destination) || "root",
+                        mode: selection.mode,
+                    },
+                    summary: applied
+                        ? {
+                              updatedStories: applied.updatedStories,
+                              unchangedStories: applied.unchangedStories,
+                              rewrittenReferences: applied.rewrittenReferences,
+                              outcomes: countCopyOutcomes(
+                                  items.map((item) =>
+                                      "outcome" in item
+                                          ? item.outcome
+                                          : undefined,
+                                  ),
+                              ),
+                              failed: applied.failures.length,
+                          }
+                        : {},
+                    plan: relinkSummary,
+                    items,
+                    failures: applied?.failures ?? [],
+                };
+            };
+
             if (dryRun) {
                 Logger.warning(
                     "[dry-run] Relink preview only. No Storyblok writes and no ledger entries were made.",
                 );
+
+                if (outputPath) {
+                    await writeDryRunReport(outputPath, buildRelinkReport());
+                }
+
                 break;
             }
 
@@ -5865,12 +6471,24 @@ export const copyCommand = async (props: CLIOptions) => {
                 break;
             }
 
-            await relinkTargetStories({
+            const relinked = await relinkTargetStories({
                 matches,
                 manifestPaths,
                 sourceSpace,
                 targetSpace,
             });
+            const relinkReport = buildRelinkReport(relinked);
+
+            if (outputPath) {
+                await writeJsonReport(outputPath, relinkReport);
+            }
+
+            if (relinked.failures.length > 0) {
+                Logger.error(
+                    `copy relink finished with ${relinked.failures.length} failed write(s); every other story went through. Outcomes: ${formatCopyOutcomeCounts(relinkReport.summary.outcomes ?? countCopyOutcomes([]))}.`,
+                );
+                process.exitCode = 1;
+            }
 
             break;
         }

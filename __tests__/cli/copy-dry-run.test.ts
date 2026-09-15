@@ -2132,22 +2132,36 @@ describe("copy stories dry-run", () => {
                 response: "This record could not be found",
             });
 
-        await expect(
-            copyCommand({
-                input: ["copy", "stories"],
-                flags: {
-                    from: "source-space",
-                    to: "target-space",
-                    source: "blog",
-                    destination: "imported",
-                    manifestRoot,
-                    yes: true,
-                },
-            } as any),
-        ).rejects.toThrow(
-            "Failed to update copied story 'blog' in target space 'target-space'",
-        );
+        const exitCodeBefore = process.exitCode;
 
+        process.exitCode = undefined;
+
+        // MAR-3056: a failed write is reported and exits 1; it never throws.
+        await copyCommand({
+            input: ["copy", "stories"],
+            flags: {
+                from: "source-space",
+                to: "target-space",
+                source: "blog",
+                destination: "imported",
+                manifestRoot,
+                yes: true,
+            },
+        } as any);
+
+        expect(process.exitCode).toBe(1);
+        expect(
+            vi
+                .mocked(Logger.error)
+                .mock.calls.map((call) => String(call[0]))
+                .some((line) =>
+                    line.includes(
+                        "Failed to update copied story 'blog' in target space 'target-space'",
+                    ),
+                ),
+        ).toBe(true);
+
+        process.exitCode = exitCodeBefore;
         await rm(tempDir, { recursive: true, force: true });
     });
 
@@ -2166,25 +2180,33 @@ describe("copy stories dry-run", () => {
             })
             .mockResolvedValue({ ok: true });
 
-        await expect(
-            copyCommand({
-                input: ["copy", "stories"],
-                flags: {
-                    from: "source-space",
-                    to: "target-space",
-                    source: "blog",
-                    destination: "imported",
-                    manifestRoot,
-                    yes: true,
-                },
-            } as any),
-        ).rejects.toThrow(
-            "Copy finished but 1 story/story shell update(s) failed",
-        );
+        const exitCodeBefore = process.exitCode;
+
+        process.exitCode = undefined;
+
+        // MAR-3056: a failed write is reported and exits 1; it never throws.
+        await copyCommand({
+            input: ["copy", "stories"],
+            flags: {
+                from: "source-space",
+                to: "target-space",
+                source: "blog",
+                destination: "imported",
+                manifestRoot,
+                yes: true,
+            },
+        } as any);
 
         // Both stories were attempted even though the first one failed.
         expect(mocks.updateStory).toHaveBeenCalledTimes(2);
+        expect(process.exitCode).toBe(1);
+        expect(
+            vi.mocked(Logger.error).mock.calls.map((call) => String(call[0])),
+        ).toContain(
+            "1 story/story shell update(s) failed; the rest of the copy still completed. Failed stories:",
+        );
 
+        process.exitCode = exitCodeBefore;
         await rm(tempDir, { recursive: true, force: true });
     });
 
@@ -2630,9 +2652,13 @@ describe("copy stories dry-run", () => {
                         : { ok: true },
             );
 
-            // Whether a failed update ends the run is MAR-3056's contract; this
-            // test only cares what was published before it ended.
-            await runCopy({ manifestRoot }).catch(() => undefined);
+            const exitCodeBefore = process.exitCode;
+
+            await runCopy({ manifestRoot });
+
+            // MAR-3056: the rejected update is reported and exits 1.
+            expect(process.exitCode).toBe(1);
+            process.exitCode = exitCodeBefore;
 
             expect(mocks.updateStory).toHaveBeenCalledWith(
                 expect.objectContaining({ is_folder: true, slug: "blog" }),
@@ -2988,6 +3014,244 @@ describe("copy stories dry-run", () => {
                 storiesCreateFailed: 1,
                 storiesSkippedParentFailed: 1,
             });
+        });
+    });
+
+    describe("failed writes never end the run (MAR-3056)", () => {
+        let tempDir: string;
+        let manifestRoot: string;
+        let outputPath: string;
+        let exitCodeBefore: typeof process.exitCode;
+
+        beforeEach(async () => {
+            tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-copy-"));
+            manifestRoot = path.join(tempDir, ".sb-mig");
+            outputPath = path.join(tempDir, "report.json");
+            exitCodeBefore = process.exitCode;
+            process.exitCode = undefined;
+        });
+
+        afterEach(async () => {
+            process.exitCode = exitCodeBefore;
+            await rm(tempDir, { recursive: true, force: true });
+        });
+
+        const runApply = (flags: Record<string, unknown> = {}) =>
+            copyCommand({
+                input: ["copy", "stories"],
+                flags: {
+                    from: "source-space",
+                    to: "target-space",
+                    source: "blog",
+                    destination: "imported",
+                    manifestRoot,
+                    outputPath,
+                    yes: true,
+                    ...flags,
+                },
+            } as any);
+
+        const readReport = async () =>
+            JSON.parse(await readFile(outputPath, "utf8"));
+
+        const outcomeBySlug = (report: any) =>
+            Object.fromEntries(
+                report.items.map((item: any) => [
+                    item.sourceFullSlug,
+                    item.outcome,
+                ]),
+            );
+
+        const printed = () =>
+            [
+                ...vi.mocked(Logger.log).mock.calls,
+                ...vi.mocked(Logger.success).mock.calls,
+                ...vi.mocked(Logger.warning).mock.calls,
+                ...vi.mocked(Logger.error).mock.calls,
+            ].map((call) => String(call[0]));
+
+        const publishedPost = () =>
+            mocks.getAllStories.mockResolvedValue([
+                {
+                    story: {
+                        id: 2,
+                        name: "Post 1",
+                        slug: "post-1",
+                        full_slug: "blog/post-1",
+                        is_folder: false,
+                        parent_id: 1,
+                        uuid: "source-post-uuid",
+                        published: true,
+                        unpublished_changes: false,
+                        content: { component: "page" },
+                    },
+                },
+            ]);
+
+        // MAR-3056 R3 (a) canary. Mutation that must turn it red: restore the
+        // throw at the end of rewriteCopiedStoryContents (no report is written).
+        it("writes the report and exits 1 when one content update is rejected", async () => {
+            mocks.updateStory.mockImplementation(
+                async (_payload: any, storyId: string) =>
+                    storyId === "1002"
+                        ? {
+                              ok: false,
+                              status: 422,
+                              response:
+                                  "The value of the field body must be a prosemirror document",
+                          }
+                        : { ok: true },
+            );
+
+            await runApply();
+
+            expect(process.exitCode).toBe(1);
+
+            const report = await readReport();
+
+            expect(outcomeBySlug(report)).toEqual({
+                blog: "updated",
+                "blog/post-1": "update_failed",
+            });
+            expect(
+                report.items.map((item: any) => [
+                    item.sourceFullSlug,
+                    item.targetId,
+                ]),
+            ).toEqual([
+                ["blog", 1001],
+                ["blog/post-1", 1002],
+            ]);
+            expect(report.failures).toEqual([
+                expect.objectContaining({
+                    resource: "story",
+                    path: "blog/post-1",
+                    phase: "update",
+                    status: 422,
+                    sourceId: 2,
+                    targetId: 1002,
+                }),
+            ]);
+            expect(report.summary.outcomes).toMatchObject({
+                updated: 1,
+                update_failed: 1,
+            });
+            expect(report.summary.failed).toBe(1);
+            expect(
+                printed().some(
+                    (line) =>
+                        line.includes("updated 1") &&
+                        line.includes("update_failed 1"),
+                ),
+            ).toBe(true);
+        });
+
+        // MAR-3056 R3 (b) canary. Mutation that must turn it red: stop
+        // recording skipped_parent_failed for the children of a failed create.
+        it("reports a failed create and the children it skipped, writes the report, and exits 1", async () => {
+            mocks.createStory.mockResolvedValue({
+                ok: false,
+                stage: "create",
+                status: 500,
+                response: "Internal Server Error",
+            });
+
+            await runApply();
+
+            expect(process.exitCode).toBe(1);
+
+            const report = await readReport();
+
+            expect(outcomeBySlug(report)).toEqual({
+                blog: "create_failed",
+                "blog/post-1": "skipped_parent_failed",
+            });
+            expect(report.failures).toEqual([
+                expect.objectContaining({
+                    resource: "story",
+                    path: "blog",
+                    phase: "create",
+                    status: 500,
+                }),
+            ]);
+            expect(report.summary.outcomes).toMatchObject({
+                create_failed: 1,
+                skipped_parent_failed: 1,
+            });
+        });
+
+        it("marks a story published only when its publish went through", async () => {
+            publishedPost();
+
+            await runApply({ publicationLanguages: "default" });
+
+            expect(process.exitCode).toBeUndefined();
+
+            const report = await readReport();
+
+            expect(outcomeBySlug(report)).toEqual({
+                blog: "updated",
+                "blog/post-1": "published",
+            });
+            expect(report.failures).toEqual([]);
+        });
+
+        // Mutation that must turn it red: count a rejected publish as an
+        // update_failed, as if the content had never been written.
+        it("reports a rejected publish as publish_skipped with its failure, and exits 1", async () => {
+            publishedPost();
+            mocks.publishStoryLanguages.mockResolvedValue({
+                ok: false,
+                stage: "publish",
+                status: 422,
+                response: "Publishing is not allowed",
+            });
+
+            await runApply({ publicationLanguages: "default" });
+
+            expect(process.exitCode).toBe(1);
+
+            const report = await readReport();
+
+            expect(outcomeBySlug(report)).toEqual({
+                blog: "updated",
+                "blog/post-1": "publish_skipped",
+            });
+            expect(report.failures).toEqual([
+                expect.objectContaining({
+                    resource: "story",
+                    path: "blog/post-1",
+                    phase: "publish",
+                    status: 422,
+                    targetId: 1002,
+                }),
+            ]);
+        });
+
+        // Mutation that must turn it red: remove the catch around the writes
+        // in the copy stories apply path.
+        it("still writes the report and exits 1 when something throws after writing started", async () => {
+            mocks.createStory.mockRejectedValue(new Error("socket hang up"));
+
+            await runApply();
+
+            expect(process.exitCode).toBe(1);
+
+            const report = await readReport();
+
+            expect(report.failures).toEqual([
+                expect.objectContaining({
+                    resource: "run",
+                    phase: "unexpected",
+                    message: expect.stringContaining("socket hang up"),
+                }),
+            ]);
+        });
+
+        it("writes an empty failures array into the dry-run report", async () => {
+            await runApply({ dryRun: true });
+
+            expect((await readReport()).failures).toEqual([]);
         });
     });
 });

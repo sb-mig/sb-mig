@@ -119,6 +119,12 @@ describe("CLI help output", () => {
         expect(copyHelp).toContain(
             "copy stories never publishes folders; publish state applies to stories only",
         );
+        expect(copyHelp).toContain(
+            "copy stories, copy relink and copy assets never stop at a failed write",
+        );
+        expect(copyHelp).toContain(
+            "updated, published or publish_skipped mean its content was written",
+        );
         expect(copyHelp).toContain("copy manifests");
         expect(copyHelp).toContain("copy space");
         expect(copyHelp).toContain("--only");
