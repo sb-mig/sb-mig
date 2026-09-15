@@ -116,6 +116,9 @@ describe("CLI help output", () => {
         expect(copyHelp).toContain("copy stories");
         expect(copyHelp).toContain("copy assets");
         expect(copyHelp).toContain("copy relink");
+        expect(copyHelp).toContain(
+            "copy stories never publishes folders; publish state applies to stories only",
+        );
         expect(copyHelp).toContain("copy manifests");
         expect(copyHelp).toContain("copy space");
         expect(copyHelp).toContain("--only");

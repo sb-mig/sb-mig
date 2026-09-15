@@ -204,6 +204,12 @@ export const formatCopyPlanGate = (summary: CopyPlanGateSummary): string[] => {
         );
     }
 
+    if (stories.folders > 0) {
+        // Stated before the gate because it differs from the source: a folder
+        // published there is not published here (see copy stories GOTCHAS).
+        lines.push(`  folders: ${stories.folders} (never published)`);
+    }
+
     lines.push(formatCopyPlanGateLedger(ledger));
     lines.push(
         ...formatCopyPlanGateReferences({

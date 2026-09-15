@@ -309,6 +309,7 @@ export const copyDescription = `
         copy stories matches existing targets by manifest first, then target full_slug when safe, so reruns can reuse mapped target stories.
         copy stories rewrites mapped asset and story references after story manifests exist.
         copy stories creates shells as save-only drafts, then applies publicationMode after full rewritten content is saved.
+        copy stories never publishes folders; publish state applies to stories only. A folder publish in Storyblok cascades to every story inside it, so each story's own publish state is reproduced instead.
         publicationMode preserve-layers publishes clean published source stories; for dirty published source stories it copies the source published version, publishes it in target, then restores the source draft/current layer as save-only.
         publicationMode collapse-draft publishes published source stories from their current draft/current JSON.
         publicationMode save-only never publishes copied stories.

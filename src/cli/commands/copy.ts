@@ -3166,6 +3166,8 @@ const shouldUsePublishedLayerCopy = (
     sourceStory: any,
     publishedLayerRecord?: PublishedLayerRecord,
 ): boolean =>
+    // A folder is never published: see shouldPublishCopiedCurrentStory.
+    sourceStory?.is_folder !== true &&
     publication.mode === "preserve-layers" &&
     resolveStoryLayerState(sourceStory) === "dirty-published" &&
     Boolean(publishedLayerRecord?.publishedLayerItem?.story);
@@ -3174,6 +3176,15 @@ const shouldPublishCopiedCurrentStory = (
     publication: CopyPublicationOptions,
     sourceStory: any,
 ): boolean => {
+    // Folders are never published, in any publication mode. In Storyblok
+    // "publish folder" is not a state of the folder but an action that
+    // cascades to every descendant, so publishing one here would put each
+    // child live as the empty shell phase 1 created, before its own content
+    // update has run. Publish state is reproduced per story instead.
+    if (sourceStory?.is_folder === true) {
+        return false;
+    }
+
     if (publication.mode === "save-only") {
         return false;
     }
@@ -3517,6 +3528,7 @@ const rewriteCopiedStoryContents = async ({
                 }
 
                 if (
+                    sourceStory.is_folder !== true &&
                     publication.mode === "preserve-layers" &&
                     resolveStoryLayerState(sourceStory) === "dirty-published"
                 ) {
@@ -4216,6 +4228,18 @@ const logDryRunCopyPlan = async ({
     Logger.warning(
         `[dry-run] Would create ${report.items.length} story/folder item(s):`,
     );
+
+    const plannedFolders = report.items.filter(
+        (item: { type: string }) => item.type === "folder",
+    ).length;
+
+    if (plannedFolders > 0) {
+        // Folders are never published (MAR-3055): a folder publish cascades to
+        // every descendant, so publish state is reproduced per story instead.
+        Logger.warning(
+            `[dry-run] folders: ${plannedFolders} (never published)`,
+        );
+    }
 
     for (const item of report.items) {
         Logger.warning(

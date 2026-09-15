@@ -209,6 +209,7 @@ describe("copy plan gate", () => {
             expect(lines).toEqual([
                 "PLAN",
                 "  3 items (1 folder) -> space 222 (3 create, 0 adopt existing, 0 resume from ledger)",
+                "  folders: 1 (never published)",
                 "  ledger: none at /repo/.sb-mig/copy/111/222/manifest.jsonl (starting empty)",
                 "  references: not scanned",
                 "  assets: not copied (pass --with-assets)",
@@ -239,6 +240,7 @@ describe("copy plan gate", () => {
                 "PLAN",
                 "  3 items (1 folder) -> space 222 (1 create, 1 adopt existing, 1 resume from ledger)",
                 "    1 existing target path will be adopted and UPDATED in place.",
+                "  folders: 1 (never published)",
                 "  ledger: 11 entries loaded from /repo/.sb-mig/copy/111/222/manifest.jsonl (resuming; use --fresh to ignore)",
                 "  references: 1 will relink, 1 leave your selection and WILL BREAK",
                 "    WILL BREAK, by story:",
@@ -290,9 +292,9 @@ describe("copy plan gate", () => {
                 }),
             );
 
-            expect(
-                lines.some((line) => line.includes("translated slug")),
-            ).toBe(false);
+            expect(lines.some((line) => line.includes("translated slug"))).toBe(
+                false,
+            );
         });
 
         it("says how many ledger mappings went stale", () => {
@@ -360,10 +362,11 @@ describe("copy plan gate", () => {
                 }),
             );
 
-            expect(lines[2]).toBe(
+            // lines[2] is the folders line (MAR-3055).
+            expect(lines[3]).toBe(
                 "  ledger: 1 entry at /repo/.sb-mig/copy/111/222/manifest.jsonl IGNORED (--fresh; starting empty)",
             );
-            expect(lines[3]).toBe(
+            expect(lines[4]).toBe(
                 "  references: 1 will relink, 1 outside the selection kept (same space), 1 leave your selection and WILL BREAK",
             );
         });

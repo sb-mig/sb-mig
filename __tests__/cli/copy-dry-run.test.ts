@@ -2533,4 +2533,155 @@ describe("copy stories dry-run", () => {
 
         await rm(tempDir, { recursive: true, force: true });
     });
+    describe("folders are never published (MAR-3055)", () => {
+        /**
+         * The default `blog` folder and its `post-1` child, both published in
+         * the source. Storyblok's publish on a folder cascades to every
+         * descendant, so a folder publish would put the child live before its
+         * own content has been written.
+         */
+        const publishedFolderAndChild = ({
+            unpublishedChanges = false,
+        }: { unpublishedChanges?: boolean } = {}) => {
+            const base = mocks.getStoryBySlug.getMockImplementation();
+
+            mocks.getStoryBySlug.mockImplementation(
+                async (slug: string, config: any) => {
+                    const found = await base?.(slug, config);
+
+                    if (slug === "blog" && found?.story) {
+                        return {
+                            story: {
+                                ...found.story,
+                                published: true,
+                                unpublished_changes: unpublishedChanges,
+                            },
+                        };
+                    }
+
+                    return found;
+                },
+            );
+            mocks.getAllStories.mockResolvedValue([
+                {
+                    story: {
+                        id: 2,
+                        name: "Post 1",
+                        slug: "post-1",
+                        full_slug: "blog/post-1",
+                        is_folder: false,
+                        parent_id: 1,
+                        uuid: "source-post-uuid",
+                        published: true,
+                        unpublished_changes: unpublishedChanges,
+                        content: { component: "page" },
+                    },
+                },
+            ]);
+        };
+
+        const runCopy = (flags: Record<string, unknown> = {}) =>
+            copyCommand({
+                input: ["copy", "stories"],
+                flags: {
+                    from: "source-space",
+                    to: "target-space",
+                    source: "blog",
+                    destination: "imported",
+                    publicationLanguages: "default",
+                    yes: true,
+                    ...flags,
+                },
+            } as any);
+
+        const publishedStoryIds = () =>
+            mocks.publishStoryLanguages.mock.calls.map(
+                (call) => call[0].storyId,
+            );
+
+        let tempDir: string;
+        let manifestRoot: string;
+
+        beforeEach(async () => {
+            tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-copy-"));
+            manifestRoot = path.join(tempDir, ".sb-mig");
+        });
+
+        afterEach(async () => {
+            await rm(tempDir, { recursive: true, force: true });
+        });
+
+        // MAR-3055 R4 (a) canary. Mutation that must turn it red: drop the
+        // is_folder guard from shouldPublishCopiedCurrentStory.
+        it("publishes neither a published folder nor a child whose update was rejected", async () => {
+            publishedFolderAndChild();
+            mocks.updateStory.mockImplementation(
+                async (_payload: any, storyId: string) =>
+                    storyId === "1002"
+                        ? {
+                              ok: false,
+                              status: 422,
+                              response:
+                                  "The value of the field content must be a prosemirror document",
+                          }
+                        : { ok: true },
+            );
+
+            // Whether a failed update ends the run is MAR-3056's contract; this
+            // test only cares what was published before it ended.
+            await runCopy({ manifestRoot }).catch(() => undefined);
+
+            expect(mocks.updateStory).toHaveBeenCalledWith(
+                expect.objectContaining({ is_folder: true, slug: "blog" }),
+                "1001",
+                { force_update: true, publish: false },
+                expect.objectContaining({ spaceId: "target-space" }),
+            );
+            expect(mocks.publishStoryLanguages).not.toHaveBeenCalled();
+        });
+
+        // MAR-3055 R4 (b) canary, preserve-layers. Mutation that must turn it
+        // red: drop the is_folder guard from shouldPublishCopiedCurrentStory.
+        it("publishes the story but never the folder under preserve-layers", async () => {
+            publishedFolderAndChild();
+
+            await runCopy({ manifestRoot });
+
+            expect(publishedStoryIds()).toEqual([1002]);
+        });
+
+        // MAR-3055 R4 (b) canary, collapse-draft. Mutation that must turn it
+        // red: drop the is_folder guard from shouldPublishCopiedCurrentStory.
+        it("publishes the story but never the folder under collapse-draft", async () => {
+            publishedFolderAndChild({ unpublishedChanges: true });
+
+            await runCopy({
+                manifestRoot,
+                publicationMode: "collapse-draft",
+            });
+
+            expect(publishedStoryIds()).toEqual([1002]);
+        });
+
+        it("says in the dry-run and the PLAN block that folders are never published", async () => {
+            publishedFolderAndChild();
+
+            await runCopy({ manifestRoot, dryRun: true });
+
+            const printed = [
+                ...(Logger.log as unknown as ReturnType<typeof vi.fn>).mock
+                    .calls,
+                ...(Logger.warning as unknown as ReturnType<typeof vi.fn>).mock
+                    .calls,
+            ].map((call) => String(call[0]));
+
+            expect(printed).toContain("[dry-run] folders: 1 (never published)");
+
+            vi.mocked(Logger.log).mockClear();
+
+            await runCopy({ manifestRoot });
+
+            expect(planGateLines()).toContain("  folders: 1 (never published)");
+        });
+    });
 });
