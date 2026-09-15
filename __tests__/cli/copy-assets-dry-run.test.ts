@@ -715,4 +715,126 @@ describe("copy assets dry-run", () => {
 
         await rm(tempDir, { recursive: true, force: true });
     });
+
+    describe("failed writes never end the run (MAR-3056)", () => {
+        let tempDir: string;
+        let outputPath: string;
+        let exitCodeBefore: typeof process.exitCode;
+
+        beforeEach(async () => {
+            tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-assets-"));
+            outputPath = path.join(tempDir, "assets-report.json");
+            exitCodeBefore = process.exitCode;
+            process.exitCode = undefined;
+        });
+
+        const runApply = () =>
+            copyCommand({
+                input: ["copy", "assets"],
+                flags: {
+                    from: "source-space",
+                    to: "target-space",
+                    all: true,
+                    outputPath,
+                    manifestRoot: path.join(tempDir, ".sb-mig"),
+                },
+            } as any);
+
+        const readReport = async () =>
+            JSON.parse(await readFile(outputPath, "utf8"));
+
+        const finish = async () => {
+            process.exitCode = exitCodeBefore;
+            await rm(tempDir, { recursive: true, force: true });
+        };
+
+        // MAR-3056 R1 canary for assets. Mutation that must turn it red: let a
+        // rejected asset-folder create throw out of copyAssetsAndWriteManifests.
+        it("records a failed asset-folder create, skips what lives under it, writes the report, and exits 1", async () => {
+            mocks.createAssetFolder.mockImplementation(({ payload }) =>
+                payload.name === "Nested"
+                    ? Promise.reject({
+                          status: 422,
+                          message: "Name has already been taken",
+                      })
+                    : Promise.resolve({
+                          asset_folder: {
+                              id: 110,
+                              name: payload.name,
+                              parent_id: payload.parent_id,
+                          },
+                      }),
+            );
+
+            await runApply();
+
+            expect(process.exitCode).toBe(1);
+            // The asset lives in the folder that was not created.
+            expect(mocks.createAssetAndFinalize).not.toHaveBeenCalled();
+
+            const report = await readReport();
+
+            expect(report.items).toEqual([
+                expect.objectContaining({
+                    resource: "asset_folder",
+                    sourceId: 10,
+                    targetId: 110,
+                    outcome: "created",
+                }),
+                expect.objectContaining({
+                    resource: "asset_folder",
+                    sourceId: 20,
+                    outcome: "create_failed",
+                }),
+                expect.objectContaining({
+                    resource: "asset",
+                    sourceId: 200,
+                    outcome: "skipped_parent_failed",
+                }),
+            ]);
+            expect(report.failures).toEqual([
+                expect.objectContaining({
+                    resource: "asset_folder",
+                    name: "Root/Nested",
+                    phase: "create",
+                    status: 422,
+                }),
+            ]);
+
+            await finish();
+        });
+
+        // Mutation that must turn it red: let a rejected upload throw out of
+        // copyAssetsAndWriteManifests.
+        it("records a failed asset upload, writes the report, and exits 1", async () => {
+            mocks.createAssetAndFinalize.mockRejectedValue({
+                status: 500,
+                message: "Internal Server Error",
+            });
+
+            await runApply();
+
+            expect(process.exitCode).toBe(1);
+
+            const report = await readReport();
+
+            expect(
+                report.items.map((item: any) => [item.resource, item.outcome]),
+            ).toEqual([
+                ["asset_folder", "created"],
+                ["asset_folder", "created"],
+                ["asset", "create_failed"],
+            ]);
+            expect(report.failures).toEqual([
+                expect.objectContaining({
+                    resource: "asset",
+                    name: "https://a.storyblok.com/f/123/nested/image.jpg",
+                    phase: "create",
+                    status: 500,
+                }),
+            ]);
+
+            await finish();
+        });
+    });
 });

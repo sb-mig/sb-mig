@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
     createStory: vi.fn(),
     updateStory: vi.fn(),
     publishStoryLanguages: vi.fn(),
+    getStoriesByFullSlugs: vi.fn(),
     getAllComponents: vi.fn(),
     getSpace: vi.fn(),
     getAllAssets: vi.fn(),
@@ -49,6 +50,7 @@ vi.mock("../../src/api/managementApi.js", () => ({
             createStory: mocks.createStory,
             updateStory: mocks.updateStory,
             publishStoryLanguages: mocks.publishStoryLanguages,
+            getStoriesByFullSlugs: mocks.getStoriesByFullSlugs,
         },
         components: {
             getAllComponents: mocks.getAllComponents,
@@ -116,6 +118,7 @@ describe("copy stories dry-run", () => {
         mocks.getStoryById.mockResolvedValue(undefined);
         mocks.getStoryVersions.mockResolvedValue({ story_versions: [] });
         mocks.publishStoryLanguages.mockResolvedValue({ ok: true });
+        mocks.getStoriesByFullSlugs.mockResolvedValue([]);
         mocks.sbApiGet.mockResolvedValue({
             data: {
                 space: {
@@ -2129,22 +2132,36 @@ describe("copy stories dry-run", () => {
                 response: "This record could not be found",
             });
 
-        await expect(
-            copyCommand({
-                input: ["copy", "stories"],
-                flags: {
-                    from: "source-space",
-                    to: "target-space",
-                    source: "blog",
-                    destination: "imported",
-                    manifestRoot,
-                    yes: true,
-                },
-            } as any),
-        ).rejects.toThrow(
-            "Failed to update copied story 'blog' in target space 'target-space'",
-        );
+        const exitCodeBefore = process.exitCode;
 
+        process.exitCode = undefined;
+
+        // MAR-3056: a failed write is reported and exits 1; it never throws.
+        await copyCommand({
+            input: ["copy", "stories"],
+            flags: {
+                from: "source-space",
+                to: "target-space",
+                source: "blog",
+                destination: "imported",
+                manifestRoot,
+                yes: true,
+            },
+        } as any);
+
+        expect(process.exitCode).toBe(1);
+        expect(
+            vi
+                .mocked(Logger.error)
+                .mock.calls.map((call) => String(call[0]))
+                .some((line) =>
+                    line.includes(
+                        "Failed to update copied story 'blog' in target space 'target-space'",
+                    ),
+                ),
+        ).toBe(true);
+
+        process.exitCode = exitCodeBefore;
         await rm(tempDir, { recursive: true, force: true });
     });
 
@@ -2163,25 +2180,33 @@ describe("copy stories dry-run", () => {
             })
             .mockResolvedValue({ ok: true });
 
-        await expect(
-            copyCommand({
-                input: ["copy", "stories"],
-                flags: {
-                    from: "source-space",
-                    to: "target-space",
-                    source: "blog",
-                    destination: "imported",
-                    manifestRoot,
-                    yes: true,
-                },
-            } as any),
-        ).rejects.toThrow(
-            "Copy finished but 1 story/story shell update(s) failed",
-        );
+        const exitCodeBefore = process.exitCode;
+
+        process.exitCode = undefined;
+
+        // MAR-3056: a failed write is reported and exits 1; it never throws.
+        await copyCommand({
+            input: ["copy", "stories"],
+            flags: {
+                from: "source-space",
+                to: "target-space",
+                source: "blog",
+                destination: "imported",
+                manifestRoot,
+                yes: true,
+            },
+        } as any);
 
         // Both stories were attempted even though the first one failed.
         expect(mocks.updateStory).toHaveBeenCalledTimes(2);
+        expect(process.exitCode).toBe(1);
+        expect(
+            vi.mocked(Logger.error).mock.calls.map((call) => String(call[0])),
+        ).toContain(
+            "1 story/story shell update(s) failed; the rest of the copy still completed. Failed stories:",
+        );
 
+        process.exitCode = exitCodeBefore;
         await rm(tempDir, { recursive: true, force: true });
     });
 
@@ -2532,5 +2557,1355 @@ describe("copy stories dry-run", () => {
         );
 
         await rm(tempDir, { recursive: true, force: true });
+    });
+    describe("folders are never published (MAR-3055)", () => {
+        /**
+         * The default `blog` folder and its `post-1` child, both published in
+         * the source. Storyblok's publish on a folder cascades to every
+         * descendant, so a folder publish would put the child live before its
+         * own content has been written.
+         */
+        const publishedFolderAndChild = ({
+            unpublishedChanges = false,
+        }: { unpublishedChanges?: boolean } = {}) => {
+            const base = mocks.getStoryBySlug.getMockImplementation();
+
+            mocks.getStoryBySlug.mockImplementation(
+                async (slug: string, config: any) => {
+                    const found = await base?.(slug, config);
+
+                    if (slug === "blog" && found?.story) {
+                        return {
+                            story: {
+                                ...found.story,
+                                published: true,
+                                unpublished_changes: unpublishedChanges,
+                            },
+                        };
+                    }
+
+                    return found;
+                },
+            );
+            mocks.getAllStories.mockResolvedValue([
+                {
+                    story: {
+                        id: 2,
+                        name: "Post 1",
+                        slug: "post-1",
+                        full_slug: "blog/post-1",
+                        is_folder: false,
+                        parent_id: 1,
+                        uuid: "source-post-uuid",
+                        published: true,
+                        unpublished_changes: unpublishedChanges,
+                        content: { component: "page" },
+                    },
+                },
+            ]);
+        };
+
+        const runCopy = (flags: Record<string, unknown> = {}) =>
+            copyCommand({
+                input: ["copy", "stories"],
+                flags: {
+                    from: "source-space",
+                    to: "target-space",
+                    source: "blog",
+                    destination: "imported",
+                    publicationLanguages: "default",
+                    yes: true,
+                    ...flags,
+                },
+            } as any);
+
+        const publishedStoryIds = () =>
+            mocks.publishStoryLanguages.mock.calls.map(
+                (call) => call[0].storyId,
+            );
+
+        let tempDir: string;
+        let manifestRoot: string;
+
+        beforeEach(async () => {
+            tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-copy-"));
+            manifestRoot = path.join(tempDir, ".sb-mig");
+        });
+
+        afterEach(async () => {
+            await rm(tempDir, { recursive: true, force: true });
+        });
+
+        // MAR-3055 R4 (a) canary. Mutation that must turn it red: drop the
+        // is_folder guard from shouldPublishCopiedCurrentStory.
+        it("publishes neither a published folder nor a child whose update was rejected", async () => {
+            publishedFolderAndChild();
+            mocks.updateStory.mockImplementation(
+                async (_payload: any, storyId: string) =>
+                    storyId === "1002"
+                        ? {
+                              ok: false,
+                              status: 422,
+                              response:
+                                  "The value of the field content must be a prosemirror document",
+                          }
+                        : { ok: true },
+            );
+
+            const exitCodeBefore = process.exitCode;
+
+            await runCopy({ manifestRoot });
+
+            // MAR-3056: the rejected update is reported and exits 1.
+            expect(process.exitCode).toBe(1);
+            process.exitCode = exitCodeBefore;
+
+            expect(mocks.updateStory).toHaveBeenCalledWith(
+                expect.objectContaining({ is_folder: true, slug: "blog" }),
+                "1001",
+                { force_update: true, publish: false },
+                expect.objectContaining({ spaceId: "target-space" }),
+            );
+            expect(mocks.publishStoryLanguages).not.toHaveBeenCalled();
+        });
+
+        // MAR-3055 R4 (b) canary, preserve-layers. Mutation that must turn it
+        // red: drop the is_folder guard from shouldPublishCopiedCurrentStory.
+        it("publishes the story but never the folder under preserve-layers", async () => {
+            publishedFolderAndChild();
+
+            await runCopy({ manifestRoot });
+
+            expect(publishedStoryIds()).toEqual([1002]);
+        });
+
+        // MAR-3055 R4 (b) canary, collapse-draft. Mutation that must turn it
+        // red: drop the is_folder guard from shouldPublishCopiedCurrentStory.
+        it("publishes the story but never the folder under collapse-draft", async () => {
+            publishedFolderAndChild({ unpublishedChanges: true });
+
+            await runCopy({
+                manifestRoot,
+                publicationMode: "collapse-draft",
+            });
+
+            expect(publishedStoryIds()).toEqual([1002]);
+        });
+
+        it("says in the dry-run and the PLAN block that folders are never published", async () => {
+            publishedFolderAndChild();
+
+            await runCopy({ manifestRoot, dryRun: true });
+
+            const printed = [
+                ...(Logger.log as unknown as ReturnType<typeof vi.fn>).mock
+                    .calls,
+                ...(Logger.warning as unknown as ReturnType<typeof vi.fn>).mock
+                    .calls,
+            ].map((call) => String(call[0]));
+
+            expect(printed).toContain("[dry-run] folders: 1 (never published)");
+
+            vi.mocked(Logger.log).mockClear();
+
+            await runCopy({ manifestRoot });
+
+            expect(planGateLines()).toContain("  folders: 1 (never published)");
+        });
+    });
+    describe("resuming through startpages and failed creates (MAR-3060)", () => {
+        let tempDir: string;
+        let manifestRoot: string;
+        let manifestDirectory: string;
+        let exitCodeBefore: typeof process.exitCode;
+
+        beforeEach(async () => {
+            tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-copy-"));
+            manifestRoot = path.join(tempDir, ".sb-mig");
+            manifestDirectory = path.join(
+                manifestRoot,
+                "copy",
+                "source-space",
+                "target-space",
+            );
+            exitCodeBefore = process.exitCode;
+            process.exitCode = undefined;
+        });
+
+        afterEach(async () => {
+            process.exitCode = exitCodeBefore;
+            await rm(tempDir, { recursive: true, force: true });
+        });
+
+        /**
+         * `blog` is a folder whose child is its startpage. A startpage's
+         * `full_slug` is the folder path with a trailing slash (`blog/`), which
+         * is exactly what a `with_slug` path lookup cannot resolve.
+         */
+        const withStartpageChild = () =>
+            mocks.getAllStories.mockResolvedValue([
+                {
+                    story: {
+                        id: 2,
+                        name: "Home",
+                        slug: "home",
+                        full_slug: "blog/",
+                        is_folder: false,
+                        is_startpage: true,
+                        parent_id: 1,
+                        uuid: "source-home-uuid",
+                        content: { component: "page" },
+                    },
+                },
+            ]);
+
+        const storyEntry = (overrides: Record<string, unknown>) =>
+            JSON.stringify({
+                type: "story",
+                source_space_id: "source-space",
+                target_space_id: "target-space",
+                action: "created",
+                created_at: "2026-09-15T10:00:00.000Z",
+                ...overrides,
+            });
+
+        /** The ledger a first run left: the folder and its startpage, both created. */
+        const ledgerWithFolderAndStartpage = async () => {
+            await mkdir(manifestDirectory, { recursive: true });
+            await writeFile(
+                path.join(manifestDirectory, "manifest.jsonl"),
+                [
+                    storyEntry({
+                        source_id: 1,
+                        target_id: 1001,
+                        source_uuid: "source-blog-uuid",
+                        target_uuid: "target-blog-uuid",
+                        source_full_slug: "blog",
+                        target_full_slug: "imported/blog",
+                    }),
+                    storyEntry({
+                        source_id: 2,
+                        target_id: 1002,
+                        source_uuid: "source-home-uuid",
+                        target_uuid: "target-home-uuid",
+                        source_full_slug: "blog/",
+                        target_full_slug: "imported/blog/",
+                    }),
+                ].join("\n") + "\n",
+            );
+        };
+
+        const targetStoriesById = (stories: Record<string, any>) =>
+            mocks.getStoryById.mockImplementation(async (id: string) =>
+                stories[String(id)]
+                    ? { story: stories[String(id)] }
+                    : undefined,
+            );
+
+        const targetFolder = {
+            id: 1001,
+            uuid: "target-blog-uuid",
+            full_slug: "imported/blog",
+            is_folder: true,
+        };
+
+        const runApply = (flags: Record<string, unknown> = {}) =>
+            copyCommand({
+                input: ["copy", "stories"],
+                flags: {
+                    from: "source-space",
+                    to: "target-space",
+                    source: "blog",
+                    destination: "imported",
+                    manifestRoot,
+                    yes: true,
+                    ...flags,
+                },
+            } as any);
+
+        const lines = (method: "warning" | "error") =>
+            (
+                Logger[method] as unknown as ReturnType<typeof vi.fn>
+            ).mock.calls.map((call) => String(call[0]));
+
+        const updatedStoryIds = () =>
+            mocks.updateStory.mock.calls.map((call) => String(call[1]));
+
+        // MAR-3060 R3 (a) canary. Mutation that must turn it red: restore the
+        // with_slug re-lookup in getValidMappedTargetStory.
+        it("resumes a startpage mapped in the ledger without creating it again", async () => {
+            withStartpageChild();
+            await ledgerWithFolderAndStartpage();
+            targetStoriesById({
+                "1001": targetFolder,
+                "1002": {
+                    id: 1002,
+                    uuid: "target-home-uuid",
+                    full_slug: "imported/blog/",
+                    is_folder: false,
+                    is_startpage: true,
+                },
+            });
+
+            await runApply();
+
+            expect(mocks.createStory).not.toHaveBeenCalled();
+            expect(
+                lines("warning").some((line) =>
+                    line.includes("Ignoring stale story manifest mapping"),
+                ),
+            ).toBe(false);
+            expect(
+                lines("warning").some((line) => line.includes("moved")),
+            ).toBe(false);
+            expect(updatedStoryIds()).toContain("1002");
+        });
+
+        // MAR-3060 R1 on the plan side: the gate and the dry-run apply the
+        // same by-id rule the writes do. Mutation that must turn it red:
+        // resolve ledger items through the with_slug path check again.
+        it("counts a ledger-mapped startpage as a resume in the PLAN and labels it matched in the dry-run", async () => {
+            withStartpageChild();
+            await ledgerWithFolderAndStartpage();
+            targetStoriesById({
+                "1001": targetFolder,
+                "1002": {
+                    id: 1002,
+                    uuid: "target-home-uuid",
+                    full_slug: "imported/blog/",
+                    is_folder: false,
+                    is_startpage: true,
+                },
+            });
+
+            await runApply({ dryRun: true });
+
+            expect(lines("warning")).toContain(
+                "[dry-run]   folder imported/blog (ledger: matched)",
+            );
+            expect(lines("warning")).toContain(
+                "[dry-run]   story  imported/blog/home (ledger: matched)",
+            );
+
+            vi.mocked(Logger.log).mockClear();
+
+            await runApply();
+
+            expect(planGateLines()).toContain(
+                "  2 items (1 folder) -> space target-space (0 create, 0 adopt existing, 2 resume from ledger)",
+            );
+        });
+
+        // MAR-3060 R3 (b) canary. Mutation that must turn it red: treat a
+        // target whose full_slug differs from the planned path as stale.
+        it("keeps a mapping whose target has moved, reports it, and creates nothing", async () => {
+            withStartpageChild();
+            await ledgerWithFolderAndStartpage();
+            targetStoriesById({
+                "1001": targetFolder,
+                "1002": {
+                    id: 1002,
+                    uuid: "target-home-uuid",
+                    full_slug: "archive/home",
+                    is_folder: false,
+                },
+            });
+
+            await runApply();
+
+            expect(mocks.createStory).not.toHaveBeenCalled();
+            expect(
+                lines("warning").some(
+                    (line) =>
+                        line.includes("'1002'") &&
+                        line.includes("moved") &&
+                        line.includes("archive/home"),
+                ),
+            ).toBe(true);
+            expect(updatedStoryIds()).toContain("1002");
+        });
+
+        // MAR-3060 R3 (c) canary. Mutation that must turn it red: skip the
+        // by_slugs adoption after a failed create.
+        it("adopts the story at the planned path when create answers slug already taken", async () => {
+            mocks.createStory.mockImplementation(async (content: any) =>
+                content.slug === "blog"
+                    ? {
+                          story: {
+                              id: 1001,
+                              uuid: "target-blog-uuid",
+                              full_slug: "imported/blog",
+                          },
+                      }
+                    : {
+                          ok: false,
+                          stage: "create",
+                          status: 422,
+                          response: "slug: Slug `post-1` already taken",
+                      },
+            );
+            mocks.getStoriesByFullSlugs.mockResolvedValue([
+                {
+                    id: 5002,
+                    uuid: "existing-post-uuid",
+                    full_slug: "imported/blog/post-1",
+                    is_folder: false,
+                },
+            ]);
+
+            await runApply();
+
+            expect(process.exitCode).toBeUndefined();
+            expect(updatedStoryIds()).toContain("5002");
+
+            const storyManifest = (
+                await readFile(
+                    path.join(manifestDirectory, "stories.manifest.jsonl"),
+                    "utf8",
+                )
+            )
+                .trim()
+                .split("\n")
+                .map((line) => JSON.parse(line));
+
+            expect(storyManifest).toContainEqual(
+                expect.objectContaining({
+                    source_id: 2,
+                    target_id: 5002,
+                    action: "matched_by_target_key",
+                }),
+            );
+        });
+
+        // MAR-3060 R3 (d) canary. Mutation that must turn it red: throw again
+        // when a shell create fails.
+        it("skips the subtree of a failed create, reports each child, and exits 1", async () => {
+            const outputPath = path.join(tempDir, "report.json");
+
+            mocks.createStory.mockResolvedValue({
+                ok: false,
+                stage: "create",
+                status: 500,
+                response: "Internal Server Error",
+            });
+
+            await runApply({ outputPath });
+
+            expect(process.exitCode).toBe(1);
+            // The child is never attempted: it has no parent to live under.
+            expect(mocks.createStory).toHaveBeenCalledTimes(1);
+            expect(mocks.updateStory).not.toHaveBeenCalled();
+            expect(
+                lines("error").some(
+                    (line) => line.includes("'blog'") && line.includes("500"),
+                ),
+            ).toBe(true);
+            expect(
+                lines("error").some(
+                    (line) =>
+                        line.includes("'blog/post-1'") &&
+                        line.includes("skipped"),
+                ),
+            ).toBe(true);
+
+            const report = JSON.parse(await readFile(outputPath, "utf8"));
+
+            expect(report.summary).toMatchObject({
+                storiesCreateFailed: 1,
+                storiesSkippedParentFailed: 1,
+            });
+        });
+
+        /**
+         * Storyblok soft-deletes: a trashed story still answers a by-id read
+         * with 200, its old full_slug and a `deleted_at`.
+         */
+        const TRASHED_AT = "2026-09-15T15:07:07.000Z";
+        const trashed = (story: Record<string, unknown>) => ({
+            ...story,
+            deleted_at: TRASHED_AT,
+        });
+        const trashedFolderAndStartpage = () =>
+            targetStoriesById({
+                "1001": trashed(targetFolder),
+                "1002": trashed({
+                    id: 1002,
+                    uuid: "target-home-uuid",
+                    full_slug: "imported/blog/",
+                    is_folder: false,
+                    is_startpage: true,
+                }),
+            });
+        const createsFreshShells = () =>
+            mocks.createStory.mockImplementation(async (content: any) => ({
+                story:
+                    content.slug === "blog"
+                        ? {
+                              id: 3001,
+                              uuid: "new-blog-uuid",
+                              full_slug: "imported/blog",
+                          }
+                        : {
+                              id: 3002,
+                              uuid: "new-home-uuid",
+                              full_slug: "imported/blog/",
+                          },
+            }));
+
+        // MAR-3060 lap 2 F1 canary. Mutation that must turn it red: ignore
+        // `deleted_at` in getValidMappedTargetStory.
+        it("creates anew when the ledger maps a story that sits in the trash", async () => {
+            withStartpageChild();
+            await ledgerWithFolderAndStartpage();
+            trashedFolderAndStartpage();
+            createsFreshShells();
+
+            await runApply();
+
+            expect(mocks.createStory).toHaveBeenCalledTimes(2);
+            expect(updatedStoryIds()).not.toContain("1001");
+            expect(updatedStoryIds()).not.toContain("1002");
+            expect(updatedStoryIds()).toEqual(
+                expect.arrayContaining(["3001", "3002"]),
+            );
+            expect(lines("warning")).toContain(
+                `Ledger mapping for 'blog' points at a deleted story (trashed ${TRASHED_AT}); creating anew.`,
+            );
+            // Once per item.
+            expect(
+                lines("warning").filter((line) =>
+                    line.includes("points at a deleted story"),
+                ),
+            ).toHaveLength(2);
+        });
+
+        // MAR-3060 lap 2 F1 canary, plan side. Mutation that must turn it red:
+        // ignore `deleted_at` in resolvePlanLedgerMatches.
+        it("plans a trashed ledger target as a create and says so in the dry-run", async () => {
+            withStartpageChild();
+            await ledgerWithFolderAndStartpage();
+            trashedFolderAndStartpage();
+            createsFreshShells();
+
+            await runApply({ dryRun: true });
+
+            expect(lines("warning")).toContain(
+                `[dry-run]   folder imported/blog (ledger: points at a deleted story, trashed ${TRASHED_AT}; will be created again)`,
+            );
+
+            vi.mocked(Logger.log).mockClear();
+
+            await runApply();
+
+            expect(planGateLines()).toContain(
+                "  2 items (1 folder) -> space target-space (2 create, 0 adopt existing, 0 resume from ledger)",
+            );
+        });
+
+        // MAR-3060 lap 2 F3 canary. Mutation that must turn it red: throw
+        // again when the replacement create fails and nothing is at the path.
+        it("records a failed replacement create with its status, skips the subtree, and exits 1", async () => {
+            const outputPath = path.join(tempDir, "report.json");
+
+            await mkdir(manifestDirectory, { recursive: true });
+            await writeFile(
+                path.join(manifestDirectory, "manifest.jsonl"),
+                storyEntry({
+                    source_id: 1,
+                    target_id: 9999,
+                    source_uuid: "source-blog-uuid",
+                    target_uuid: "stale-target-blog-uuid",
+                    source_full_slug: "blog",
+                    target_full_slug: "imported/blog",
+                }) + "\n",
+            );
+
+            const staleFolder = {
+                id: 9999,
+                uuid: "stale-target-blog-uuid",
+                full_slug: "imported/blog",
+                is_folder: true,
+            };
+            const getStoryBySlug = mocks.getStoryBySlug.getMockImplementation();
+
+            targetStoriesById({ "9999": staleFolder });
+            mocks.getStoryBySlug.mockImplementation(
+                (slug: string, options: any) =>
+                    slug === "imported/blog"
+                        ? Promise.resolve({ story: staleFolder })
+                        : getStoryBySlug?.(slug, options),
+            );
+            // The folder's replacement cannot be created; the post can.
+            mocks.createStory.mockImplementation(async (content: any) =>
+                content.slug === "blog"
+                    ? {
+                          ok: false,
+                          stage: "create",
+                          status: 500,
+                          response: "Internal Server Error",
+                      }
+                    : {
+                          story: {
+                              id: 1002,
+                              uuid: "target-post-uuid",
+                              full_slug: "imported/blog/post-1",
+                          },
+                      },
+            );
+            // The mapped folder answers the read but not the update.
+            mocks.updateStory
+                .mockResolvedValueOnce({
+                    ok: false,
+                    status: 404,
+                    response: "This record could not be found",
+                })
+                .mockResolvedValue({ ok: true });
+
+            await runApply({ outputPath });
+
+            expect(process.exitCode).toBe(1);
+
+            const report = JSON.parse(await readFile(outputPath, "utf8"));
+
+            expect(report.failures).toEqual([
+                expect.objectContaining({
+                    resource: "story",
+                    path: "blog",
+                    phase: "create",
+                    status: 500,
+                }),
+            ]);
+            expect(
+                Object.fromEntries(
+                    report.items.map((item: any) => [
+                        item.sourceFullSlug,
+                        item.outcome,
+                    ]),
+                ),
+            ).toEqual({
+                blog: "create_failed",
+                "blog/post-1": "skipped_parent_failed",
+            });
+            expect(
+                lines("error").some(
+                    (line) =>
+                        line.includes("'blog/post-1'") &&
+                        line.includes("skipped"),
+                ),
+            ).toBe(true);
+        });
+    });
+
+    describe("failed writes never end the run (MAR-3056)", () => {
+        let tempDir: string;
+        let manifestRoot: string;
+        let outputPath: string;
+        let exitCodeBefore: typeof process.exitCode;
+
+        beforeEach(async () => {
+            tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-copy-"));
+            manifestRoot = path.join(tempDir, ".sb-mig");
+            outputPath = path.join(tempDir, "report.json");
+            exitCodeBefore = process.exitCode;
+            process.exitCode = undefined;
+        });
+
+        afterEach(async () => {
+            process.exitCode = exitCodeBefore;
+            await rm(tempDir, { recursive: true, force: true });
+        });
+
+        const runApply = (flags: Record<string, unknown> = {}) =>
+            copyCommand({
+                input: ["copy", "stories"],
+                flags: {
+                    from: "source-space",
+                    to: "target-space",
+                    source: "blog",
+                    destination: "imported",
+                    manifestRoot,
+                    outputPath,
+                    yes: true,
+                    ...flags,
+                },
+            } as any);
+
+        const readReport = async () =>
+            JSON.parse(await readFile(outputPath, "utf8"));
+
+        const outcomeBySlug = (report: any) =>
+            Object.fromEntries(
+                report.items.map((item: any) => [
+                    item.sourceFullSlug,
+                    item.outcome,
+                ]),
+            );
+
+        const printed = () =>
+            [
+                ...vi.mocked(Logger.log).mock.calls,
+                ...vi.mocked(Logger.success).mock.calls,
+                ...vi.mocked(Logger.warning).mock.calls,
+                ...vi.mocked(Logger.error).mock.calls,
+            ].map((call) => String(call[0]));
+
+        const publishedPost = () =>
+            mocks.getAllStories.mockResolvedValue([
+                {
+                    story: {
+                        id: 2,
+                        name: "Post 1",
+                        slug: "post-1",
+                        full_slug: "blog/post-1",
+                        is_folder: false,
+                        parent_id: 1,
+                        uuid: "source-post-uuid",
+                        published: true,
+                        unpublished_changes: false,
+                        content: { component: "page" },
+                    },
+                },
+            ]);
+
+        // MAR-3056 R3 (a) canary. Mutation that must turn it red: restore the
+        // throw at the end of rewriteCopiedStoryContents (no report is written).
+        it("writes the report and exits 1 when one content update is rejected", async () => {
+            mocks.updateStory.mockImplementation(
+                async (_payload: any, storyId: string) =>
+                    storyId === "1002"
+                        ? {
+                              ok: false,
+                              status: 422,
+                              response:
+                                  "The value of the field body must be a prosemirror document",
+                          }
+                        : { ok: true },
+            );
+
+            await runApply();
+
+            expect(process.exitCode).toBe(1);
+
+            const report = await readReport();
+
+            expect(outcomeBySlug(report)).toEqual({
+                blog: "updated",
+                "blog/post-1": "update_failed",
+            });
+            expect(
+                report.items.map((item: any) => [
+                    item.sourceFullSlug,
+                    item.targetId,
+                ]),
+            ).toEqual([
+                ["blog", 1001],
+                ["blog/post-1", 1002],
+            ]);
+            expect(report.failures).toEqual([
+                expect.objectContaining({
+                    resource: "story",
+                    path: "blog/post-1",
+                    phase: "update",
+                    status: 422,
+                    sourceId: 2,
+                    targetId: 1002,
+                }),
+            ]);
+            expect(report.summary.outcomes).toMatchObject({
+                updated: 1,
+                update_failed: 1,
+            });
+            expect(report.summary.failed).toBe(1);
+            expect(
+                printed().some(
+                    (line) =>
+                        line.includes("updated 1") &&
+                        line.includes("update_failed 1"),
+                ),
+            ).toBe(true);
+        });
+
+        // MAR-3056 R3 (b) canary. Mutation that must turn it red: stop
+        // recording skipped_parent_failed for the children of a failed create.
+        it("reports a failed create and the children it skipped, writes the report, and exits 1", async () => {
+            mocks.createStory.mockResolvedValue({
+                ok: false,
+                stage: "create",
+                status: 500,
+                response: "Internal Server Error",
+            });
+
+            await runApply();
+
+            expect(process.exitCode).toBe(1);
+
+            const report = await readReport();
+
+            expect(outcomeBySlug(report)).toEqual({
+                blog: "create_failed",
+                "blog/post-1": "skipped_parent_failed",
+            });
+            expect(report.failures).toEqual([
+                expect.objectContaining({
+                    resource: "story",
+                    path: "blog",
+                    phase: "create",
+                    status: 500,
+                }),
+            ]);
+            expect(report.summary.outcomes).toMatchObject({
+                create_failed: 1,
+                skipped_parent_failed: 1,
+            });
+        });
+
+        it("marks a story published only when its publish went through", async () => {
+            publishedPost();
+
+            await runApply({ publicationLanguages: "default" });
+
+            expect(process.exitCode).toBeUndefined();
+
+            const report = await readReport();
+
+            expect(outcomeBySlug(report)).toEqual({
+                blog: "updated",
+                "blog/post-1": "published",
+            });
+            expect(report.failures).toEqual([]);
+        });
+
+        // Mutation that must turn it red: count a rejected publish as an
+        // update_failed, as if the content had never been written.
+        it("reports a rejected publish as publish_skipped with its failure, and exits 1", async () => {
+            publishedPost();
+            mocks.publishStoryLanguages.mockResolvedValue({
+                ok: false,
+                stage: "publish",
+                status: 422,
+                response: "Publishing is not allowed",
+            });
+
+            await runApply({ publicationLanguages: "default" });
+
+            expect(process.exitCode).toBe(1);
+
+            const report = await readReport();
+
+            expect(outcomeBySlug(report)).toEqual({
+                blog: "updated",
+                "blog/post-1": "publish_skipped",
+            });
+            expect(report.failures).toEqual([
+                expect.objectContaining({
+                    resource: "story",
+                    path: "blog/post-1",
+                    phase: "publish",
+                    status: 422,
+                    targetId: 1002,
+                }),
+            ]);
+        });
+
+        // Mutation that must turn it red: remove the catch around the writes
+        // in the copy stories apply path.
+        it("still writes the report and exits 1 when something throws after writing started", async () => {
+            mocks.createStory.mockRejectedValue(new Error("socket hang up"));
+
+            await runApply();
+
+            expect(process.exitCode).toBe(1);
+
+            const report = await readReport();
+
+            expect(report.failures).toEqual([
+                expect.objectContaining({
+                    resource: "run",
+                    phase: "unexpected",
+                    message: expect.stringContaining("socket hang up"),
+                }),
+            ]);
+        });
+
+        it("writes an empty failures array into the dry-run report", async () => {
+            await runApply({ dryRun: true });
+
+            expect((await readReport()).failures).toEqual([]);
+        });
+    });
+
+    describe("schema drift and unknown components (MAR-3057)", () => {
+        let tempDir: string;
+        let outputPath: string;
+        let manifestRoot: string;
+
+        beforeEach(async () => {
+            tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-copy-"));
+            outputPath = path.join(tempDir, "plan.json");
+            manifestRoot = path.join(tempDir, ".sb-mig");
+        });
+
+        afterEach(async () => {
+            await rm(tempDir, { recursive: true, force: true });
+        });
+
+        const printed = () =>
+            [
+                ...vi.mocked(Logger.log).mock.calls,
+                ...vi.mocked(Logger.success).mock.calls,
+                ...vi.mocked(Logger.warning).mock.calls,
+                ...vi.mocked(Logger.error).mock.calls,
+            ].map((call) => String(call[0]));
+
+        const doc = {
+            type: "doc",
+            content: [
+                { type: "paragraph", content: [{ type: "text", text: "Hi" }] },
+            ],
+        };
+
+        const withSourcePostBody = (body: unknown[]) =>
+            mocks.getAllStories.mockResolvedValue([
+                {
+                    story: {
+                        id: 2,
+                        name: "Post 1",
+                        slug: "post-1",
+                        full_slug: "blog/post-1",
+                        is_folder: false,
+                        parent_id: 1,
+                        uuid: "source-post-uuid",
+                        content: { component: "page", body },
+                    },
+                },
+            ]);
+
+        /** A blockquote whose richtext field still holds a plain string. */
+        const postWithStringQuote = () => {
+            mocks.getAllComponents.mockResolvedValue([
+                {
+                    name: "page",
+                    schema: {
+                        body: { type: "bloks" },
+                        cta: { type: "multilink" },
+                        image: { type: "asset" },
+                    },
+                },
+                {
+                    name: "sb-blockquote",
+                    schema: { content: { type: "richtext" } },
+                },
+            ]);
+            withSourcePostBody([
+                {
+                    component: "sb-blockquote",
+                    _uid: "q1",
+                    content: "A plain quote",
+                },
+            ]);
+        };
+
+        const runDryRun = () =>
+            copyCommand({
+                input: ["copy", "stories"],
+                flags: {
+                    from: "source-space",
+                    to: "target-space",
+                    source: "blog",
+                    destination: "imported",
+                    dryRun: true,
+                    outputPath,
+                },
+            } as any);
+
+        it("states schema drift in the dry-run and the report, and counts the story as will fail", async () => {
+            postWithStringQuote();
+
+            await runDryRun();
+
+            expect(printed()).toEqual(
+                expect.arrayContaining([
+                    "[dry-run] schema drift: 1 occurrence in 1 story",
+                    "[dry-run]   sb-blockquote.content: expected richtext, got string (1)",
+                    "[dry-run] will fail: 1 story (schema drift)",
+                ]),
+            );
+
+            const report = JSON.parse(await readFile(outputPath, "utf8"));
+
+            expect(report.schemaDrift).toMatchObject({
+                occurrences: 1,
+                stories: 1,
+                storyFullSlugs: ["blog/post-1"],
+                groups: [
+                    {
+                        component: "sb-blockquote",
+                        field: "content",
+                        expected: "richtext",
+                        got: "string",
+                        count: 1,
+                    },
+                ],
+            });
+            expect(report.summary).toMatchObject({
+                schemaDriftOccurrences: 1,
+                storiesWillFail: 1,
+            });
+        });
+
+        it("prints schema drift in the PLAN block and leaves the gate to the operator", async () => {
+            postWithStringQuote();
+
+            await copyCommand({
+                input: ["copy", "stories"],
+                flags: {
+                    from: "source-space",
+                    to: "target-space",
+                    source: "blog",
+                    destination: "imported",
+                    manifestRoot,
+                    yes: true,
+                },
+            } as any);
+
+            const lines = planGateLines();
+
+            expect(lines).toContain("  schema drift: 1 occurrence in 1 story");
+            expect(lines).toContain(
+                "    sb-blockquote.content: expected richtext, got string (1)",
+            );
+            expect(lines).toContain("  will fail: 1 story (schema drift)");
+            // The gate is unchanged: drift is stated, the run still proceeds.
+            expect(mocks.createStory).toHaveBeenCalled();
+        });
+
+        it("prints the schema drift line with zero when nothing drifted", async () => {
+            mocks.getAllComponents.mockResolvedValue([
+                {
+                    name: "page",
+                    schema: { body: { type: "bloks" } },
+                },
+                {
+                    name: "sb-blockquote",
+                    schema: { content: { type: "richtext" } },
+                },
+            ]);
+            withSourcePostBody([
+                { component: "sb-blockquote", _uid: "q1", content: doc },
+            ]);
+
+            await runDryRun();
+
+            expect(printed()).toContain(
+                "[dry-run] schema drift: 0 occurrences in 0 stories",
+            );
+            expect(printed().some((line) => line.includes("will fail:"))).toBe(
+                false,
+            );
+        });
+
+        // MAR-3057 R4 (b) canary. Mutation that must turn it red: restore the
+        // "will fail with a 422" wording for components missing from the target.
+        it("says an unknown component renders as unknown in the editor, never that the write fails", async () => {
+            mocks.getAllComponents.mockResolvedValue([
+                {
+                    name: "page",
+                    schema: { body: { type: "bloks" } },
+                },
+            ]);
+            withSourcePostBody([
+                { component: "sb-content-group", _uid: "blok-1" },
+            ]);
+
+            await runDryRun();
+
+            const report = JSON.parse(await readFile(outputPath, "utf8"));
+            const warning = report.warnings.find(
+                (entry: any) => entry.code === "component_missing_in_target",
+            );
+
+            expect(warning.message).toContain("unknown component");
+            expect(warning.message).toContain("the write succeeds");
+            expect(warning.message).not.toContain("422");
+
+            const unknownLines = printed().filter((line) =>
+                line.includes("sb-content-group"),
+            );
+
+            expect(unknownLines.length).toBeGreaterThan(0);
+            expect(unknownLines.some((line) => line.includes("422"))).toBe(
+                false,
+            );
+            expect(printed().some((line) => line.includes("422"))).toBe(false);
+            // An unknown component is written fine, so it is not a will-fail.
+            expect(report.summary.storiesWillFail).toBe(0);
+        });
+
+        // MAR-3057 lap 2 F2 canary. Mutation that must turn it red: count the
+        // stories with a component outside its field's whitelist as will fail.
+        it("warns that a component outside its field's whitelist is written anyway, and counts no will fail", async () => {
+            mocks.getAllComponents.mockResolvedValue([
+                {
+                    name: "page",
+                    schema: {
+                        body: {
+                            type: "bloks",
+                            restrict_components: true,
+                            component_whitelist: ["teaser"],
+                        },
+                    },
+                },
+                {
+                    name: "sb-blockquote",
+                    schema: { content: { type: "richtext" } },
+                },
+                { name: "teaser", schema: {} },
+            ]);
+            withSourcePostBody([
+                { component: "sb-blockquote", _uid: "q1", content: doc },
+            ]);
+
+            await runDryRun();
+
+            const report = JSON.parse(await readFile(outputPath, "utf8"));
+            const warning = report.warnings.find(
+                (entry: any) => entry.code === "component_not_allowed_in_field",
+            );
+
+            // Storyblok does not enforce field whitelists on save: the write
+            // succeeds and the editor shows the blok as out of schema.
+            expect(warning.message).toContain("the write succeeds");
+            expect(warning.message).toContain("out of schema");
+            expect(warning.message).not.toContain("422");
+            expect(
+                printed().some(
+                    (line) =>
+                        line.includes(
+                            "sit in a field whose whitelist does not allow them",
+                        ) && line.includes("the write succeeds"),
+                ),
+            ).toBe(true);
+            expect(printed().some((line) => line.includes("422"))).toBe(false);
+            expect(printed().some((line) => line.includes("will fail:"))).toBe(
+                false,
+            );
+            expect(report.summary.storiesWillFail).toBe(0);
+            expect(report.willFail).toEqual({ stories: 0, storyFullSlugs: [] });
+        });
+    });
+
+    describe("several --source selections in one run (MAR-3067)", () => {
+        let tempDir: string;
+        let outputPath: string;
+        let manifestRoot: string;
+
+        const story = (
+            id: number,
+            fullSlug: string,
+            extra: Record<string, unknown> = {},
+        ) => ({
+            id,
+            name: fullSlug,
+            slug: fullSlug.split("/").at(-1),
+            full_slug: fullSlug,
+            is_folder: false,
+            parent_id: 0,
+            uuid: `source-${id}-uuid`,
+            content: { component: "page" },
+            ...extra,
+        });
+
+        /**
+         * `blog` holds `post-1`, which links to `news/item` inside `news`.
+         * Ids are deliberately not in slug order.
+         */
+        const sourceStories: Record<string, any> = {
+            blog: story(1, "blog", { is_folder: true }),
+            "blog/post-1": story(2, "blog/post-1", {
+                parent_id: 1,
+                content: {
+                    component: "page",
+                    cta: { linktype: "story", id: 3, uuid: "source-3-uuid" },
+                },
+            }),
+            news: story(4, "news", { is_folder: true }),
+            "news/item": story(3, "news/item", { parent_id: 4 }),
+        };
+
+        beforeEach(async () => {
+            tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-copy-"));
+            outputPath = path.join(tempDir, "plan.json");
+            manifestRoot = path.join(tempDir, ".sb-mig");
+
+            mocks.getStoryBySlug.mockImplementation(async (slug: string) => {
+                if (slug === "imported") {
+                    return {
+                        story: {
+                            id: 900,
+                            name: "Imported",
+                            slug: "imported",
+                            full_slug: "imported",
+                            is_folder: true,
+                            uuid: "target-imported-uuid",
+                        },
+                    };
+                }
+
+                return sourceStories[slug]
+                    ? { story: sourceStories[slug] }
+                    : undefined;
+            });
+            mocks.getAllStories.mockImplementation(async (args: any) => {
+                const prefix = String(args?.options?.starts_with ?? "");
+
+                return Object.values(sourceStories)
+                    .filter((item) => item.full_slug.startsWith(prefix))
+                    .map((item) => ({ story: item }));
+            });
+            // A tree built by parent_id, the way createTree builds it.
+            mocks.createTree.mockImplementation((stories: any[]) => {
+                const build = (parentId: number | null): any[] =>
+                    stories
+                        .filter((item) => (item.parent_id ?? null) === parentId)
+                        .map((item) => ({
+                            id: item.id,
+                            parent_id: item.parent_id,
+                            story: item,
+                            children: build(item.id),
+                        }));
+
+                return build(null);
+            });
+        });
+
+        afterEach(async () => {
+            await rm(tempDir, { recursive: true, force: true });
+        });
+
+        const runStories = (
+            source: unknown,
+            extra: Record<string, unknown> = {},
+        ) =>
+            copyCommand({
+                input: ["copy", "stories"],
+                flags: {
+                    from: "source-space",
+                    to: "target-space",
+                    source,
+                    destination: "imported",
+                    dryRun: true,
+                    outputPath,
+                    manifestRoot,
+                    ...extra,
+                },
+            } as any);
+
+        const readReport = async () =>
+            JSON.parse(await readFile(outputPath, "utf8"));
+
+        const planned = (report: any) =>
+            report.items.map(
+                (item: any) =>
+                    `${item.sourceFullSlug} -> ${item.targetFullSlug}`,
+            );
+
+        // MAR-3067 R8 (a) canary. Mutation that must turn it red: classify the
+        // references against the first selection's plan instead of the union.
+        it("classifies a reference between two selections as will_relink with no ledger", async () => {
+            await runStories(["blog/post-1", "news/item"]);
+
+            const report = await readReport();
+
+            expect(planned(report)).toEqual([
+                "blog/post-1 -> imported/post-1",
+                "news/item -> imported/item",
+            ]);
+            // The link carries both an id and a uuid, and the scanner reports
+            // each; what matters is that none of them breaks.
+            expect(report.summary.storyReferencesWillBreak).toBe(0);
+            expect(report.summary.storyReferencesWillRelink).toBeGreaterThan(0);
+        });
+
+        // MAR-3067 R8 (b) canary. Mutation that must turn it red: drop the
+        // dedupe, so the story is planned a second time at the destination.
+        it("plans a story inside a selected folder once, under the folder", async () => {
+            await runStories(["blog/post-1", "blog"]);
+
+            expect(planned(await readReport())).toEqual([
+                "blog -> imported/blog",
+                "blog/post-1 -> imported/blog/post-1",
+            ]);
+        });
+
+        it("reads comma-separated values and plans two identical values once", async () => {
+            await runStories("news,news");
+
+            expect(planned(await readReport())).toEqual([
+                "news -> imported/news",
+                "news/item -> imported/news/item",
+            ]);
+        });
+
+        // MAR-3067 R8 (c).
+        it("mixes one folder's children with another folder's subtree", async () => {
+            await runStories("blog/*,news");
+
+            expect(planned(await readReport())).toEqual([
+                "blog/post-1 -> imported/post-1",
+                "news -> imported/news",
+                "news/item -> imported/news/item",
+            ]);
+        });
+
+        // MAR-3067 R8 (e) canary. Mutation that must turn it red: resolve the
+        // destination in the target before reading the sources again.
+        it("fails on a value that resolves to nothing before reading the target", async () => {
+            await expect(runStories(["blog", "nope"])).rejects.toThrow(
+                "Source story or folder not found: nope",
+            );
+            expect(
+                mocks.getStoryBySlug.mock.calls.map((call) => call[0]),
+            ).not.toContain("imported");
+        });
+
+        it("states every selection in the source line, the report and the PLAN block", async () => {
+            await runStories(["blog/post-1", "blog"]);
+
+            expect(planGateLines()).toContain(
+                "Sources 'blog/post-1' (mode 'subtree'), 'blog' (mode 'subtree'), destination 'imported'.",
+            );
+
+            const report = await readReport();
+
+            expect(report.input.source).toEqual(["blog/post-1", "blog"]);
+            expect(report.normalized.selections).toEqual([
+                { source: "blog/post-1", mode: "subtree" },
+                { source: "blog", mode: "subtree" },
+            ]);
+
+            vi.mocked(Logger.log).mockClear();
+
+            await runStories(["blog/post-1", "blog"], {
+                dryRun: false,
+                yes: true,
+            });
+
+            expect(planGateLines()).toContain(
+                "  selections: 2 (1 story, 1 folder after dedupe)",
+            );
+        });
+
+        it("keeps a single value exactly as before", async () => {
+            await runStories("blog", { dryRun: false, yes: true });
+
+            const lines = planGateLines();
+
+            expect(lines).toContain(
+                "Source 'blog', mode 'subtree', destination 'imported'.",
+            );
+            expect(lines.some((line) => line.includes("selections:"))).toBe(
+                false,
+            );
+        });
     });
 });

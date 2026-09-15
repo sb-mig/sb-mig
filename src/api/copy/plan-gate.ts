@@ -1,5 +1,7 @@
 import type {
     CopySpaceDroppedWhitelistGroup,
+    CopySpaceFieldTypePlugin,
+    CopySpaceFieldTypePluginsPlan,
     CopySpacePlan,
     CopySpaceSkip,
 } from "./space.js";
@@ -204,6 +206,12 @@ export const formatCopyPlanGate = (summary: CopyPlanGateSummary): string[] => {
         );
     }
 
+    if (stories.folders > 0) {
+        // Stated before the gate because it differs from the source: a folder
+        // published there is not published here (see copy stories GOTCHAS).
+        lines.push(`  folders: ${stories.folders} (never published)`);
+    }
+
     lines.push(formatCopyPlanGateLedger(ledger));
     lines.push(
         ...formatCopyPlanGateReferences({
@@ -360,6 +368,8 @@ export type CopySpacePlanGateSummary = {
     componentsWithSourceImageUrls: number;
     componentsWithInternalTags: number;
     defaultPresets?: { restore: number; notRestorable: number };
+    fieldTypePlugins?: CopySpaceFieldTypePluginsPlan;
+    entriesStoryblokWillReject?: CopySpacePlan["entriesStoryblokWillReject"];
 };
 
 export const buildCopySpacePlanGateSummary = (
@@ -423,7 +433,47 @@ export const buildCopySpacePlanGateSummary = (
                   },
               }
             : {}),
+        ...(plan.fieldTypePlugins
+            ? { fieldTypePlugins: plan.fieldTypePlugins }
+            : {}),
+        ...(plan.entriesStoryblokWillReject
+            ? { entriesStoryblokWillReject: plan.entriesStoryblokWillReject }
+            : {}),
     };
+};
+
+/** `seo-metatags (5 components), backpack-breakpoints (1 component)` */
+const formatFieldTypePluginList = (plugins: CopySpaceFieldTypePlugin[]) =>
+    plugins
+        .map(
+            (plugin) =>
+                `${plugin.name} (${plugin.components.length} ${plural(plugin.components.length, "component", "components")})`,
+        )
+        .join(", ");
+
+const formatCopySpaceFieldTypePlugins = (
+    plugins: CopySpaceFieldTypePluginsPlan,
+    targetSpaceId: string,
+): string[] => {
+    const { target } = plugins;
+
+    if (target.readable === false) {
+        return [
+            `  field-type plugins the source uses: ${formatFieldTypePluginList(plugins.used)} — the target must have them assigned`,
+            `    space ${targetSpaceId}'s plugins could not be read with this token${target.status ? ` (${target.status})` : ""}, so the run cannot check them and goes on.`,
+        ];
+    }
+
+    if (plugins.missing.length === 0) {
+        return [
+            `  field-type plugins: all ${plugins.used.length} the source uses are assigned to space ${targetSpaceId}`,
+        ];
+    }
+
+    return [
+        `  field-type plugins missing in target: ${formatFieldTypePluginList(plugins.missing)}`,
+        `    the run refuses to write until space ${targetSpaceId} has them assigned; pass --allow-missing-plugins to write anyway (those components will be rejected).`,
+    ];
 };
 
 const COPY_SPACE_LIST_LIMIT = 20;
@@ -463,6 +513,20 @@ export const formatCopySpacePlanGate = (
         }
     }
 
+    if (
+        summary.entriesStoryblokWillReject &&
+        summary.entriesStoryblokWillReject.length > 0
+    ) {
+        lines.push(
+            `  entries Storyblok will reject: ${summary.entriesStoryblokWillReject
+                .map(
+                    (rejected) =>
+                        `${rejected.datasource} ${rejected.count} of ${rejected.total}`,
+                )
+                .join(", ")}`,
+        );
+    }
+
     if (summary.skipped.length > 0) {
         lines.push(`  skipped: ${summary.skipped.length}`);
 
@@ -479,6 +543,15 @@ export const formatCopySpacePlanGate = (
     ) {
         lines.push(
             `    the full lists (${listed.length} items) are in the --outputPath report.`,
+        );
+    }
+
+    if (summary.fieldTypePlugins) {
+        lines.push(
+            ...formatCopySpaceFieldTypePlugins(
+                summary.fieldTypePlugins,
+                summary.targetSpaceId,
+            ),
         );
     }
 

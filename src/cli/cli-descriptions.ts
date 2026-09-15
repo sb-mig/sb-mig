@@ -218,6 +218,8 @@ export const copyDescription = `
         $ sb-mig copy stories --from [spaceId] --to [spaceId] --source [folder_full_slug]
         $ sb-mig copy stories --from [spaceId] --to [spaceId] --source [folder_full_slug]/* --destination [target_folder_full_slug]
         $ sb-mig copy stories --from [spaceId] --to [spaceId] --source [folder_full_slug] --mode self --destination /
+        $ sb-mig copy stories --from [spaceId] --to [spaceId] --source [full_slug] --source [folder_full_slug] --destination [target_folder_full_slug]
+        $ sb-mig copy stories --from [spaceId] --to [spaceId] --source [folder_full_slug]/*,[other_folder_full_slug] --destination /
         $ sb-mig copy relink --from [spaceId] --to [spaceId] --source [folder_full_slug] --destination [target_folder_full_slug]
         $ sb-mig copy relink --from [spaceId] --to [spaceId] --source [folder_full_slug] --dry-run
         $ sb-mig copy assets --from [spaceId] --to [spaceId] --all
@@ -252,7 +254,7 @@ export const copyDescription = `
         --type          Restrict the mapping view to story, asset, or asset_folder. Repeatable. Requires --pair. [manifests only]
         --slug          Restrict the mapping view to mappings whose source or target path contains this text. Requires --pair. [manifests only]
         --prune         DELETE one pair's whole ledger directory, written as <sourceSpaceId>:<targetSpaceId>. Names its own pair, and asks before deleting. [manifests only]
-        --source        Source story or folder full_slug. Use folder/* to copy a folder's children without the folder root.
+        --source        Source story or folder full_slug, repeatable or comma-separated. Use folder/* to copy a folder's children without the folder root. Several values are planned as one run; a story inside a selected folder is planned once, under the folder. [stories and relink]
         --destination   Target folder full_slug where copied stories are attached. Omit, '/', or 'root' to copy into target root.
         --mode          Copy mode: subtree, children, or self. Default: subtree. folder/* defaults to children.
         --with-assets   For copy stories, copy referenced assets first and rewrite copied stories to target asset IDs/filenames.
@@ -268,9 +270,11 @@ export const copyDescription = `
         --dry-run       Preview story paths, manifest-mapped references, and likely target conflicts without writing to Storyblok. With copy manifests --prune, print the plan and stop. With copy space, print the schema PLAN and write nothing.
         --yes           Skip the confirmation gate shown after a PLAN block, before the first write. Required in non-interactive runs (CI). [stories, relink, space, and manifests --prune]
         --only          Restrict copy space to some of: languages, groups, components, presets, datasources. Comma-separated or repeatable. The write order stays languages, groups, components, presets, datasources. [space only]
+        --allow-missing-plugins
+                       Write even when the target space's field-type plugins can be read and lack some the source components use. Those components are then rejected by Storyblok and reported. [space only]
         --fresh         Ignore the existing copy ledger for this run; every manifest file of this space pair, the asset and asset-folder ledgers included, is moved aside with a timestamp suffix, never deleted. A later --with-assets run therefore starts without the archived asset mappings too. [stories only]
         --manifestRoot  Directory holding the copy ledger. Default: .sb-mig
-        --outputPath    Optional JSON file path for a dry-run copy plan artifact. Only writes locally when passed.
+        --outputPath    Optional JSON file path for the run's report: the plan on --dry-run, and on apply an outcome for every item plus every failed write. Only writes locally when passed.
 
     LEGACY FLAGS
         --sourceSpace   Alias for --from.
@@ -309,6 +313,11 @@ export const copyDescription = `
         copy stories matches existing targets by manifest first, then target full_slug when safe, so reruns can reuse mapped target stories.
         copy stories rewrites mapped asset and story references after story manifests exist.
         copy stories creates shells as save-only drafts, then applies publicationMode after full rewritten content is saved.
+        copy stories never publishes folders; publish state applies to stories only. A folder publish in Storyblok cascades to every story inside it, so each story's own publish state is reproduced instead.
+        copy stories, copy relink and copy assets never stop at a failed write: every other item is still written, each failure is listed at the end and in the --outputPath report, and the command exits 1. A story whose create failed takes its children with it, since they have no parent to be created under.
+        In an apply report, each item's outcome says what the target holds: updated, published or publish_skipped mean its content was written; created or matched mean only its shell was reached; update_failed, create_failed and skipped_parent_failed mean its content is not there.
+        copy stories counts only schema drift as will fail: Storyblok rejects a field value whose shape does not match its field type, but it saves components it does not know and components outside a field's whitelist; the editor flags those, and the write succeeds.
+        copy space checks the field-type plugins the source components use (fields of type custom). When the target's plugins can be read with the token in use, the PLAN names any the target lacks and the run refuses to write unless --allow-missing-plugins is passed. When they cannot be read, the PLAN lists every plugin the target must have assigned and the run goes on. Components Storyblok rejects for a missing plugin are counted per plugin at the end.
         publicationMode preserve-layers publishes clean published source stories; for dirty published source stories it copies the source published version, publishes it in target, then restores the source draft/current layer as save-only.
         publicationMode collapse-draft publishes published source stories from their current draft/current JSON.
         publicationMode save-only never publishes copied stories.

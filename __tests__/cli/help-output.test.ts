@@ -116,6 +116,22 @@ describe("CLI help output", () => {
         expect(copyHelp).toContain("copy stories");
         expect(copyHelp).toContain("copy assets");
         expect(copyHelp).toContain("copy relink");
+        expect(copyHelp).toContain(
+            "copy stories never publishes folders; publish state applies to stories only",
+        );
+        expect(copyHelp).toContain(
+            "copy stories, copy relink and copy assets never stop at a failed write",
+        );
+        expect(copyHelp).toContain("--allow-missing-plugins");
+        expect(copyHelp).toContain(
+            "copy stories counts only schema drift as will fail",
+        );
+        expect(copyHelp).toContain(
+            "copy space checks the field-type plugins the source components use",
+        );
+        expect(copyHelp).toContain(
+            "updated, published or publish_skipped mean its content was written",
+        );
         expect(copyHelp).toContain("copy manifests");
         expect(copyHelp).toContain("copy space");
         expect(copyHelp).toContain("--only");
@@ -128,6 +144,10 @@ describe("CLI help output", () => {
         );
         expect(copyHelp).toContain("matched_by_target_key");
         expect(copyHelp).toContain("--source");
+        expect(copyHelp).toContain("repeatable or comma-separated");
+        expect(copyHelp).toContain(
+            "--source [full_slug] --source [folder_full_slug]",
+        );
         expect(copyHelp).toContain("--destination");
         expect(copyHelp).toContain("--mode");
         expect(copyHelp).toContain("--all");

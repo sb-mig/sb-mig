@@ -854,4 +854,265 @@ describe("copy space", () => {
         ).toBe(true);
         expect(process.exitCode).toBe(1);
     });
+
+    /* ------------------------------------------------------------------ *
+     * MAR-3045: field-type plugins
+     * ------------------------------------------------------------------ */
+
+    /** Gives the source's `hero` a custom field backed by `seo-metatags`. */
+    const heroUsesSeoPlugin = () => {
+        const hero = (spaces["111"] as SpaceFixture).components[0];
+
+        hero.schema = {
+            ...hero.schema,
+            seo: { id: "gen-2", type: "custom", field_type: "seo-metatags" },
+        };
+    };
+
+    /** Answers `GET field_types` with a list, or with the 403 a space token gets. */
+    const targetFieldTypes = (answer: "unreadable" | any[]) => {
+        const fakeGet = mocks.get.getMockImplementation() as (
+            url: string,
+            params?: any,
+        ) => Promise<any>;
+
+        mocks.get.mockImplementation(async (url: string, params?: any) => {
+            if (url === "field_types") {
+                if (answer === "unreadable") {
+                    throw Object.assign(new Error("Forbidden"), {
+                        status: 403,
+                        response: {
+                            data: {
+                                error: "This endpoint does not support this token type",
+                            },
+                        },
+                    });
+                }
+
+                return { data: { field_types: answer } };
+            }
+
+            return fakeGet(url, params);
+        });
+    };
+
+    const componentWrites = () =>
+        writeCalls().filter((call) => call.includes("/components"));
+
+    // MAR-3045 R4 canary. Mutation that must turn it red: drop the missing
+    // plugins refusal from runCopySpace.
+    it("refuses to write when the readable target lacks a plugin the source uses", async () => {
+        heroUsesSeoPlugin();
+        targetFieldTypes([
+            { name: "seo-metatags", space_ids: [999] },
+            { name: "backpack-breakpoints", space_ids: [222] },
+        ]);
+
+        await runCopySpace({ from: "111", to: "222", yes: true });
+
+        expect(logLines()).toContain(
+            "  field-type plugins missing in target: seo-metatags (1 component)",
+        );
+        expect(process.exitCode).toBe(1);
+        expect(writeCalls()).toEqual([]);
+        expect(
+            errorLines().some(
+                (line) =>
+                    line.includes("seo-metatags") &&
+                    line.includes("--allow-missing-plugins"),
+            ),
+        ).toBe(true);
+    });
+
+    it("writes anyway with --allow-missing-plugins", async () => {
+        heroUsesSeoPlugin();
+        targetFieldTypes([{ name: "seo-metatags", space_ids: [999] }]);
+
+        await runCopySpace({
+            from: "111",
+            to: "222",
+            yes: true,
+            only: "components",
+            allowMissingPlugins: true,
+        });
+
+        expect(componentWrites()).toEqual(["POST spaces/222/components/"]);
+    });
+
+    it("writes when the target has every plugin assigned", async () => {
+        heroUsesSeoPlugin();
+        targetFieldTypes([{ name: "seo-metatags", space_ids: [111, 222] }]);
+
+        await runCopySpace({
+            from: "111",
+            to: "222",
+            yes: true,
+            only: "components",
+        });
+
+        expect(componentWrites()).toEqual(["POST spaces/222/components/"]);
+        expect(process.exitCode).not.toBe(1);
+    });
+
+    it("lists the plugins and proceeds when the target's plugins cannot be read", async () => {
+        heroUsesSeoPlugin();
+        targetFieldTypes("unreadable");
+
+        await runCopySpace({
+            from: "111",
+            to: "222",
+            yes: true,
+            only: "components",
+        });
+
+        expect(logLines()).toContain(
+            "  field-type plugins the source uses: seo-metatags (1 component) — the target must have them assigned",
+        );
+        expect(componentWrites()).toEqual(["POST spaces/222/components/"]);
+    });
+
+    it("never reads field types when no component uses a plugin", async () => {
+        await runCopySpace({ from: "111", to: "222", dryRun: true });
+
+        expect(
+            mocks.get.mock.calls.some((call) => call[0] === "field_types"),
+        ).toBe(false);
+    });
+
+    // MAR-3045 R4 canary. Mutation that must turn it red: log every plugin
+    // rejection on its own line again instead of grouping them.
+    it("groups plugin rejections by plugin in the summary and keeps each in the report", async () => {
+        const custom = (fieldType: string) => ({
+            type: "custom",
+            field_type: fieldType,
+        });
+
+        (spaces["111"] as SpaceFixture).components = [
+            { id: 501, name: "hero", schema: { seo: custom("seo-metatags") } },
+            {
+                id: 502,
+                name: "teaser",
+                schema: { seo: custom("seo-metatags") },
+            },
+            {
+                id: 503,
+                name: "card",
+                schema: {
+                    seo: custom("seo-metatags"),
+                    bp: custom("backpack-breakpoints"),
+                },
+            },
+        ];
+        targetFieldTypes("unreadable");
+
+        const pluginsIn: Record<string, string> = {
+            hero: "seo-metatags",
+            teaser: "seo-metatags",
+            card: "seo-metatags, backpack-breakpoints",
+        };
+
+        mocks.post.mockImplementation(async (url: string, body: any) => {
+            throw Object.assign(new Error("Unprocessable"), {
+                response: {
+                    data: {
+                        error: `The following field-type plugin(s) are not available in this space: ${pluginsIn[body.component.name]}. Install the corresponding app (and, if required, upgrade your plan) to use them.`,
+                    },
+                },
+            });
+        });
+
+        const outputPath = path.join(tempDir, "plugins.json");
+
+        await runCopySpace({
+            from: "111",
+            to: "222",
+            yes: true,
+            only: "components",
+            outputPath,
+        });
+
+        expect(process.exitCode).toBe(1);
+        expect(errorLines()).toContain(
+            "components not written: 3 — missing plugins: seo-metatags (3), backpack-breakpoints (1)",
+        );
+        // No red line per component for this reason.
+        expect(
+            errorLines().filter((line) =>
+                line.startsWith("copy space: components '"),
+            ),
+        ).toEqual([]);
+
+        const report = JSON.parse(await readFile(outputPath, "utf8"));
+
+        expect(
+            report.applied.failures.map((failure: any) => [
+                failure.name,
+                failure.missingPlugins,
+            ]),
+        ).toEqual(
+            expect.arrayContaining([
+                ["hero", ["seo-metatags"]],
+                ["teaser", ["seo-metatags"]],
+                ["card", ["seo-metatags", "backpack-breakpoints"]],
+            ]),
+        );
+    });
+
+    /* ------------------------------------------------------------------ *
+     * MAR-3046: entry names Storyblok rejects
+     * ------------------------------------------------------------------ */
+
+    // MAR-3046 R3 canary. Mutation that must turn it red: drop the `^[-=@]`
+    // check, so the entry is planned and written like any other.
+    it("never writes an entry named --x and still writes a plain name", async () => {
+        (spaces["111"] as SpaceFixture).entries[3]?.push({
+            id: 302,
+            name: "--x",
+            value: "1",
+            dimension_value: "2",
+        });
+
+        const outputPath = path.join(tempDir, "entries.json");
+
+        await runCopySpace({
+            from: "111",
+            to: "222",
+            yes: true,
+            only: "datasources",
+            outputPath,
+        });
+
+        const entryWrites = [
+            ...mocks.post.mock.calls,
+            ...mocks.put.mock.calls,
+        ].filter((call) => String(call[0]).includes("datasource_entries"));
+
+        expect(
+            entryWrites.some(
+                (call) => call[1]?.datasource_entry?.name === "--x",
+            ),
+        ).toBe(false);
+        expect(
+            entryWrites.some(
+                (call) => call[1]?.datasource_entry?.name === "red",
+            ),
+        ).toBe(true);
+        expect(logLines()).toContain(
+            "  entries Storyblok will reject: colors 1 of 2",
+        );
+        expect(logLines()).toContain("  entries: 1 create, 0 update, 1 skip");
+        expect(process.exitCode).not.toBe(1);
+
+        const report = JSON.parse(await readFile(outputPath, "utf8"));
+
+        expect(report.entriesStoryblokWillReject).toEqual([
+            { datasource: "colors", count: 1, total: 2, names: ["--x"] },
+        ]);
+        expect(report.entries.skip).toEqual([
+            {
+                name: "colors/--x",
+                reason: "name starts with a character Storyblok rejects (-, =, @)",
+            },
+        ]);
+    });
 });

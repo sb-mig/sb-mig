@@ -580,7 +580,202 @@ export type CopySpacePlan = {
     componentsWithInternalTags: number;
     /** Components whose default preset a run restores, and those it cannot. */
     defaultPresets?: { restore: string[]; notRestorable: CopySpaceSkip[] };
+    /**
+     * Field-type plugins the source components in scope use, and what the
+     * target has. Absent when components are not copied or none uses one.
+     */
+    fieldTypePlugins?: CopySpaceFieldTypePluginsPlan;
+    /**
+     * Per datasource, the entries whose name Storyblok rejects on write. They
+     * are planned as skips. Absent when datasources are not copied.
+     */
+    entriesStoryblokWillReject?: CopySpaceRejectedEntryNames[];
 };
+
+/* ------------------------------------------------------------------ *
+ * Entry names Storyblok rejects
+ * ------------------------------------------------------------------ */
+
+export type CopySpaceRejectedEntryNames = {
+    datasource: string;
+    count: number;
+    /** Every source entry of that datasource, so the count reads "n of total". */
+    total: number;
+    names: string[];
+};
+
+export const ENTRY_NAME_STORYBLOK_REJECTS_REASON =
+    "name starts with a character Storyblok rejects (-, =, @)";
+
+/**
+ * Storyblok answers a datasource entry created with such a name with `The
+ * following characters are not allowed at the beginning of name: -, =, @`.
+ * Entries that already carry one are kept by Storyblok, but cannot be written
+ * again through the Management API.
+ */
+export const isEntryNameStoryblokRejects = (name: string): boolean =>
+    /^[-=@]/.test(name);
+
+/* ------------------------------------------------------------------ *
+ * Field-type plugins
+ * ------------------------------------------------------------------ */
+
+/** A plugin a `type: "custom"` field names, and the components using it. */
+export type CopySpaceFieldTypePlugin = { name: string; components: string[] };
+
+/**
+ * What the run could learn about the target's field-type plugins. Storyblok
+ * lists them account-wide (`GET /v1/field_types`), each with the `space_ids`
+ * it is assigned to, and only for token types that endpoint supports.
+ */
+export type CopySpaceFieldTypeAvailability =
+    | { readable: true; assigned: string[] }
+    | { readable: false; status?: number; message: string };
+
+export type CopySpaceFieldTypePluginsPlan = {
+    used: CopySpaceFieldTypePlugin[];
+    target: CopySpaceFieldTypeAvailability;
+    /** Plugins the readable target lacks. Always empty when it was not readable. */
+    missing: CopySpaceFieldTypePlugin[];
+};
+
+const compareNames = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
+
+/**
+ * Every `schema.<field>.type === "custom"` → `field_type`, with the components
+ * that use it. Most-used plugin first.
+ */
+export const collectFieldTypePlugins = (
+    components: CopySpaceComponent[],
+): CopySpaceFieldTypePlugin[] => {
+    const componentsByPlugin = new Map<string, Set<string>>();
+
+    for (const component of components) {
+        const schema = component.schema;
+
+        if (!schema || typeof schema !== "object") {
+            continue;
+        }
+
+        for (const field of Object.values(schema) as any[]) {
+            if (field?.type !== "custom") {
+                continue;
+            }
+
+            const pluginName = field?.field_type;
+
+            if (typeof pluginName !== "string" || pluginName.length === 0) {
+                continue;
+            }
+
+            const users = componentsByPlugin.get(pluginName) ?? new Set();
+
+            users.add(component.name);
+            componentsByPlugin.set(pluginName, users);
+        }
+    }
+
+    return [...componentsByPlugin.entries()]
+        .map(([name, users]) => ({
+            name,
+            components: [...users].sort(compareNames),
+        }))
+        .sort(
+            (a, b) =>
+                b.components.length - a.components.length ||
+                compareNames(a.name, b.name),
+        );
+};
+
+export const planFieldTypePlugins = ({
+    used,
+    target,
+}: {
+    used: CopySpaceFieldTypePlugin[];
+    target: CopySpaceFieldTypeAvailability;
+}): CopySpaceFieldTypePluginsPlan => {
+    const assigned = target.readable ? new Set(target.assigned) : undefined;
+
+    return {
+        used,
+        target,
+        missing: assigned
+            ? used.filter((plugin) => !assigned.has(plugin.name))
+            : [],
+    };
+};
+
+const MISSING_PLUGINS_PATTERN =
+    /field-type plugin\(s\) are not available in this space: ([^".]+)/;
+
+/**
+ * The plugin names in Storyblok's rejection, `The following field-type
+ * plugin(s) are not available in this space: a, b. Install …`, or undefined
+ * when the message is about something else.
+ */
+export const parseMissingFieldTypePlugins = (
+    message: string,
+): string[] | undefined => {
+    const match = MISSING_PLUGINS_PATTERN.exec(message);
+    const names = (match?.[1] ?? "")
+        .split(",")
+        .map((name) => name.trim())
+        .filter(Boolean);
+
+    return names.length > 0 ? names : undefined;
+};
+
+export type CopySpaceMissingPluginGroups = {
+    /** Components rejected because a plugin is not assigned to the target. */
+    components: number;
+    /** Per plugin, how many of those components named it. Most first. */
+    plugins: { name: string; components: number }[];
+};
+
+export const groupMissingPluginFailures = (
+    failures: { resource: string; name: string; message: string }[],
+): CopySpaceMissingPluginGroups => {
+    const componentsByPlugin = new Map<string, number>();
+    let components = 0;
+
+    for (const failure of failures) {
+        const names =
+            failure.resource === "components"
+                ? parseMissingFieldTypePlugins(failure.message)
+                : undefined;
+
+        if (!names) {
+            continue;
+        }
+
+        components += 1;
+
+        for (const name of new Set(names)) {
+            componentsByPlugin.set(
+                name,
+                (componentsByPlugin.get(name) ?? 0) + 1,
+            );
+        }
+    }
+
+    return {
+        components,
+        plugins: [...componentsByPlugin.entries()]
+            .map(([name, count]) => ({ name, components: count }))
+            .sort(
+                (a, b) =>
+                    b.components - a.components || compareNames(a.name, b.name),
+            ),
+    };
+};
+
+/** `components not written: 3 — missing plugins: seo-metatags (3), …` */
+export const formatMissingPluginFailures = (
+    groups: CopySpaceMissingPluginGroups,
+): string =>
+    `components not written: ${groups.components} — missing plugins: ${groups.plugins
+        .map((plugin) => `${plugin.name} (${plugin.components})`)
+        .join(", ")}`;
 
 const emptyResourcePlan = (): CopySpaceResourcePlan => ({
     create: [],
@@ -601,12 +796,15 @@ export const buildCopySpacePlan = ({
     resources,
     source,
     target,
+    targetFieldTypes,
 }: {
     sourceSpaceId: string;
     targetSpaceId: string;
     resources: CopySpaceResource[];
     source: CopySpaceSnapshot;
     target: CopySpaceSnapshot;
+    /** Undefined when the run did not read them: planned as not readable. */
+    targetFieldTypes?: CopySpaceFieldTypeAvailability;
 }): CopySpacePlan => {
     const inScope = (resource: CopySpaceResource) =>
         resources.includes(resource);
@@ -726,6 +924,18 @@ export const buildCopySpacePlan = ({
             restore: defaultPresets.restore.map((item) => item.componentName),
             notRestorable: defaultPresets.notRestorable,
         };
+
+        const usedPlugins = collectFieldTypePlugins(source.components);
+
+        if (usedPlugins.length > 0) {
+            plan.fieldTypePlugins = planFieldTypePlugins({
+                used: usedPlugins,
+                target: targetFieldTypes ?? {
+                    readable: false,
+                    message: "the target's field-type plugins were not read",
+                },
+            });
+        }
     }
 
     if (inScope("presets")) {
@@ -802,6 +1012,7 @@ export const buildCopySpacePlan = ({
     if (inScope("datasources")) {
         const datasources = emptyResourcePlan();
         const entries = emptyResourcePlan();
+        const entriesStoryblokWillReject: CopySpaceRejectedEntryNames[] = [];
         const targetDatasourceNames = new Set(
             target.datasources.map((datasource) => datasource.name),
         );
@@ -820,19 +1031,43 @@ export const buildCopySpacePlan = ({
                       ).map((entry) => entry.name)
                     : [],
             );
+            const sourceEntries =
+                source.entriesByDatasource.get(datasource.name) ?? [];
+            const rejectedNames: string[] = [];
 
-            for (const entry of source.entriesByDatasource.get(
-                datasource.name,
-            ) ?? []) {
+            for (const entry of sourceEntries) {
+                const label = `${datasource.name}/${entry.name}`;
+
+                // Planned as a skip and never written. Never renamed either:
+                // the plugin reading this datasource looks entries up by name.
+                if (isEntryNameStoryblokRejects(entry.name)) {
+                    entries.skip.push({
+                        name: label,
+                        reason: ENTRY_NAME_STORYBLOK_REJECTS_REASON,
+                    });
+                    rejectedNames.push(entry.name);
+                    continue;
+                }
+
                 (targetEntryNames.has(entry.name)
                     ? entries.update
                     : entries.create
-                ).push(`${datasource.name}/${entry.name}`);
+                ).push(label);
+            }
+
+            if (rejectedNames.length > 0) {
+                entriesStoryblokWillReject.push({
+                    datasource: datasource.name,
+                    count: rejectedNames.length,
+                    total: sourceEntries.length,
+                    names: rejectedNames,
+                });
             }
         }
 
         plan.datasources = datasources;
         plan.entries = entries;
+        plan.entriesStoryblokWillReject = entriesStoryblokWillReject;
     }
 
     return plan;

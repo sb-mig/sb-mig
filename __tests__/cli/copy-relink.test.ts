@@ -439,6 +439,91 @@ describe("copy relink", () => {
         mocks.getStoryById.mockResolvedValue(undefined);
     };
 
+    /** Storyblok soft-deletes: a trashed story still answers a by-id read. */
+    const TRASHED_AT = "2026-09-15T15:07:07.000Z";
+
+    // MAR-3060 lap 2 F1 canary (relink, in the selection). Mutation that must
+    // turn it red: ignore `deleted_at` in getValidMappedTargetStory.
+    it("never rewrites a reference through a ledger mapping whose target is in the trash", async () => {
+        const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-relink-"));
+        const manifestRoot = path.join(tempDir, ".sb-mig");
+
+        await setUpStaleLedgerMapping(manifestRoot);
+        mocks.getStoryById.mockImplementation(async (id: string) =>
+            String(id) === "3003"
+                ? {
+                      story: {
+                          id: 3003,
+                          uuid: "deleted-target-uuid",
+                          full_slug: "imported/blog/post-3",
+                          deleted_at: TRASHED_AT,
+                      },
+                  }
+                : undefined,
+        );
+
+        await copyCommand(relinkFlags({ manifestRoot, yes: true }) as any);
+
+        expect(JSON.stringify(mocks.updateStory.mock.calls)).not.toContain(
+            "deleted-target-uuid",
+        );
+        expect(
+            (Logger.warning as unknown as ReturnType<typeof vi.fn>).mock.calls
+                .map((call) => String(call[0]))
+                .some(
+                    (line) =>
+                        line.includes("'blog/post-3'") &&
+                        line.includes(
+                            `points at a deleted story (trashed ${TRASHED_AT})`,
+                        ),
+                ),
+        ).toBe(true);
+
+        await rm(tempDir, { recursive: true, force: true });
+    });
+
+    // MAR-3060 lap 2 F1 canary (relink, outside the selection). Mutation that
+    // must turn it red: ignore `deleted_at` in validateRelinkLedgerMappings.
+    it("drops an out-of-selection ledger mapping whose target story is in the trash", async () => {
+        const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-relink-"));
+        const manifestRoot = path.join(tempDir, ".sb-mig");
+
+        targetPost.content = {
+            component: "page",
+            cta: { linktype: "story", id: 5, uuid: "shared-header-uuid" },
+        };
+
+        await writeLedger(manifestRoot, [
+            storyLedgerEntry({
+                source_id: 5,
+                target_id: 5005,
+                source_uuid: "shared-header-uuid",
+                target_uuid: "target-header-uuid",
+                source_full_slug: "shared/header",
+                target_full_slug: "imported/shared/header",
+            }),
+        ]);
+        // The mapped story still answers by id, from the trash.
+        mocks.getStoryById.mockImplementation(async (id: string) =>
+            String(id) === "5005"
+                ? {
+                      story: {
+                          id: 5005,
+                          uuid: "target-header-uuid",
+                          full_slug: "imported/shared/header",
+                          deleted_at: TRASHED_AT,
+                      },
+                  }
+                : undefined,
+        );
+
+        await copyCommand(relinkFlags({ manifestRoot, yes: true }) as any);
+
+        expect(mocks.updateStory).not.toHaveBeenCalled();
+
+        await rm(tempDir, { recursive: true, force: true });
+    });
+
     it("never rewrites a reference through a ledger mapping whose target is gone", async () => {
         const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-relink-"));
         const manifestRoot = path.join(tempDir, ".sb-mig");
@@ -832,6 +917,149 @@ describe("copy relink", () => {
             "    1 planned story is not in the target and cannot be relinked; copy it first.",
         );
         expect(mocks.updateStory).not.toHaveBeenCalled();
+
+        await rm(tempDir, { recursive: true, force: true });
+    });
+
+    // MAR-3056 R1 canary for relink. Mutation that must turn it red: restore
+    // the throw at the end of relinkTargetStories (no report is written).
+    it("records a rejected update, writes the report, and exits 1 instead of throwing", async () => {
+        const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-relink-"));
+        const outputPath = path.join(tempDir, "relink-report.json");
+
+        process.exitCode = undefined;
+        mocks.updateStory.mockResolvedValue({
+            ok: false,
+            status: 422,
+            response:
+                "The value of the field body must be a prosemirror document",
+        });
+
+        await copyCommand(
+            relinkFlags({
+                manifestRoot: path.join(tempDir, ".sb-mig"),
+                outputPath,
+                yes: true,
+            }) as any,
+        );
+
+        expect(process.exitCode).toBe(1);
+
+        const report = JSON.parse(await readFile(outputPath, "utf8"));
+
+        expect(report).toMatchObject({ command: "copy relink", dryRun: false });
+        expect(
+            report.items.map((item: any) => [
+                item.targetFullSlug,
+                item.outcome,
+            ]),
+        ).toEqual([
+            ["imported/blog", "matched"],
+            ["imported/blog/post-1", "update_failed"],
+        ]);
+        expect(report.failures).toEqual([
+            expect.objectContaining({
+                resource: "story",
+                path: "imported/blog/post-1",
+                phase: "update",
+                status: 422,
+                targetId: 1002,
+            }),
+        ]);
+
+        await rm(tempDir, { recursive: true, force: true });
+    });
+
+    it("writes the relink plan with an empty failures array on --dry-run", async () => {
+        const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-relink-"));
+        const outputPath = path.join(tempDir, "relink-plan.json");
+
+        await copyCommand(
+            relinkFlags({
+                manifestRoot: path.join(tempDir, ".sb-mig"),
+                outputPath,
+                dryRun: true,
+            }) as any,
+        );
+
+        const report = JSON.parse(await readFile(outputPath, "utf8"));
+
+        expect(report).toMatchObject({
+            command: "copy relink",
+            dryRun: true,
+            failures: [],
+        });
+        expect(mocks.updateStory).not.toHaveBeenCalled();
+
+        await rm(tempDir, { recursive: true, force: true });
+    });
+
+    // MAR-3067 R8 (d) canary. Mutation that must turn it red: relink only the
+    // first selection.
+    it("relinks two selections in one run and states them in the PLAN", async () => {
+        const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-relink-"));
+        const sourceItem = {
+            id: 3,
+            name: "Item",
+            slug: "item",
+            full_slug: "news/item",
+            is_folder: false,
+            parent_id: 4,
+            uuid: "source-item-uuid",
+            content: brokenTargetContent(),
+        };
+        const targetItem = {
+            id: 1003,
+            name: "Item",
+            slug: "item",
+            full_slug: "imported/item",
+            is_folder: false,
+            uuid: "target-item-uuid",
+            published: false,
+            content: brokenTargetContent(),
+        };
+        const baseGetStoryBySlug = mocks.getStoryBySlug.getMockImplementation();
+
+        mocks.getStoryBySlug.mockImplementation((slug: string, config: any) => {
+            if (slug === "news/item") {
+                return Promise.resolve({ story: sourceItem });
+            }
+
+            if (slug === "imported/item") {
+                return Promise.resolve({ story: targetItem });
+            }
+
+            return baseGetStoryBySlug!(slug, config);
+        });
+        // A tree built by parent_id, the way createTree builds it.
+        mocks.createTree.mockImplementation((stories: any[]) => {
+            const build = (parentId: number | null): any[] =>
+                stories
+                    .filter((item) => (item.parent_id ?? null) === parentId)
+                    .map((item) => ({
+                        id: item.id,
+                        parent_id: item.parent_id,
+                        story: item,
+                        children: build(item.id),
+                    }));
+
+            return build(null);
+        });
+
+        await copyCommand(
+            relinkFlags({
+                manifestRoot: path.join(tempDir, ".sb-mig"),
+                yes: true,
+                source: ["blog", "news/item"],
+            }) as any,
+        );
+
+        expect(
+            mocks.updateStory.mock.calls.map((call) => call[1]).sort(),
+        ).toEqual(["1002", "1003"]);
+        expect(planLines()).toContain(
+            "  selections: 2 (2 stories, 1 folder after dedupe)",
+        );
 
         await rm(tempDir, { recursive: true, force: true });
     });

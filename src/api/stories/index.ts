@@ -6,6 +6,7 @@ export {
     searchStorySlugs,
     removeStory,
     getStoryBySlug,
+    getStoriesByFullSlugs,
     updateStories,
     publishStoryLanguages,
     parsePublishLanguagesOption,
