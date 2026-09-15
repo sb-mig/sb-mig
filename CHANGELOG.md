@@ -1,3 +1,23 @@
+# [6.5.0-beta.7](https://github.com/sb-mig/sb-mig/compare/v6.5.0-beta.6...v6.5.0-beta.7) (2026-09-15)
+
+
+### Bug Fixes
+
+* **copy:** count an empty string in a richtext field as schema drift (MAR-3057) ([53d6561](https://github.com/sb-mig/sb-mig/commit/53d656156d642a58d633cc95fb1a42441bdac87a))
+* **copy:** count only schema drift as will fail; whitelist violations are a warning (MAR-3057) ([bd9647a](https://github.com/sb-mig/sb-mig/commit/bd9647a06c319c3c08e110c4d988bfef6533aad5))
+* **copy:** never publish folders when copying stories (MAR-3055) ([5359f9a](https://github.com/sb-mig/sb-mig/commit/5359f9a594ac1cc18104bfea3f2cc1f42acf09ba))
+* **copy:** record failed writes and finish the run with a report (MAR-3056) ([419fb46](https://github.com/sb-mig/sb-mig/commit/419fb46876be43afc5a0936be01837624093bcb9))
+* **copy:** resume copy stories through startpages and failed creates (MAR-3060) ([7083e05](https://github.com/sb-mig/sb-mig/commit/7083e05d3fec41920a307c76b9f96e08defe05ec))
+* **copy:** treat trashed target stories as gone, record failed replacement creates (MAR-3060) ([dadef2e](https://github.com/sb-mig/sb-mig/commit/dadef2ea8f14ab9e7896fb3b27e0c5bf47292b5a))
+
+
+### Features
+
+* **copy:** accept several --source selections in one run (MAR-3067) ([e528cae](https://github.com/sb-mig/sb-mig/commit/e528caee8b3aa048e6fc7f449d7057c424cf3092))
+* **copy:** check field-type plugins before copying a space (MAR-3045) ([034ff01](https://github.com/sb-mig/sb-mig/commit/034ff01283fe55ca4b8ec306218048f1a42711c4))
+* **copy:** skip datasource entry names Storyblok rejects (MAR-3046) ([13da3b6](https://github.com/sb-mig/sb-mig/commit/13da3b6b9d0061bf89b7a52e411f8f0b7643b216))
+* **copy:** state schema drift before copying stories (MAR-3057) ([a25da53](https://github.com/sb-mig/sb-mig/commit/a25da536fcf31373b12fc5218d7c18ba980eea2a))
+
 # [6.5.0-beta.6](https://github.com/sb-mig/sb-mig/compare/v6.5.0-beta.5...v6.5.0-beta.6) (2026-09-15)
 
 
