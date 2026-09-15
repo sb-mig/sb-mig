@@ -3254,4 +3254,250 @@ describe("copy stories dry-run", () => {
             expect((await readReport()).failures).toEqual([]);
         });
     });
+
+    describe("schema drift and unknown components (MAR-3057)", () => {
+        let tempDir: string;
+        let outputPath: string;
+        let manifestRoot: string;
+
+        beforeEach(async () => {
+            tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-copy-"));
+            outputPath = path.join(tempDir, "plan.json");
+            manifestRoot = path.join(tempDir, ".sb-mig");
+        });
+
+        afterEach(async () => {
+            await rm(tempDir, { recursive: true, force: true });
+        });
+
+        const printed = () =>
+            [
+                ...vi.mocked(Logger.log).mock.calls,
+                ...vi.mocked(Logger.success).mock.calls,
+                ...vi.mocked(Logger.warning).mock.calls,
+                ...vi.mocked(Logger.error).mock.calls,
+            ].map((call) => String(call[0]));
+
+        const doc = {
+            type: "doc",
+            content: [
+                { type: "paragraph", content: [{ type: "text", text: "Hi" }] },
+            ],
+        };
+
+        const withSourcePostBody = (body: unknown[]) =>
+            mocks.getAllStories.mockResolvedValue([
+                {
+                    story: {
+                        id: 2,
+                        name: "Post 1",
+                        slug: "post-1",
+                        full_slug: "blog/post-1",
+                        is_folder: false,
+                        parent_id: 1,
+                        uuid: "source-post-uuid",
+                        content: { component: "page", body },
+                    },
+                },
+            ]);
+
+        /** A blockquote whose richtext field still holds a plain string. */
+        const postWithStringQuote = () => {
+            mocks.getAllComponents.mockResolvedValue([
+                {
+                    name: "page",
+                    schema: {
+                        body: { type: "bloks" },
+                        cta: { type: "multilink" },
+                        image: { type: "asset" },
+                    },
+                },
+                {
+                    name: "sb-blockquote",
+                    schema: { content: { type: "richtext" } },
+                },
+            ]);
+            withSourcePostBody([
+                {
+                    component: "sb-blockquote",
+                    _uid: "q1",
+                    content: "A plain quote",
+                },
+            ]);
+        };
+
+        const runDryRun = () =>
+            copyCommand({
+                input: ["copy", "stories"],
+                flags: {
+                    from: "source-space",
+                    to: "target-space",
+                    source: "blog",
+                    destination: "imported",
+                    dryRun: true,
+                    outputPath,
+                },
+            } as any);
+
+        it("states schema drift in the dry-run and the report, and counts the story as will fail", async () => {
+            postWithStringQuote();
+
+            await runDryRun();
+
+            expect(printed()).toEqual(
+                expect.arrayContaining([
+                    "[dry-run] schema drift: 1 occurrence in 1 story",
+                    "[dry-run]   sb-blockquote.content: expected richtext, got string (1)",
+                    "[dry-run] will fail: 1 story (1 with schema drift, 0 with a component not allowed in its field)",
+                ]),
+            );
+
+            const report = JSON.parse(await readFile(outputPath, "utf8"));
+
+            expect(report.schemaDrift).toMatchObject({
+                occurrences: 1,
+                stories: 1,
+                storyFullSlugs: ["blog/post-1"],
+                groups: [
+                    {
+                        component: "sb-blockquote",
+                        field: "content",
+                        expected: "richtext",
+                        got: "string",
+                        count: 1,
+                    },
+                ],
+            });
+            expect(report.summary).toMatchObject({
+                schemaDriftOccurrences: 1,
+                storiesWillFail: 1,
+            });
+        });
+
+        it("prints schema drift in the PLAN block and leaves the gate to the operator", async () => {
+            postWithStringQuote();
+
+            await copyCommand({
+                input: ["copy", "stories"],
+                flags: {
+                    from: "source-space",
+                    to: "target-space",
+                    source: "blog",
+                    destination: "imported",
+                    manifestRoot,
+                    yes: true,
+                },
+            } as any);
+
+            const lines = planGateLines();
+
+            expect(lines).toContain("  schema drift: 1 occurrence in 1 story");
+            expect(lines).toContain(
+                "    sb-blockquote.content: expected richtext, got string (1)",
+            );
+            expect(lines).toContain(
+                "  will fail: 1 story (1 with schema drift, 0 with a component not allowed in its field)",
+            );
+            // The gate is unchanged: drift is stated, the run still proceeds.
+            expect(mocks.createStory).toHaveBeenCalled();
+        });
+
+        it("prints the schema drift line with zero when nothing drifted", async () => {
+            mocks.getAllComponents.mockResolvedValue([
+                {
+                    name: "page",
+                    schema: { body: { type: "bloks" } },
+                },
+                {
+                    name: "sb-blockquote",
+                    schema: { content: { type: "richtext" } },
+                },
+            ]);
+            withSourcePostBody([
+                { component: "sb-blockquote", _uid: "q1", content: doc },
+            ]);
+
+            await runDryRun();
+
+            expect(printed()).toContain(
+                "[dry-run] schema drift: 0 occurrences in 0 stories",
+            );
+            expect(printed().some((line) => line.includes("will fail:"))).toBe(
+                false,
+            );
+        });
+
+        // MAR-3057 R4 (b) canary. Mutation that must turn it red: restore the
+        // "will fail with a 422" wording for components missing from the target.
+        it("says an unknown component renders as unknown in the editor, never that the write fails", async () => {
+            mocks.getAllComponents.mockResolvedValue([
+                {
+                    name: "page",
+                    schema: { body: { type: "bloks" } },
+                },
+            ]);
+            withSourcePostBody([
+                { component: "sb-content-group", _uid: "blok-1" },
+            ]);
+
+            await runDryRun();
+
+            const report = JSON.parse(await readFile(outputPath, "utf8"));
+            const warning = report.warnings.find(
+                (entry: any) => entry.code === "component_missing_in_target",
+            );
+
+            expect(warning.message).toContain("unknown component");
+            expect(warning.message).toContain("the write succeeds");
+            expect(warning.message).not.toContain("422");
+
+            const unknownLines = printed().filter((line) =>
+                line.includes("sb-content-group"),
+            );
+
+            expect(unknownLines.length).toBeGreaterThan(0);
+            expect(unknownLines.some((line) => line.includes("422"))).toBe(
+                false,
+            );
+            expect(printed().some((line) => line.includes("422"))).toBe(false);
+            // An unknown component is written fine, so it is not a will-fail.
+            expect(report.summary.storiesWillFail).toBe(0);
+        });
+
+        it("keeps saying a component outside its field's whitelist will fail with a 422", async () => {
+            mocks.getAllComponents.mockResolvedValue([
+                {
+                    name: "page",
+                    schema: {
+                        body: {
+                            type: "bloks",
+                            restrict_components: true,
+                            component_whitelist: ["teaser"],
+                        },
+                    },
+                },
+                {
+                    name: "sb-blockquote",
+                    schema: { content: { type: "richtext" } },
+                },
+                { name: "teaser", schema: {} },
+            ]);
+            withSourcePostBody([
+                { component: "sb-blockquote", _uid: "q1", content: doc },
+            ]);
+
+            await runDryRun();
+
+            const report = JSON.parse(await readFile(outputPath, "utf8"));
+            const warning = report.warnings.find(
+                (entry: any) => entry.code === "component_not_allowed_in_field",
+            );
+
+            expect(warning.message).toContain("will fail with a 422");
+            expect(printed()).toContain(
+                "[dry-run] will fail: 1 story (0 with schema drift, 1 with a component not allowed in its field)",
+            );
+            expect(report.summary.storiesWillFail).toBe(1);
+        });
+    });
 });

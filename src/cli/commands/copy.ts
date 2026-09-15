@@ -77,6 +77,10 @@ import {
     selectRelinkLedgerStoryMappings,
     summarizeCopyGraph,
     summarizeCopyTranslatedSlugs,
+    findSchemaDrift,
+    formatSchemaDriftLines,
+    formatStoriesWillFailLine,
+    summarizeStoriesWillFail,
 } from "../../api/copy/index.js";
 import {
     resolveCopySpaceConcurrency,
@@ -271,12 +275,18 @@ type CopyDryRunReport = {
         warnings: number;
         errors: number;
         componentIssues: number;
+        /** Field values whose shape the target's field type rejects. */
+        schemaDriftOccurrences: number;
+        /** Stories the target will reject: schema drift or a whitelist violation. */
+        storiesWillFail: number;
     };
     translatedSlugs: CopyTranslatedSlugSummary;
     items: CopyPlanItem[];
     graph?: CopyGraph;
     assetReferenceSummary?: CopyDryRunAssetReferenceSummary;
     componentCompatibility?: CopyDryRunComponentCompatibility;
+    schemaDrift?: ReturnType<typeof findSchemaDrift>;
+    willFail?: ReturnType<typeof summarizeStoriesWillFail>;
     warnings: CopyPlanWarning[];
     errors: any[];
     /** Always empty: a dry-run writes nothing. Present so every report has it. */
@@ -1542,9 +1552,11 @@ const buildComponentCompatibilityWarnings = (
     const warnings: CopyPlanWarning[] = [];
 
     if (componentCompatibility.missingComponents.length > 0) {
+        // Storyblok does not validate component names on save: a story using
+        // a component the target lacks is written and published fine.
         warnings.push({
             code: "component_missing_in_target",
-            message: `Component(s) missing from the target space schema (story updates will fail with a 422 until they are synced): ${componentCompatibility.missingComponents.join(", ")}.`,
+            message: `Component(s) missing from the target space schema: ${componentCompatibility.missingComponents.join(", ")}. Stories using them will render as unknown components in the editor; the write succeeds. Sync the components to edit those bloks in the target.`,
         });
     }
 
@@ -1557,6 +1569,18 @@ const buildComponentCompatibilityWarnings = (
 
     return warnings;
 };
+
+const buildSchemaDriftWarnings = (
+    schemaDrift?: ReturnType<typeof findSchemaDrift>,
+): CopyPlanWarning[] =>
+    schemaDrift && schemaDrift.occurrences > 0
+        ? [
+              {
+                  code: "schema_drift",
+                  message: `Schema drift: ${schemaDrift.occurrences} field value(s) in ${schemaDrift.stories} story/stories do not have the shape their field type requires (see schemaDrift). Those story updates will fail until the content matches the target schema.`,
+              },
+          ]
+        : [];
 
 const quoteCommandArg = (value: string): string =>
     /^[a-zA-Z0-9_./:-]+$/.test(value) ? value : JSON.stringify(value);
@@ -1803,6 +1827,8 @@ const buildCopyDryRunReport = ({
     conflicts,
     graph,
     componentCompatibility,
+    schemaDrift,
+    willFail,
     translatedSlugs,
     outputPath,
 }: {
@@ -1816,6 +1842,8 @@ const buildCopyDryRunReport = ({
     conflicts: CopyPlanItem[];
     graph?: CopyGraph;
     componentCompatibility?: CopyDryRunComponentCompatibility;
+    schemaDrift?: ReturnType<typeof findSchemaDrift>;
+    willFail?: ReturnType<typeof summarizeStoriesWillFail>;
     translatedSlugs: CopyTranslatedSlugSummary;
     outputPath?: string;
 }): CopyDryRunReport => {
@@ -1829,6 +1857,7 @@ const buildCopyDryRunReport = ({
     const warnings = [
         ...buildDryRunWarnings({ conflicts, withAssets }),
         ...buildComponentCompatibilityWarnings(componentCompatibility),
+        ...buildSchemaDriftWarnings(schemaDrift),
         ...(translatedSlugsWarning ? [translatedSlugsWarning] : []),
     ];
     const graphSummary = graph ? summarizeCopyGraph(graph) : undefined;
@@ -1897,12 +1926,16 @@ const buildCopyDryRunReport = ({
             warnings: warnings.length + (graphSummary?.warnings ?? 0),
             errors: graphSummary?.errors ?? 0,
             componentIssues: componentCompatibility?.findings.length ?? 0,
+            schemaDriftOccurrences: schemaDrift?.occurrences ?? 0,
+            storiesWillFail: willFail?.stories ?? 0,
         },
         translatedSlugs,
         items,
         ...(graph ? { graph } : {}),
         ...(assetReferenceSummary ? { assetReferenceSummary } : {}),
         ...(componentCompatibility ? { componentCompatibility } : {}),
+        ...(schemaDrift ? { schemaDrift } : {}),
+        ...(willFail ? { willFail } : {}),
         warnings,
         errors: graph?.errors ?? [],
         failures: [],
@@ -3075,6 +3108,11 @@ const buildTargetComponentValidator = async (targetSpace: string) => {
         // With no components fetched we cannot validate anything; skip instead
         // of reporting every component as missing.
         canValidate: targetComponentNames.size > 0,
+        /** The target's component schemas, by name, for the schema drift check. */
+        targetSchemas: Object.fromEntries(schemaByName) as Record<
+            string,
+            Record<string, any>
+        >,
         validateStory(story: any): ComponentCompatibilityFinding[] {
             const findings: ComponentCompatibilityFinding[] = [];
 
@@ -3112,6 +3150,59 @@ const buildTargetComponentValidator = async (targetSpace: string) => {
             return findings;
         },
     };
+};
+
+/**
+ * What the target will do with the content before anything is written: which
+ * components it does not know (saved fine, shown as unknown in the editor),
+ * which a field's whitelist rejects, and which values have drifted from their
+ * field's type. The dry-run and the PLAN block both read it, so they state the
+ * same counts.
+ */
+const planSchemaPreflight = async ({
+    targetSpace,
+    sourceSchemas,
+    sourceStories,
+    plannedSourceStories,
+}: {
+    targetSpace: string;
+    sourceSchemas: Record<string, any>;
+    sourceStories: any[];
+    plannedSourceStories: any[];
+}) => {
+    Logger.warning(
+        "Checking source components and field values against the target space schema.",
+    );
+
+    const componentValidator = await buildTargetComponentValidator(targetSpace);
+    const componentCompatibility = componentValidator.canValidate
+        ? summarizeComponentCompatibility(
+              true,
+              sourceStories.flatMap((item: any) =>
+                  componentValidator.validateStory(item?.story),
+              ),
+          )
+        : summarizeComponentCompatibility(false, []);
+
+    if (!componentCompatibility.checked) {
+        Logger.warning(
+            `Skipped component compatibility check because no components were returned for target space '${targetSpace}'.`,
+        );
+    }
+
+    const schemaDrift = findSchemaDrift({
+        stories: plannedSourceStories,
+        targetSchemas: componentValidator.targetSchemas,
+        sourceSchemas,
+    });
+    const willFail = summarizeStoriesWillFail({
+        schemaDrift,
+        notAllowedStoryFullSlugs: componentCompatibility.findings
+            .filter((finding) => finding.reason === "not_allowed_in_field")
+            .map((finding) => finding.sourceFullSlug),
+    });
+
+    return { componentCompatibility, schemaDrift, willFail };
 };
 
 const collectAssetFolderAncestors = ({
@@ -5134,58 +5225,90 @@ const logDryRunCopyPlan = async ({
         );
     } else if (compatibility && compatibility.findings.length === 0) {
         Logger.success(
-            "[dry-run] All source components are accepted by the target space schema.",
+            "[dry-run] All source components exist in the target space schema and are allowed in their fields.",
         );
     } else if (compatibility) {
-        Logger.error(
-            `[dry-run] ${compatibility.findings.length} component compatibility issue(s) would make story updates fail with a 422:`,
+        // Group by component so the output stays readable when the same
+        // component is used across many stories.
+        const printGroups = (
+            findings: typeof compatibility.findings,
+            reasonLabel: string,
+            log: (message: string) => void,
+        ) => {
+            const grouped = new Map<string, typeof compatibility.findings>();
+
+            for (const finding of findings) {
+                grouped.set(finding.component, [
+                    ...(grouped.get(finding.component) ?? []),
+                    finding,
+                ]);
+            }
+
+            for (const [component, bucket] of grouped) {
+                const example = bucket[0];
+                const contextParts = [
+                    example?.field ? `field '${example.field}'` : undefined,
+                    example?.parentComponent
+                        ? `component '${example.parentComponent}'`
+                        : undefined,
+                    example?.uid ? `_uid ${example.uid}` : undefined,
+                ].filter(Boolean);
+                const exampleLabel = example
+                    ? ` e.g. '${example.sourceFullSlug}' at ${example.path}${
+                          contextParts.length
+                              ? ` (${contextParts.join(", ")})`
+                              : ""
+                      }`
+                    : "";
+
+                log(
+                    `[dry-run]   ${component}: ${reasonLabel} — ${bucket.length} occurrence(s).${exampleLabel}`,
+                );
+            }
+        };
+        const notAllowed = compatibility.findings.filter(
+            (finding) => finding.reason === "not_allowed_in_field",
+        );
+        const unknown = compatibility.findings.filter(
+            (finding) => finding.reason === "missing_in_target",
         );
 
-        // Group by component + reason so the output stays readable when the
-        // same component is used across many stories.
-        const grouped = new Map<
-            string,
-            {
-                reason: string;
-                component: string;
-                findings: typeof compatibility.findings;
-            }
-        >();
-
-        for (const finding of compatibility.findings) {
-            const key = `${finding.reason}::${finding.component}`;
-            const bucket = grouped.get(key) ?? {
-                reason: finding.reason,
-                component: finding.component,
-                findings: [],
-            };
-            bucket.findings.push(finding);
-            grouped.set(key, bucket);
-        }
-
-        for (const bucket of grouped.values()) {
-            const reasonLabel =
-                bucket.reason === "missing_in_target"
-                    ? "missing from target space schema"
-                    : "not allowed in the target field";
-            const example = bucket.findings[0];
-            const contextParts = [
-                example?.field ? `field '${example.field}'` : undefined,
-                example?.parentComponent
-                    ? `component '${example.parentComponent}'`
-                    : undefined,
-                example?.uid ? `_uid ${example.uid}` : undefined,
-            ].filter(Boolean);
-            const exampleLabel = example
-                ? ` e.g. '${example.sourceFullSlug}' at ${example.path}${
-                      contextParts.length ? ` (${contextParts.join(", ")})` : ""
-                  }`
-                : "";
-
+        if (notAllowed.length > 0) {
             Logger.error(
-                `[dry-run]   ${bucket.component}: ${reasonLabel} — ${bucket.findings.length} occurrence(s).${exampleLabel}`,
+                `[dry-run] ${notAllowed.length} component occurrence(s) sit in a field whose whitelist does not allow them; those story updates will fail with a 422:`,
+            );
+            printGroups(notAllowed, "not allowed in the target field", (line) =>
+                Logger.error(line),
             );
         }
+
+        if (unknown.length > 0) {
+            // Storyblok saves a component it does not know; only the editor
+            // notices. So this is a warning, not a predicted failure.
+            Logger.warning(
+                `[dry-run] ${unknown.length} component occurrence(s) are missing from the target space schema; they will render as unknown components in the editor, and the write succeeds:`,
+            );
+            printGroups(unknown, "missing from target space schema", (line) =>
+                Logger.warning(line),
+            );
+        }
+    }
+
+    if (report.schemaDrift) {
+        const [driftLine, ...driftGroups] = formatSchemaDriftLines(
+            report.schemaDrift,
+        );
+        const logDrift = (message: string) =>
+            report.schemaDrift && report.schemaDrift.occurrences > 0
+                ? Logger.error(message)
+                : Logger.success(message);
+
+        logDrift(`[dry-run] ${driftLine}`);
+        driftGroups.forEach((line) => logDrift(`[dry-run] ${line}`));
+    }
+
+    if (report.willFail && report.willFail.stories > 0) {
+        Logger.error(`[dry-run] ${formatStoriesWillFailLine(report.willFail)}`);
     }
 
     report.warnings.forEach((warning) =>
@@ -5785,11 +5908,15 @@ export const copyCommand = async (props: CLIOptions) => {
             let sourceAssets: any[] = [];
             let sourceAssetFolders: any[] = [];
 
+            // Read once: the reference scan and the schema drift check (which
+            // falls back to the source schema) both need it, in either mode.
+            const sourceSchemasPromise =
+                buildComponentSchemaRegistry(sourceSpace);
+
             // The reference scan runs in apply mode too: the plan gate needs
             // will-relink / will-break counts before the first write.
             {
-                const schemasPromise =
-                    buildComponentSchemaRegistry(sourceSpace);
+                const schemasPromise = sourceSchemasPromise;
 
                 if (withAssets) {
                     const [schemas, assetsResult, assetFoldersResult] =
@@ -5910,25 +6037,13 @@ export const copyCommand = async (props: CLIOptions) => {
                         item.ledger = ledgerMatch;
                     }
                 }
-                Logger.warning(
-                    "Checking source components against the target space schema.",
-                );
-                const componentValidator =
-                    await buildTargetComponentValidator(targetSpace);
-                const componentCompatibility = componentValidator.canValidate
-                    ? summarizeComponentCompatibility(
-                          true,
-                          sourceStories.flatMap((item: any) =>
-                              componentValidator.validateStory(item?.story),
-                          ),
-                      )
-                    : summarizeComponentCompatibility(false, []);
-
-                if (!componentCompatibility.checked) {
-                    Logger.warning(
-                        `Skipped component compatibility check because no components were returned for target space '${targetSpace}'.`,
-                    );
-                }
+                const { componentCompatibility, schemaDrift, willFail } =
+                    await planSchemaPreflight({
+                        targetSpace,
+                        sourceSchemas: await sourceSchemasPromise,
+                        sourceStories,
+                        plannedSourceStories,
+                    });
 
                 Logger.warning("Building dry-run copy report.");
                 const report = buildCopyDryRunReport({
@@ -5942,6 +6057,8 @@ export const copyCommand = async (props: CLIOptions) => {
                     conflicts,
                     graph: dryRunGraph,
                     componentCompatibility,
+                    schemaDrift,
+                    willFail,
                     translatedSlugs,
                     outputPath,
                 });
@@ -6017,7 +6134,27 @@ export const copyCommand = async (props: CLIOptions) => {
                 translatedSlugs,
             });
 
+            // Read before the PLAN is printed, so the drift lines sit inside the
+            // block. The gate itself is unchanged: the operator decides.
+            const gatePreflight = await planSchemaPreflight({
+                targetSpace,
+                sourceSchemas: await sourceSchemasPromise,
+                sourceStories,
+                plannedSourceStories,
+            });
+
             formatCopyPlanGate(planGate).forEach((line) => Logger.log(line));
+            // Printed here rather than by formatCopyPlanGate: the story-shaped
+            // plan-gate types are frozen for this run.
+            formatSchemaDriftLines(gatePreflight.schemaDrift).forEach((line) =>
+                Logger.log(`  ${line}`),
+            );
+
+            if (gatePreflight.willFail.stories > 0) {
+                Logger.log(
+                    `  ${formatStoriesWillFailLine(gatePreflight.willFail)}`,
+                );
+            }
 
             if (!(await confirmCopyPlan({ yes }))) {
                 break;
