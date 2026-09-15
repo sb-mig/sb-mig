@@ -439,6 +439,91 @@ describe("copy relink", () => {
         mocks.getStoryById.mockResolvedValue(undefined);
     };
 
+    /** Storyblok soft-deletes: a trashed story still answers a by-id read. */
+    const TRASHED_AT = "2026-09-15T15:07:07.000Z";
+
+    // MAR-3060 lap 2 F1 canary (relink, in the selection). Mutation that must
+    // turn it red: ignore `deleted_at` in getValidMappedTargetStory.
+    it("never rewrites a reference through a ledger mapping whose target is in the trash", async () => {
+        const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-relink-"));
+        const manifestRoot = path.join(tempDir, ".sb-mig");
+
+        await setUpStaleLedgerMapping(manifestRoot);
+        mocks.getStoryById.mockImplementation(async (id: string) =>
+            String(id) === "3003"
+                ? {
+                      story: {
+                          id: 3003,
+                          uuid: "deleted-target-uuid",
+                          full_slug: "imported/blog/post-3",
+                          deleted_at: TRASHED_AT,
+                      },
+                  }
+                : undefined,
+        );
+
+        await copyCommand(relinkFlags({ manifestRoot, yes: true }) as any);
+
+        expect(JSON.stringify(mocks.updateStory.mock.calls)).not.toContain(
+            "deleted-target-uuid",
+        );
+        expect(
+            (Logger.warning as unknown as ReturnType<typeof vi.fn>).mock.calls
+                .map((call) => String(call[0]))
+                .some(
+                    (line) =>
+                        line.includes("'blog/post-3'") &&
+                        line.includes(
+                            `points at a deleted story (trashed ${TRASHED_AT})`,
+                        ),
+                ),
+        ).toBe(true);
+
+        await rm(tempDir, { recursive: true, force: true });
+    });
+
+    // MAR-3060 lap 2 F1 canary (relink, outside the selection). Mutation that
+    // must turn it red: ignore `deleted_at` in validateRelinkLedgerMappings.
+    it("drops an out-of-selection ledger mapping whose target story is in the trash", async () => {
+        const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-relink-"));
+        const manifestRoot = path.join(tempDir, ".sb-mig");
+
+        targetPost.content = {
+            component: "page",
+            cta: { linktype: "story", id: 5, uuid: "shared-header-uuid" },
+        };
+
+        await writeLedger(manifestRoot, [
+            storyLedgerEntry({
+                source_id: 5,
+                target_id: 5005,
+                source_uuid: "shared-header-uuid",
+                target_uuid: "target-header-uuid",
+                source_full_slug: "shared/header",
+                target_full_slug: "imported/shared/header",
+            }),
+        ]);
+        // The mapped story still answers by id, from the trash.
+        mocks.getStoryById.mockImplementation(async (id: string) =>
+            String(id) === "5005"
+                ? {
+                      story: {
+                          id: 5005,
+                          uuid: "target-header-uuid",
+                          full_slug: "imported/shared/header",
+                          deleted_at: TRASHED_AT,
+                      },
+                  }
+                : undefined,
+        );
+
+        await copyCommand(relinkFlags({ manifestRoot, yes: true }) as any);
+
+        expect(mocks.updateStory).not.toHaveBeenCalled();
+
+        await rm(tempDir, { recursive: true, force: true });
+    });
+
     it("never rewrites a reference through a ledger mapping whose target is gone", async () => {
         const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-relink-"));
         const manifestRoot = path.join(tempDir, ".sb-mig");

@@ -3015,6 +3015,185 @@ describe("copy stories dry-run", () => {
                 storiesSkippedParentFailed: 1,
             });
         });
+
+        /**
+         * Storyblok soft-deletes: a trashed story still answers a by-id read
+         * with 200, its old full_slug and a `deleted_at`.
+         */
+        const TRASHED_AT = "2026-09-15T15:07:07.000Z";
+        const trashed = (story: Record<string, unknown>) => ({
+            ...story,
+            deleted_at: TRASHED_AT,
+        });
+        const trashedFolderAndStartpage = () =>
+            targetStoriesById({
+                "1001": trashed(targetFolder),
+                "1002": trashed({
+                    id: 1002,
+                    uuid: "target-home-uuid",
+                    full_slug: "imported/blog/",
+                    is_folder: false,
+                    is_startpage: true,
+                }),
+            });
+        const createsFreshShells = () =>
+            mocks.createStory.mockImplementation(async (content: any) => ({
+                story:
+                    content.slug === "blog"
+                        ? {
+                              id: 3001,
+                              uuid: "new-blog-uuid",
+                              full_slug: "imported/blog",
+                          }
+                        : {
+                              id: 3002,
+                              uuid: "new-home-uuid",
+                              full_slug: "imported/blog/",
+                          },
+            }));
+
+        // MAR-3060 lap 2 F1 canary. Mutation that must turn it red: ignore
+        // `deleted_at` in getValidMappedTargetStory.
+        it("creates anew when the ledger maps a story that sits in the trash", async () => {
+            withStartpageChild();
+            await ledgerWithFolderAndStartpage();
+            trashedFolderAndStartpage();
+            createsFreshShells();
+
+            await runApply();
+
+            expect(mocks.createStory).toHaveBeenCalledTimes(2);
+            expect(updatedStoryIds()).not.toContain("1001");
+            expect(updatedStoryIds()).not.toContain("1002");
+            expect(updatedStoryIds()).toEqual(
+                expect.arrayContaining(["3001", "3002"]),
+            );
+            expect(lines("warning")).toContain(
+                `Ledger mapping for 'blog' points at a deleted story (trashed ${TRASHED_AT}); creating anew.`,
+            );
+            // Once per item.
+            expect(
+                lines("warning").filter((line) =>
+                    line.includes("points at a deleted story"),
+                ),
+            ).toHaveLength(2);
+        });
+
+        // MAR-3060 lap 2 F1 canary, plan side. Mutation that must turn it red:
+        // ignore `deleted_at` in resolvePlanLedgerMatches.
+        it("plans a trashed ledger target as a create and says so in the dry-run", async () => {
+            withStartpageChild();
+            await ledgerWithFolderAndStartpage();
+            trashedFolderAndStartpage();
+            createsFreshShells();
+
+            await runApply({ dryRun: true });
+
+            expect(lines("warning")).toContain(
+                `[dry-run]   folder imported/blog (ledger: points at a deleted story, trashed ${TRASHED_AT}; will be created again)`,
+            );
+
+            vi.mocked(Logger.log).mockClear();
+
+            await runApply();
+
+            expect(planGateLines()).toContain(
+                "  2 items (1 folder) -> space target-space (2 create, 0 adopt existing, 0 resume from ledger)",
+            );
+        });
+
+        // MAR-3060 lap 2 F3 canary. Mutation that must turn it red: throw
+        // again when the replacement create fails and nothing is at the path.
+        it("records a failed replacement create with its status, skips the subtree, and exits 1", async () => {
+            const outputPath = path.join(tempDir, "report.json");
+
+            await mkdir(manifestDirectory, { recursive: true });
+            await writeFile(
+                path.join(manifestDirectory, "manifest.jsonl"),
+                storyEntry({
+                    source_id: 1,
+                    target_id: 9999,
+                    source_uuid: "source-blog-uuid",
+                    target_uuid: "stale-target-blog-uuid",
+                    source_full_slug: "blog",
+                    target_full_slug: "imported/blog",
+                }) + "\n",
+            );
+
+            const staleFolder = {
+                id: 9999,
+                uuid: "stale-target-blog-uuid",
+                full_slug: "imported/blog",
+                is_folder: true,
+            };
+            const getStoryBySlug = mocks.getStoryBySlug.getMockImplementation();
+
+            targetStoriesById({ "9999": staleFolder });
+            mocks.getStoryBySlug.mockImplementation(
+                (slug: string, options: any) =>
+                    slug === "imported/blog"
+                        ? Promise.resolve({ story: staleFolder })
+                        : getStoryBySlug?.(slug, options),
+            );
+            // The folder's replacement cannot be created; the post can.
+            mocks.createStory.mockImplementation(async (content: any) =>
+                content.slug === "blog"
+                    ? {
+                          ok: false,
+                          stage: "create",
+                          status: 500,
+                          response: "Internal Server Error",
+                      }
+                    : {
+                          story: {
+                              id: 1002,
+                              uuid: "target-post-uuid",
+                              full_slug: "imported/blog/post-1",
+                          },
+                      },
+            );
+            // The mapped folder answers the read but not the update.
+            mocks.updateStory
+                .mockResolvedValueOnce({
+                    ok: false,
+                    status: 404,
+                    response: "This record could not be found",
+                })
+                .mockResolvedValue({ ok: true });
+
+            await runApply({ outputPath });
+
+            expect(process.exitCode).toBe(1);
+
+            const report = JSON.parse(await readFile(outputPath, "utf8"));
+
+            expect(report.failures).toEqual([
+                expect.objectContaining({
+                    resource: "story",
+                    path: "blog",
+                    phase: "create",
+                    status: 500,
+                }),
+            ]);
+            expect(
+                Object.fromEntries(
+                    report.items.map((item: any) => [
+                        item.sourceFullSlug,
+                        item.outcome,
+                    ]),
+                ),
+            ).toEqual({
+                blog: "create_failed",
+                "blog/post-1": "skipped_parent_failed",
+            });
+            expect(
+                lines("error").some(
+                    (line) =>
+                        line.includes("'blog/post-1'") &&
+                        line.includes("skipped"),
+                ),
+            ).toBe(true);
+        });
     });
 
     describe("failed writes never end the run (MAR-3056)", () => {

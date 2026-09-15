@@ -180,12 +180,15 @@ type CopyRunFailure = {
 /**
  * A ledger mapping checked against the target the way `copy relink` checks
  * one: by id. `matched` lives at the planned path, `moved` lives elsewhere and
- * is kept, `missing` no longer exists and is created again.
+ * is kept, `missing` no longer exists and is created again. A story in
+ * Storyblok's trash still answers the by-id read; it is `missing`, with the
+ * time it was trashed.
  */
 type CopyLedgerMatch = {
     match: "matched" | "moved" | "missing";
     targetId: number;
     currentFullSlug?: string;
+    deletedAt?: string;
 };
 
 type CopyAssetsSelection =
@@ -1094,16 +1097,28 @@ const isStoryAtPlannedPath = (story: any, plannedFullSlug: string): boolean => {
  * A story found at a different path has moved: the mapping is kept and the
  * move is reported, never treated as stale.
  */
+/**
+ * Storyblok soft-deletes: a trashed story still answers `GET stories/:id` with
+ * 200, its old `full_slug` and a `deleted_at`. For the copy it is gone.
+ */
+const isTrashedStory = (story: any): boolean =>
+    story?.deleted_at !== undefined &&
+    story?.deleted_at !== null &&
+    story?.deleted_at !== "";
+
 const getValidMappedTargetStory = async ({
     sourceStory,
     targetStoryId,
     targetFullSlug,
     targetSpace,
+    trashedNote = "creating anew",
 }: {
     sourceStory: any;
     targetStoryId: number;
     targetFullSlug?: string;
     targetSpace: string;
+    /** What the caller does instead, said once when the target is trashed. */
+    trashedNote?: string;
 }) => {
     const targetStory = await managementApi.stories.getStoryById(
         String(targetStoryId),
@@ -1112,6 +1127,14 @@ const getValidMappedTargetStory = async ({
             spaceId: targetSpace,
         },
     );
+
+    if (targetStory?.story?.id && isTrashedStory(targetStory.story)) {
+        Logger.warning(
+            `Ledger mapping for '${sourceStory.full_slug ?? sourceStory.slug}' points at a deleted story (trashed ${targetStory.story.deleted_at}); ${trashedNote}.`,
+        );
+
+        return undefined;
+    }
 
     if (targetStory?.story?.id) {
         if (
@@ -1314,13 +1337,19 @@ const resolvePlanLedgerMatches = async ({
             const found = targetStory?.story;
             const match: CopyLedgerMatch = !found?.id
                 ? { match: "missing", targetId }
-                : {
-                      match: isStoryAtPlannedPath(found, item.targetFullSlug)
-                          ? "matched"
-                          : "moved",
-                      targetId,
-                      currentFullSlug: found.full_slug,
-                  };
+                : isTrashedStory(found)
+                  ? {
+                        match: "missing",
+                        targetId,
+                        deletedAt: String(found.deleted_at),
+                    }
+                  : {
+                        match: isStoryAtPlannedPath(found, item.targetFullSlug)
+                            ? "matched"
+                            : "moved",
+                        targetId,
+                        currentFullSlug: found.full_slug,
+                    };
 
             return [item.targetFullSlug, match] as const;
         },
@@ -1340,6 +1369,10 @@ const describeLedgerMatch = (ledger?: CopyLedgerMatch): string => {
 
     if (ledger.match === "moved") {
         return ` (ledger: moved, now at ${ledger.currentFullSlug})`;
+    }
+
+    if (ledger.deletedAt) {
+        return ` (ledger: points at a deleted story, trashed ${ledger.deletedAt}; will be created again)`;
     }
 
     return " (ledger: target missing, will be created again)";
@@ -4033,7 +4066,9 @@ const rewriteCopiedStoryContents = async ({
         sourceStory: any;
         parentId: number | null;
         staleTargetId?: number;
-    }): Promise<number> => {
+    }): Promise<
+        number | { failed: true; status?: number; message: string }
+    > => {
         const sourceFullSlug = String(sourceStory.full_slug ?? "");
         const targetFullSlug = targetSlugBySourceSlug.get(sourceFullSlug);
         const existingTargetStory = targetFullSlug
@@ -4087,9 +4122,15 @@ const rewriteCopiedStoryContents = async ({
                 });
             }
 
-            throw new Error(
-                `Failed to create replacement target story for '${sourceFullSlug}' (${describeCreateFailure(createdStoryResult)}).`,
-            );
+            // Recorded by the caller like any failed create: never thrown out
+            // of the shell phase after other shells were written.
+            const status = Number(createdStoryResult?.status);
+
+            return {
+                failed: true,
+                ...(Number.isFinite(status) && status > 0 ? { status } : {}),
+                message: `Failed to create replacement target story for '${sourceFullSlug}' (${describeCreateFailure(createdStoryResult)}). Its children are skipped: they have no parent to be created under.`,
+            };
         }
 
         return writeStoryMapping({
@@ -4130,29 +4171,53 @@ const rewriteCopiedStoryContents = async ({
                     );
                 });
 
+            // A replacement create that failed: recorded with its status, the
+            // subtree skipped one line per child, and the tree carries on.
+            const recordFailedReplacement = (failure: {
+                status?: number;
+                message: string;
+            }) => {
+                Logger.error(failure.message);
+                failures.push({
+                    resource: "story",
+                    path: sourceFullSlug,
+                    phase: "create",
+                    ...(failure.status ? { status: failure.status } : {}),
+                    message: failure.message,
+                    sourceId: Number(sourceStory.id),
+                });
+                outcomes.set(sourceFullSlug, { outcome: "create_failed" });
+                skipChildrenOfFailedCreate();
+            };
+
             let targetStoryId = maps.storyIds.get(Number(sourceStory.id));
             if (!targetStoryId) {
+                let replacement: Awaited<
+                    ReturnType<typeof createOrMatchReplacementShell>
+                >;
+
                 try {
-                    targetStoryId = await createOrMatchReplacementShell({
+                    replacement = await createOrMatchReplacementShell({
                         node,
                         sourceStory,
                         parentId,
                     });
                 } catch (error) {
-                    const message =
-                        error instanceof Error ? error.message : String(error);
-                    Logger.error(message);
-                    failures.push({
-                        resource: "story",
-                        path: sourceFullSlug,
-                        phase: "create",
-                        message,
-                        sourceId: Number(sourceStory.id),
-                    });
-                    outcomes.set(sourceFullSlug, { outcome: "create_failed" });
-                    skipChildrenOfFailedCreate();
+                    replacement = {
+                        failed: true,
+                        message:
+                            error instanceof Error
+                                ? error.message
+                                : String(error),
+                    };
+                }
+
+                if (typeof replacement !== "number") {
+                    recordFailedReplacement(replacement);
                     continue;
                 }
+
+                targetStoryId = replacement;
             }
 
             // `phase` names the call whose result is returned, so a rejected
@@ -4351,12 +4416,20 @@ const rewriteCopiedStoryContents = async ({
                     maps.storyIds.delete(Number(sourceStory.id));
                     maps.storyUuids.delete(String(sourceStory.uuid));
                     targetInvalidated = true;
-                    targetStoryId = await createOrMatchReplacementShell({
+
+                    const replacement = await createOrMatchReplacementShell({
                         node,
                         sourceStory,
                         parentId,
                         staleTargetId: Number(targetStoryId),
                     });
+
+                    if (typeof replacement !== "number") {
+                        recordFailedReplacement(replacement);
+                        continue;
+                    }
+
+                    targetStoryId = replacement;
                     targetInvalidated = false;
                     update = await writeStory(Number(targetStoryId));
                 }
@@ -5628,6 +5701,8 @@ const matchRelinkTargets = async ({
                     targetStoryId: mappedTargetId,
                     targetFullSlug: item.targetFullSlug,
                     targetSpace,
+                    trashedNote:
+                        "it is treated as not in the target, and nothing is rewritten through it",
                 });
 
                 if (targetStory) {
@@ -5708,6 +5783,14 @@ const validateRelinkLedgerMappings = async ({
                 },
             );
             const foundUuid = targetStory?.story?.uuid;
+
+            if (targetStory?.story?.id && isTrashedStory(targetStory.story)) {
+                Logger.warning(
+                    `Ledger mapping for '${mapping.sourceFullSlug || `#${mapping.sourceId}`}' points at a deleted story (trashed ${targetStory.story.deleted_at}); references to it are left as they are.`,
+                );
+
+                return { mapping, valid: false };
+            }
 
             if (
                 targetStory?.story?.id &&
