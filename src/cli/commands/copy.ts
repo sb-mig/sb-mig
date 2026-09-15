@@ -284,7 +284,7 @@ type CopyDryRunReport = {
         componentIssues: number;
         /** Field values whose shape the target's field type rejects. */
         schemaDriftOccurrences: number;
-        /** Stories the target will reject: schema drift or a whitelist violation. */
+        /** Stories the target will reject on write: schema drift only. */
         storiesWillFail: number;
     };
     translatedSlugs: CopyTranslatedSlugSummary;
@@ -1774,7 +1774,7 @@ const buildComponentCompatibilityWarnings = (
     if (componentCompatibility.disallowedInFieldComponents.length > 0) {
         warnings.push({
             code: "component_not_allowed_in_field",
-            message: `Component(s) used in a field the target space schema restricts (story updates will fail with a 422): ${componentCompatibility.disallowedInFieldComponents.join(", ")}.`,
+            message: `Component(s) used in a field whose whitelist does not allow them: ${componentCompatibility.disallowedInFieldComponents.join(", ")}. Stories using them are saved as they are; the write succeeds and the editor flags them as out of schema.`,
         });
     }
 
@@ -3247,8 +3247,8 @@ interface ComponentCompatibilityFinding {
 }
 
 // Build a validator from the TARGET space component schemas so the dry-run can
-// predict the "component(s) X are not allowed in the field Y" 422 that the
-// Management API returns at write time. Two problems are detected:
+// say what the editor will flag. Neither finding blocks a write: Storyblok saves
+// unknown components and whitelist violations alike. Two problems are detected:
 //   - a component used in a source story does not exist in the target space
 //   - a component sits in a bloks field whose target schema restricts the
 //     allowed components and does not include it
@@ -3373,10 +3373,10 @@ const buildTargetComponentValidator = async (targetSpace: string) => {
 
 /**
  * What the target will do with the content before anything is written: which
- * components it does not know (saved fine, shown as unknown in the editor),
- * which a field's whitelist rejects, and which values have drifted from their
- * field's type. The dry-run and the PLAN block both read it, so they state the
- * same counts.
+ * components it does not know (saved, shown as unknown in the editor), which
+ * sit outside a field's whitelist (saved, flagged as out of schema), and which
+ * values have drifted from their field's type (rejected: the only will-fail).
+ * The dry-run and the PLAN block both read it, so they state the same counts.
  */
 const planSchemaPreflight = async ({
     targetSpace,
@@ -3414,12 +3414,9 @@ const planSchemaPreflight = async ({
         targetSchemas: componentValidator.targetSchemas,
         sourceSchemas,
     });
-    const willFail = summarizeStoriesWillFail({
-        schemaDrift,
-        notAllowedStoryFullSlugs: componentCompatibility.findings
-            .filter((finding) => finding.reason === "not_allowed_in_field")
-            .map((finding) => finding.sourceFullSlug),
-    });
+    // Only schema drift makes Storyblok reject a write; unknown components and
+    // whitelist violations are saved and flagged in the editor.
+    const willFail = summarizeStoriesWillFail({ schemaDrift });
 
     return { componentCompatibility, schemaDrift, willFail };
 };
@@ -5533,11 +5530,13 @@ const logDryRunCopyPlan = async ({
         );
 
         if (notAllowed.length > 0) {
-            Logger.error(
-                `[dry-run] ${notAllowed.length} component occurrence(s) sit in a field whose whitelist does not allow them; those story updates will fail with a 422:`,
+            // Storyblok does not enforce field whitelists on save either: the
+            // editor flags the blok as out of schema. A warning, not a failure.
+            Logger.warning(
+                `[dry-run] ${notAllowed.length} component occurrence(s) sit in a field whose whitelist does not allow them; the write succeeds and the editor flags them as out of schema:`,
             );
             printGroups(notAllowed, "not allowed in the target field", (line) =>
-                Logger.error(line),
+                Logger.warning(line),
             );
         }
 

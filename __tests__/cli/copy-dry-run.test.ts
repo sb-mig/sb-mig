@@ -3527,7 +3527,7 @@ describe("copy stories dry-run", () => {
                 expect.arrayContaining([
                     "[dry-run] schema drift: 1 occurrence in 1 story",
                     "[dry-run]   sb-blockquote.content: expected richtext, got string (1)",
-                    "[dry-run] will fail: 1 story (1 with schema drift, 0 with a component not allowed in its field)",
+                    "[dry-run] will fail: 1 story (schema drift)",
                 ]),
             );
 
@@ -3574,9 +3574,7 @@ describe("copy stories dry-run", () => {
             expect(lines).toContain(
                 "    sb-blockquote.content: expected richtext, got string (1)",
             );
-            expect(lines).toContain(
-                "  will fail: 1 story (1 with schema drift, 0 with a component not allowed in its field)",
-            );
+            expect(lines).toContain("  will fail: 1 story (schema drift)");
             // The gate is unchanged: drift is stated, the run still proceeds.
             expect(mocks.createStory).toHaveBeenCalled();
         });
@@ -3643,7 +3641,9 @@ describe("copy stories dry-run", () => {
             expect(report.summary.storiesWillFail).toBe(0);
         });
 
-        it("keeps saying a component outside its field's whitelist will fail with a 422", async () => {
+        // MAR-3057 lap 2 F2 canary. Mutation that must turn it red: count the
+        // stories with a component outside its field's whitelist as will fail.
+        it("warns that a component outside its field's whitelist is written anyway, and counts no will fail", async () => {
             mocks.getAllComponents.mockResolvedValue([
                 {
                     name: "page",
@@ -3672,11 +3672,25 @@ describe("copy stories dry-run", () => {
                 (entry: any) => entry.code === "component_not_allowed_in_field",
             );
 
-            expect(warning.message).toContain("will fail with a 422");
-            expect(printed()).toContain(
-                "[dry-run] will fail: 1 story (0 with schema drift, 1 with a component not allowed in its field)",
+            // Storyblok does not enforce field whitelists on save: the write
+            // succeeds and the editor shows the blok as out of schema.
+            expect(warning.message).toContain("the write succeeds");
+            expect(warning.message).toContain("out of schema");
+            expect(warning.message).not.toContain("422");
+            expect(
+                printed().some(
+                    (line) =>
+                        line.includes(
+                            "sit in a field whose whitelist does not allow them",
+                        ) && line.includes("the write succeeds"),
+                ),
+            ).toBe(true);
+            expect(printed().some((line) => line.includes("422"))).toBe(false);
+            expect(printed().some((line) => line.includes("will fail:"))).toBe(
+                false,
             );
-            expect(report.summary.storiesWillFail).toBe(1);
+            expect(report.summary.storiesWillFail).toBe(0);
+            expect(report.willFail).toEqual({ stories: 0, storyFullSlugs: [] });
         });
     });
 

@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
     findSchemaDrift,
     formatSchemaDriftLines,
+    formatStoriesWillFailLine,
+    summarizeStoriesWillFail,
 } from "../../src/api/copy/schema-drift.js";
 
 const blockquoteSchema = {
@@ -320,6 +322,23 @@ describe("copy stories schema drift", () => {
 
         expect(formatSchemaDriftLines(summary)[0]).toBe(
             "schema drift: 1 occurrence in 1 story",
+        );
+    });
+
+    it("counts only schema drift as will fail", () => {
+        const schemaDrift = findSchemaDrift({
+            stories: [
+                story(1, "b", { component: "sb-blockquote", content: "x" }),
+                story(2, "a", { component: "sb-blockquote", content: "y" }),
+                story(3, "c", { component: "sb-blockquote", content: doc }),
+            ],
+            targetSchemas: { "sb-blockquote": blockquoteSchema },
+        });
+        const willFail = summarizeStoriesWillFail({ schemaDrift });
+
+        expect(willFail).toEqual({ stories: 2, storyFullSlugs: ["a", "b"] });
+        expect(formatStoriesWillFailLine(willFail)).toBe(
+            "will fail: 2 stories (schema drift)",
         );
     });
 });

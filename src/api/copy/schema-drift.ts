@@ -228,37 +228,24 @@ export const formatSchemaDriftLines = (
 
 export type CopyStoriesWillFailSummary = {
     stories: number;
-    withSchemaDrift: number;
-    withComponentNotAllowed: number;
     storyFullSlugs: string[];
 };
 
 /**
- * Stories whose write the target will reject: schema drift, and components a
- * field's whitelist does not allow. A component missing from the target is not
- * here — Storyblok saves it and the editor shows it as an unknown component.
+ * Stories whose write the target will reject: schema drift only. Storyblok
+ * saves a component it does not know and a component outside its field's
+ * whitelist alike; the editor flags them, the write succeeds.
  */
 export const summarizeStoriesWillFail = ({
     schemaDrift,
-    notAllowedStoryFullSlugs,
 }: {
     schemaDrift: SchemaDriftSummary;
-    notAllowedStoryFullSlugs: string[];
-}): CopyStoriesWillFailSummary => {
-    const notAllowed = [...new Set(notAllowedStoryFullSlugs)];
-    const storyFullSlugs = [
-        ...new Set([...schemaDrift.storyFullSlugs, ...notAllowed]),
-    ].sort();
-
-    return {
-        stories: storyFullSlugs.length,
-        withSchemaDrift: schemaDrift.stories,
-        withComponentNotAllowed: notAllowed.length,
-        storyFullSlugs,
-    };
-};
+}): CopyStoriesWillFailSummary => ({
+    stories: schemaDrift.stories,
+    storyFullSlugs: [...schemaDrift.storyFullSlugs],
+});
 
 export const formatStoriesWillFailLine = (
     summary: CopyStoriesWillFailSummary,
 ): string =>
-    `will fail: ${summary.stories} ${plural(summary.stories, "story", "stories")} (${summary.withSchemaDrift} with schema drift, ${summary.withComponentNotAllowed} with a component not allowed in its field)`;
+    `will fail: ${summary.stories} ${plural(summary.stories, "story", "stories")} (schema drift)`;

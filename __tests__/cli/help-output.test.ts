@@ -124,6 +124,9 @@ describe("CLI help output", () => {
         );
         expect(copyHelp).toContain("--allow-missing-plugins");
         expect(copyHelp).toContain(
+            "copy stories counts only schema drift as will fail",
+        );
+        expect(copyHelp).toContain(
             "copy space checks the field-type plugins the source components use",
         );
         expect(copyHelp).toContain(
