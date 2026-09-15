@@ -1,3 +1,10 @@
+# [6.5.0-beta.6](https://github.com/sb-mig/sb-mig/compare/v6.5.0-beta.5...v6.5.0-beta.6) (2026-09-15)
+
+
+### Bug Fixes
+
+* **sync:** stop local ids steering sync writes to the wrong object (MAR-3042) ([8967b2e](https://github.com/sb-mig/sb-mig/commit/8967b2e1a78db820ff8bd435796760ec423d2de8))
+
 # [6.5.0-beta.5](https://github.com/sb-mig/sb-mig/compare/v6.5.0-beta.4...v6.5.0-beta.5) (2026-09-14)
 
 
