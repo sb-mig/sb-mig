@@ -129,6 +129,27 @@ type CopyPlanItem = {
     name: string;
     action: "create";
     conflict?: boolean;
+    /** What the ledger's mapping for this item resolves to, when it has one. */
+    ledger?: CopyLedgerMatch;
+};
+
+/**
+ * A ledger mapping checked against the target the way `copy relink` checks
+ * one: by id. `matched` lives at the planned path, `moved` lives elsewhere and
+ * is kept, `missing` no longer exists and is created again.
+ */
+type CopyLedgerMatch = {
+    match: "matched" | "moved" | "missing";
+    targetId: number;
+    currentFullSlug?: string;
+};
+
+type CopyStoryCreateFailure = {
+    sourceId: number;
+    sourceFullSlug: string;
+    phase: "create";
+    status?: number;
+    message: string;
 };
 
 type CopyAssetsSelection =
@@ -302,6 +323,10 @@ type CopyStoriesApplySummary = {
     storiesPlanned: number;
     storiesCreated: number;
     storiesMatched: number;
+    /** Shells the target refused to create, with no story at their path to adopt. */
+    storiesCreateFailed: number;
+    /** Items under a failed create, never attempted: they had no parent. */
+    storiesSkippedParentFailed: number;
 };
 
 type CopyStoriesApplyReport = {
@@ -795,6 +820,41 @@ const buildFinalStoryPayload = ({
     return payload;
 };
 
+const normaliseFullSlug = (value: unknown): string =>
+    String(value ?? "").replace(/^\/+|\/+$/g, "");
+
+const parentFullSlugOf = (fullSlug: string): string => {
+    const index = fullSlug.lastIndexOf("/");
+
+    return index === -1 ? "" : fullSlug.slice(0, index);
+};
+
+/**
+ * Whether a target story lives at the path this copy planned for it. Paths are
+ * compared without leading or trailing slashes, and a startpage matches its
+ * folder's path: its `full_slug` is `folder/`, while the plan names it by its
+ * own slug under that folder.
+ */
+const isStoryAtPlannedPath = (story: any, plannedFullSlug: string): boolean => {
+    const actual = normaliseFullSlug(story?.full_slug);
+    const planned = normaliseFullSlug(plannedFullSlug);
+
+    return (
+        actual === planned ||
+        (story?.is_startpage === true && actual === parentFullSlugOf(planned))
+    );
+};
+
+/**
+ * Validates a ledger mapping with one by-id read, the way `copy relink` does:
+ * the ledger records where a story was written, the target knows where it is
+ * now. There is deliberately no second lookup by path. `with_slug` cannot
+ * resolve a startpage (`folder/`), and re-checking the path through it used to
+ * throw a valid mapping away and create a duplicate next to the story.
+ *
+ * A story found at a different path has moved: the mapping is kept and the
+ * move is reported, never treated as stale.
+ */
 const getValidMappedTargetStory = async ({
     sourceStory,
     targetStoryId,
@@ -815,28 +875,235 @@ const getValidMappedTargetStory = async ({
     );
 
     if (targetStory?.story?.id) {
-        if (!targetFullSlug) {
-            return targetStory.story;
+        if (
+            targetFullSlug &&
+            !isStoryAtPlannedPath(targetStory.story, targetFullSlug)
+        ) {
+            Logger.warning(
+                `Ledger mapping for '${sourceStory.full_slug ?? sourceStory.slug}' points at target story '${targetStoryId}', which has moved from '${targetFullSlug}' to '${targetStory.story.full_slug}'. Keeping the mapping; nothing is created next to it.`,
+            );
         }
 
-        const targetStoryBySlug = await managementApi.stories.getStoryBySlug(
-            targetFullSlug,
-            {
-                ...apiConfig,
-                spaceId: targetSpace,
-            },
-        );
-
-        if (Number(targetStoryBySlug?.story?.id) === targetStoryId) {
-            return targetStory.story;
-        }
+        return targetStory.story;
     }
 
     Logger.warning(
-        `Ignoring stale story manifest mapping for '${sourceStory.full_slug ?? sourceStory.slug}' because target story '${targetStoryId}' was not found at the expected target path in space '${targetSpace}'.`,
+        `Ignoring stale story manifest mapping for '${sourceStory.full_slug ?? sourceStory.slug}' because target story '${targetStoryId}' was not found in space '${targetSpace}'.`,
     );
 
     return undefined;
+};
+
+/**
+ * Moves every planned path under `fromFullSlug` to sit under `toFullSlug`, so
+ * the children of a story that moved are looked for where it lives now.
+ */
+const rebasePlannedTargetSlugs = (
+    planned: Map<string, string>,
+    fromFullSlug: string,
+    toFullSlug: string,
+) => {
+    const from = normaliseFullSlug(fromFullSlug);
+    const to = normaliseFullSlug(toFullSlug);
+
+    if (!from || from === to) {
+        return;
+    }
+
+    for (const [sourceFullSlug, targetFullSlug] of planned) {
+        const normalised = normaliseFullSlug(targetFullSlug);
+
+        if (normalised.startsWith(`${from}/`)) {
+            planned.set(
+                sourceFullSlug,
+                `${to}${normalised.slice(from.length)}`,
+            );
+        }
+    }
+};
+
+const describeCreateFailure = (result: any): string => {
+    const status = result?.status
+        ? `status ${result.status}`
+        : "unknown status";
+    const response = result?.response ? `: ${result.response}` : "";
+
+    return `${status}${response}`;
+};
+
+/**
+ * The story already living at a planned path, looked up with `by_slugs` so a
+ * startpage (`folder/`) is found too. Used when a create fails: a `slug already
+ * taken` means the story is there, and adopting it is the only answer that
+ * neither crashes nor leaves a duplicate. Matches on `is_folder`, so a folder
+ * and its startpage are never confused.
+ */
+const findTargetStoryAtPlannedPath = async ({
+    plannedFullSlug,
+    sourceStory,
+    targetSpace,
+}: {
+    plannedFullSlug?: string;
+    sourceStory: any;
+    targetSpace: string;
+}): Promise<any | undefined> => {
+    const planned = normaliseFullSlug(plannedFullSlug);
+
+    if (!planned) {
+        return undefined;
+    }
+
+    const parent = parentFullSlugOf(planned);
+    const candidates = await managementApi.stories.getStoriesByFullSlugs(
+        [
+            planned,
+            `${planned}/`,
+            ...(sourceStory?.is_startpage === true && parent
+                ? [`${parent}/`]
+                : []),
+        ],
+        {
+            ...apiConfig,
+            spaceId: targetSpace,
+        },
+    );
+    const isFolder = sourceStory?.is_folder === true;
+
+    return (candidates ?? []).find(
+        (story: any) =>
+            story?.id &&
+            story?.uuid &&
+            (story.is_folder === true) === isFolder &&
+            isStoryAtPlannedPath(story, planned),
+    );
+};
+
+/**
+ * Marks a node and everything under it as skipped, reporting each descendant.
+ * A create that failed leaves its children with no parent to be created
+ * under, so they are skipped explicitly rather than silently.
+ */
+const skipSubtree = (
+    node: any,
+    skipped: Set<number>,
+    onSkippedDescendant: (fullSlug: string) => void,
+): number => {
+    let descendants = 0;
+
+    const visit = (current: any, isRoot: boolean) => {
+        const id = Number(current?.id ?? current?.story?.id);
+
+        if (Number.isFinite(id)) {
+            skipped.add(id);
+        }
+
+        if (!isRoot) {
+            descendants += 1;
+            onSkippedDescendant(
+                String(current?.story?.full_slug ?? current?.story?.slug ?? id),
+            );
+        }
+
+        for (const child of current?.children ?? []) {
+            visit(child, false);
+        }
+    };
+
+    visit(node, true);
+
+    return descendants;
+};
+
+/**
+ * Every planned item that has a ledger mapping, checked by id against the
+ * target. Shared by the dry-run and the PLAN block so both state what the
+ * writes will actually do, instead of answering from a path lookup the writes
+ * no longer use.
+ */
+const resolvePlanLedgerMatches = async ({
+    plan,
+    sourceStories,
+    copyMaps,
+    targetSpace,
+}: {
+    plan: CopyPlanItem[];
+    sourceStories: any[];
+    copyMaps: CopyMaps;
+    targetSpace: string;
+}): Promise<Map<string, CopyLedgerMatch>> => {
+    const sourceIdByFullSlug = new Map<string, number>(
+        sourceStories
+            .map((item: any) => item?.story)
+            .filter(Boolean)
+            .map(
+                (story: any) =>
+                    [String(story.full_slug ?? ""), Number(story.id)] as const,
+            ),
+    );
+    const mapped = plan
+        .map((item) => {
+            const sourceId = sourceIdByFullSlug.get(item.sourceFullSlug);
+
+            return {
+                item,
+                targetId:
+                    sourceId === undefined
+                        ? undefined
+                        : copyMaps.storyIds.get(sourceId),
+            };
+        })
+        .filter(
+            (entry): entry is { item: CopyPlanItem; targetId: number } =>
+                entry.targetId !== undefined,
+        );
+
+    if (mapped.length === 0) {
+        return new Map();
+    }
+
+    const results = await mapWithConcurrency(
+        mapped,
+        TARGET_CONFLICT_CHECK_CONCURRENCY,
+        async ({ item, targetId }) => {
+            const targetStory = await managementApi.stories.getStoryById(
+                String(targetId),
+                {
+                    ...apiConfig,
+                    spaceId: targetSpace,
+                },
+            );
+            const found = targetStory?.story;
+            const match: CopyLedgerMatch = !found?.id
+                ? { match: "missing", targetId }
+                : {
+                      match: isStoryAtPlannedPath(found, item.targetFullSlug)
+                          ? "matched"
+                          : "moved",
+                      targetId,
+                      currentFullSlug: found.full_slug,
+                  };
+
+            return [item.targetFullSlug, match] as const;
+        },
+    );
+
+    return new Map(results);
+};
+
+const describeLedgerMatch = (ledger?: CopyLedgerMatch): string => {
+    if (!ledger) {
+        return "";
+    }
+
+    if (ledger.match === "matched") {
+        return " (ledger: matched)";
+    }
+
+    if (ledger.match === "moved") {
+        return ` (ledger: moved, now at ${ledger.currentFullSlug})`;
+    }
+
+    return " (ledger: target missing, will be created again)";
 };
 
 interface ContentBlokVisit {
@@ -3275,6 +3542,7 @@ const rewriteCopiedStoryContents = async ({
     targetSpace,
     manifestRoot,
     targetLanguageCodes,
+    skippedSourceIds,
 }: {
     tree: any[];
     realParentId: number | null;
@@ -3286,6 +3554,8 @@ const rewriteCopiedStoryContents = async ({
     targetSpace: string;
     manifestRoot?: string;
     targetLanguageCodes?: string[];
+    /** Items phase 1 could not create a parent for; never written here either. */
+    skippedSourceIds?: Set<number>;
 }) => {
     const manifestPaths = getDefaultCopyManifestPaths({
         sourceSpaceId: sourceSpace,
@@ -3385,8 +3655,27 @@ const rewriteCopiedStoryContents = async ({
         const targetStory = createdStoryResult?.story;
 
         if (!targetStory?.id || !targetStory?.uuid) {
+            const existingAtPath = await findTargetStoryAtPlannedPath({
+                plannedFullSlug: targetFullSlug,
+                sourceStory,
+                targetSpace,
+            });
+
+            if (existingAtPath && Number(existingAtPath.id) !== staleTargetId) {
+                Logger.warning(
+                    `Could not create '${sourceFullSlug}' (${describeCreateFailure(createdStoryResult)}), but a story already exists at '${existingAtPath.full_slug}' in the target; adopting it instead of creating a duplicate.`,
+                );
+
+                return writeStoryMapping({
+                    sourceStory,
+                    targetStory: existingAtPath,
+                    targetFullSlug,
+                    action: "matched_by_target_key",
+                });
+            }
+
             throw new Error(
-                `Failed to create replacement target story for '${sourceFullSlug}'.`,
+                `Failed to create replacement target story for '${sourceFullSlug}' (${describeCreateFailure(createdStoryResult)}).`,
             );
         }
 
@@ -3404,6 +3693,12 @@ const rewriteCopiedStoryContents = async ({
             const sourceStory = sourceStoryById.get(sourceId);
 
             if (!sourceStory?.id) {
+                continue;
+            }
+
+            // Phase 1 already reported these: their parent was never created,
+            // so there is nothing here to write them under.
+            if (skippedSourceIds?.has(sourceId)) {
                 continue;
             }
 
@@ -3696,6 +3991,9 @@ const createStoriesAndWriteManifests = async ({
     const copyMaps = buildCopyMaps(existingManifestEntries);
     let storiesCreated = 0;
     let storiesMatched = 0;
+    let storiesSkippedParentFailed = 0;
+    const createFailures: CopyStoryCreateFailure[] = [];
+    const skippedSourceIds = new Set<number>();
 
     const walk = async (nodes: any[], parentId: number | null) => {
         for (const node of nodes) {
@@ -3726,6 +4024,18 @@ const createStoriesAndWriteManifests = async ({
                 });
 
                 if (mappedTargetStory) {
+                    if (
+                        targetFullSlug &&
+                        !isStoryAtPlannedPath(mappedTargetStory, targetFullSlug)
+                    ) {
+                        // Moved: its children are looked for where it lives now.
+                        rebasePlannedTargetSlugs(
+                            targetSlugBySourceSlug,
+                            targetFullSlug,
+                            String(mappedTargetStory.full_slug ?? ""),
+                        );
+                    }
+
                     storiesMatched += 1;
                     await walk(node.children ?? [], mappedTargetId);
                     continue;
@@ -3781,12 +4091,51 @@ const createStoriesAndWriteManifests = async ({
                     publish: false,
                 },
             );
-            const targetStory = createdStoryResult?.story;
+            let targetStory = createdStoryResult?.story;
+            let action: CopyStoryManifestEntry["action"] = "created";
 
             if (!targetStory?.id || !targetStory?.uuid) {
-                throw new Error(
-                    `Failed to create target story for '${sourceFullSlug}'.`,
+                // A failed create is never fatal. When a story already lives at
+                // the planned path (Storyblok's `slug already taken`), adopt it:
+                // crashing loses the run, creating again leaves a duplicate.
+                const existingAtPath = await findTargetStoryAtPlannedPath({
+                    plannedFullSlug: targetFullSlug,
+                    sourceStory,
+                    targetSpace,
+                });
+
+                if (!existingAtPath) {
+                    createFailures.push({
+                        sourceId: Number(sourceStory.id),
+                        sourceFullSlug,
+                        phase: "create",
+                        ...(createdStoryResult?.status
+                            ? { status: Number(createdStoryResult.status) }
+                            : {}),
+                        message: String(
+                            createdStoryResult?.response ??
+                                "the create response carried no story",
+                        ),
+                    });
+                    Logger.error(
+                        `Failed to create target story for '${sourceFullSlug}' (${describeCreateFailure(createdStoryResult)}). Its children are skipped: they have no parent to be created under.`,
+                    );
+                    storiesSkippedParentFailed += skipSubtree(
+                        node,
+                        skippedSourceIds,
+                        (childFullSlug) =>
+                            Logger.error(
+                                `  skipped: '${childFullSlug}', because its parent '${sourceFullSlug}' was not created.`,
+                            ),
+                    );
+                    continue;
+                }
+
+                Logger.warning(
+                    `Could not create '${sourceFullSlug}' (${describeCreateFailure(createdStoryResult)}), but a story already exists at '${existingAtPath.full_slug}' in the target; adopting it instead of creating a duplicate.`,
                 );
+                targetStory = existingAtPath;
+                action = "matched_by_target_key";
             }
 
             const entry: CopyStoryManifestEntry = {
@@ -3799,7 +4148,7 @@ const createStoriesAndWriteManifests = async ({
                 target_uuid: String(targetStory.uuid),
                 source_full_slug: sourceFullSlug,
                 target_full_slug: targetStory.full_slug ?? targetFullSlug,
-                action: "created",
+                action,
                 created_at: createdAt,
             };
 
@@ -3809,7 +4158,11 @@ const createStoriesAndWriteManifests = async ({
                 entry,
             });
             applyStoryManifestEntryToMaps(copyMaps, entry);
-            storiesCreated += 1;
+            if (action === "created") {
+                storiesCreated += 1;
+            } else {
+                storiesMatched += 1;
+            }
 
             await walk(node.children ?? [], entry.target_id);
         }
@@ -3823,10 +4176,16 @@ const createStoriesAndWriteManifests = async ({
     const plannedCounts = countTreeStories(tree);
 
     return {
-        storyFoldersPlanned: plannedCounts.folders,
-        storiesPlanned: plannedCounts.stories,
-        storiesCreated,
-        storiesMatched,
+        summary: {
+            storyFoldersPlanned: plannedCounts.folders,
+            storiesPlanned: plannedCounts.stories,
+            storiesCreated,
+            storiesMatched,
+            storiesCreateFailed: createFailures.length,
+            storiesSkippedParentFailed,
+        },
+        createFailures,
+        skippedSourceIds,
     };
 };
 
@@ -4243,7 +4602,7 @@ const logDryRunCopyPlan = async ({
 
     for (const item of report.items) {
         Logger.warning(
-            `[dry-run]   ${item.type.padEnd(6)} ${item.targetFullSlug || "<root>"}`,
+            `[dry-run]   ${item.type.padEnd(6)} ${item.targetFullSlug || "<root>"}${describeLedgerMatch(item.ledger)}`,
         );
     }
 
@@ -5039,6 +5398,22 @@ export const copyCommand = async (props: CLIOptions) => {
                     plan,
                     targetSpace,
                 );
+                const dryRunLedgerMatches = await resolvePlanLedgerMatches({
+                    plan,
+                    sourceStories,
+                    copyMaps,
+                    targetSpace,
+                });
+
+                for (const item of plan) {
+                    const ledgerMatch = dryRunLedgerMatches.get(
+                        item.targetFullSlug,
+                    );
+
+                    if (ledgerMatch) {
+                        item.ledger = ledgerMatch;
+                    }
+                }
                 Logger.warning(
                     "Checking source components against the target space schema.",
                 );
@@ -5089,6 +5464,12 @@ export const copyCommand = async (props: CLIOptions) => {
 
             const { existingTargetStoryIdByFullSlug } =
                 await findTargetConflicts(plan, targetSpace);
+            const gateLedgerMatches = await resolvePlanLedgerMatches({
+                plan,
+                sourceStories,
+                copyMaps,
+                targetSpace,
+            });
             const sourceStoryByFullSlug = new Map(
                 sourceStories
                     .map((item: any) => item?.story)
@@ -5105,6 +5486,9 @@ export const copyCommand = async (props: CLIOptions) => {
                     const sourceId = sourceStoryByFullSlug.get(
                         item.sourceFullSlug,
                     )?.id;
+                    const ledgerMatch = gateLedgerMatches.get(
+                        item.targetFullSlug,
+                    );
 
                     return {
                         type: item.type,
@@ -5119,10 +5503,16 @@ export const copyCommand = async (props: CLIOptions) => {
                             sourceId === undefined
                                 ? undefined
                                 : copyMaps.storyIds.get(Number(sourceId)),
+                        // A mapping that resolves by id is a resume, matched or
+                        // moved: the same rule getValidMappedTargetStory applies
+                        // once writing starts. Only an unmapped item, or one
+                        // whose story is gone, is answered by the path check.
                         existingTargetStoryId:
-                            existingTargetStoryIdByFullSlug.get(
-                                item.targetFullSlug,
-                            ),
+                            ledgerMatch && ledgerMatch.match !== "missing"
+                                ? ledgerMatch.targetId
+                                : existingTargetStoryIdByFullSlug.get(
+                                      item.targetFullSlug,
+                                  ),
                     };
                 }),
                 ledger,
@@ -5192,20 +5582,33 @@ export const copyCommand = async (props: CLIOptions) => {
                 }
             }
 
-            const storySummary = await createStoriesAndWriteManifests({
+            // One map for both phases, so a mapping phase 1 finds moved re-bases
+            // the paths phase 2 works under.
+            const targetSlugBySourceSlug = buildTargetSlugBySourceSlug(plan);
+            const phaseOne = await createStoriesAndWriteManifests({
                 tree: rootsToCreate,
                 realParentId: destinationParentId,
                 sourceStoryById: buildSourceStoryById(sourceStories),
-                targetSlugBySourceSlug: buildTargetSlugBySourceSlug(plan),
+                targetSlugBySourceSlug,
                 sourceSpace,
                 targetSpace,
                 manifestRoot,
             });
+            const storySummary = phaseOne.summary;
+
+            if (phaseOne.createFailures.length > 0) {
+                Logger.error(
+                    `${phaseOne.createFailures.length} target story/stories could not be created and ${storySummary.storiesSkippedParentFailed} item(s) under them were skipped. The run carries on with everything else and exits 1.`,
+                );
+                process.exitCode = 1;
+            }
+
             await rewriteCopiedStoryContents({
                 tree: rootsToCreate,
                 realParentId: destinationParentId,
                 sourceStoryById: buildSourceStoryById(sourceStories),
-                targetSlugBySourceSlug: buildTargetSlugBySourceSlug(plan),
+                targetSlugBySourceSlug,
+                skippedSourceIds: phaseOne.skippedSourceIds,
                 publication,
                 publishedLayerRecordBySourceId,
                 sourceSpace,

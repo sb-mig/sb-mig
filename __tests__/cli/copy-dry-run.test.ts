@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
     createStory: vi.fn(),
     updateStory: vi.fn(),
     publishStoryLanguages: vi.fn(),
+    getStoriesByFullSlugs: vi.fn(),
     getAllComponents: vi.fn(),
     getSpace: vi.fn(),
     getAllAssets: vi.fn(),
@@ -49,6 +50,7 @@ vi.mock("../../src/api/managementApi.js", () => ({
             createStory: mocks.createStory,
             updateStory: mocks.updateStory,
             publishStoryLanguages: mocks.publishStoryLanguages,
+            getStoriesByFullSlugs: mocks.getStoriesByFullSlugs,
         },
         components: {
             getAllComponents: mocks.getAllComponents,
@@ -116,6 +118,7 @@ describe("copy stories dry-run", () => {
         mocks.getStoryById.mockResolvedValue(undefined);
         mocks.getStoryVersions.mockResolvedValue({ story_versions: [] });
         mocks.publishStoryLanguages.mockResolvedValue({ ok: true });
+        mocks.getStoriesByFullSlugs.mockResolvedValue([]);
         mocks.sbApiGet.mockResolvedValue({
             data: {
                 space: {
@@ -2682,6 +2685,309 @@ describe("copy stories dry-run", () => {
             await runCopy({ manifestRoot });
 
             expect(planGateLines()).toContain("  folders: 1 (never published)");
+        });
+    });
+    describe("resuming through startpages and failed creates (MAR-3060)", () => {
+        let tempDir: string;
+        let manifestRoot: string;
+        let manifestDirectory: string;
+        let exitCodeBefore: typeof process.exitCode;
+
+        beforeEach(async () => {
+            tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-copy-"));
+            manifestRoot = path.join(tempDir, ".sb-mig");
+            manifestDirectory = path.join(
+                manifestRoot,
+                "copy",
+                "source-space",
+                "target-space",
+            );
+            exitCodeBefore = process.exitCode;
+            process.exitCode = undefined;
+        });
+
+        afterEach(async () => {
+            process.exitCode = exitCodeBefore;
+            await rm(tempDir, { recursive: true, force: true });
+        });
+
+        /**
+         * `blog` is a folder whose child is its startpage. A startpage's
+         * `full_slug` is the folder path with a trailing slash (`blog/`), which
+         * is exactly what a `with_slug` path lookup cannot resolve.
+         */
+        const withStartpageChild = () =>
+            mocks.getAllStories.mockResolvedValue([
+                {
+                    story: {
+                        id: 2,
+                        name: "Home",
+                        slug: "home",
+                        full_slug: "blog/",
+                        is_folder: false,
+                        is_startpage: true,
+                        parent_id: 1,
+                        uuid: "source-home-uuid",
+                        content: { component: "page" },
+                    },
+                },
+            ]);
+
+        const storyEntry = (overrides: Record<string, unknown>) =>
+            JSON.stringify({
+                type: "story",
+                source_space_id: "source-space",
+                target_space_id: "target-space",
+                action: "created",
+                created_at: "2026-09-15T10:00:00.000Z",
+                ...overrides,
+            });
+
+        /** The ledger a first run left: the folder and its startpage, both created. */
+        const ledgerWithFolderAndStartpage = async () => {
+            await mkdir(manifestDirectory, { recursive: true });
+            await writeFile(
+                path.join(manifestDirectory, "manifest.jsonl"),
+                [
+                    storyEntry({
+                        source_id: 1,
+                        target_id: 1001,
+                        source_uuid: "source-blog-uuid",
+                        target_uuid: "target-blog-uuid",
+                        source_full_slug: "blog",
+                        target_full_slug: "imported/blog",
+                    }),
+                    storyEntry({
+                        source_id: 2,
+                        target_id: 1002,
+                        source_uuid: "source-home-uuid",
+                        target_uuid: "target-home-uuid",
+                        source_full_slug: "blog/",
+                        target_full_slug: "imported/blog/",
+                    }),
+                ].join("\n") + "\n",
+            );
+        };
+
+        const targetStoriesById = (stories: Record<string, any>) =>
+            mocks.getStoryById.mockImplementation(async (id: string) =>
+                stories[String(id)]
+                    ? { story: stories[String(id)] }
+                    : undefined,
+            );
+
+        const targetFolder = {
+            id: 1001,
+            uuid: "target-blog-uuid",
+            full_slug: "imported/blog",
+            is_folder: true,
+        };
+
+        const runApply = (flags: Record<string, unknown> = {}) =>
+            copyCommand({
+                input: ["copy", "stories"],
+                flags: {
+                    from: "source-space",
+                    to: "target-space",
+                    source: "blog",
+                    destination: "imported",
+                    manifestRoot,
+                    yes: true,
+                    ...flags,
+                },
+            } as any);
+
+        const lines = (method: "warning" | "error") =>
+            (
+                Logger[method] as unknown as ReturnType<typeof vi.fn>
+            ).mock.calls.map((call) => String(call[0]));
+
+        const updatedStoryIds = () =>
+            mocks.updateStory.mock.calls.map((call) => String(call[1]));
+
+        // MAR-3060 R3 (a) canary. Mutation that must turn it red: restore the
+        // with_slug re-lookup in getValidMappedTargetStory.
+        it("resumes a startpage mapped in the ledger without creating it again", async () => {
+            withStartpageChild();
+            await ledgerWithFolderAndStartpage();
+            targetStoriesById({
+                "1001": targetFolder,
+                "1002": {
+                    id: 1002,
+                    uuid: "target-home-uuid",
+                    full_slug: "imported/blog/",
+                    is_folder: false,
+                    is_startpage: true,
+                },
+            });
+
+            await runApply();
+
+            expect(mocks.createStory).not.toHaveBeenCalled();
+            expect(
+                lines("warning").some((line) =>
+                    line.includes("Ignoring stale story manifest mapping"),
+                ),
+            ).toBe(false);
+            expect(
+                lines("warning").some((line) => line.includes("moved")),
+            ).toBe(false);
+            expect(updatedStoryIds()).toContain("1002");
+        });
+
+        // MAR-3060 R1 on the plan side: the gate and the dry-run apply the
+        // same by-id rule the writes do. Mutation that must turn it red:
+        // resolve ledger items through the with_slug path check again.
+        it("counts a ledger-mapped startpage as a resume in the PLAN and labels it matched in the dry-run", async () => {
+            withStartpageChild();
+            await ledgerWithFolderAndStartpage();
+            targetStoriesById({
+                "1001": targetFolder,
+                "1002": {
+                    id: 1002,
+                    uuid: "target-home-uuid",
+                    full_slug: "imported/blog/",
+                    is_folder: false,
+                    is_startpage: true,
+                },
+            });
+
+            await runApply({ dryRun: true });
+
+            expect(lines("warning")).toContain(
+                "[dry-run]   folder imported/blog (ledger: matched)",
+            );
+            expect(lines("warning")).toContain(
+                "[dry-run]   story  imported/blog/home (ledger: matched)",
+            );
+
+            vi.mocked(Logger.log).mockClear();
+
+            await runApply();
+
+            expect(planGateLines()).toContain(
+                "  2 items (1 folder) -> space target-space (0 create, 0 adopt existing, 2 resume from ledger)",
+            );
+        });
+
+        // MAR-3060 R3 (b) canary. Mutation that must turn it red: treat a
+        // target whose full_slug differs from the planned path as stale.
+        it("keeps a mapping whose target has moved, reports it, and creates nothing", async () => {
+            withStartpageChild();
+            await ledgerWithFolderAndStartpage();
+            targetStoriesById({
+                "1001": targetFolder,
+                "1002": {
+                    id: 1002,
+                    uuid: "target-home-uuid",
+                    full_slug: "archive/home",
+                    is_folder: false,
+                },
+            });
+
+            await runApply();
+
+            expect(mocks.createStory).not.toHaveBeenCalled();
+            expect(
+                lines("warning").some(
+                    (line) =>
+                        line.includes("'1002'") &&
+                        line.includes("moved") &&
+                        line.includes("archive/home"),
+                ),
+            ).toBe(true);
+            expect(updatedStoryIds()).toContain("1002");
+        });
+
+        // MAR-3060 R3 (c) canary. Mutation that must turn it red: skip the
+        // by_slugs adoption after a failed create.
+        it("adopts the story at the planned path when create answers slug already taken", async () => {
+            mocks.createStory.mockImplementation(async (content: any) =>
+                content.slug === "blog"
+                    ? {
+                          story: {
+                              id: 1001,
+                              uuid: "target-blog-uuid",
+                              full_slug: "imported/blog",
+                          },
+                      }
+                    : {
+                          ok: false,
+                          stage: "create",
+                          status: 422,
+                          response: "slug: Slug `post-1` already taken",
+                      },
+            );
+            mocks.getStoriesByFullSlugs.mockResolvedValue([
+                {
+                    id: 5002,
+                    uuid: "existing-post-uuid",
+                    full_slug: "imported/blog/post-1",
+                    is_folder: false,
+                },
+            ]);
+
+            await runApply();
+
+            expect(process.exitCode).toBeUndefined();
+            expect(updatedStoryIds()).toContain("5002");
+
+            const storyManifest = (
+                await readFile(
+                    path.join(manifestDirectory, "stories.manifest.jsonl"),
+                    "utf8",
+                )
+            )
+                .trim()
+                .split("\n")
+                .map((line) => JSON.parse(line));
+
+            expect(storyManifest).toContainEqual(
+                expect.objectContaining({
+                    source_id: 2,
+                    target_id: 5002,
+                    action: "matched_by_target_key",
+                }),
+            );
+        });
+
+        // MAR-3060 R3 (d) canary. Mutation that must turn it red: throw again
+        // when a shell create fails.
+        it("skips the subtree of a failed create, reports each child, and exits 1", async () => {
+            const outputPath = path.join(tempDir, "report.json");
+
+            mocks.createStory.mockResolvedValue({
+                ok: false,
+                stage: "create",
+                status: 500,
+                response: "Internal Server Error",
+            });
+
+            await runApply({ outputPath });
+
+            expect(process.exitCode).toBe(1);
+            // The child is never attempted: it has no parent to live under.
+            expect(mocks.createStory).toHaveBeenCalledTimes(1);
+            expect(mocks.updateStory).not.toHaveBeenCalled();
+            expect(
+                lines("error").some(
+                    (line) => line.includes("'blog'") && line.includes("500"),
+                ),
+            ).toBe(true);
+            expect(
+                lines("error").some(
+                    (line) =>
+                        line.includes("'blog/post-1'") &&
+                        line.includes("skipped"),
+                ),
+            ).toBe(true);
+
+            const report = JSON.parse(await readFile(outputPath, "utf8"));
+
+            expect(report.summary).toMatchObject({
+                storiesCreateFailed: 1,
+                storiesSkippedParentFailed: 1,
+            });
         });
     });
 });

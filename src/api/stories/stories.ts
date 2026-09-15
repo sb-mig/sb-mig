@@ -16,6 +16,7 @@ import type {
     PublishLanguagesOption,
     SearchStorySlugs,
 } from "./stories.types.js";
+import type { RequestBaseConfig } from "../utils/request.js";
 
 import chalk from "chalk";
 
@@ -524,6 +525,13 @@ export const getStoryById: GetStoryById = (storyId, config) => {
         });
 };
 
+/**
+ * Resolves a story through `with_slug`. Note: `with_slug` does not resolve a
+ * folder startpage, whose `full_slug` carries a trailing slash (`folder/`), so
+ * a startpage looked up here comes back as nothing. Callers that must find a
+ * story by its exact path, startpages included, use `getStoriesByFullSlugs`.
+ * Left unchanged on purpose: other commands depend on its current behaviour.
+ */
 export const getStoryBySlug: GetStoryBySlug = async (slug, config) => {
     const { spaceId, sbApi } = config;
     const storiesWithoutContent: any = await sbApi
@@ -597,7 +605,53 @@ export const createStory: CreateStory = (content, config, options) => {
             publish: options?.publish ?? true,
         })
         .then((res: any) => res.data)
-        .catch((err: any) => console.error(err));
+        .catch((err: any) => {
+            console.error(err);
+
+            // The same failure shape `updateStory` returns, so a caller can
+            // tell a 422 from a 500. It carries no `story`, so every caller
+            // that checks `result?.story` behaves exactly as it did when this
+            // resolved to undefined.
+            return {
+                ok: false,
+                stage: "create",
+                status: resolveStoryblokErrorStatus(err),
+                response: resolveStoryblokErrorResponse(err),
+            };
+        });
+};
+
+/**
+ * Stories whose exact `full_slug` is one of `fullSlugs`, read with `by_slugs`.
+ * Unlike `with_slug`, `by_slugs` matches a startpage's `folder/` path, so this
+ * is the lookup to use when a story must be found where it actually lives.
+ * Returns an empty list when the read fails; the caller decides what a miss
+ * means.
+ */
+export const getStoriesByFullSlugs = async (
+    fullSlugs: string[],
+    config: RequestBaseConfig,
+): Promise<any[]> => {
+    const { spaceId, sbApi } = config;
+
+    if (fullSlugs.length === 0) {
+        return [];
+    }
+
+    return sbApi
+        .get(`spaces/${spaceId}/stories/`, {
+            per_page: 100,
+            // @ts-ignore
+            by_slugs: fullSlugs.join(","),
+        })
+        .then((res: any) => res?.data?.stories ?? [])
+        .catch((err: any) => {
+            Logger.error(
+                `Could not look up stories by full_slug in space '${spaceId}' (status ${resolveStoryblokErrorStatus(err) ?? "unknown"}).`,
+            );
+
+            return [];
+        });
 };
 
 // UPDATE
