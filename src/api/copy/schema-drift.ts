@@ -57,17 +57,15 @@ const isPlainObject = (value: unknown): value is Record<string, unknown> =>
 /**
  * The only field types this check covers, with the shape each must hold. A
  * field of any other type is not checked. An absent or null value is never
- * drift: there is nothing for the target to reject.
+ * drift: there is nothing for the target to reject. An empty string is not
+ * absent: Storyblok rejects `""` in a richtext field ("must be a prosemirror
+ * document") just as it rejects any other string, so it is drift here too.
  */
 const FIELD_SHAPE_CHECKS = new Map<
     SchemaDriftFieldType,
     (value: unknown) => boolean
 >([
-    [
-        "richtext",
-        (value) =>
-            value === "" || (isPlainObject(value) && value.type === "doc"),
-    ],
+    ["richtext", (value) => isPlainObject(value) && value.type === "doc"],
     ["bloks", (value) => Array.isArray(value)],
     ["multilink", (value) => isPlainObject(value)],
     ["asset", (value) => isPlainObject(value)],

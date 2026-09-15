@@ -79,13 +79,13 @@ describe("copy stories schema drift", () => {
         });
     });
 
-    it("accepts a prosemirror doc or an empty value in a richtext field", () => {
+    it("accepts a prosemirror doc, null or an absent value in a richtext field", () => {
         const summary = findSchemaDrift({
             stories: [
                 story(1, "a", {
                     component: "sb-blockquote",
                     content: doc,
-                    citation: "",
+                    citation: null,
                 }),
                 story(2, "b", { component: "sb-blockquote", content: null }),
                 story(3, "c", { component: "sb-blockquote" }),
@@ -95,6 +95,51 @@ describe("copy stories schema drift", () => {
 
         expect(summary.occurrences).toBe(0);
         expect(summary.stories).toBe(0);
+    });
+
+    // MAR-3057 lap 3 F4 canary. Storyblok rejected exactly this live
+    // (`sb-blockquote.citation: ""` in new-york/philosophy/meet-our-head-of-school).
+    // Mutation that must turn it red: restore the `""` exemption in the
+    // richtext check.
+    it("counts an empty string in a richtext field as drift", () => {
+        const summary = findSchemaDrift({
+            stories: [
+                story(1, "new-york/philosophy/meet-our-head-of-school", {
+                    component: "page",
+                    body: [
+                        {
+                            component: "sb-blockquote",
+                            _uid: "c5468aad",
+                            content: doc,
+                            citation: "",
+                        },
+                    ],
+                }),
+            ],
+            targetSchemas: {
+                page: pageSchema,
+                "sb-blockquote": blockquoteSchema,
+            },
+        });
+
+        expect(summary).toMatchObject({
+            occurrences: 1,
+            stories: 1,
+            storyFullSlugs: ["new-york/philosophy/meet-our-head-of-school"],
+            groups: [
+                {
+                    component: "sb-blockquote",
+                    field: "citation",
+                    expected: "richtext",
+                    got: "string",
+                    count: 1,
+                },
+            ],
+        });
+        expect(summary.findings[0]).toMatchObject({
+            uid: "c5468aad",
+            path: "content.body[0].citation",
+        });
     });
 
     it("counts an object that is not a doc in a richtext field as drift", () => {
