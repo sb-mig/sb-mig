@@ -268,6 +268,8 @@ export const copyDescription = `
         --dry-run       Preview story paths, manifest-mapped references, and likely target conflicts without writing to Storyblok. With copy manifests --prune, print the plan and stop. With copy space, print the schema PLAN and write nothing.
         --yes           Skip the confirmation gate shown after a PLAN block, before the first write. Required in non-interactive runs (CI). [stories, relink, space, and manifests --prune]
         --only          Restrict copy space to some of: languages, groups, components, presets, datasources. Comma-separated or repeatable. The write order stays languages, groups, components, presets, datasources. [space only]
+        --allow-missing-plugins
+                       Write even when the target space's field-type plugins can be read and lack some the source components use. Those components are then rejected by Storyblok and reported. [space only]
         --fresh         Ignore the existing copy ledger for this run; every manifest file of this space pair, the asset and asset-folder ledgers included, is moved aside with a timestamp suffix, never deleted. A later --with-assets run therefore starts without the archived asset mappings too. [stories only]
         --manifestRoot  Directory holding the copy ledger. Default: .sb-mig
         --outputPath    Optional JSON file path for the run's report: the plan on --dry-run, and on apply an outcome for every item plus every failed write. Only writes locally when passed.
@@ -312,6 +314,7 @@ export const copyDescription = `
         copy stories never publishes folders; publish state applies to stories only. A folder publish in Storyblok cascades to every story inside it, so each story's own publish state is reproduced instead.
         copy stories, copy relink and copy assets never stop at a failed write: every other item is still written, each failure is listed at the end and in the --outputPath report, and the command exits 1. A story whose create failed takes its children with it, since they have no parent to be created under.
         In an apply report, each item's outcome says what the target holds: updated, published or publish_skipped mean its content was written; created or matched mean only its shell was reached; update_failed, create_failed and skipped_parent_failed mean its content is not there.
+        copy space checks the field-type plugins the source components use (fields of type custom). When the target's plugins can be read with the token in use, the PLAN names any the target lacks and the run refuses to write unless --allow-missing-plugins is passed. When they cannot be read, the PLAN lists every plugin the target must have assigned and the run goes on. Components Storyblok rejects for a missing plugin are counted per plugin at the end.
         publicationMode preserve-layers publishes clean published source stories; for dirty published source stories it copies the source published version, publishes it in target, then restores the source draft/current layer as save-only.
         publicationMode collapse-draft publishes published source stories from their current draft/current JSON.
         publicationMode save-only never publishes copied stories.

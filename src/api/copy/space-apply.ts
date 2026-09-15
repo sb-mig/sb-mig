@@ -3,6 +3,7 @@ import type {
     CopySpaceDatasource,
     CopySpaceDimension,
     CopySpaceEntry,
+    CopySpaceFieldTypeAvailability,
     CopySpaceGroup,
     CopySpaceLanguage,
     CopySpacePlan,
@@ -18,8 +19,10 @@ import {
     buildCopySpacePlan,
     buildGroupNameMap,
     buildGroupPaths,
+    collectFieldTypePlugins,
     mergeLanguagesForTarget,
     orderGroupsParentsFirst,
+    parseMissingFieldTypePlugins,
     planDefaultPresetRestores,
     presetMatchKey,
     remapComponentForTarget,
@@ -47,6 +50,8 @@ export type CopySpaceFailure = {
     resource: CopySpaceResource | "entries";
     name: string;
     message: string;
+    /** Set when Storyblok rejected the write for plugins the space lacks. */
+    missingPlugins?: string[];
 };
 
 const PER_PAGE = 100;
@@ -302,12 +307,26 @@ export const applyCopySpace = async ({
         try {
             return await write();
         } catch (error) {
-            const failure = { resource, name, message: describeError(error) };
+            const message = describeError(error);
+            const missingPlugins =
+                resource === "components"
+                    ? parseMissingFieldTypePlugins(message)
+                    : undefined;
 
-            failures.push(failure);
-            Logger.error(
-                `copy space: ${resource} '${name}' was not written. ${failure.message}`,
-            );
+            failures.push({
+                resource,
+                name,
+                message,
+                ...(missingPlugins ? { missingPlugins } : {}),
+            });
+
+            // A component rejected for a plugin the space lacks is summed up
+            // per plugin at the end, not printed once per component.
+            if (!missingPlugins) {
+                Logger.error(
+                    `copy space: ${resource} '${name}' was not written. ${message}`,
+                );
+            }
 
             return undefined;
         }
@@ -823,10 +842,56 @@ export const applyCopySpace = async ({
     return failures;
 };
 
+/**
+ * The field-type plugins assigned to the target space, if this token may read
+ * them. `GET /v1/field_types` is account-wide and needs a personal access
+ * token; each plugin lists the `space_ids` it is assigned to
+ * (https://www.storyblok.com/docs/api/management/field-plugins/retrieve-multiple-field-plugins,
+ * https://www.storyblok.com/docs/api/management/field-plugins/the-field-plugins-object).
+ * Any failure — a space token gets 403 — is "not readable", never a stop.
+ */
+export const readTargetFieldTypes = async ({
+    sbApi,
+    targetSpaceId,
+}: {
+    sbApi: CopySpaceSbApi;
+    targetSpaceId: string;
+}): Promise<CopySpaceFieldTypeAvailability> => {
+    try {
+        const fieldTypes = await readAll(sbApi, "field_types", "field_types", {
+            only_mine: 0,
+        });
+        const assigned = [
+            ...new Set(
+                fieldTypes
+                    .filter((fieldType: any) =>
+                        (fieldType?.space_ids ?? [])
+                            .map(String)
+                            .includes(String(targetSpaceId)),
+                    )
+                    .map((fieldType: any) => String(fieldType?.name ?? ""))
+                    .filter(Boolean),
+            ),
+        ].sort();
+
+        return { readable: true, assigned };
+    } catch (error: any) {
+        const status = Number(error?.status ?? error?.response?.status);
+
+        return {
+            readable: false,
+            ...(Number.isFinite(status) && status > 0 ? { status } : {}),
+            message: describeError(error),
+        };
+    }
+};
+
 export type CopySpaceRunResult = {
     plan: CopySpacePlan;
     applied: boolean;
     failures: CopySpaceFailure[];
+    /** Set when the gate refused before asking: nothing was written. */
+    refused?: "missing_field_type_plugins";
 };
 
 /**
@@ -841,6 +906,7 @@ export const runCopySpace = async ({
     resources,
     dryRun,
     concurrency,
+    allowMissingPlugins = false,
     showPlan,
     confirm,
 }: {
@@ -850,6 +916,8 @@ export const runCopySpace = async ({
     resources: CopySpaceResource[];
     dryRun: boolean;
     concurrency: number;
+    /** Write even when the readable target lacks plugins the source uses. */
+    allowMissingPlugins?: boolean;
     showPlan: (plan: CopySpacePlan) => Promise<void> | void;
     confirm: () => Promise<boolean>;
 }): Promise<CopySpaceRunResult> => {
@@ -866,17 +934,43 @@ export const runCopySpace = async ({
             source.datasources.map((datasource) => datasource.name),
         ),
     });
+    // Only worth a request when a component in scope names a plugin.
+    const targetFieldTypes =
+        resources.includes("components") &&
+        collectFieldTypePlugins(source.components).length > 0
+            ? await readTargetFieldTypes({ sbApi, targetSpaceId })
+            : undefined;
     const plan = buildCopySpacePlan({
         sourceSpaceId,
         targetSpaceId,
         resources,
         source,
         target,
+        targetFieldTypes,
     });
 
     await showPlan(plan);
 
-    if (dryRun || !(await confirm())) {
+    if (dryRun) {
+        return { plan, applied: false, failures: [] };
+    }
+
+    // A readable target that lacks a plugin the source uses would reject
+    // every component using it; refuse before asking, unless told otherwise.
+    if (
+        plan.fieldTypePlugins?.target.readable &&
+        plan.fieldTypePlugins.missing.length > 0 &&
+        !allowMissingPlugins
+    ) {
+        return {
+            plan,
+            applied: false,
+            failures: [],
+            refused: "missing_field_type_plugins",
+        };
+    }
+
+    if (!(await confirm())) {
         return { plan, applied: false, failures: [] };
     }
 

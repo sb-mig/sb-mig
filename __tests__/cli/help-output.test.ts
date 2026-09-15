@@ -122,6 +122,10 @@ describe("CLI help output", () => {
         expect(copyHelp).toContain(
             "copy stories, copy relink and copy assets never stop at a failed write",
         );
+        expect(copyHelp).toContain("--allow-missing-plugins");
+        expect(copyHelp).toContain(
+            "copy space checks the field-type plugins the source components use",
+        );
         expect(copyHelp).toContain(
             "updated, published or publish_skipped mean its content was written",
         );

@@ -55,6 +55,8 @@ import {
     buildCopySpacePlanGateSummary,
     parseCopySpaceOnly,
     formatCopyRelinkPlan,
+    formatMissingPluginFailures,
+    groupMissingPluginFailures,
     buildCopyManifestPairList,
     getCopyManifestRoot,
     getDefaultCopyManifestPaths,
@@ -7042,6 +7044,9 @@ export const copyCommand = async (props: CLIOptions) => {
             const dryRun = Boolean(flags["dryRun"]);
             const yes = Boolean(flags["yes"]);
             const outputPath = readStringFlag(flags, ["outputPath"]);
+            const allowMissingPlugins = Boolean(
+                flags["allowMissingPlugins"] ?? flags["allow-missing-plugins"],
+            );
             const only = parseCopySpaceOnly(
                 readStringListFlag(flags, ["only"]),
             );
@@ -7073,6 +7078,7 @@ export const copyCommand = async (props: CLIOptions) => {
                 resources: only.resources,
                 dryRun,
                 concurrency: resolveCopySpaceConcurrency(apiConfig.rateLimit),
+                allowMissingPlugins,
                 showPlan: async (plan) => {
                     formatCopySpacePlanGate(
                         buildCopySpacePlanGateSummary(plan),
@@ -7085,6 +7091,16 @@ export const copyCommand = async (props: CLIOptions) => {
                 confirm: () => confirmCopyPlan({ yes }),
             });
 
+            if (result.refused === "missing_field_type_plugins") {
+                const missing = result.plan.fieldTypePlugins?.missing ?? [];
+
+                Logger.error(
+                    `copy space refused to write: space ${targetSpace} does not have ${missing.length} field-type ${missing.length === 1 ? "plugin" : "plugins"} the source components use (${missing.map((plugin) => plugin.name).join(", ")}). Assign ${missing.length === 1 ? "it" : "them"} to space ${targetSpace} in Storyblok, or pass --allow-missing-plugins to write anyway. Nothing was written.`,
+                );
+                process.exitCode = 1;
+                break;
+            }
+
             if (!result.applied) {
                 if (dryRun) {
                     Logger.log("Dry run: nothing was written.");
@@ -7093,14 +7109,31 @@ export const copyCommand = async (props: CLIOptions) => {
                 break;
             }
 
+            const missingPluginGroups = groupMissingPluginFailures(
+                result.failures,
+            );
+
             if (outputPath) {
                 await writeJsonReport(outputPath, {
                     ...result.plan,
-                    applied: { failures: result.failures },
+                    applied: {
+                        failures: result.failures,
+                        ...(missingPluginGroups.components > 0
+                            ? { missingFieldTypePlugins: missingPluginGroups }
+                            : {}),
+                    },
                 });
             }
 
             if (result.failures.length > 0) {
+                // One summary line for every component rejected for a missing
+                // plugin; each of them stays in the report's failures.
+                if (missingPluginGroups.components > 0) {
+                    Logger.error(
+                        formatMissingPluginFailures(missingPluginGroups),
+                    );
+                }
+
                 Logger.error(
                     `copy space finished with ${result.failures.length} failed ${result.failures.length === 1 ? "write" : "writes"}; every other write went through.`,
                 );
