@@ -64,6 +64,7 @@ describe("copy space: --only", () => {
     it("means every resource when absent", () => {
         expect(parseCopySpaceOnly([]).resources).toEqual([
             "languages",
+            "settings",
             "groups",
             "components",
             "presets",

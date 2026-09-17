@@ -238,14 +238,14 @@ export const copyDescription = `
         $ sb-mig copy space --from [spaceId] --to [spaceId] --only groups,components --outputPath sbmig/copy-plans/space.json
 
     DESCRIPTION
-        Copy Storyblok stories, folders, assets, or asset folders from one space to another, or copy a space's schema (languages, component groups, components, presets, datasources) into another space.
+        Copy Storyblok stories, folders, assets, or asset folders from one space to another, or copy a space's schema (languages, space settings, component groups, components, presets, datasources) into another space.
 
     COMMANDS
         stories         Copy one story, one folder subtree, a folder's children, or one folder shell.
         relink          Repair references in stories that were already copied, without copying content again.
         assets          Copy or plan all assets and asset folders with durable manifests.
         manifests       List the copy ledgers on disk, or read one pair's ledger back and report what a run would make of it.
-        space           Copy a space's schema into another existing space: languages, component groups, components, presets, datasources and their entries. No stories, no assets.
+        space           Copy a space's schema into another existing space: languages, space settings (internationalization and Visual Editor preview URLs), component groups, components, presets, datasources and their entries. No stories, no assets.
 
     FLAGS
         --from          Source Storyblok space ID. Falls back to configured spaceId, except for copy manifests.
@@ -269,7 +269,7 @@ export const copyDescription = `
                        Select assets referenced by a story/folder scope. Requires --source. [assets only]
         --dry-run       Preview story paths, manifest-mapped references, and likely target conflicts without writing to Storyblok. With copy manifests --prune, print the plan and stop. With copy space, print the schema PLAN and write nothing.
         --yes           Skip the confirmation gate shown after a PLAN block, before the first write. Required in non-interactive runs (CI). [stories, relink, space, and manifests --prune]
-        --only          Restrict copy space to some of: languages, groups, components, presets, datasources. Comma-separated or repeatable. The write order stays languages, groups, components, presets, datasources. [space only]
+        --only          Restrict copy space to some of: languages, settings, groups, components, presets, datasources. Comma-separated or repeatable. The write order stays languages, settings, groups, components, presets, datasources. [space only]
         --allow-missing-plugins
                        Write even when the target space's field-type plugins can be read and lack some the source components use. Those components are then rejected by Storyblok and reported. [space only]
         --fresh         Ignore the existing copy ledger for this run; every manifest file of this space pair, the asset and asset-folder ledgers included, is moved aside with a timestamp suffix, never deleted. A later --with-assets run therefore starts without the archived asset mappings too. [stories only]
@@ -294,7 +294,7 @@ export const copyDescription = `
         copy manifests makes no Storyblok request in any mode.
         copy manifests leaves every ledger file untouched unless --prune is passed and confirmed.
         copy manifests --prune DELETES one pair's ledger directory and everything in it, including anything it did not write. It is not archived, and a copy run that would have resumed from it starts over.
-        copy space writes languages, component groups, components, presets, datasources and datasource entries into the target Storyblok space unless --dry-run is passed.
+        copy space writes languages, space settings (internationalization switches and Visual Editor preview URLs), component groups, components, presets, datasources and datasource entries into the target Storyblok space unless --dry-run is passed.
         copy space never deletes anything in the target space. Resources that exist only there are left as they are.
 
     GOTCHAS
@@ -348,7 +348,8 @@ export const copyDescription = `
         copy space rewrites component group uuids and every component_group_whitelist entry to the target's groups, and every preset component_id to the target's components. A whitelisted group with no counterpart in the target is dropped and listed in the PLAN block.
         copy space keeps target-only languages: the target's language list gains the source languages instead of being replaced by them.
         copy space leaves preset image and icon URLs pointing at the source space. They are reported, not rewritten.
-        copy space does not copy stories, assets, workflow stages, roles, webhooks, environments, collaborators or internal tags. Use copy stories and copy assets to move content afterwards.
+        copy space does not copy stories, assets, workflow stages, roles, webhooks, environments, collaborators or internal tags. Use copy stories and copy assets to move content afterwards. The one exception is the settings resource, which copies the Visual Editor preview URLs (the space's environments).
+        copy space settings copies use_translated_stories, show_stories_alternative_versions, hide_flag_icons, flag_icons_display_mode, domain, the preview URLs and encode_preview_urls, and writes only the fields that differ. copy space never turns off use_translated_stories or show_stories_alternative_versions when the target already has them on. Preview URLs are merged by name, the way languages are: a source preview URL replaces the target's first one of the same name, and preview URLs that exist only in the target are kept. The domain and preview URLs are written exactly as they are. On screen and in the --outputPath report the domain is shown by its origin (scheme, host and port) only, preview URLs are shown by name and count and their locations never, and a rejected settings write is reported by its status and field names only.
         copy space prints a PLAN block with create, update and skip counts per resource and asks before the first write; without a terminal and without --yes it refuses. A failed write is reported and the run carries on, then exits 1.
         copy assets matches by manifest first, then safe target folder path or unique asset file name before creating.
         copy assets uploads assets, finalizes the upload, and writes source-to-target asset/folder manifests.

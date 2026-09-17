@@ -9,6 +9,7 @@ import type {
     CopySpacePlan,
     CopySpacePreset,
     CopySpaceResource,
+    CopySpaceSettings,
     CopySpaceSnapshot,
 } from "./space.js";
 
@@ -17,6 +18,7 @@ import Logger from "../../utils/logger.js";
 
 import {
     buildCopySpacePlan,
+    buildCopySpaceSettingsBody,
     buildGroupNameMap,
     buildGroupPaths,
     collectFieldTypePlugins,
@@ -24,6 +26,7 @@ import {
     mergeLanguagesForTarget,
     orderGroupsParentsFirst,
     parseMissingFieldTypePlugins,
+    pickCopySpaceSettings,
     planDefaultPresetRestores,
     presetMatchKey,
     remapComponentForTarget,
@@ -109,32 +112,77 @@ const describeError = (error: any): string => {
 };
 
 /**
- * Languages live on the space itself. Storyblok's own CLI and its generated
- * Management API types read and write them as top-level `languages` and
- * `default_lang_name`; older responses nest them under `options`, so both are
- * read.
+ * A rejected settings write, told from facts that cannot hold a URL: the HTTP
+ * status and, when the response body is an object, its keys. The response
+ * text itself may echo a preview URL, so it is never used.
  */
-const readSpaceLanguages = async (
+const describeSettingsFailure = (error: any): string => {
+    const rawStatus = error?.status ?? error?.response?.status;
+    const status =
+        typeof rawStatus === "number" && Number.isInteger(rawStatus)
+            ? String(rawStatus)
+            : "no status";
+    const body = error?.response?.data ?? error?.response;
+    const keys =
+        body && typeof body === "object" && !Array.isArray(body)
+            ? Object.keys(body).filter((key) => /^[\w.-]{1,64}$/.test(key))
+            : [];
+
+    return `settings write rejected: ${status}${keys.length > 0 ? ` (${keys.join(", ")})` : ""}`;
+};
+
+/**
+ * Languages and settings live on the space itself, so one read of
+ * `spaces/<id>` serves both. Storyblok's own CLI and its generated Management
+ * API types read them top-level (`languages`, `default_lang_name`, the settings
+ * fields); older responses nest them under `options`, so both are read.
+ */
+const readSpace = async (
     sbApi: CopySpaceSbApi,
     spaceId: string,
-): Promise<{ languages: CopySpaceLanguage[]; defaultLangName?: string }> => {
+    wants: { languages: boolean; settings: boolean },
+): Promise<{
+    languages?: CopySpaceLanguage[];
+    defaultLangName?: string;
+    settings?: CopySpaceSettings;
+}> => {
     const response = await sbApi.get(`spaces/${spaceId}`);
     const space = response?.data?.space;
 
     if (!space) {
+        const planned = [
+            ...(wants.languages ? ["languages"] : []),
+            ...(wants.settings ? ["settings"] : []),
+        ].join(" and ");
+
         throw new Error(
-            `Reading space ${spaceId} returned no space, so its languages cannot be planned.`,
+            `Reading space ${spaceId} returned no space, so its ${planned} cannot be planned.`,
         );
     }
 
-    const languages = space.languages ?? space.options?.languages ?? [];
-    const defaultLangName =
-        space.default_lang_name ?? space.options?.default_lang_name;
+    const read: {
+        languages?: CopySpaceLanguage[];
+        defaultLangName?: string;
+        settings?: CopySpaceSettings;
+    } = {};
 
-    return {
-        languages: Array.isArray(languages) ? languages : [],
-        ...(defaultLangName ? { defaultLangName } : {}),
-    };
+    if (wants.languages) {
+        const languages = space.languages ?? space.options?.languages ?? [];
+        const defaultLangName =
+            space.default_lang_name ?? space.options?.default_lang_name;
+
+        read.languages = Array.isArray(languages) ? languages : [];
+
+        if (defaultLangName) {
+            read.defaultLangName = defaultLangName;
+        }
+    }
+
+    if (wants.settings) {
+        read.settings = pickCopySpaceSettings(space);
+    }
+
+    return read;
 };
 
 /** `undefined`, `null` and `""` all mean "no translation" on both sides. */
@@ -217,8 +265,15 @@ export const readCopySpaceSnapshot = async ({
         entriesByDatasource: new Map(),
     };
 
-    if (needs("languages")) {
-        Object.assign(snapshot, await readSpaceLanguages(sbApi, spaceId));
+    // One read of the space serves the languages and the settings alike.
+    if (needs("languages", "settings")) {
+        Object.assign(
+            snapshot,
+            await readSpace(sbApi, spaceId, {
+                languages: needs("languages"),
+                settings: needs("settings"),
+            }),
+        );
     }
 
     if (needs("groups", "components")) {
@@ -304,11 +359,13 @@ export const applyCopySpace = async ({
         resource: CopySpaceFailure["resource"],
         name: string,
         write: () => Promise<any>,
+        /** Replaces the default description of a rejected write. */
+        describeFailure: (error: any) => string = describeError,
     ): Promise<any> => {
         try {
             return await write();
         } catch (error) {
-            const message = describeError(error);
+            const message = describeFailure(error);
             const missingPlugins =
                 resource === "components"
                     ? parseMissingFieldTypePlugins(message)
@@ -376,6 +433,38 @@ export const applyCopySpace = async ({
         Logger.log(
             `copy space: languages written (${merged.add.length} added, ${merged.update.length} updated).`,
         );
+    }
+
+    if (inScope("settings")) {
+        const sourceSettings = source.settings ?? {};
+        const targetSettings = target.settings ?? {};
+        // Only the fields that change, with the source's raw values: preview
+        // URLs reach the target exactly as they are.
+        const body = buildCopySpaceSettingsBody({
+            source: sourceSettings,
+            target: targetSettings,
+        });
+        const changed = Object.keys(body);
+
+        if (changed.length === 0) {
+            Logger.log("copy space: settings already match; nothing written.");
+        } else {
+            // A rejected write can echo a preview URL back, in any encoding, so
+            // its response text is never kept or printed: only the status and
+            // the field names Storyblok complained about.
+            const response = await attempt(
+                "settings",
+                "settings",
+                () => sbApi.put(base, { space: body }),
+                describeSettingsFailure,
+            );
+
+            if (response) {
+                Logger.log(
+                    `copy space: settings written (${changed.join(", ")}).`,
+                );
+            }
+        }
     }
 
     let targetGroups = target.groups;

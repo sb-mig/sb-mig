@@ -8,9 +8,14 @@
  * and writes.
  */
 
-/** The five schema resources of v1, in the order they are written. */
+/**
+ * The resources `copy space` copies, in the order they are written. `settings`
+ * (internationalization switches and Visual Editor preview URLs) sits on the
+ * space itself, right after the languages.
+ */
 export const COPY_SPACE_RESOURCES = [
     "languages",
+    "settings",
     "groups",
     "components",
     "presets",
@@ -98,6 +103,396 @@ export const parseCopySpaceOnly = (
             requested.includes(resource),
         ),
     };
+};
+
+/* ------------------------------------------------------------------ *
+ * Settings
+ * ------------------------------------------------------------------ */
+
+/**
+ * The space settings `copy space` copies, in the order the PLAN lists them. A
+ * closed allowlist: nothing else on the space object (tokens, hooks, plan,
+ * owner) ever reaches a write.
+ */
+export const COPY_SPACE_SETTINGS_FIELDS = [
+    "use_translated_stories",
+    "show_stories_alternative_versions",
+    "hide_flag_icons",
+    "flag_icons_display_mode",
+    "domain",
+    "environments",
+    "encode_preview_urls",
+] as const;
+
+export type CopySpaceSettingsField =
+    (typeof COPY_SPACE_SETTINGS_FIELDS)[number];
+
+/** A Visual Editor preview URL. */
+export type CopySpaceEnvironment = { name: string; location: string };
+
+/** Raw values, as read from a space. Never printed or written to a report. */
+export type CopySpaceSettings = {
+    use_translated_stories?: boolean;
+    show_stories_alternative_versions?: boolean;
+    hide_flag_icons?: boolean;
+    flag_icons_display_mode?: string;
+    domain?: string;
+    environments?: CopySpaceEnvironment[];
+    encode_preview_urls?: boolean;
+};
+
+export type CopySpaceSettingOutcome = "change" | "same" | "kept";
+
+/** Preview URLs as the PLAN states them: how many, and their names only. */
+export type CopySpaceEnvironmentsSummary = { count: number; names: string[] };
+
+/**
+ * One field as the PLAN states it. `domain` is redacted and `environments` is
+ * counted and named, so a plan can be printed and written to a report.
+ */
+export type CopySpaceSettingsFieldPlan = {
+    field: CopySpaceSettingsField;
+    outcome: CopySpaceSettingOutcome;
+    source?: string | boolean | CopySpaceEnvironmentsSummary;
+    target?: string | boolean | CopySpaceEnvironmentsSummary;
+    /**
+     * `environments` only: the target's list after the merge, by name. The
+     * names the source adds, and the target names whose preview URL it
+     * replaces.
+     */
+    merge?: { count: number; added: string[]; updated: string[] };
+};
+
+export type CopySpaceSettingsPlan = {
+    change: number;
+    same: number;
+    kept: number;
+    fields: CopySpaceSettingsFieldPlan[];
+};
+
+/**
+ * Flags that switch a capability on. A copy turns one on when the source has
+ * it, and never turns off one the target already has.
+ */
+const CAPABILITY_FLAGS = new Set<CopySpaceSettingsField>([
+    "use_translated_stories",
+    "show_stories_alternative_versions",
+]);
+
+/** Storyblok answers `null` for a setting that was never set: that is absent. */
+const isPresent = (value: unknown): boolean =>
+    value !== undefined && value !== null;
+
+/**
+ * The seven settings of a Management API space object: each read top-level
+ * first, then from `space.options`, the way languages are. A field absent in
+ * both (`undefined` or `null`) is left out, so no later step can write or
+ * report a `null`.
+ */
+export const pickCopySpaceSettings = (space: any): CopySpaceSettings => {
+    const settings: Record<string, unknown> = {};
+
+    for (const field of COPY_SPACE_SETTINGS_FIELDS) {
+        const value = isPresent(space?.[field])
+            ? space[field]
+            : space?.options?.[field];
+
+        if (isPresent(value)) {
+            settings[field] = value;
+        }
+    }
+
+    return settings as CopySpaceSettings;
+};
+
+/**
+ * A URL safe to print: its origin, and nothing after it. A secret can sit in
+ * the path, the query string or the fragment, so a URL with anything past its
+ * origin is printed as `origin/…`. Anything that does not parse as a URL with
+ * an origin is hidden entirely, because it cannot be told apart from a secret.
+ */
+export const redactUrl = (value: string): string => {
+    try {
+        const url = new URL(value);
+
+        if (url.origin === "null") {
+            return "<redacted>";
+        }
+
+        const onlyOrigin =
+            (url.pathname === "" || url.pathname === "/") &&
+            url.search === "" &&
+            url.hash === "" &&
+            url.username === "" &&
+            url.password === "";
+
+        return onlyOrigin ? url.origin : `${url.origin}/…`;
+    } catch {
+        return "<redacted>";
+    }
+};
+
+const isNonEmptyString = (value: unknown): value is string =>
+    typeof value === "string" && value.length > 0;
+
+/** An environments list reduced to `{ name, location }`, in its own order. */
+const normaliseEnvironments = (value: unknown): CopySpaceEnvironment[] =>
+    Array.isArray(value)
+        ? value.map((environment: any) => ({
+              name: String(environment?.name ?? ""),
+              location: String(environment?.location ?? ""),
+          }))
+        : [];
+
+/**
+ * The source's preview URLs that can be copied: an entry without a non-empty
+ * name and a non-empty location is ignored, so a blank preview URL is never
+ * written. The target's entries are never filtered.
+ */
+const usableSourceEnvironments = (value: unknown): CopySpaceEnvironment[] =>
+    normaliseEnvironments(value).filter(
+        (environment) =>
+            environment.name.length > 0 && environment.location.length > 0,
+    );
+
+/**
+ * A preview URL name as it is displayed: one line, with every run of control
+ * characters (line breaks included) shown as a single space, so a name cannot
+ * add lines to the PLAN. The write keeps the name exactly.
+ */
+const displayName = (name: string): string =>
+    name.replace(/[\p{Cc}\u2028\u2029]+/gu, " ");
+
+const sameEnvironments = (
+    left: CopySpaceEnvironment[],
+    right: CopySpaceEnvironment[],
+): boolean =>
+    left.length === right.length &&
+    left.every(
+        (environment, index) =>
+            environment.name === right[index]?.name &&
+            environment.location === right[index]?.location,
+    );
+
+/**
+ * The target's preview URLs after a copy, merged by name the way languages
+ * are: the target's order is kept, a source entry replaces the first target
+ * entry of the same name, new names are appended in the source's order, and
+ * everything else in the target stays, later entries of a repeated name
+ * included. `copy space` never deletes a preview URL.
+ */
+export const mergeEnvironmentsForTarget = ({
+    source,
+    target,
+}: {
+    source: unknown;
+    target: unknown;
+}): {
+    environments: CopySpaceEnvironment[];
+    added: string[];
+    updated: string[];
+} => {
+    const sourceEnvironments = usableSourceEnvironments(source);
+    const targetEnvironments = normaliseEnvironments(target);
+    // On a repeated name the last source entry wins, as a later write would.
+    const sourceByName = new Map(
+        sourceEnvironments.map((environment) => [
+            environment.name,
+            environment,
+        ]),
+    );
+    const targetNames = new Set(
+        targetEnvironments.map((environment) => environment.name),
+    );
+    const updated = new Set<string>();
+    // Only the first target entry of a name is replaced: a target that holds
+    // two preview URLs of one name keeps the second.
+    const replaced = new Set<string>();
+    const environments = targetEnvironments.map((environment) => {
+        const replacement = replaced.has(environment.name)
+            ? undefined
+            : sourceByName.get(environment.name);
+
+        if (!replacement) {
+            return environment;
+        }
+
+        replaced.add(environment.name);
+
+        if (replacement.location !== environment.location) {
+            updated.add(environment.name);
+        }
+
+        return replacement;
+    });
+    const added: string[] = [];
+
+    for (const [name, environment] of sourceByName) {
+        if (!targetNames.has(name)) {
+            environments.push(environment);
+            added.push(name);
+        }
+    }
+
+    return { environments, added, updated: [...updated] };
+};
+
+const settingOutcome = (
+    field: CopySpaceSettingsField,
+    source: CopySpaceSettings,
+    target: CopySpaceSettings,
+): CopySpaceSettingOutcome => {
+    const sourceValue = source[field];
+    const targetValue = target[field];
+
+    if (CAPABILITY_FLAGS.has(field)) {
+        if (sourceValue === true && targetValue !== true) {
+            return "change";
+        }
+
+        return targetValue === true && sourceValue !== true ? "kept" : "same";
+    }
+
+    if (field === "domain") {
+        if (isNonEmptyString(sourceValue)) {
+            return sourceValue === targetValue ? "same" : "change";
+        }
+
+        return isNonEmptyString(targetValue) ? "kept" : "same";
+    }
+
+    if (field === "environments") {
+        // Merged by name, so the target never loses a preview URL: an empty
+        // source leaves the list as it is, and there is nothing to keep.
+        const merged = mergeEnvironmentsForTarget({
+            source: sourceValue,
+            target: targetValue,
+        });
+
+        return sameEnvironments(
+            merged.environments,
+            normaliseEnvironments(targetValue),
+        )
+            ? "same"
+            : "change";
+    }
+
+    if (!isPresent(sourceValue)) {
+        return "same";
+    }
+
+    return sourceValue === targetValue ? "same" : "change";
+};
+
+const displaySetting = (
+    field: CopySpaceSettingsField,
+    value: unknown,
+    side: "source" | "target",
+): CopySpaceSettingsFieldPlan["source"] => {
+    if (field === "domain") {
+        return isNonEmptyString(value) ? redactUrl(value) : undefined;
+    }
+
+    if (field === "environments") {
+        const environments =
+            side === "source"
+                ? usableSourceEnvironments(value)
+                : normaliseEnvironments(value);
+
+        return {
+            count: environments.length,
+            names: environments.map((environment) =>
+                displayName(environment.name),
+            ),
+        };
+    }
+
+    return typeof value === "boolean" || typeof value === "string"
+        ? value
+        : undefined;
+};
+
+/**
+ * What a copy would do to each setting: `change` (written), `same` (nothing to
+ * do) or `kept` (the target keeps what it has). Printable: URLs are redacted
+ * and preview URLs are reduced to their names.
+ */
+export const planCopySpaceSettings = ({
+    source,
+    target,
+}: {
+    source: CopySpaceSettings;
+    target: CopySpaceSettings;
+}): CopySpaceSettingsPlan => {
+    const fields = COPY_SPACE_SETTINGS_FIELDS.map((field) => {
+        const sourceDisplay = displaySetting(field, source[field], "source");
+        const targetDisplay = displaySetting(field, target[field], "target");
+
+        const merge =
+            field === "environments"
+                ? mergeEnvironmentsForTarget({
+                      source: source.environments,
+                      target: target.environments,
+                  })
+                : undefined;
+
+        return {
+            field,
+            outcome: settingOutcome(field, source, target),
+            ...(sourceDisplay !== undefined ? { source: sourceDisplay } : {}),
+            ...(targetDisplay !== undefined ? { target: targetDisplay } : {}),
+            ...(merge
+                ? {
+                      merge: {
+                          count: merge.environments.length,
+                          added: merge.added.map(displayName),
+                          updated: merge.updated.map(displayName),
+                      },
+                  }
+                : {}),
+        };
+    });
+    const count = (outcome: CopySpaceSettingOutcome) =>
+        fields.filter((entry) => entry.outcome === outcome).length;
+
+    return {
+        change: count("change"),
+        same: count("same"),
+        kept: count("kept"),
+        fields,
+    };
+};
+
+/**
+ * The body of the settings write: only the fields whose outcome is `change`,
+ * with the source's raw values. Environments carry the merged list, so the
+ * target's own preview URLs are written back with it. Each entry holds only
+ * `name` and `location`. Empty when nothing changes.
+ */
+export const buildCopySpaceSettingsBody = ({
+    source,
+    target,
+}: {
+    source: CopySpaceSettings;
+    target: CopySpaceSettings;
+}): CopySpaceSettings => {
+    const body: Record<string, unknown> = {};
+
+    for (const field of COPY_SPACE_SETTINGS_FIELDS) {
+        if (settingOutcome(field, source, target) !== "change") {
+            continue;
+        }
+
+        body[field] =
+            field === "environments"
+                ? mergeEnvironmentsForTarget({
+                      source: source.environments,
+                      target: target.environments,
+                  }).environments
+                : source[field];
+    }
+
+    return body as CopySpaceSettings;
 };
 
 /* ------------------------------------------------------------------ *
@@ -557,6 +952,8 @@ export type CopySpaceSnapshot = {
     datasources: CopySpaceDatasource[];
     /** Entries per datasource, keyed by datasource name. */
     entriesByDatasource: Map<string, CopySpaceEntry[]>;
+    /** The raw settings, read only when `settings` is in scope. Never printed. */
+    settings?: CopySpaceSettings;
 };
 
 export type CopySpacePlan = {
@@ -566,6 +963,8 @@ export type CopySpacePlan = {
     targetSpaceId: string;
     resources: CopySpaceResource[];
     languages?: { total: number; add: string[]; update: string[] };
+    /** What happens to each setting. Redacted: safe to print and to report. */
+    settings?: CopySpaceSettingsPlan;
     groups?: CopySpaceResourcePlan;
     components?: CopySpaceResourcePlan;
     presets?: CopySpaceResourcePlan;
@@ -831,6 +1230,14 @@ export const buildCopySpacePlan = ({
             add: merged.add,
             update: merged.update,
         };
+    }
+
+    if (inScope("settings")) {
+        // Redacted by construction: the raw values stay in the snapshots.
+        plan.settings = planCopySpaceSettings({
+            source: source.settings ?? {},
+            target: target.settings ?? {},
+        });
     }
 
     const sourceGroupPaths = buildGroupPaths(source.groups);

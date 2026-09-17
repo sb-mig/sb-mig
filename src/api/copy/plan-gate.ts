@@ -3,6 +3,8 @@ import type {
     CopySpaceFieldTypePlugin,
     CopySpaceFieldTypePluginsPlan,
     CopySpacePlan,
+    CopySpaceSettingsFieldPlan,
+    CopySpaceSettingsPlan,
     CopySpaceSkip,
 } from "./space.js";
 import type { CopyTranslatedSlugSummary } from "./translated-slugs.js";
@@ -370,6 +372,8 @@ export type CopySpacePlanGateSummary = {
     defaultPresets?: { restore: number; notRestorable: number };
     fieldTypePlugins?: CopySpaceFieldTypePluginsPlan;
     entriesStoryblokWillReject?: CopySpacePlan["entriesStoryblokWillReject"];
+    /** Present when `settings` is in scope; already redacted. */
+    settings?: CopySpaceSettingsPlan;
 };
 
 export const buildCopySpacePlanGateSummary = (
@@ -439,7 +443,58 @@ export const buildCopySpacePlanGateSummary = (
         ...(plan.entriesStoryblokWillReject
             ? { entriesStoryblokWillReject: plan.entriesStoryblokWillReject }
             : {}),
+        ...(plan.settings ? { settings: plan.settings } : {}),
     };
+};
+
+const describeSettingValue = (value: CopySpaceSettingsFieldPlan["source"]) =>
+    value === undefined || typeof value === "object" ? "none" : String(value);
+
+const environmentsCount = (value: CopySpaceSettingsFieldPlan["source"]) =>
+    typeof value === "object" ? value.count : 0;
+
+/**
+ * The settings lines of the PLAN: one summary line, then one line per field
+ * that changes or that the target keeps. Every value in the plan is already
+ * redacted, and preview URLs are named, never shown.
+ */
+const formatCopySpaceSettings = (settings: CopySpaceSettingsPlan): string[] => {
+    const lines = [
+        `  settings: ${settings.change} change, ${settings.same} same, ${settings.kept} kept`,
+    ];
+
+    for (const entry of settings.fields) {
+        if (entry.outcome === "same") {
+            continue;
+        }
+
+        if (entry.field === "environments") {
+            // Merged by name, never replaced: the count after the merge, and
+            // which names are added or get a new preview URL.
+            const merge = entry.merge ?? { count: 0, added: [], updated: [] };
+            const parts = [
+                ...(merge.added.length > 0
+                    ? [`added: ${merge.added.join(", ")}`]
+                    : []),
+                ...(merge.updated.length > 0
+                    ? [`updated: ${merge.updated.join(", ")}`]
+                    : []),
+            ];
+
+            lines.push(
+                `    environments: ${environmentsCount(entry.target)} -> ${merge.count}${parts.length > 0 ? ` (${parts.join("; ")})` : ""}`,
+            );
+            continue;
+        }
+
+        lines.push(
+            entry.outcome === "change"
+                ? `    ${entry.field}: ${describeSettingValue(entry.target)} -> ${describeSettingValue(entry.source)}`
+                : `    ${entry.field}: kept ${describeSettingValue(entry.target)} (source ${describeSettingValue(entry.source)})`,
+        );
+    }
+
+    return lines;
 };
 
 /** `seo-metatags (5 components), backpack-breakpoints (1 component)` */
@@ -486,10 +541,31 @@ export const formatCopySpacePlanGate = (
         `  schema of space ${summary.sourceSpaceId} -> space ${summary.targetSpaceId} (${summary.resources.join(", ")})`,
     ];
 
+    // The settings are written right after the languages, so they are stated
+    // there too; first of all when the languages are not copied.
+    const settingsLines = summary.settings
+        ? formatCopySpaceSettings(summary.settings)
+        : [];
+    let settingsPlaced = settingsLines.length === 0;
+
     for (const line of summary.lines) {
+        if (!settingsPlaced && line.resource !== "languages") {
+            lines.push(...settingsLines);
+            settingsPlaced = true;
+        }
+
         lines.push(
             `  ${line.resource}: ${line.create} create, ${line.update} update, ${line.skip} skip`,
         );
+
+        if (!settingsPlaced && line.resource === "languages") {
+            lines.push(...settingsLines);
+            settingsPlaced = true;
+        }
+    }
+
+    if (!settingsPlaced) {
+        lines.push(...settingsLines);
     }
 
     lines.push(
@@ -583,8 +659,12 @@ export const formatCopySpacePlanGate = (
         );
     }
 
+    // With settings in scope the preview URLs (the space's environments) are
+    // copied, so the closing line stops listing them.
     lines.push(
-        "  not copied: stories, assets, workflow stages, roles, webhooks, environments, collaborators, internal tags.",
+        summary.resources.includes("settings")
+            ? "  not copied: stories, assets, workflow stages, roles, webhooks, collaborators, internal tags."
+            : "  not copied: stories, assets, workflow stages, roles, webhooks, environments, collaborators, internal tags.",
     );
 
     return lines;
