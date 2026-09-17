@@ -155,6 +155,12 @@ export type CopySpaceSettingsFieldPlan = {
     outcome: CopySpaceSettingOutcome;
     source?: string | boolean | CopySpaceEnvironmentsSummary;
     target?: string | boolean | CopySpaceEnvironmentsSummary;
+    /**
+     * `environments` only: the target's list after the merge, by name. The
+     * names the source adds, and the target names whose preview URL it
+     * replaces.
+     */
+    merge?: { count: number; added: string[]; updated: string[] };
 };
 
 export type CopySpaceSettingsPlan = {
@@ -173,21 +179,25 @@ const CAPABILITY_FLAGS = new Set<CopySpaceSettingsField>([
     "show_stories_alternative_versions",
 ]);
 
+/** Storyblok answers `null` for a setting that was never set: that is absent. */
+const isPresent = (value: unknown): boolean =>
+    value !== undefined && value !== null;
+
 /**
  * The seven settings of a Management API space object: each read top-level
  * first, then from `space.options`, the way languages are. A field absent in
- * both is left out, and is never written.
+ * both (`undefined` or `null`) is left out, so no later step can write or
+ * report a `null`.
  */
 export const pickCopySpaceSettings = (space: any): CopySpaceSettings => {
     const settings: Record<string, unknown> = {};
 
     for (const field of COPY_SPACE_SETTINGS_FIELDS) {
-        const value =
-            space?.[field] !== undefined
-                ? space[field]
-                : space?.options?.[field];
+        const value = isPresent(space?.[field])
+            ? space[field]
+            : space?.options?.[field];
 
-        if (value !== undefined) {
+        if (isPresent(value)) {
             settings[field] = value;
         }
     }
@@ -196,52 +206,31 @@ export const pickCopySpaceSettings = (space: any): CopySpaceSettings => {
 };
 
 /**
- * A URL safe to print: origin and path, with the names of its query parameters
- * but none of their values. Anything that does not parse as a URL is hidden
- * entirely, because it cannot be told apart from a secret.
+ * A URL safe to print: its origin, and nothing after it. A secret can sit in
+ * the path, the query string or the fragment, so a URL with anything past its
+ * origin is printed as `origin/…`. Anything that does not parse as a URL with
+ * an origin is hidden entirely, because it cannot be told apart from a secret.
  */
 export const redactUrl = (value: string): string => {
     try {
         const url = new URL(value);
-        const names = [...new Set(url.searchParams.keys())];
 
-        return `${url.origin}${url.pathname}${names.length > 0 ? `?<${names.join(",")} redacted>` : ""}`;
+        if (url.origin === "null") {
+            return "<redacted>";
+        }
+
+        const onlyOrigin =
+            (url.pathname === "" || url.pathname === "/") &&
+            url.search === "" &&
+            url.hash === "" &&
+            url.username === "" &&
+            url.password === "";
+
+        return onlyOrigin ? url.origin : `${url.origin}/…`;
     } catch {
         return "<redacted>";
     }
 };
-
-// A query string of at least one character. A URL already in its redacted form
-// (`?<names redacted>`) does not match again.
-const QUERY_URL_PATTERN = /https?:\/\/[^\s"'<>\\]+\?[^\s"'<>\\]+/g;
-
-/**
- * `text` with every known raw URL, and any other URL carrying a query string,
- * replaced by its redacted form. Used on every message of the settings step
- * that could echo a preview URL back.
- */
-export const redactUrlsInText = (text: string, urls: string[]): string => {
-    let redacted = text;
-
-    for (const url of [...new Set(urls)]
-        .filter((value) => typeof value === "string" && value.length > 0)
-        .sort((left, right) => right.length - left.length)) {
-        redacted = redacted.split(url).join(redactUrl(url));
-    }
-
-    return redacted.replace(QUERY_URL_PATTERN, (match) => redactUrl(match));
-};
-
-/** Every raw URL in these settings: the domain and each preview location. */
-export const collectCopySpaceSettingsUrls = (
-    ...settings: (CopySpaceSettings | undefined)[]
-): string[] =>
-    settings.flatMap((entry) => [
-        ...(isNonEmptyString(entry?.domain) ? [entry.domain] : []),
-        ...normaliseEnvironments(entry?.environments)
-            .map((environment) => environment.location)
-            .filter(isNonEmptyString),
-    ]);
 
 const isNonEmptyString = (value: unknown): value is string =>
     typeof value === "string" && value.length > 0;
@@ -265,6 +254,61 @@ const sameEnvironments = (
             environment.name === right[index]?.name &&
             environment.location === right[index]?.location,
     );
+
+/**
+ * The target's preview URLs after a copy, merged by name the way languages
+ * are: the target's order is kept, a source entry replaces the target entry of
+ * the same name, new names are appended in the source's order, and target-only
+ * names stay. `copy space` never deletes a preview URL.
+ */
+export const mergeEnvironmentsForTarget = ({
+    source,
+    target,
+}: {
+    source: unknown;
+    target: unknown;
+}): {
+    environments: CopySpaceEnvironment[];
+    added: string[];
+    updated: string[];
+} => {
+    const sourceEnvironments = normaliseEnvironments(source);
+    const targetEnvironments = normaliseEnvironments(target);
+    // On a repeated name the last source entry wins, as a later write would.
+    const sourceByName = new Map(
+        sourceEnvironments.map((environment) => [
+            environment.name,
+            environment,
+        ]),
+    );
+    const targetNames = new Set(
+        targetEnvironments.map((environment) => environment.name),
+    );
+    const updated = new Set<string>();
+    const environments = targetEnvironments.map((environment) => {
+        const replacement = sourceByName.get(environment.name);
+
+        if (!replacement) {
+            return environment;
+        }
+
+        if (replacement.location !== environment.location) {
+            updated.add(environment.name);
+        }
+
+        return replacement;
+    });
+    const added: string[] = [];
+
+    for (const [name, environment] of sourceByName) {
+        if (!targetNames.has(name)) {
+            environments.push(environment);
+            added.push(name);
+        }
+    }
+
+    return { environments, added, updated: [...updated] };
+};
 
 const settingOutcome = (
     field: CopySpaceSettingsField,
@@ -291,19 +335,22 @@ const settingOutcome = (
     }
 
     if (field === "environments") {
-        const sourceEnvironments = normaliseEnvironments(sourceValue);
-        const targetEnvironments = normaliseEnvironments(targetValue);
+        // Merged by name, so the target never loses a preview URL: an empty
+        // source leaves the list as it is, and there is nothing to keep.
+        const merged = mergeEnvironmentsForTarget({
+            source: sourceValue,
+            target: targetValue,
+        });
 
-        if (sourceEnvironments.length > 0) {
-            return sameEnvironments(sourceEnvironments, targetEnvironments)
-                ? "same"
-                : "change";
-        }
-
-        return targetEnvironments.length > 0 ? "kept" : "same";
+        return sameEnvironments(
+            merged.environments,
+            normaliseEnvironments(targetValue),
+        )
+            ? "same"
+            : "change";
     }
 
-    if (sourceValue === undefined) {
+    if (!isPresent(sourceValue)) {
         return "same";
     }
 
@@ -348,11 +395,28 @@ export const planCopySpaceSettings = ({
         const sourceDisplay = displaySetting(field, source[field]);
         const targetDisplay = displaySetting(field, target[field]);
 
+        const merge =
+            field === "environments"
+                ? mergeEnvironmentsForTarget({
+                      source: source.environments,
+                      target: target.environments,
+                  })
+                : undefined;
+
         return {
             field,
             outcome: settingOutcome(field, source, target),
             ...(sourceDisplay !== undefined ? { source: sourceDisplay } : {}),
             ...(targetDisplay !== undefined ? { target: targetDisplay } : {}),
+            ...(merge
+                ? {
+                      merge: {
+                          count: merge.environments.length,
+                          added: merge.added,
+                          updated: merge.updated,
+                      },
+                  }
+                : {}),
         };
     });
     const count = (outcome: CopySpaceSettingOutcome) =>
@@ -368,8 +432,9 @@ export const planCopySpaceSettings = ({
 
 /**
  * The body of the settings write: only the fields whose outcome is `change`,
- * with the source's raw values. Environments replace the target's list as a
- * whole. Empty when nothing changes.
+ * with the source's raw values. Environments carry the merged list, so the
+ * target's own preview URLs are written back with it. Each entry holds only
+ * `name` and `location`. Empty when nothing changes.
  */
 export const buildCopySpaceSettingsBody = ({
     source,
@@ -387,7 +452,10 @@ export const buildCopySpaceSettingsBody = ({
 
         body[field] =
             field === "environments"
-                ? normaliseEnvironments(source.environments)
+                ? mergeEnvironmentsForTarget({
+                      source: source.environments,
+                      target: target.environments,
+                  }).environments
                 : source[field];
     }
 

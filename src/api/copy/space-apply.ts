@@ -21,7 +21,6 @@ import {
     buildCopySpaceSettingsBody,
     buildGroupNameMap,
     buildGroupPaths,
-    collectCopySpaceSettingsUrls,
     collectFieldTypePlugins,
     isEntryNameStoryblokRejects,
     mergeLanguagesForTarget,
@@ -30,7 +29,6 @@ import {
     pickCopySpaceSettings,
     planDefaultPresetRestores,
     presetMatchKey,
-    redactUrlsInText,
     remapComponentForTarget,
     remapPresetForTarget,
 } from "./space.js";
@@ -111,6 +109,26 @@ const describeError = (error: any): string => {
     }
 
     return String(error?.message ?? error);
+};
+
+/**
+ * A rejected settings write, told from facts that cannot hold a URL: the HTTP
+ * status and, when the response body is an object, its keys. The response
+ * text itself may echo a preview URL, so it is never used.
+ */
+const describeSettingsFailure = (error: any): string => {
+    const rawStatus = error?.status ?? error?.response?.status;
+    const status =
+        typeof rawStatus === "number" && Number.isInteger(rawStatus)
+            ? String(rawStatus)
+            : "no status";
+    const body = error?.response?.data ?? error?.response;
+    const keys =
+        body && typeof body === "object" && !Array.isArray(body)
+            ? Object.keys(body).filter((key) => /^[\w.-]{1,64}$/.test(key))
+            : [];
+
+    return `settings write rejected: ${status}${keys.length > 0 ? ` (${keys.join(", ")})` : ""}`;
 };
 
 /**
@@ -341,16 +359,13 @@ export const applyCopySpace = async ({
         resource: CopySpaceFailure["resource"],
         name: string,
         write: () => Promise<any>,
-        /** Applied to the failure message before it is recorded or printed. */
-        redactMessage?: (message: string) => string,
+        /** Replaces the default description of a rejected write. */
+        describeFailure: (error: any) => string = describeError,
     ): Promise<any> => {
         try {
             return await write();
         } catch (error) {
-            const described = describeError(error);
-            const message = redactMessage
-                ? redactMessage(described)
-                : described;
+            const message = describeFailure(error);
             const missingPlugins =
                 resource === "components"
                     ? parseMissingFieldTypePlugins(message)
@@ -434,17 +449,14 @@ export const applyCopySpace = async ({
         if (changed.length === 0) {
             Logger.log("copy space: settings already match; nothing written.");
         } else {
-            // A rejected write can echo a preview URL back: every raw URL of
-            // either space is redacted before the message is kept or printed.
-            const urls = collectCopySpaceSettingsUrls(
-                sourceSettings,
-                targetSettings,
-            );
+            // A rejected write can echo a preview URL back, in any encoding, so
+            // its response text is never kept or printed: only the status and
+            // the field names Storyblok complained about.
             const response = await attempt(
                 "settings",
                 "settings",
                 () => sbApi.put(base, { space: body }),
-                (message) => redactUrlsInText(message, urls),
+                describeSettingsFailure,
             );
 
             if (response) {

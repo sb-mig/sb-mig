@@ -18,8 +18,10 @@ import {
     runCopySpace,
 } from "../../src/api/copy/space-apply.js";
 import {
+    buildCopySpacePlan,
     buildCopySpaceSettingsBody,
     COPY_SPACE_RESOURCES,
+    mergeEnvironmentsForTarget,
     parseCopySpaceOnly,
     pickCopySpaceSettings,
     planCopySpaceSettings,
@@ -40,9 +42,9 @@ const stubApi = ({
 }: {
     source: Record<string, any>;
     target: Record<string, any>;
-    rejectPutWith?: string;
+    rejectPutWith?: { status: number; data: unknown };
 }) => {
-    const get = vi.fn(async (path: string) => {
+    const get = vi.fn(async (path: string): Promise<any> => {
         if (path === "spaces/111") {
             return { data: { space: source } };
         }
@@ -55,8 +57,14 @@ const stubApi = ({
     });
     const put = vi.fn(async (_path: string, _body?: any) => {
         if (rejectPutWith) {
-            throw Object.assign(new Error(rejectPutWith), {
-                response: { data: { error: rejectPutWith } },
+            // The shape of a Storyblok client rejection: the response body is
+            // echoed in the message and kept on the error.
+            throw Object.assign(new Error(JSON.stringify(rejectPutWith.data)), {
+                status: rejectPutWith.status,
+                response: {
+                    status: rejectPutWith.status,
+                    data: rejectPutWith.data,
+                },
             });
         }
 
@@ -77,7 +85,7 @@ const run = async ({
     target: Record<string, any>;
     resources?: string[];
     dryRun?: boolean;
-    rejectPutWith?: string;
+    rejectPutWith?: { status: number; data: unknown };
 }) => {
     const sbApi = stubApi({ source, target, rejectPutWith });
     const shown: any[] = [];
@@ -109,6 +117,15 @@ const loggedStrings = () =>
             (call) => call.map((argument) => String(argument)).join(" "),
         ),
     );
+
+const emptySnapshot = () => ({
+    languages: [],
+    groups: [],
+    components: [],
+    presets: [],
+    datasources: [],
+    entriesByDatasource: new Map(),
+});
 
 const blankTarget = () => ({
     id: 222,
@@ -210,6 +227,67 @@ describe("copy space settings: reading (R3)", () => {
     });
 });
 
+describe("copy space settings: null is absent (lap 2, A)", () => {
+    // Mutation that must turn it red: test `!== undefined` instead of
+    // undefined-or-null in pickCopySpaceSettings.
+    it("reads a top-level null as absent, falls back to options, and never keeps a null", () => {
+        const settings = pickCopySpaceSettings({
+            flag_icons_display_mode: null,
+            domain: null,
+            environments: null,
+            hide_flag_icons: null,
+            options: { flag_icons_display_mode: "country", domain: null },
+        });
+
+        expect(settings).toEqual({ flag_icons_display_mode: "country" });
+        expect(Object.values(settings)).not.toContain(null);
+    });
+
+    // Mutation that must turn it red: guard the mirrored fields with
+    // `=== undefined` instead of undefined-or-null in the planner.
+    it("plans a null mirrored source as same and writes nothing for it", () => {
+        const source = {
+            flag_icons_display_mode: null,
+            hide_flag_icons: null,
+            encode_preview_urls: null,
+        } as any;
+        const target = {
+            flag_icons_display_mode: "language",
+            hide_flag_icons: true,
+            encode_preview_urls: true,
+        };
+        const plan = planCopySpaceSettings({ source, target });
+
+        expect(
+            plan.fields
+                .filter((entry) =>
+                    [
+                        "flag_icons_display_mode",
+                        "hide_flag_icons",
+                        "encode_preview_urls",
+                    ].includes(entry.field),
+                )
+                .map((entry) => entry.outcome),
+        ).toEqual(["same", "same", "same"]);
+        expect(buildCopySpaceSettingsBody({ source, target })).toEqual({});
+    });
+
+    it("writes no null to the target when the source space answers null", async () => {
+        const { sbApi } = await run({
+            source: {
+                use_translated_stories: null,
+                flag_icons_display_mode: null,
+                domain: null,
+                environments: null,
+                encode_preview_urls: null,
+            },
+            target: { ...blankTarget(), encode_preview_urls: true },
+        });
+
+        expect(settingsPuts(sbApi)).toEqual([]);
+    });
+});
+
 describe("copy space settings: outcomes (R4)", () => {
     const outcomeOf = (
         field: string,
@@ -221,8 +299,8 @@ describe("copy space settings: outcomes (R4)", () => {
         )?.outcome;
 
     // R4 canary. Mutations that must turn it red: make a capability flag
-    // mirror the source (the `kept` rows); merge environments by name instead of
-    // replacing the list.
+    // mirror the source (the `kept` rows); replace environments wholesale
+    // instead of merging by name (the reordered and empty-source rows).
     it.each([
         [
             "capability flag turned on",
@@ -346,7 +424,7 @@ describe("copy space settings: outcomes (R4)", () => {
                     { name: "A", location: "https://a.example.com/" },
                 ],
             },
-            "change",
+            "same",
         ],
         [
             "environments equal",
@@ -372,7 +450,22 @@ describe("copy space settings: outcomes (R4)", () => {
                     { name: "A", location: "https://a.example.com/" },
                 ],
             },
-            "kept",
+            "same",
+        ],
+        [
+            "environments source only adds a name the target lacks",
+            "environments",
+            {
+                environments: [
+                    { name: "B", location: "https://b.example.com/" },
+                ],
+            },
+            {
+                environments: [
+                    { name: "A", location: "https://a.example.com/" },
+                ],
+            },
+            "change",
         ],
         [
             "environments empty on both",
@@ -414,24 +507,139 @@ describe("copy space settings: outcomes (R4)", () => {
             same: 3,
             kept: 1,
         });
-        // The target's list is replaced as a whole, never merged by name.
+        // Merged by name: the target-only PROD stays, LOCALHOST is replaced.
         expect(buildCopySpaceSettingsBody({ source, target })).toEqual({
             use_translated_stories: true,
             domain: SOURCE_DOMAIN,
-            environments: [{ name: "LOCALHOST", location: SOURCE_LOCATION }],
+            environments: [
+                { name: "PROD", location: "https://prod.example.com/" },
+                { name: "LOCALHOST", location: SOURCE_LOCATION },
+            ],
         });
     });
 });
 
-describe("copy space settings: redaction (R6)", () => {
-    it("keeps origin and path, names the query parameters, and hides their values", () => {
-        expect(redactUrl(SOURCE_DOMAIN)).toBe(
-            "https://preview.example.com/api/preview?<secret,slug redacted>",
+describe("copy space settings: preview URLs merge by name (lap 2, B)", () => {
+    const X = { name: "X", location: "https://x.example.com/old" };
+    const xNew = { name: "X", location: "https://x.example.com/new" };
+    const A = { name: "A", location: "https://a.example.com/" };
+
+    // Mutation that must turn it red: replace the target's environments
+    // wholesale with the source's (the target-only entry vanishes).
+    it("keeps the target's order and its own names, replaces same names, appends new ones", () => {
+        const target = {
+            environments: [
+                { name: "T", location: "https://t.example.com/" },
+                X,
+            ],
+        };
+        const source = { environments: [A, xNew] };
+
+        expect(buildCopySpaceSettingsBody({ source, target })).toEqual({
+            environments: [
+                { name: "T", location: "https://t.example.com/" },
+                xNew,
+                A,
+            ],
+        });
+        expect(mergeEnvironmentsForTarget({ source: [], target: [X] })).toEqual(
+            { environments: [X], added: [], updated: [] },
         );
+    });
+
+    // Mutation that must turn it red: list every source name in the PLAN line
+    // instead of the added and updated ones.
+    it("plans target [X], source [A, X'] as body [X', A] and PLAN 1 -> 2 (added: A; updated: X)", () => {
+        const source = { environments: [A, xNew] };
+        const target = { environments: [X] };
+
+        expect(buildCopySpaceSettingsBody({ source, target })).toEqual({
+            environments: [xNew, A],
+        });
+
+        const lines = formatCopySpacePlanGate(
+            buildCopySpacePlanGateSummary(
+                buildCopySpacePlan({
+                    sourceSpaceId: "111",
+                    targetSpaceId: "222",
+                    resources: ["settings"],
+                    source: { ...emptySnapshot(), settings: source },
+                    target: { ...emptySnapshot(), settings: target },
+                }),
+            ),
+        );
+
+        expect(lines).toContain(
+            "    environments: 1 -> 2 (added: A; updated: X)",
+        );
+    });
+
+    // Mutation that must turn it red (lap 2, E2): write the raw source
+    // environments instead of entries reduced to name and location.
+    it("writes each preview URL with exactly name and location", async () => {
+        const { sbApi } = await run({
+            source: {
+                environments: [
+                    {
+                        name: "LOCALHOST",
+                        location: SOURCE_LOCATION,
+                        id: 7,
+                        token: "extra-token-value",
+                    },
+                ],
+            },
+            target: blankTarget(),
+        });
+        const body = settingsPuts(sbApi)[0]?.[1];
+
+        expect(
+            body.space.environments.map((environment: object) =>
+                Object.keys(environment).sort(),
+            ),
+        ).toEqual([["location", "name"]]);
+    });
+});
+
+describe("copy space settings: redaction (R6, lap 2 C)", () => {
+    // Mutation that must turn it red: append `url.pathname` (or the query
+    // names) to what redactUrl returns.
+    it("prints nothing after the origin, whatever shape the secret takes", () => {
+        const shapes = [
+            [
+                "https://preview.example.com/api/preview?secret=QUERYSECRET1",
+                "QUERYSECRET1",
+            ],
+            [
+                "https://preview.example.com/api/preview?BARETOKEN22",
+                "BARETOKEN22",
+            ],
+            ["https://preview.example.com/p?secret%3DENCODED333", "ENCODED333"],
+            [
+                "https://preview.example.com/PATHSECRET4444/preview",
+                "PATHSECRET4444",
+            ],
+            ["https://preview.example.com/#FRAGMENT55555", "FRAGMENT55555"],
+            [
+                "https://user:PASSWORD666666@preview.example.com",
+                "PASSWORD666666",
+            ],
+        ];
+
+        for (const [url, secret] of shapes) {
+            const printed = redactUrl(url!);
+
+            expect(printed).toBe("https://preview.example.com/…");
+            expect(printed).not.toContain(secret);
+        }
+
         expect(redactUrl("https://target.example.com/")).toBe(
-            "https://target.example.com/",
+            "https://target.example.com",
+        );
+        expect(redactUrl("https://target.example.com")).toBe(
+            "https://target.example.com",
         );
         expect(redactUrl("not a url ?secret=abc123XYZ")).toBe("<redacted>");
+        expect(redactUrl("mailto:abc123XYZ@example.com")).toBe("<redacted>");
     });
 });
 
@@ -533,16 +741,88 @@ describe("copy space settings: the write (R2, R5, R7)", () => {
         ).toEqual([["languages"], ["use_translated_stories"]]);
     });
 
+    // Mutation that must turn it red (lap 2, E1): move the settings step after
+    // the groups, or after the datasources.
+    it("writes the settings before the first component group", async () => {
+        const writes: string[] = [];
+        const group = { id: 1, uuid: "g-1", name: "Layout", parent_id: null };
+        const sbApi = stubApi({
+            source: { ...blankTarget(), use_translated_stories: true },
+            target: blankTarget(),
+        });
+
+        sbApi.get.mockImplementation(async (path: string) => {
+            if (path === "spaces/111") {
+                return {
+                    data: {
+                        space: {
+                            ...blankTarget(),
+                            use_translated_stories: true,
+                        },
+                    },
+                };
+            }
+
+            if (path === "spaces/222") {
+                return { data: { space: blankTarget() } };
+            }
+
+            if (path === "spaces/111/component_groups/") {
+                return { data: { component_groups: [group] }, total: 1 };
+            }
+
+            if (path === "spaces/222/component_groups/") {
+                return { data: { component_groups: [] }, total: 0 };
+            }
+
+            throw new Error(`unexpected GET ${path}`);
+        });
+        sbApi.put.mockImplementation(async (path: string) => {
+            writes.push(`PUT ${path}`);
+
+            return { data: { space: {} } };
+        });
+        sbApi.post.mockImplementation(async (path: string) => {
+            writes.push(`POST ${path}`);
+
+            return { data: { component_group: { ...group, id: 9 } } };
+        });
+
+        await runCopySpace({
+            sbApi,
+            sourceSpaceId: "111",
+            targetSpaceId: "222",
+            resources: parseCopySpaceOnly(["settings,groups"]).resources,
+            dryRun: false,
+            concurrency: 1,
+            showPlan: () => undefined,
+            confirm: async () => true,
+        });
+
+        const settingsWrite = writes.indexOf("PUT spaces/222");
+        const firstGroupWrite = writes.findIndex((write) =>
+            write.includes("component_groups"),
+        );
+
+        expect(settingsWrite).toBeGreaterThan(-1);
+        expect(firstGroupWrite).toBeGreaterThan(-1);
+        expect(settingsWrite).toBeLessThan(firstGroupWrite);
+    });
+
     it("records a rejected settings write as a failure of the settings resource and carries on", async () => {
         const { result } = await run({
             source: { ...blankTarget(), use_translated_stories: true },
             target: blankTarget(),
-            rejectPutWith: "Forbidden",
+            rejectPutWith: { status: 403, data: { error: "Forbidden" } },
         });
 
         expect(result.applied).toBe(true);
         expect(result.failures).toEqual([
-            expect.objectContaining({ resource: "settings", name: "settings" }),
+            {
+                resource: "settings",
+                name: "settings",
+                message: "settings write rejected: 403 (error)",
+            },
         ]);
     });
 });
@@ -554,8 +834,8 @@ describe("copy space settings: no secret leaves the process (R6)", () => {
         environments: [{ name: "LOCALHOST", location: SOURCE_LOCATION }],
     };
 
-    // R6 canaries. Mutations that must turn them red: store the raw `domain`
-    // in the plan; drop the replace of raw URLs in the failure message.
+    // R6 canary. Mutation that must turn it red: store the raw `domain` in the
+    // plan.
     it("keeps the secret out of the plan, the PLAN lines and every log line, and inside the write", async () => {
         const { sbApi, shown, result } = await run({
             source,
@@ -574,17 +854,31 @@ describe("copy space settings: no secret leaves the process (R6)", () => {
         expect(JSON.stringify(settingsPuts(sbApi))).toContain(SECRET);
     });
 
-    it("keeps the secret out of a rejected write's failure and log line", async () => {
+    // R6 canary (lap 2, D). Mutation that must turn it red: append
+    // describeError(error) to the settings failure message.
+    it("keeps the secret out of a rejected write's failure and log line, in any encoding", async () => {
         const { sbApi, result } = await run({
             source,
             target: blankTarget(),
-            rejectPutWith: `The preview URL ${SOURCE_DOMAIN} and ${SOURCE_LOCATION} are not allowed`,
+            rejectPutWith: {
+                status: 422,
+                data: {
+                    domain: [`${SOURCE_DOMAIN} is not allowed`],
+                    environments: [
+                        encodeURIComponent(SOURCE_LOCATION),
+                        JSON.stringify(SOURCE_LOCATION).replaceAll("/", "\\/"),
+                    ],
+                },
+            },
         });
 
-        expect(result.failures).toHaveLength(1);
-        expect(result.failures[0]?.message).toContain(
-            "https://preview.example.com/api/preview?<secret,slug redacted>",
-        );
+        expect(result.failures).toEqual([
+            {
+                resource: "settings",
+                name: "settings",
+                message: "settings write rejected: 422 (domain, environments)",
+            },
+        ]);
         expect(JSON.stringify(result.failures)).not.toContain(SECRET);
         expect(loggedStrings().join("\n")).not.toContain(SECRET);
         expect(JSON.stringify(settingsPuts(sbApi))).toContain(SECRET);
@@ -603,7 +897,13 @@ describe("copy space settings: the help (R9)", () => {
         expect(copyDescription).toContain(
             "copy space never turns off use_translated_stories or show_stories_alternative_versions",
         );
-        expect(copyDescription).toContain("query-string values redacted");
+        expect(copyDescription).toContain(
+            "preview URLs that exist only in the target are kept",
+        );
+        expect(copyDescription).toContain(
+            "printed and reported by their origin (scheme and host) only",
+        );
+        expect(copyDescription).not.toContain("query-string values redacted");
         expect(copyDescription).not.toContain("?");
     });
 });

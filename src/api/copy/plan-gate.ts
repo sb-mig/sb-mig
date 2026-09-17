@@ -469,13 +469,20 @@ const formatCopySpaceSettings = (settings: CopySpaceSettingsPlan): string[] => {
         }
 
         if (entry.field === "environments") {
-            const names =
-                typeof entry.source === "object" ? entry.source.names : [];
+            // Merged by name, never replaced: the count after the merge, and
+            // which names are added or get a new preview URL.
+            const merge = entry.merge ?? { count: 0, added: [], updated: [] };
+            const parts = [
+                ...(merge.added.length > 0
+                    ? [`added: ${merge.added.join(", ")}`]
+                    : []),
+                ...(merge.updated.length > 0
+                    ? [`updated: ${merge.updated.join(", ")}`]
+                    : []),
+            ];
 
             lines.push(
-                entry.outcome === "change"
-                    ? `    environments: ${environmentsCount(entry.target)} -> ${environmentsCount(entry.source)} (${names.join(", ")})`
-                    : `    environments: kept ${environmentsCount(entry.target)} (source none)`,
+                `    environments: ${environmentsCount(entry.target)} -> ${merge.count}${parts.length > 0 ? ` (${parts.join("; ")})` : ""}`,
             );
             continue;
         }

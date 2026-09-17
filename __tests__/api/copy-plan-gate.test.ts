@@ -433,11 +433,14 @@ describe("copy space plan gate: settings (MAR-3134 R8)", () => {
         use_translated_stories: false,
         show_stories_alternative_versions: true,
         domain: "",
-        environments: [{ name: "OLD", location: "https://old.example.com/" }],
+        environments: [
+            { name: "PROD EDITOR", location: "https://old.example.com/" },
+        ],
     };
 
-    // R8 canary. Mutation that must turn it red: leave `environments` in the
-    // closing `not copied:` line when settings are in scope.
+    // R8 canary. Mutations that must turn it red: leave `environments` in the
+    // closing `not copied:` line when settings are in scope; print the source
+    // names instead of the added and updated ones (MAR-3134 lap 2, B).
     it("states the settings right after languages and drops environments from not copied", () => {
         const lines = planLines(["languages", "settings"], source, target);
         const languagesIndex = lines.indexOf(
@@ -450,8 +453,8 @@ describe("copy space plan gate: settings (MAR-3134 R8)", () => {
             "  settings: 3 change, 3 same, 1 kept",
             "    use_translated_stories: false -> true",
             "    show_stories_alternative_versions: kept true (source false)",
-            "    domain: none -> https://preview.example.com/api/preview?<secret,slug redacted>",
-            "    environments: 1 -> 3 (LOCALHOST, PROD EDITOR, dev-header-preview)",
+            "    domain: none -> https://preview.example.com/…",
+            "    environments: 1 -> 3 (added: LOCALHOST, dev-header-preview; updated: PROD EDITOR)",
         ]);
         expect(lines[lines.length - 1]).toBe(
             "  not copied: stories, assets, workflow stages, roles, webhooks, collaborators, internal tags.",
