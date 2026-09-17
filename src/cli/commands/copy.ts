@@ -677,10 +677,52 @@ const resolveCopySelection = (flags: Record<string, any>): CopySelection => {
     };
 };
 
+/** The `--source` value that means every root of the source space. */
+const WHOLE_SPACE_SOURCE = "/";
+
+/** A root of the source space, as the expansion of `/` found it. */
+type SourceRootItem = { full_slug: string; is_folder: boolean };
+
+/** What `/` turned out to mean, once the roots were read. */
+type WholeSpaceExpansion = {
+    roots: SourceRootItem[];
+    excluded: SourceRootItem[];
+};
+
+/**
+ * What `/` meant, for the report: `normalized.source` stays `/`, so the
+ * expanded roots are stated next to it rather than folded into it.
+ */
+const buildRootExpansionReport = (expansion?: WholeSpaceExpansion) =>
+    expansion
+        ? {
+              roots: expansion.roots.map((root) => root.full_slug),
+              ...(expansion.excluded.length > 0
+                  ? {
+                        excluded: expansion.excluded.map(
+                            (root) => root.full_slug,
+                        ),
+                    }
+                  : {}),
+          }
+        : {};
+
+const isWholeSpaceSelection = (selection: CopySelection): boolean =>
+    selection.source === WHOLE_SPACE_SOURCE;
+
+/** `blog/` for a folder, `about` for a story. */
+const formatRootItem = (root: SourceRootItem): string =>
+    root.is_folder ? `${root.full_slug}/` : root.full_slug;
+
+/** A root name is accepted with or without its trailing slash. */
+const normalizeRootName = (value: string): string =>
+    value.endsWith("/") ? value.slice(0, -1) : value;
+
 /**
  * Every `--source` (or legacy `--what`) value, repeated or comma-separated, as
- * its own selection. `x/*` is the children of x; any other value takes
- * `--mode`. Order is kept, and a value given twice is planned once.
+ * its own selection. `/` is every root of the source space; `x/*` is the
+ * children of x; any other value takes `--mode`. Order is kept, and a value
+ * given twice is planned once.
  */
 const resolveCopySelections = (flags: Record<string, any>): CopySelection[] => {
     const sourceValues = readStringListFlag(flags, ["source"]);
@@ -709,13 +751,22 @@ const resolveCopySelections = (flags: Record<string, any>): CopySelection[] => {
     const selections: CopySelection[] = [];
     const seen = new Set<string>();
 
+    // Refused here, before a single read: '/' already is everything under the
+    // space root, so 'children' could only mean the same thing or less.
+    if (rawValues.includes(WHOLE_SPACE_SOURCE) && explicitMode === "children") {
+        throw new Error(
+            "--source / already means everything under the space root; --mode children cannot be combined with it.",
+        );
+    }
+
     for (const rawValue of rawValues) {
-        const selection: CopySelection = rawValue.endsWith("/*")
-            ? {
-                  source: rawValue.slice(0, -2),
-                  mode: explicitMode ?? "children",
-              }
-            : { source: rawValue, mode: explicitMode ?? "subtree" };
+        const selection: CopySelection =
+            rawValue !== WHOLE_SPACE_SOURCE && rawValue.endsWith("/*")
+                ? {
+                      source: rawValue.slice(0, -2),
+                      mode: explicitMode ?? "children",
+                  }
+                : { source: rawValue, mode: explicitMode ?? "subtree" };
         const key = `${selection.mode} ${selection.source}`;
 
         if (!seen.has(key)) {
@@ -725,6 +776,134 @@ const resolveCopySelections = (flags: Record<string, any>): CopySelection[] => {
     }
 
     return selections;
+};
+
+/**
+ * `--exclude` names roots to drop from `/`, repeated or comma-separated. It
+ * says nothing about any other selector, so it is refused next to one.
+ */
+const resolveRootExcludes = (
+    flags: Record<string, any>,
+    selections: CopySelection[],
+): string[] => {
+    const values = readStringListFlag(flags, ["exclude"])
+        .flatMap((value) => value.split(","))
+        .map((value) => value.trim())
+        .filter((value) => value.length > 0);
+
+    if (values.length === 0) {
+        return [];
+    }
+
+    if (!selections.some(isWholeSpaceSelection)) {
+        throw new Error("--exclude only applies to --source /.");
+    }
+
+    return values.map(normalizeRootName);
+};
+
+/**
+ * The roots of a space: every story and folder with no parent. Storyblok's
+ * `with_parent=0` answers exactly that, and the listing paginates, so a space
+ * with more roots than one page is read whole. No other filter is passed:
+ * `in_trash=false` alongside it returns trashed items too.
+ */
+const listSourceRootItems = async (
+    sourceSpace: string,
+): Promise<SourceRootItem[]> => {
+    const rootStories = await managementApi.stories.getAllStories(
+        {
+            options: {
+                with_parent: 0,
+            },
+        },
+        {
+            ...apiConfig,
+            spaceId: sourceSpace,
+        },
+    );
+
+    return (rootStories ?? [])
+        .map((item: any) => item?.story ?? item)
+        .filter(Boolean)
+        .map((story: any) => ({
+            full_slug: String(story.full_slug),
+            is_folder: Boolean(story.is_folder),
+        }))
+        .sort((a: SourceRootItem, b: SourceRootItem) =>
+            a.full_slug < b.full_slug ? -1 : a.full_slug > b.full_slug ? 1 : 0,
+        );
+};
+
+/**
+ * `/` becomes one selection per root, in `full_slug` order, so two runs plan
+ * the same way. The expansion happens before the dedupe of the forest, so
+ * `/,blog` plans exactly what `/` plans.
+ */
+const expandWholeSpaceSelections = async (
+    selections: CopySelection[],
+    excludes: string[],
+    sourceSpace: string,
+): Promise<{
+    selections: CopySelection[];
+    expansion?: WholeSpaceExpansion;
+}> => {
+    if (!selections.some(isWholeSpaceSelection)) {
+        return { selections };
+    }
+
+    const rootItems = await listSourceRootItems(sourceSpace);
+
+    if (rootItems.length === 0) {
+        throw new Error(
+            `Space ${sourceSpace} has no stories or folders to copy.`,
+        );
+    }
+
+    const excluded: SourceRootItem[] = [];
+
+    for (const value of excludes) {
+        const match = rootItems.find((root) => root.full_slug === value);
+
+        if (!match) {
+            throw new Error(
+                `--exclude '${value}' is not a root of space ${sourceSpace}. Roots: ${rootItems
+                    .map(formatRootItem)
+                    .join(", ")}.`,
+            );
+        }
+
+        if (!excluded.includes(match)) {
+            excluded.push(match);
+        }
+    }
+
+    const excludedSlugs = new Set(excluded.map((root) => root.full_slug));
+    const roots = rootItems.filter(
+        (root) => !excludedSlugs.has(root.full_slug),
+    );
+    const expanded: CopySelection[] = [];
+    const seen = new Set<string>();
+
+    for (const selection of selections) {
+        const replacements = isWholeSpaceSelection(selection)
+            ? roots.map((root) => ({
+                  source: root.full_slug,
+                  mode: selection.mode,
+              }))
+            : [selection];
+
+        for (const replacement of replacements) {
+            const key = `${replacement.mode} ${replacement.source}`;
+
+            if (!seen.has(key)) {
+                seen.add(key);
+                expanded.push(replacement);
+            }
+        }
+    }
+
+    return { selections: expanded, expansion: { roots, excluded } };
 };
 
 /**
@@ -834,19 +1013,66 @@ const toReportedSelection = (selections: CopySelection[]): CopySelection => {
     };
 };
 
-/** The PLAN line for several selections; nothing for one. */
+const formatRootCount = (count: number): string =>
+    `${count} ${count === 1 ? "root" : "roots"}`;
+
+/**
+ * The PLAN lines for several selections; nothing for one. When `/` was given,
+ * the run says what it meant: the count, then the roots themselves, then
+ * whatever `--exclude` took out.
+ */
 const formatCopySelectionsLine = (
     selections: CopySelection[],
     plan: { type: "folder" | "story" }[],
-): string | undefined => {
-    if (selections.length < 2) {
-        return undefined;
+    expansion?: WholeSpaceExpansion,
+): string[] => {
+    if (!expansion && selections.length < 2) {
+        return [];
     }
 
     const folders = plan.filter((item) => item.type === "folder").length;
     const stories = plan.length - folders;
+    const counts = `${stories} ${stories === 1 ? "story" : "stories"}, ${folders} ${folders === 1 ? "folder" : "folders"} after dedupe`;
 
-    return `  selections: ${selections.length} (${stories} ${stories === 1 ? "story" : "stories"}, ${folders} ${folders === 1 ? "folder" : "folders"} after dedupe)`;
+    if (!expansion) {
+        return [`  selections: ${selections.length} (${counts})`];
+    }
+
+    const lines = [
+        `  selections: ${WHOLE_SPACE_SOURCE} -> ${formatRootCount(expansion.roots.length)} (${counts})`,
+        `    ${expansion.roots.map(formatRootItem).join(", ")}`,
+    ];
+
+    if (expansion.excluded.length > 0) {
+        lines.push(
+            `    excluded: ${expansion.excluded.map(formatRootItem).join(", ")}`,
+        );
+    }
+
+    return lines;
+};
+
+/** The line naming the sources, before the reads. */
+const formatCopySourcesLine = ({
+    selections,
+    selection,
+    destination,
+    sourceSpace,
+    expansion,
+}: {
+    selections: CopySelection[];
+    selection: CopySelection;
+    destination: string | undefined;
+    sourceSpace: string;
+    expansion?: WholeSpaceExpansion;
+}): string => {
+    if (expansion) {
+        return `Sources: ${WHOLE_SPACE_SOURCE} -> ${formatRootCount(expansion.roots.length)} of space ${sourceSpace}`;
+    }
+
+    return selections.length === 1
+        ? `Source '${selection.source}', mode '${selection.mode}', destination '${destination ?? "root"}'.`
+        : `Sources ${describeCopySelections(selections)}, destination '${destination ?? "root"}'.`;
 };
 
 const resolveDestinationParentId = async (
@@ -2043,12 +2269,15 @@ const buildCopyDryRunReport = ({
     willFail,
     translatedSlugs,
     outputPath,
+    rootExpansion,
 }: {
     sourceSpace: string;
     targetSpace: string;
     selection: CopySelection;
     /** Every selection, when the run was given more than one. */
     selections?: CopySelection[];
+    /** What `--source /` expanded to, when it was given. */
+    rootExpansion?: WholeSpaceExpansion;
     destination: string | undefined;
     withAssets: boolean;
     input: Record<string, any>;
@@ -2119,6 +2348,7 @@ const buildCopyDryRunReport = ({
             mode: selection.mode,
             withAssets,
             ...(selections && selections.length > 1 ? { selections } : {}),
+            ...buildRootExpansionReport(rootExpansion),
         },
         summary: {
             plannedCreates: items.length,
@@ -2306,12 +2536,15 @@ const buildCopyStoriesApplyReport = ({
     manifestRoot,
     failures,
     outcomes,
+    rootExpansion,
 }: {
     sourceSpace: string;
     targetSpace: string;
     selection: CopySelection;
     /** Every selection, when the run was given more than one. */
     selections?: CopySelection[];
+    /** What `--source /` expanded to, when it was given. */
+    rootExpansion?: WholeSpaceExpansion;
     destination: string | undefined;
     withAssets: boolean;
     input: Record<string, any>;
@@ -2365,6 +2598,7 @@ const buildCopyStoriesApplyReport = ({
             mode: selection.mode,
             withAssets,
             ...(selections && selections.length > 1 ? { selections } : {}),
+            ...buildRootExpansionReport(rootExpansion),
         },
         summary: {
             ...storySummary,
@@ -6116,16 +6350,30 @@ export const copyCommand = async (props: CLIOptions) => {
             Logger.warning(
                 `Copying stories from space '${sourceSpace}' to space '${targetSpace}'.`,
             );
+
+            // '/' is turned into the roots it stands for before anything is
+            // read in full, so the run can say what "everything" meant.
+            const { selections: plannedSelections, expansion: rootExpansion } =
+                await expandWholeSpaceSelections(
+                    selections,
+                    resolveRootExcludes(flags, selections),
+                    sourceSpace,
+                );
+
             Logger.log(
-                selections.length === 1
-                    ? `Source '${selection.source}', mode '${selection.mode}', destination '${destination ?? "root"}'.`
-                    : `Sources ${describeCopySelections(selections)}, destination '${destination ?? "root"}'.`,
+                formatCopySourcesLine({
+                    selections,
+                    selection,
+                    destination,
+                    sourceSpace,
+                    expansion: rootExpansion,
+                }),
             );
 
             // Every source value is read before the target is touched, so a
             // value that resolves to nothing fails first, and by name.
             const { sourceStories, roots: selectedRoots } =
-                await collectSelectionForest(selections, sourceSpace);
+                await collectSelectionForest(plannedSelections, sourceSpace);
             const publication = await resolveCopyPublicationOptions({
                 flags,
                 targetSpace,
@@ -6326,6 +6574,7 @@ export const copyCommand = async (props: CLIOptions) => {
                     willFail,
                     translatedSlugs,
                     outputPath,
+                    rootExpansion,
                 });
 
                 await logDryRunCopyPlan({ report, translatedSlugs });
@@ -6410,11 +6659,11 @@ export const copyCommand = async (props: CLIOptions) => {
 
             formatCopyPlanGate(planGate).forEach((line) => Logger.log(line));
 
-            const selectionsLine = formatCopySelectionsLine(selections, plan);
-
-            if (selectionsLine) {
-                Logger.log(selectionsLine);
-            }
+            formatCopySelectionsLine(
+                plannedSelections,
+                plan,
+                rootExpansion,
+            ).forEach((line) => Logger.log(line));
             // Printed here rather than by formatCopyPlanGate: the story-shaped
             // plan-gate types are frozen for this run.
             formatSchemaDriftLines(gatePreflight.schemaDrift).forEach((line) =>
@@ -6574,6 +6823,7 @@ export const copyCommand = async (props: CLIOptions) => {
                 manifestRoot,
                 failures: allFailures,
                 outcomes,
+                rootExpansion,
             });
 
             if (outputPath) {
@@ -6614,14 +6864,28 @@ export const copyCommand = async (props: CLIOptions) => {
             Logger.warning(
                 `Relinking stories in space '${targetSpace}' against their sources in space '${sourceSpace}'.`,
             );
+
+            // '/' is turned into the roots it stands for before anything is
+            // read in full, so the run can say what "everything" meant.
+            const { selections: plannedSelections, expansion: rootExpansion } =
+                await expandWholeSpaceSelections(
+                    selections,
+                    resolveRootExcludes(flags, selections),
+                    sourceSpace,
+                );
+
             Logger.log(
-                selections.length === 1
-                    ? `Source '${selection.source}', mode '${selection.mode}', destination '${destination ?? "root"}'.`
-                    : `Sources ${describeCopySelections(selections)}, destination '${destination ?? "root"}'.`,
+                formatCopySourcesLine({
+                    selections,
+                    selection,
+                    destination,
+                    sourceSpace,
+                    expansion: rootExpansion,
+                }),
             );
 
             const { sourceStories, roots: relinkRoots } =
-                await collectSelectionForest(selections, sourceSpace);
+                await collectSelectionForest(plannedSelections, sourceSpace);
             const rootsToRelink = prepareTreeForCreate(relinkRoots);
 
             if (rootsToRelink.length === 0) {
@@ -6803,14 +7067,11 @@ export const copyCommand = async (props: CLIOptions) => {
                 Logger.log(line),
             );
 
-            const relinkSelectionsLine = formatCopySelectionsLine(
-                selections,
+            formatCopySelectionsLine(
+                plannedSelections,
                 plan,
-            );
-
-            if (relinkSelectionsLine) {
-                Logger.log(relinkSelectionsLine);
-            }
+                rootExpansion,
+            ).forEach((line) => Logger.log(line));
 
             const outputPath = readStringFlag(flags, ["outputPath"]);
             // One report shape for both modes: the plan on --dry-run; on apply
@@ -6846,6 +7107,7 @@ export const copyCommand = async (props: CLIOptions) => {
                             normalizeDestination(destination) || "root",
                         mode: selection.mode,
                         ...(selections.length > 1 ? { selections } : {}),
+                        ...buildRootExpansionReport(rootExpansion),
                     },
                     summary: applied
                         ? {

@@ -24,6 +24,7 @@ export const mainDescription = `
       $ sb-mig migrate content --all --from 12345 --to 12345 --migration file-with-migration --dry-run
       $ sb-mig inspect component-usage --from 12345 --all --query flex-group-width-child
       $ sb-mig copy stories --from 12345 --to 67890 --source folder/* --destination target-folder
+      $ sb-mig copy stories --from 12345 --to 67890 --source / --destination /
       $ sb-mig copy assets --from 12345 --to 67890 --all --dry-run --outputPath sbmig/copy-plans/assets.json
 `;
 
@@ -220,6 +221,8 @@ export const copyDescription = `
         $ sb-mig copy stories --from [spaceId] --to [spaceId] --source [folder_full_slug] --mode self --destination /
         $ sb-mig copy stories --from [spaceId] --to [spaceId] --source [full_slug] --source [folder_full_slug] --destination [target_folder_full_slug]
         $ sb-mig copy stories --from [spaceId] --to [spaceId] --source [folder_full_slug]/*,[other_folder_full_slug] --destination /
+        $ sb-mig copy stories --from [spaceId] --to [spaceId] --source / --destination /
+        $ sb-mig copy stories --from [spaceId] --to [spaceId] --source / --destination / --exclude [root_full_slug]
         $ sb-mig copy relink --from [spaceId] --to [spaceId] --source [folder_full_slug] --destination [target_folder_full_slug]
         $ sb-mig copy relink --from [spaceId] --to [spaceId] --source [folder_full_slug] --dry-run
         $ sb-mig copy assets --from [spaceId] --to [spaceId] --all
@@ -254,7 +257,8 @@ export const copyDescription = `
         --type          Restrict the mapping view to story, asset, or asset_folder. Repeatable. Requires --pair. [manifests only]
         --slug          Restrict the mapping view to mappings whose source or target path contains this text. Requires --pair. [manifests only]
         --prune         DELETE one pair's whole ledger directory, written as <sourceSpaceId>:<targetSpaceId>. Names its own pair, and asks before deleting. [manifests only]
-        --source        Source story or folder full_slug, repeatable or comma-separated. Use folder/* to copy a folder's children without the folder root. Several values are planned as one run; a story inside a selected folder is planned once, under the folder. [stories and relink]
+        --source        Source story or folder full_slug, repeatable or comma-separated. Use / to select every root story and folder of the source space, and folder/* to copy a folder's children without the folder root. Several values are planned as one run; a story inside a selected folder is planned once, under the folder. [stories and relink]
+        --exclude       Root full_slug to drop from --source /, with or without a trailing slash. Repeatable or comma-separated. Only valid together with --source /. [stories and relink]
         --destination   Target folder full_slug where copied stories are attached. Omit, '/', or 'root' to copy into target root.
         --mode          Copy mode: subtree, children, or self. Default: subtree. folder/* defaults to children.
         --with-assets   For copy stories, copy referenced assets first and rewrite copied stories to target asset IDs/filenames.
@@ -298,7 +302,9 @@ export const copyDescription = `
         copy space never deletes anything in the target space. Resources that exist only there are left as they are.
 
     GOTCHAS
-        --source must resolve to an existing source story or folder.
+        --source must resolve to an existing source story or folder, or be / for every root story and folder of the source space.
+        --source / reads the source space's roots on every run, so a story or folder added to the source root later is included by / the next time, without editing the command.
+        --source / cannot be combined with --mode children, and --exclude is refused unless --source / was given.
         --destination must resolve to an existing target folder unless it is omitted, '/', or 'root'.
         mode 'subtree' copies a folder and all descendants. This is the default for folders.
         mode 'children' copies a folder's descendants without the folder root.
