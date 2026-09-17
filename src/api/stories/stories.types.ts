@@ -3,6 +3,8 @@ import type { ISbStoriesParams } from "storyblok-js-client";
 
 export interface ExtendedISbStoriesParams extends ISbStoriesParams {
     with_slug?: string;
+    /** `0` lists only items with no parent: the roots of the space. */
+    with_parent?: number;
 }
 
 interface ModifyStoryOptions {

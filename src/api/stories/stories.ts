@@ -442,6 +442,7 @@ export const getAllStories: GetAllStories = async (args, config) => {
     const params = notNullish<ExtendedISbStoriesParams>({
         with_slug: options?.with_slug,
         starts_with: options?.starts_with,
+        with_parent: options?.with_parent,
         language: options?.language,
     });
 
