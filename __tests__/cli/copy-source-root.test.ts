@@ -123,17 +123,17 @@ describe("copy --source / (MAR-3137)", () => {
     const originalIsTTY = stdin.isTTY;
     const originalExitCode = process.exitCode;
     let tempDir: string;
-    let outputPath: string;
     let manifestRoot: string;
     let rootListing: any[];
+    let runCount: number;
 
     beforeEach(async () => {
         vi.clearAllMocks();
         stdin.isTTY = false;
 
         tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-root-"));
-        outputPath = path.join(tempDir, "plan.json");
         manifestRoot = path.join(tempDir, ".sb-mig");
+        runCount = 0;
         rootListing = ROOTS_AS_THE_API_LISTS_THEM.map(
             (slug) => sourceStories[slug],
         );
@@ -146,7 +146,9 @@ describe("copy --source / (MAR-3137)", () => {
             const options = args?.options ?? {};
 
             if (options.with_parent === 0) {
-                return rootListing.map((item: any) => ({ story: item }));
+                return rootListing.map((item: any) =>
+                    item ? { story: item } : undefined,
+                );
             }
 
             const prefix = String(options.starts_with ?? "");
@@ -185,41 +187,48 @@ describe("copy --source / (MAR-3137)", () => {
         await rm(tempDir, { recursive: true, force: true });
     });
 
-    const runStories = (
+    const runStories = async (
         flagOverrides: Record<string, unknown>,
         extra: Record<string, unknown> = {},
-    ) =>
-        copyCommand({
+    ) => {
+        const reportPath = path.join(tempDir, `plan-${++runCount}.json`);
+
+        await copyCommand({
             input: ["copy", "stories"],
             flags: {
                 from: "source-space",
                 to: "target-space",
                 destination: "/",
                 dryRun: true,
-                outputPath,
                 manifestRoot,
                 ...flagOverrides,
                 ...extra,
+                outputPath: reportPath,
             },
         } as any);
 
-    const readReport = async () =>
-        JSON.parse(await readFile(outputPath, "utf8"));
+        return reportPath;
+    };
+
+    const readReport = async (reportPath: string) =>
+        JSON.parse(await readFile(reportPath, "utf8"));
 
     const planned = (report: any) =>
         report.items.map(
             (item: any) => `${item.sourceFullSlug} -> ${item.targetFullSlug}`,
         );
 
+    const plannedAt = async (reportPath: string) =>
+        planned(await readReport(reportPath));
+
     // R1 canary. Mutation that must turn it red: keep only folders in the
     // expansion (`listSourceRootItems` filtering on `is_folder`) — the root
     // story `a` then goes missing from the plan.
     it("plans --source / exactly as the hand-typed root list, in the same order", async () => {
-        await runStories({ source: "/" });
-        const wholeSpace = planned(await readReport());
-
-        await runStories({ source: "a,b,c" });
-        const handTyped = planned(await readReport());
+        const wholeSpace = await plannedAt(await runStories({ source: "/" }));
+        const handTyped = await plannedAt(
+            await runStories({ source: "a,b,c" }),
+        );
 
         expect(wholeSpace).toEqual(handTyped);
         expect(wholeSpace).toEqual([
@@ -241,9 +250,7 @@ describe("copy --source / (MAR-3137)", () => {
             sourceStories[item.full_slug] = item;
         }
 
-        await runStories({ source: "/" });
-
-        const report = await readReport();
+        const report = await readReport(await runStories({ source: "/" }));
 
         expect(report.normalized.roots).toHaveLength(150);
         expect(report.items).toHaveLength(150);
@@ -281,9 +288,9 @@ describe("copy --source / (MAR-3137)", () => {
     });
 
     it("still takes --mode self with /", async () => {
-        await runStories({ source: "/", mode: "self" });
+        const reportPath = await runStories({ source: "/", mode: "self" });
 
-        expect(planned(await readReport())).toEqual([
+        expect(await plannedAt(reportPath)).toEqual([
             "a -> a",
             "b -> b",
             "c -> c",
@@ -293,30 +300,32 @@ describe("copy --source / (MAR-3137)", () => {
     // R4 canary. It pins that the expansion happens before the dedupe: a root
     // named next to / is planned once, not twice.
     it("plans --source /,b exactly as --source /", async () => {
-        await runStories({ source: "/" });
-        const wholeSpace = planned(await readReport());
+        const wholeSpace = await plannedAt(await runStories({ source: "/" }));
 
-        await runStories({ source: "/,b" });
-
-        expect(planned(await readReport())).toEqual(wholeSpace);
+        expect(await plannedAt(await runStories({ source: "/,b" }))).toEqual(
+            wholeSpace,
+        );
     });
 
     // R5 canary. Mutation that must turn it red: ignore `--exclude` in
     // `expandWholeSpaceSelections` (drop the `excludedSlugs` filter).
     it("drops an excluded root, planning what the remaining roots plan", async () => {
-        await runStories({ source: "/", exclude: "b" });
-        const excluded = planned(await readReport());
+        const excluded = await plannedAt(
+            await runStories({ source: "/", exclude: "b" }),
+        );
 
-        await runStories({ source: "a,c" });
-
-        expect(excluded).toEqual(planned(await readReport()));
+        expect(excluded).toEqual(
+            await plannedAt(await runStories({ source: "a,c" })),
+        );
         expect(excluded).toEqual(["a -> a", "c -> c", "c/y -> c/y"]);
     });
 
-    it("takes an excluded root with its trailing slash", async () => {
-        await runStories({ source: "/", exclude: "b/" });
+    // D: trailing slashes are stripped as a run, so 'b//' is the root 'b' and
+    // cannot be reported as "not a root" next to a list that holds it.
+    it("takes an excluded root with any number of trailing slashes", async () => {
+        const reportPath = await runStories({ source: "/", exclude: "b//" });
 
-        expect(planned(await readReport())).toEqual([
+        expect(await plannedAt(reportPath)).toEqual([
             "a -> a",
             "c -> c",
             "c/y -> c/y",
@@ -325,9 +334,9 @@ describe("copy --source / (MAR-3137)", () => {
 
     // R5: both refusals.
     it("refuses --exclude without --source /", async () => {
-        await expect(
-            runStories({ source: "a", exclude: "b" }),
-        ).rejects.toThrow("--exclude only applies to --source /.");
+        await expect(runStories({ source: "a", exclude: "b" })).rejects.toThrow(
+            "--exclude only applies to --source /.",
+        );
     });
 
     it("names the real roots when --exclude is not one of them", async () => {
@@ -352,6 +361,24 @@ describe("copy --source / (MAR-3137)", () => {
         expect(mocks.createStory).not.toHaveBeenCalled();
     });
 
+    // B canary. Mutation that must turn it red: print the selections lines on
+    // the apply path only, the way lap 1 left it — the dry-run, where a person
+    // actually checks what "everything" meant, then says nothing.
+    it("says what / meant in a copy stories DRY-RUN", async () => {
+        await runStories({ source: "/", exclude: "b" });
+
+        const lines = loggedLines();
+
+        expect(lines).toContain(
+            "Sources: / -> 2 roots of space source-space, mode 'subtree', destination '/'.",
+        );
+        expect(lines).toContain(
+            "  selections: / -> 2 roots (2 stories, 1 folder after dedupe)",
+        );
+        expect(lines).toContain("    a, c/");
+        expect(lines).toContain("    excluded: b/");
+    });
+
     // R7 canary. Mutation that must turn it red: return `[]` from
     // `formatCopySelectionsLine` when an expansion is present, so / prints
     // nothing about what it meant.
@@ -359,7 +386,7 @@ describe("copy --source / (MAR-3137)", () => {
         await runStories({ source: "/" });
 
         expect(loggedLines()).toContain(
-            "Sources: / -> 3 roots of space source-space",
+            "Sources: / -> 3 roots of space source-space, mode 'subtree', destination '/'.",
         );
 
         vi.mocked(Logger.log).mockClear();
@@ -406,9 +433,7 @@ describe("copy --source / (MAR-3137)", () => {
     // R8 canary. Mutation that must turn it red: fold the expansion into
     // `normalized.source` (report the roots as the source).
     it("reports / as the source and the roots next to it", async () => {
-        await runStories({ source: "/" });
-
-        const report = await readReport();
+        const report = await readReport(await runStories({ source: "/" }));
 
         expect(report.input.source).toBe("/");
         expect(report.normalized.source).toBe("/");
@@ -417,9 +442,9 @@ describe("copy --source / (MAR-3137)", () => {
     });
 
     it("reports what --exclude took out", async () => {
-        await runStories({ source: "/", exclude: "b" });
-
-        const report = await readReport();
+        const report = await readReport(
+            await runStories({ source: "/", exclude: "b" }),
+        );
 
         expect(report.input.exclude).toBe("b");
         expect(report.normalized.source).toBe("/");
@@ -431,6 +456,8 @@ describe("copy --source / (MAR-3137)", () => {
     // the unexpanded selections in the relink call site — / is then resolved
     // as a slug and the run throws "Source story or folder not found: /".
     it("takes the same selector in copy relink", async () => {
+        const reportPath = path.join(tempDir, "relink.json");
+
         await copyCommand({
             input: ["copy", "relink"],
             flags: {
@@ -439,20 +466,109 @@ describe("copy --source / (MAR-3137)", () => {
                 source: "/",
                 destination: "/",
                 dryRun: true,
-                outputPath,
+                outputPath: reportPath,
                 manifestRoot,
             },
         } as any);
 
-        const report = await readReport();
+        const report = await readReport(reportPath);
 
         expect(report.command).toBe("copy relink");
         expect(report.normalized.source).toBe("/");
         expect(report.normalized.roots).toEqual(["a", "b", "c"]);
         expect(loggedLines()).toContain(
-            "Sources: / -> 3 roots of space source-space",
+            "Sources: / -> 3 roots of space source-space, mode 'subtree', destination '/'.",
         );
         expect(report.items.length).toBeGreaterThan(0);
+    });
+
+    // A canary. Mutation that must turn it red: stop emitting --exclude from
+    // `buildCopyCommand` — the command the report tells you to paste then
+    // copies the very root the run left out.
+    it("carries --exclude into the commands the report tells you to paste", async () => {
+        const report = await readReport(
+            await runStories({ source: "/", exclude: "b" }),
+        );
+
+        expect(report.commands.dryRun).toContain("--exclude b");
+        expect(report.commands.apply).toContain("--exclude b");
+    });
+
+    it("leaves --exclude out of those commands when none was given", async () => {
+        const report = await readReport(await runStories({ source: "/" }));
+
+        expect(report.commands.dryRun).not.toContain("--exclude");
+        expect(report.commands.apply).not.toContain("--exclude");
+    });
+
+    // C canary. Mutation that must turn it red: return the empty selection
+    // list instead of throwing — the run then exits 0 having copied nothing.
+    it("refuses a run whose --exclude removed every root", async () => {
+        await expect(
+            runStories({ source: "/", exclude: "a,b,c" }),
+        ).rejects.toThrow(
+            "--exclude removed every root of space source-space; nothing is left to copy.",
+        );
+
+        expect(mocks.createStory).not.toHaveBeenCalled();
+    });
+
+    // D canary. Mutation that must turn it red: drop the conflict check in
+    // `resolveRootExcludes` — the plan then holds `b`, the root the run's own
+    // report says it excluded.
+    it("refuses a root that is both named and excluded", async () => {
+        await expect(
+            runStories({ source: "/,b", exclude: "b" }),
+        ).rejects.toThrow(
+            "--exclude 'b' is also given as --source; remove one.",
+        );
+
+        expect(mocks.getAllStories).not.toHaveBeenCalled();
+    });
+
+    // E canary. Mutation that must turn it red: filter the unreadable entries
+    // away again — / then silently selects fewer roots than the space holds,
+    // which is the miss this selector exists to end.
+    it("refuses to expand / when a root could not be read", async () => {
+        rootListing = [sourceStories.a, null, sourceStories.c];
+
+        await expect(runStories({ source: "/" })).rejects.toThrow(
+            "Could not read 1 of 3 roots of space source-space.",
+        );
+
+        expect(mocks.createStory).not.toHaveBeenCalled();
+    });
+
+    // F: the children of the space root are its roots, so /* is /.
+    it("treats --source /* as --source /", async () => {
+        const wholeSpace = await plannedAt(await runStories({ source: "/" }));
+
+        expect(await plannedAt(await runStories({ source: "/*" }))).toEqual(
+            wholeSpace,
+        );
+    });
+
+    it("refuses --mode children with /* too", async () => {
+        await expect(
+            runStories({ source: "/*", mode: "children" }),
+        ).rejects.toThrow(
+            "--source / already means everything under the space root; --mode children cannot be combined with it.",
+        );
+    });
+
+    // H: the apply report states the expansion too, not only the dry-run's.
+    it("states the roots in the apply report as well", async () => {
+        const report = await readReport(
+            await runStories(
+                { source: "/", exclude: "b" },
+                { dryRun: false, yes: true },
+            ),
+        );
+
+        expect(report.dryRun).toBe(false);
+        expect(report.normalized.source).toBe("/");
+        expect(report.normalized.roots).toEqual(["a", "c"]);
+        expect(report.normalized.excluded).toEqual(["b"]);
     });
 
     // R10.

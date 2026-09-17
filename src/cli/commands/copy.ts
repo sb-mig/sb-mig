@@ -714,9 +714,8 @@ const isWholeSpaceSelection = (selection: CopySelection): boolean =>
 const formatRootItem = (root: SourceRootItem): string =>
     root.is_folder ? `${root.full_slug}/` : root.full_slug;
 
-/** A root name is accepted with or without its trailing slash. */
-const normalizeRootName = (value: string): string =>
-    value.endsWith("/") ? value.slice(0, -1) : value;
+/** A root name is accepted with any number of trailing slashes. */
+const normalizeRootName = (value: string): string => value.replace(/\/+$/, "");
 
 /**
  * Every `--source` (or legacy `--what`) value, repeated or comma-separated, as
@@ -733,6 +732,10 @@ const resolveCopySelections = (flags: Record<string, any>): CopySelection[] => {
     )
         .flatMap((value) => value.split(","))
         .map((value) => value.trim())
+        // The children of the space root are its roots, so '/*' is '/'.
+        .map((value) =>
+            value === `${WHOLE_SPACE_SOURCE}*` ? WHOLE_SPACE_SOURCE : value,
+        )
         .filter((value) => value.length > 0);
 
     if (rawValues.length === 0) {
@@ -799,7 +802,24 @@ const resolveRootExcludes = (
         throw new Error("--exclude only applies to --source /.");
     }
 
-    return values.map(normalizeRootName);
+    const names = values.map(normalizeRootName);
+    // Naming a root and excluding it in the same run contradicts itself, and
+    // the expansion would keep it: the run must say so instead of choosing.
+    const conflict = names.find((name) =>
+        selections.some(
+            (selection) =>
+                !isWholeSpaceSelection(selection) &&
+                normalizeRootName(selection.source) === name,
+        ),
+    );
+
+    if (conflict) {
+        throw new Error(
+            `--exclude '${conflict}' is also given as --source; remove one.`,
+        );
+    }
+
+    return names;
 };
 
 /**
@@ -823,9 +843,23 @@ const listSourceRootItems = async (
         },
     );
 
-    return (rootStories ?? [])
-        .map((item: any) => item?.story ?? item)
-        .filter(Boolean)
+    const listed = (rootStories ?? []).map((item: any) => item?.story ?? item);
+    // A named source that cannot be read throws; '/' must not quietly select
+    // less than the space holds, which is the miss this selector exists to end.
+    const readable = listed.filter(
+        (story: any) =>
+            story?.full_slug !== undefined &&
+            story?.full_slug !== null &&
+            String(story.full_slug).length > 0,
+    );
+
+    if (readable.length !== listed.length) {
+        throw new Error(
+            `Could not read ${listed.length - readable.length} of ${listed.length} roots of space ${sourceSpace}.`,
+        );
+    }
+
+    return readable
         .map((story: any) => ({
             full_slug: String(story.full_slug),
             is_folder: Boolean(story.is_folder),
@@ -882,6 +916,12 @@ const expandWholeSpaceSelections = async (
     const roots = rootItems.filter(
         (root) => !excludedSlugs.has(root.full_slug),
     );
+
+    if (roots.length === 0) {
+        throw new Error(
+            `--exclude removed every root of space ${sourceSpace}; nothing is left to copy.`,
+        );
+    }
     const expanded: CopySelection[] = [];
     const seen = new Set<string>();
 
@@ -1067,7 +1107,7 @@ const formatCopySourcesLine = ({
     expansion?: WholeSpaceExpansion;
 }): string => {
     if (expansion) {
-        return `Sources: ${WHOLE_SPACE_SOURCE} -> ${formatRootCount(expansion.roots.length)} of space ${sourceSpace}`;
+        return `Sources: ${WHOLE_SPACE_SOURCE} -> ${formatRootCount(expansion.roots.length)} of space ${sourceSpace}, mode '${selection.mode}', destination '${destination ?? "root"}'.`;
     }
 
     return selections.length === 1
@@ -2030,6 +2070,7 @@ const buildCopyCommand = ({
     withAssets,
     dryRun,
     outputPath,
+    exclude,
 }: {
     sourceSpace: string;
     targetSpace: string;
@@ -2038,6 +2079,8 @@ const buildCopyCommand = ({
     withAssets?: boolean;
     dryRun: boolean;
     outputPath?: string;
+    /** Root full_slugs the run excluded; they change what is selected. */
+    exclude?: string[];
 }): string => {
     const args = [
         "sb-mig",
@@ -2052,6 +2095,11 @@ const buildCopyCommand = ({
         "--mode",
         selection.mode,
     ];
+
+    // Without these the pasted command copies the roots the run left out.
+    for (const value of exclude ?? []) {
+        args.push("--exclude", value);
+    }
 
     if (destination) {
         args.push("--destination", destination);
@@ -2394,6 +2442,7 @@ const buildCopyDryRunReport = ({
                 withAssets,
                 dryRun: true,
                 outputPath,
+                exclude: rootExpansion?.excluded.map((root) => root.full_slug),
             }),
             apply: buildCopyCommand({
                 sourceSpace,
@@ -2402,6 +2451,7 @@ const buildCopyDryRunReport = ({
                 destination,
                 withAssets,
                 dryRun: false,
+                exclude: rootExpansion?.excluded.map((root) => root.full_slug),
             }),
         },
     };
@@ -6576,6 +6626,14 @@ export const copyCommand = async (props: CLIOptions) => {
                     outputPath,
                     rootExpansion,
                 });
+
+                // The dry-run is where "everything" is checked, so it states
+                // what / meant just as the PLAN block does on apply.
+                formatCopySelectionsLine(
+                    plannedSelections,
+                    plan,
+                    rootExpansion,
+                ).forEach((line) => Logger.log(line));
 
                 await logDryRunCopyPlan({ report, translatedSlugs });
 

@@ -14,6 +14,7 @@ vi.mock("../../src/utils/logger.js", () => ({
 }));
 
 import {
+    getAllStories,
     getStoryById,
     parsePublishLanguagesOption,
     resolvePublishLanguageCodes,
@@ -619,8 +620,7 @@ describe("updateStories publish languages", () => {
                 ok: true,
                 stage: "update",
                 sourcePublishState: "published_with_unpublished_changes",
-                publishSkippedReason:
-                    "source_story_has_unpublished_changes",
+                publishSkippedReason: "source_story_has_unpublished_changes",
             },
         });
     });
@@ -1087,6 +1087,37 @@ describe("updateStories publish languages", () => {
         expect(get).toHaveBeenCalledWith(
             "spaces/291967263583956/stories/story-1/publish",
             { lang: "[default],fr" },
+        );
+    });
+});
+
+describe("getAllStories", () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+    });
+
+    // MAR-3137 item G. Mutation that must turn it red: drop `with_parent`
+    // from the params `getAllStories` builds. Nothing else in the suite
+    // notices, and the consequence is every story in the space listed as a
+    // root. It also pins that `0` survives the nullish filter on the way.
+    it("passes with_parent through to the client, zero included", async () => {
+        const get = vi.fn().mockResolvedValue({
+            data: { stories: [] },
+            total: 0,
+            perPage: 100,
+        });
+        const config = {
+            spaceId: "291967263583956",
+            sbApi: { get },
+        } as any;
+
+        vi.spyOn(console, "log").mockImplementation(() => undefined);
+
+        await getAllStories({ options: { with_parent: 0 } }, config);
+
+        expect(get).toHaveBeenCalledWith(
+            "spaces/291967263583956/stories/",
+            expect.objectContaining({ with_parent: 0 }),
         );
     });
 });
