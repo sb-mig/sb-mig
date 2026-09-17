@@ -1,3 +1,16 @@
+# [6.5.0-beta.8](https://github.com/sb-mig/sb-mig/compare/v6.5.0-beta.7...v6.5.0-beta.8) (2026-09-17)
+
+
+### Bug Fixes
+
+* **copy:** keep repeated preview URL names and print names on one line (MAR-3134) ([34af234](https://github.com/sb-mig/sb-mig/commit/34af234461e8575c2f8e64e84a3aaa9fe5ad9da8))
+* **copy:** merge preview URLs by name and print only their origin (MAR-3134) ([7facda2](https://github.com/sb-mig/sb-mig/commit/7facda29c8e8647ddee5d324501fb722a1bbf39a))
+
+
+### Features
+
+* **copy:** copy space settings — internationalization and visual editor preview URLs (MAR-3134) ([41ad11d](https://github.com/sb-mig/sb-mig/commit/41ad11dd8f5696354df0605ce5821ca69f96c3d6))
+
 # [6.5.0-beta.7](https://github.com/sb-mig/sb-mig/compare/v6.5.0-beta.6...v6.5.0-beta.7) (2026-09-15)
 
 
