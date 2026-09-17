@@ -1,3 +1,5 @@
+import type { CopySpaceSnapshot } from "../../src/api/copy/space.js";
+
 import { describe, expect, it } from "vitest";
 
 import {
@@ -5,6 +7,14 @@ import {
     createCopyGraph,
     formatCopyPlanGate,
 } from "../../src/api/copy/index.js";
+import {
+    buildCopySpacePlanGateSummary,
+    formatCopySpacePlanGate,
+} from "../../src/api/copy/plan-gate.js";
+import {
+    buildCopySpacePlan,
+    parseCopySpaceOnly,
+} from "../../src/api/copy/space.js";
 
 const ledger = {
     path: "/repo/.sb-mig/copy/111/222/manifest.jsonl",
@@ -370,5 +380,99 @@ describe("copy plan gate", () => {
                 "  references: 1 will relink, 1 outside the selection kept (same space), 1 leave your selection and WILL BREAK",
             );
         });
+    });
+});
+
+describe("copy space plan gate: settings (MAR-3134 R8)", () => {
+    const emptySnapshot = (): CopySpaceSnapshot => ({
+        languages: [],
+        groups: [],
+        components: [],
+        presets: [],
+        datasources: [],
+        entriesByDatasource: new Map(),
+    });
+
+    const planLines = (
+        only: string[],
+        sourceSettings: Record<string, any>,
+        targetSettings: Record<string, any>,
+    ) =>
+        formatCopySpacePlanGate(
+            buildCopySpacePlanGateSummary(
+                buildCopySpacePlan({
+                    sourceSpaceId: "111",
+                    targetSpaceId: "222",
+                    resources: parseCopySpaceOnly(only).resources,
+                    source: { ...emptySnapshot(), settings: sourceSettings },
+                    target: { ...emptySnapshot(), settings: targetSettings },
+                }),
+            ),
+        );
+
+    const source = {
+        use_translated_stories: true,
+        show_stories_alternative_versions: false,
+        domain: "https://preview.example.com/api/preview?secret=abc123XYZ&slug=home",
+        environments: [
+            {
+                name: "LOCALHOST",
+                location: "https://localhost:3010/api/preview?secret=abc123XYZ",
+            },
+            {
+                name: "PROD EDITOR",
+                location: "https://prod.example.com/editor",
+            },
+            {
+                name: "dev-header-preview",
+                location: "https://dev.example.com/header?secret=abc123XYZ",
+            },
+        ],
+    };
+    const target = {
+        use_translated_stories: false,
+        show_stories_alternative_versions: true,
+        domain: "",
+        environments: [{ name: "OLD", location: "https://old.example.com/" }],
+    };
+
+    // R8 canary. Mutation that must turn it red: leave `environments` in the
+    // closing `not copied:` line when settings are in scope.
+    it("states the settings right after languages and drops environments from not copied", () => {
+        const lines = planLines(["languages", "settings"], source, target);
+        const languagesIndex = lines.indexOf(
+            "  languages: 0 create, 0 update, 0 skip",
+        );
+
+        expect(languagesIndex).toBeGreaterThan(-1);
+        expect(lines.slice(languagesIndex, languagesIndex + 6)).toEqual([
+            "  languages: 0 create, 0 update, 0 skip",
+            "  settings: 3 change, 3 same, 1 kept",
+            "    use_translated_stories: false -> true",
+            "    show_stories_alternative_versions: kept true (source false)",
+            "    domain: none -> https://preview.example.com/api/preview?<secret,slug redacted>",
+            "    environments: 1 -> 3 (LOCALHOST, PROD EDITOR, dev-header-preview)",
+        ]);
+        expect(lines[lines.length - 1]).toBe(
+            "  not copied: stories, assets, workflow stages, roles, webhooks, collaborators, internal tags.",
+        );
+        expect(lines.join("\n")).not.toContain("abc123XYZ");
+    });
+
+    it("puts the settings line first when languages are not copied", () => {
+        const lines = planLines(["settings"], source, target);
+
+        expect(lines[2]).toBe("  settings: 3 change, 3 same, 1 kept");
+    });
+
+    it("keeps environments in not copied, and says nothing of settings, when settings are out of scope", () => {
+        const lines = planLines(["groups"], source, target);
+
+        expect(lines.some((line) => line.startsWith("  settings:"))).toBe(
+            false,
+        );
+        expect(lines[lines.length - 1]).toBe(
+            "  not copied: stories, assets, workflow stages, roles, webhooks, environments, collaborators, internal tags.",
+        );
     });
 });
