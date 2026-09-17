@@ -244,6 +244,25 @@ const normaliseEnvironments = (value: unknown): CopySpaceEnvironment[] =>
           }))
         : [];
 
+/**
+ * The source's preview URLs that can be copied: an entry without a non-empty
+ * name and a non-empty location is ignored, so a blank preview URL is never
+ * written. The target's entries are never filtered.
+ */
+const usableSourceEnvironments = (value: unknown): CopySpaceEnvironment[] =>
+    normaliseEnvironments(value).filter(
+        (environment) =>
+            environment.name.length > 0 && environment.location.length > 0,
+    );
+
+/**
+ * A preview URL name as it is displayed: one line, with every run of control
+ * characters (line breaks included) shown as a single space, so a name cannot
+ * add lines to the PLAN. The write keeps the name exactly.
+ */
+const displayName = (name: string): string =>
+    name.replace(/[\p{Cc}\u2028\u2029]+/gu, " ");
+
 const sameEnvironments = (
     left: CopySpaceEnvironment[],
     right: CopySpaceEnvironment[],
@@ -257,9 +276,10 @@ const sameEnvironments = (
 
 /**
  * The target's preview URLs after a copy, merged by name the way languages
- * are: the target's order is kept, a source entry replaces the target entry of
- * the same name, new names are appended in the source's order, and target-only
- * names stay. `copy space` never deletes a preview URL.
+ * are: the target's order is kept, a source entry replaces the first target
+ * entry of the same name, new names are appended in the source's order, and
+ * everything else in the target stays, later entries of a repeated name
+ * included. `copy space` never deletes a preview URL.
  */
 export const mergeEnvironmentsForTarget = ({
     source,
@@ -272,7 +292,7 @@ export const mergeEnvironmentsForTarget = ({
     added: string[];
     updated: string[];
 } => {
-    const sourceEnvironments = normaliseEnvironments(source);
+    const sourceEnvironments = usableSourceEnvironments(source);
     const targetEnvironments = normaliseEnvironments(target);
     // On a repeated name the last source entry wins, as a later write would.
     const sourceByName = new Map(
@@ -285,12 +305,19 @@ export const mergeEnvironmentsForTarget = ({
         targetEnvironments.map((environment) => environment.name),
     );
     const updated = new Set<string>();
+    // Only the first target entry of a name is replaced: a target that holds
+    // two preview URLs of one name keeps the second.
+    const replaced = new Set<string>();
     const environments = targetEnvironments.map((environment) => {
-        const replacement = sourceByName.get(environment.name);
+        const replacement = replaced.has(environment.name)
+            ? undefined
+            : sourceByName.get(environment.name);
 
         if (!replacement) {
             return environment;
         }
+
+        replaced.add(environment.name);
 
         if (replacement.location !== environment.location) {
             updated.add(environment.name);
@@ -360,17 +387,23 @@ const settingOutcome = (
 const displaySetting = (
     field: CopySpaceSettingsField,
     value: unknown,
+    side: "source" | "target",
 ): CopySpaceSettingsFieldPlan["source"] => {
     if (field === "domain") {
         return isNonEmptyString(value) ? redactUrl(value) : undefined;
     }
 
     if (field === "environments") {
-        const environments = normaliseEnvironments(value);
+        const environments =
+            side === "source"
+                ? usableSourceEnvironments(value)
+                : normaliseEnvironments(value);
 
         return {
             count: environments.length,
-            names: environments.map((environment) => environment.name),
+            names: environments.map((environment) =>
+                displayName(environment.name),
+            ),
         };
     }
 
@@ -392,8 +425,8 @@ export const planCopySpaceSettings = ({
     target: CopySpaceSettings;
 }): CopySpaceSettingsPlan => {
     const fields = COPY_SPACE_SETTINGS_FIELDS.map((field) => {
-        const sourceDisplay = displaySetting(field, source[field]);
-        const targetDisplay = displaySetting(field, target[field]);
+        const sourceDisplay = displaySetting(field, source[field], "source");
+        const targetDisplay = displaySetting(field, target[field], "target");
 
         const merge =
             field === "environments"
@@ -412,8 +445,8 @@ export const planCopySpaceSettings = ({
                 ? {
                       merge: {
                           count: merge.environments.length,
-                          added: merge.added,
-                          updated: merge.updated,
+                          added: merge.added.map(displayName),
+                          updated: merge.updated.map(displayName),
                       },
                   }
                 : {}),

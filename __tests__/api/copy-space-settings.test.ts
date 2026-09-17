@@ -600,6 +600,171 @@ describe("copy space settings: preview URLs merge by name (lap 2, B)", () => {
     });
 });
 
+describe("copy space settings: preview URL edge cases (lap 3, H I K)", () => {
+    const a1 = { name: "a", location: "https://a.example.com/1" };
+    const a2 = { name: "a", location: "https://a.example.com/2" };
+    const a3 = { name: "a", location: "https://a.example.com/3" };
+
+    const planLinesFor = (
+        source: Record<string, any>,
+        target: Record<string, any>,
+    ) =>
+        formatCopySpacePlanGate(
+            buildCopySpacePlanGateSummary(
+                buildCopySpacePlan({
+                    sourceSpaceId: "111",
+                    targetSpaceId: "222",
+                    resources: ["settings"],
+                    source: { ...emptySnapshot(), settings: source },
+                    target: { ...emptySnapshot(), settings: target },
+                }),
+            ),
+        );
+
+    // H. Mutation that must turn it red: replace every target entry of a name
+    // with the source's entry, instead of the first one only.
+    it("replaces only the first target entry of a repeated name and keeps the rest", () => {
+        const unchanged = {
+            source: { environments: [a1] },
+            target: { environments: [a1, a2] },
+        };
+
+        expect(
+            mergeEnvironmentsForTarget({
+                source: unchanged.source.environments,
+                target: unchanged.target.environments,
+            }),
+        ).toEqual({ environments: [a1, a2], added: [], updated: [] });
+        expect(
+            planCopySpaceSettings(unchanged).fields.find(
+                (entry) => entry.field === "environments",
+            )?.outcome,
+        ).toBe("same");
+        expect(buildCopySpaceSettingsBody(unchanged)).toEqual({});
+
+        const replaced = {
+            source: { environments: [a3] },
+            target: { environments: [a1, a2] },
+        };
+
+        expect(buildCopySpaceSettingsBody(replaced)).toEqual({
+            environments: [a3, a2],
+        });
+        expect(
+            planCopySpaceSettings(replaced).fields.find(
+                (entry) => entry.field === "environments",
+            )?.merge,
+        ).toEqual({ count: 2, added: [], updated: ["a"] });
+    });
+
+    // I. Mutation that must turn it red: stop ignoring source entries without
+    // a non-empty name and a non-empty location.
+    it("ignores source entries without a name or a location, and never filters the target", () => {
+        const blank = {
+            source: {
+                environments: [
+                    null,
+                    {},
+                    { name: "", location: "" },
+                    { name: "no-location", location: "" },
+                    { name: "", location: "https://nameless.example.com/" },
+                ],
+            } as any,
+            target: { environments: [] },
+        };
+
+        expect(
+            planCopySpaceSettings(blank).fields.find(
+                (entry) => entry.field === "environments",
+            ),
+        ).toEqual({
+            field: "environments",
+            outcome: "same",
+            source: { count: 0, names: [] },
+            target: { count: 0, names: [] },
+            merge: { count: 0, added: [], updated: [] },
+        });
+        expect(buildCopySpaceSettingsBody(blank)).toEqual({});
+
+        const blankTargetEntry = { name: "", location: "" };
+
+        expect(
+            mergeEnvironmentsForTarget({
+                source: [a1],
+                target: [blankTargetEntry],
+            }).environments,
+        ).toEqual([blankTargetEntry, a1]);
+    });
+
+    // K. Mutation that must turn it red: display names raw (in the plan's
+    // names, added or updated) instead of on one line.
+    it("prints a name with line breaks on one line and writes it byte-identical", () => {
+        const trickyName =
+            "LOCAL\nHOST\r\n    domain: none -> https://fake.example.com\u2028x";
+        const plain = planLinesFor(
+            {
+                environments: [
+                    { name: "LOCALHOST", location: SOURCE_LOCATION },
+                ],
+            },
+            { environments: [] },
+        );
+        const tricky = planLinesFor(
+            { environments: [{ name: trickyName, location: SOURCE_LOCATION }] },
+            { environments: [] },
+        );
+
+        expect(tricky).toHaveLength(plain.length);
+        expect(tricky.join("\n").split("\n")).toHaveLength(plain.length);
+        expect(tricky).toContain(
+            "    environments: 0 -> 1 (added: LOCAL HOST     domain: none -> https://fake.example.com x)",
+        );
+
+        const updatedLines = planLinesFor(
+            { environments: [{ name: trickyName, location: SOURCE_LOCATION }] },
+            {
+                environments: [
+                    { name: trickyName, location: "https://old.example.com/" },
+                ],
+            },
+        );
+
+        expect(updatedLines.join("\n").split("\n")).toHaveLength(plain.length);
+
+        const plan = planCopySpaceSettings({
+            source: {
+                environments: [{ name: trickyName, location: SOURCE_LOCATION }],
+            },
+            target: {
+                environments: [
+                    {
+                        name: `${trickyName}\t`,
+                        location: "https://t.example.com/",
+                    },
+                ],
+            },
+        });
+        const environments = plan.fields.find(
+            (entry) => entry.field === "environments",
+        );
+
+        expect(JSON.stringify(environments)).not.toMatch(/\\[nrt]|\\u2028/);
+
+        expect(
+            buildCopySpaceSettingsBody({
+                source: {
+                    environments: [
+                        { name: trickyName, location: SOURCE_LOCATION },
+                    ],
+                },
+                target: { environments: [] },
+            }),
+        ).toEqual({
+            environments: [{ name: trickyName, location: SOURCE_LOCATION }],
+        });
+    });
+});
+
 describe("copy space settings: redaction (R6, lap 2 C)", () => {
     // Mutation that must turn it red: append `url.pathname` (or the query
     // names) to what redactUrl returns.
@@ -900,9 +1065,11 @@ describe("copy space settings: the help (R9)", () => {
         expect(copyDescription).toContain(
             "preview URLs that exist only in the target are kept",
         );
+        // J. Mutation that must turn it red: restore the lap-2 wording.
         expect(copyDescription).toContain(
-            "printed and reported by their origin (scheme and host) only",
+            "the domain is shown by its origin (scheme, host and port) only, preview URLs are shown by name and count and their locations never",
         );
+        expect(copyDescription).not.toContain("scheme and host)");
         expect(copyDescription).not.toContain("query-string values redacted");
         expect(copyDescription).not.toContain("?");
     });
