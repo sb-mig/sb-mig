@@ -141,6 +141,7 @@ const MAP_LABELS: Record<CopyMapName, string> = {
     storyIdFullSlugs: "story path for id",
     assetIds: "asset id",
     assetFilenames: "asset filename",
+    assetKeys: "asset url path",
     assetFolderIds: "asset folder id",
 };
 
@@ -151,6 +152,7 @@ const MAP_RESOURCES: Record<CopyMapName, CopyResourceType> = {
     storyIdFullSlugs: "story",
     assetIds: "asset",
     assetFilenames: "asset",
+    assetKeys: "asset",
     assetFolderIds: "asset_folder",
 };
 

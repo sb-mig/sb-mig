@@ -10,6 +10,8 @@ import type {
 import fs from "fs/promises";
 import path from "path";
 
+import { assetKeyOf } from "./reference-scanner.js";
+
 export type CopyManifestPaths = {
     rootDir: string;
     combined: string;
@@ -212,6 +214,7 @@ export const createEmptyCopyMaps = (): CopyMaps => ({
     storyIdFullSlugs: new Map(),
     assetIds: new Map(),
     assetFilenames: new Map(),
+    assetKeys: new Map(),
     assetFolderIds: new Map(),
 });
 
@@ -384,18 +387,12 @@ export const getCopyMapWrites = (entry: CopyManifestEntry): CopyMapWrite[] => {
     }
 
     if (isAssetManifestEntry(entry)) {
-        return [
-            {
-                map: "assetIds",
-                key: entry.source_id,
-                value: { id: entry.target_id, filename: entry.target_filename },
-            },
-            {
-                map: "assetFilenames",
-                key: entry.source_filename,
-                value: entry.target_filename,
-            },
-        ];
+        return getCopyAssetMapWrites({
+            sourceId: entry.source_id,
+            sourceFilename: entry.source_filename,
+            targetId: entry.target_id,
+            targetFilename: entry.target_filename,
+        });
     }
 
     if (isAssetFolderManifestEntry(entry)) {
@@ -409,6 +406,49 @@ export const getCopyMapWrites = (entry: CopyManifestEntry): CopyMapWrite[] => {
     }
 
     return [];
+};
+
+/**
+ * Every map write one copied asset performs — id, file name AND key — in one
+ * place, so a mapping can never be recorded by halves. The ledger's own
+ * `source_filename` is whatever host form the library answered with; the key
+ * is the only form a URL inside a story can be matched against, so a writer
+ * that sets two of the three maps leaves string references unrepairable.
+ */
+export const getCopyAssetMapWrites = ({
+    sourceId,
+    sourceFilename,
+    targetId,
+    targetFilename,
+}: {
+    sourceId: number;
+    sourceFilename: string;
+    targetId: number;
+    targetFilename: string;
+}): CopyMapWrite[] => {
+    const sourceKey = assetKeyOf(sourceFilename)?.key;
+
+    return [
+        {
+            map: "assetIds",
+            key: sourceId,
+            value: { id: targetId, filename: targetFilename },
+        },
+        {
+            map: "assetFilenames",
+            key: sourceFilename,
+            value: targetFilename,
+        },
+        ...(sourceKey
+            ? [
+                  {
+                      map: "assetKeys" as const,
+                      key: sourceKey,
+                      value: { id: targetId, filename: targetFilename },
+                  },
+              ]
+            : []),
+    ];
 };
 
 export const applyCopyMapWrites = (maps: CopyMaps, writes: CopyMapWrite[]) => {

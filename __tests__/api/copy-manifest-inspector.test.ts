@@ -89,10 +89,12 @@ describe("copy manifest inspector", () => {
             stories: 2,
             assets: 1,
             assetFolders: 0,
-            // Six per story and two per asset: every runtime map a run keys
-            // on, counted from the run's own projection. A story does not map
-            // one identity, it maps its id, its uuid, and the target path under
-            // both uuids and both ids.
+            // Six per story, and two per asset HERE: every runtime map a run
+            // keys on, counted from the run's own projection. A story does not
+            // map one identity, it maps its id, its uuid, and the target path
+            // under both uuids and both ids. This asset line maps only its id
+            // and its file name because `a.png` is not an asset URL — a real
+            // ledger line also maps the file's path key, see below.
             mappingKeys: 14,
             conflicts: 0,
             duplicates: 0,
@@ -101,6 +103,38 @@ describe("copy manifest inspector", () => {
             byAction: { created: 2, matched_by_target_key: 1 },
         });
         expect(inspection.findings).toEqual([]);
+    });
+
+    // MAR-3162 lap 2 (G5). Mutation that must turn it red: drop the assetKeys
+    // write from getCopyAssetMapWrites, so a real ledger line maps two keys.
+    it("counts three mappings for an asset line whose file names are real URLs", () => {
+        const inspection = inspect([
+            combined([
+                {
+                    type: "asset",
+                    source_space_id: "111",
+                    target_space_id: "222",
+                    action: "created",
+                    created_at: "2026-09-04T10:00:00.000Z",
+                    source_id: 9,
+                    target_id: 99,
+                    // What the asset library really answers, and what the copy
+                    // really wrote: id, file name and path key, three maps.
+                    source_filename:
+                        "https://s3.amazonaws.com/a.storyblok.com/f/111/1200x630/2b7c4d6e9a/flyer.pdf",
+                    target_filename:
+                        "https://a.storyblok.com/f/222/1200x630/8f1e2d3c4b/flyer.pdf",
+                },
+            ]),
+        ]);
+
+        expect(inspection.summary).toMatchObject({
+            entries: 1,
+            assets: 1,
+            mappingKeys: 3,
+            conflicts: 0,
+            errors: 0,
+        });
     });
 
     it("reports a source key mapped to two different targets, and which one wins", () => {

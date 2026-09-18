@@ -6,6 +6,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
     getStoryBySlug: vi.fn(),
+    getStoryById: vi.fn(),
+    getStoriesByFullSlugs: vi.fn(),
+    getStoryVersions: vi.fn(),
+    createStory: vi.fn(),
+    updateStory: vi.fn(),
+    publishStoryLanguages: vi.fn(),
+    getSpace: vi.fn(),
+    sbApiGet: vi.fn(),
     getAllStories: vi.fn(),
     getAllComponents: vi.fn(),
     getAllAssets: vi.fn(),
@@ -20,7 +28,9 @@ const mocks = vi.hoisted(() => ({
 vi.mock("../../src/cli/api-config.js", () => ({
     apiConfig: {
         spaceId: "default-space",
-        sbApi: {},
+        sbApi: {
+            get: mocks.sbApiGet,
+        },
     },
 }));
 
@@ -28,10 +38,19 @@ vi.mock("../../src/api/managementApi.js", () => ({
     managementApi: {
         stories: {
             getStoryBySlug: mocks.getStoryBySlug,
+            getStoryById: mocks.getStoryById,
+            getStoriesByFullSlugs: mocks.getStoriesByFullSlugs,
+            getStoryVersions: mocks.getStoryVersions,
             getAllStories: mocks.getAllStories,
+            createStory: mocks.createStory,
+            updateStory: mocks.updateStory,
+            publishStoryLanguages: mocks.publishStoryLanguages,
         },
         components: {
             getAllComponents: mocks.getAllComponents,
+        },
+        spaces: {
+            getSpace: mocks.getSpace,
         },
         assets: {
             getAllAssets: mocks.getAllAssets,
@@ -468,6 +487,219 @@ describe("copy assets dry-run", () => {
         expect(report.commands.apply).toBe(
             "sb-mig copy assets --from source-space --to target-space --referenced-by-stories --source blog/post --mode subtree",
         );
+
+        await rm(tempDir, { recursive: true, force: true });
+    });
+
+    // MAR-3162 R4 + R7 claim layer. Mutations that must turn it red: select
+    // source assets by referenced id and exact filename only (0 will copy); or
+    // drop `byShape` from the dry-run report.
+    it("plans an asset a story mentions only as a URL inside a string", async () => {
+        const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-assets-"));
+        const outputPath = path.join(tempDir, "plans", "string-refs.json");
+        const key = "/f/111/1200x630/2b7c4d6e9a0b1c2d3e4f5a6b/flyer.pdf";
+        // What the asset library answers, and what the story actually holds:
+        // the same file under two different hosts.
+        const libraryFilename = `https://s3.amazonaws.com/a.storyblok.com${key}`;
+        const contentUrl = `https://a.storyblok.com${key}`;
+
+        mocks.getAllAssets.mockImplementation(({ spaceId }: any) =>
+            Promise.resolve(
+                spaceId === "111"
+                    ? {
+                          assets: [
+                              {
+                                  ...sourceAsset,
+                                  id: 700,
+                                  filename: libraryFilename,
+                                  asset_folder_id: null,
+                              },
+                          ],
+                      }
+                    : { assets: [] },
+            ),
+        );
+        mocks.getAllAssetFolders.mockResolvedValue({ asset_folders: [] });
+        mocks.getStoryBySlug.mockImplementation((slug: string) => {
+            if (slug === "blog/post") {
+                return Promise.resolve({
+                    story: {
+                        id: 100,
+                        uuid: "source-story-uuid",
+                        name: "Post",
+                        slug: "post",
+                        full_slug: "blog/post",
+                        parent_id: 0,
+                        is_folder: false,
+                        content: {
+                            component: "page",
+                            // No asset field at all: the only mention of the
+                            // file is this URL inside an SEO string.
+                            seo: { og_image: contentUrl },
+                        },
+                    },
+                });
+            }
+
+            return Promise.resolve(undefined);
+        });
+        mocks.getAllStories.mockResolvedValue([]);
+        mocks.getAllComponents.mockResolvedValue([
+            { name: "page", schema: { seo: { type: "custom" } } },
+        ]);
+        mocks.getStoriesByFullSlugs.mockResolvedValue([]);
+        mocks.getStoryById.mockResolvedValue(undefined);
+        mocks.getStoryVersions.mockResolvedValue({ story_versions: [] });
+        mocks.getSpace.mockResolvedValue({ space: { languages: [] } });
+        mocks.sbApiGet.mockResolvedValue({
+            data: { space: { languages: [] } },
+        });
+
+        await copyCommand({
+            input: ["copy", "stories"],
+            flags: {
+                from: "111",
+                to: "222",
+                source: "blog/post",
+                destination: "/",
+                withAssets: true,
+                dryRun: true,
+                outputPath,
+            },
+        } as any);
+
+        const report = JSON.parse(await readFile(outputPath, "utf8"));
+
+        expect(report.summary.assets).toBe(1);
+        expect(report.graph.assets).toMatchObject([
+            {
+                sourceId: 700,
+                sourceFilename: libraryFilename,
+                action: "create",
+            },
+        ]);
+        expect(report.graph.assetReferences).toMatchObject([
+            {
+                filename: contentUrl,
+                assetKey: key,
+                shape: "string",
+                path: "content.seo.og_image",
+                status: "planned",
+            },
+        ]);
+        expect(report.assetReferenceSummary.byShape).toEqual({
+            object: { occurrences: 0, uniqueAssets: 0 },
+            string: { occurrences: 1, uniqueAssets: 1 },
+        });
+        expect(mocks.createAssetAndFinalize).not.toHaveBeenCalled();
+
+        await rm(tempDir, { recursive: true, force: true });
+    });
+
+    // MAR-3162 lap 2 (G1). Mutation that must turn it red: drop the assetKey
+    // clause from hasMappedAssetReference, so a string reference the ledger
+    // already covers is reported as planned or unresolved.
+    it("reports a string reference the ledger already covers as mapped", async () => {
+        const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-assets-"));
+        const outputPath = path.join(tempDir, "plans", "mapped-string.json");
+        const manifestRoot = path.join(tempDir, ".sb-mig");
+        const key = "/f/111/1200x630/2b7c4d6e9a0b1c2d3e4f5a6b/flyer.pdf";
+        const libraryFilename = `https://s3.amazonaws.com/a.storyblok.com${key}`;
+        const contentUrl = `https://a.storyblok.com${key}`;
+        const ledgerDir = path.join(manifestRoot, "copy", "111", "222");
+
+        await mkdir(ledgerDir, { recursive: true });
+        // The ledger holds the library's host form; the story holds its own.
+        await writeFile(
+            path.join(ledgerDir, "manifest.jsonl"),
+            JSON.stringify({
+                type: "asset",
+                source_space_id: "111",
+                target_space_id: "222",
+                action: "created",
+                created_at: "2026-09-18T00:00:00.000Z",
+                source_id: 700,
+                target_id: 7007,
+                source_filename: libraryFilename,
+                target_filename:
+                    "https://a.storyblok.com/f/222/1200x630/9c8d7e6f5a/flyer.pdf",
+            }) + "\n",
+            "utf8",
+        );
+
+        mocks.getAllAssets.mockImplementation(({ spaceId }: any) =>
+            Promise.resolve(
+                spaceId === "111"
+                    ? {
+                          assets: [
+                              {
+                                  ...sourceAsset,
+                                  id: 700,
+                                  filename: libraryFilename,
+                                  asset_folder_id: null,
+                              },
+                          ],
+                      }
+                    : { assets: [] },
+            ),
+        );
+        mocks.getAllAssetFolders.mockResolvedValue({ asset_folders: [] });
+        mocks.getStoryBySlug.mockImplementation((slug: string) =>
+            Promise.resolve(
+                slug === "blog/post"
+                    ? {
+                          story: {
+                              id: 100,
+                              uuid: "source-story-uuid",
+                              name: "Post",
+                              slug: "post",
+                              full_slug: "blog/post",
+                              parent_id: 0,
+                              is_folder: false,
+                              content: {
+                                  component: "page",
+                                  seo: { og_image: contentUrl },
+                              },
+                          },
+                      }
+                    : undefined,
+            ),
+        );
+        mocks.getAllStories.mockResolvedValue([]);
+        mocks.getAllComponents.mockResolvedValue([
+            { name: "page", schema: { seo: { type: "custom" } } },
+        ]);
+        mocks.getStoriesByFullSlugs.mockResolvedValue([]);
+        mocks.getStoryById.mockResolvedValue(undefined);
+        mocks.getStoryVersions.mockResolvedValue({ story_versions: [] });
+        mocks.getSpace.mockResolvedValue({ space: { languages: [] } });
+        mocks.sbApiGet.mockResolvedValue({
+            data: { space: { languages: [] } },
+        });
+
+        await copyCommand({
+            input: ["copy", "stories"],
+            flags: {
+                from: "111",
+                to: "222",
+                source: "blog/post",
+                destination: "/",
+                withAssets: true,
+                dryRun: true,
+                manifestRoot,
+                outputPath,
+            },
+        } as any);
+
+        const report = JSON.parse(await readFile(outputPath, "utf8"));
+
+        expect(report.graph.assetReferences).toMatchObject([
+            { assetKey: key, shape: "string", status: "mapped" },
+        ]);
+        expect(report.assetReferenceSummary.mapped).toEqual({
+            occurrences: 1,
+            uniqueAssets: 1,
+        });
 
         await rm(tempDir, { recursive: true, force: true });
     });
