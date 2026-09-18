@@ -94,6 +94,13 @@ export type CopyMaps = {
     storyIdFullSlugs: Map<number, string>;
     assetIds: Map<number, { id: number; filename: string }>;
     assetFilenames: Map<string, string>;
+    /**
+     * Asset key (`/f/<space>/<dims>/<hash>/<name>`) of the SOURCE file -> the
+     * target file. The library and the content write the same file under
+     * different hosts, so only the key can match a ledger line to a URL a
+     * story holds.
+     */
+    assetKeys: Map<string, { id: number; filename: string }>;
     assetFolderIds: Map<number, number>;
 };
 
@@ -176,6 +183,10 @@ export type CopyGraphAssetReference = {
     sourceStoryFullSlug?: string;
     assetId?: number;
     filename?: string;
+    /** `/f/<spaceId>/<dims>/<hash>/<name>`: the asset's identity in a string. */
+    assetKey?: string;
+    /** How the story holds the reference: an asset object, or a URL in text. */
+    shape?: "object" | "string";
     path: string;
     status: "planned" | "mapped" | "unresolved" | "unsupported";
 };
@@ -237,6 +248,12 @@ export type CopyComponentSchemaRegistry = Record<string, CopyComponentSchema>;
 
 export type CopyReferenceScannerOptions = {
     referencePolicy?: "preserve" | "fail" | "include-referenced";
+    /**
+     * The space whose asset URLs count when they sit inside a string. Without
+     * it no string is scanned for URLs: a scan that does not know its own
+     * space cannot tell its files from another space's.
+     */
+    sourceSpaceId?: string;
     onProgress?: (progress: {
         scanned: number;
         total: number;
@@ -259,7 +276,8 @@ export type CopyRewriteRecord = {
     path: string;
     sourceValue: unknown;
     targetValue: unknown;
-    field: "id" | "uuid" | "filename" | "path";
+    /** `string`: an asset URL rewritten inside a text, HTML or link value. */
+    field: "id" | "uuid" | "filename" | "path" | "string";
 };
 
 export type CopyRewriteResult<T> = {

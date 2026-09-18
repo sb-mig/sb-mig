@@ -7,6 +7,8 @@ import type {
     CopyWarning,
 } from "./types.js";
 
+import { assetKeyOf, findAssetUrls } from "./reference-scanner.js";
+
 type RewriteState = {
     maps: CopyMaps;
     schemas?: CopyComponentSchemaRegistry;
@@ -55,6 +57,7 @@ const rewriteNode = (node: unknown, path: string, state: RewriteState) => {
                     `${path}[${index}]`,
                     state,
                 );
+                rewriteStringAssetUrls(node, index, `${path}[${index}]`, state);
                 return;
             }
 
@@ -85,6 +88,25 @@ const rewriteNode = (node: unknown, path: string, state: RewriteState) => {
 
     for (const [key, value] of Object.entries(node)) {
         if (key === "attrs" && (node.type === "link" || node.type === "blok")) {
+            // A richtext link's `attrs` are owned by the link rewriter, but an
+            // `href` pointing at a file is still an asset URL and nobody else
+            // will look at it.
+            if (node.type === "link" && isRecord(value)) {
+                for (const attrKey of Object.keys(value)) {
+                    rewriteStringAssetUrls(
+                        value,
+                        attrKey,
+                        `${path}.${key}.${attrKey}`,
+                        state,
+                    );
+                }
+            }
+
+            continue;
+        }
+
+        if (typeof value === "string") {
+            rewriteStringAssetUrls(node, key, `${path}.${key}`, state);
             continue;
         }
 
@@ -92,15 +114,89 @@ const rewriteNode = (node: unknown, path: string, state: RewriteState) => {
     }
 };
 
+/**
+ * Every asset URL inside one string value, re-pointed at the target space.
+ *
+ * Only the key is replaced, and only when the ledger holds that key: the host
+ * form as written, the `/m/…` suffix, the query, the fragment and every
+ * character around the URL survive byte for byte. A URL the ledger does not
+ * know is left exactly as it is — a target URL is never built by swapping the
+ * space id of a source one, because nothing proves that file was ever copied.
+ */
+const rewriteStringAssetUrls = (
+    container: Record<string, any> | any[],
+    key: string | number,
+    path: string,
+    state: RewriteState,
+) => {
+    const text = (container as Record<string | number, unknown>)[key];
+
+    if (typeof text !== "string" || text.length === 0) {
+        return;
+    }
+
+    const matches = findAssetUrls(text);
+
+    if (matches.length === 0) {
+        return;
+    }
+
+    const replacements: { match: (typeof matches)[number]; key: string }[] = [];
+
+    for (const match of matches) {
+        const target = state.maps.assetKeys.get(match.key);
+        const targetKey = target ? assetKeyOf(target.filename)?.key : undefined;
+
+        if (!targetKey || targetKey === match.key) {
+            continue;
+        }
+
+        replacements.push({ match, key: targetKey });
+    }
+
+    if (replacements.length === 0) {
+        return;
+    }
+
+    let rewritten = "";
+    let cursor = 0;
+
+    for (const replacement of replacements) {
+        const { match } = replacement;
+
+        rewritten += text.slice(cursor, match.keyStart) + replacement.key;
+        cursor = match.keyEnd;
+
+        addRecord(state, {
+            type: "asset",
+            path,
+            sourceValue: match.url,
+            targetValue:
+                text.slice(match.start, match.keyStart) +
+                replacement.key +
+                text.slice(match.keyEnd, match.end),
+            field: "string",
+        });
+    }
+
+    rewritten += text.slice(cursor);
+    (container as Record<string | number, unknown>)[key] = rewritten;
+};
+
 const rewriteAssetObject = (
     node: Record<string, any>,
     path: string,
     state: RewriteState,
 ) => {
+    const sourceKey =
+        typeof node.filename === "string"
+            ? assetKeyOf(node.filename)?.key
+            : undefined;
     const hasAssetShape =
         typeof node.filename === "string" &&
         (typeof node.id === "number" ||
-            state.maps.assetFilenames.has(node.filename));
+            state.maps.assetFilenames.has(node.filename) ||
+            (sourceKey !== undefined && state.maps.assetKeys.has(sourceKey)));
 
     if (!hasAssetShape) {
         return;
@@ -110,8 +206,12 @@ const rewriteAssetObject = (
         typeof node.id === "number"
             ? state.maps.assetIds.get(node.id)
             : undefined;
+    // By key too: an object whose id is gone still names the file, and the
+    // ledger's own filename may carry a different host than the story's.
     const targetFilename =
-        targetById?.filename ?? state.maps.assetFilenames.get(node.filename);
+        targetById?.filename ??
+        state.maps.assetFilenames.get(node.filename) ??
+        (sourceKey ? state.maps.assetKeys.get(sourceKey)?.filename : undefined);
 
     if (typeof node.id === "number" && targetById) {
         addRecord(state, {

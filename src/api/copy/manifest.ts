@@ -10,6 +10,8 @@ import type {
 import fs from "fs/promises";
 import path from "path";
 
+import { assetKeyOf } from "./reference-scanner.js";
+
 export type CopyManifestPaths = {
     rootDir: string;
     combined: string;
@@ -212,6 +214,7 @@ export const createEmptyCopyMaps = (): CopyMaps => ({
     storyIdFullSlugs: new Map(),
     assetIds: new Map(),
     assetFilenames: new Map(),
+    assetKeys: new Map(),
     assetFolderIds: new Map(),
 });
 
@@ -384,6 +387,11 @@ export const getCopyMapWrites = (entry: CopyManifestEntry): CopyMapWrite[] => {
     }
 
     if (isAssetManifestEntry(entry)) {
+        // The ledger's own `source_filename` is whatever host form the library
+        // answered with, so it is also written by key: that is the only form a
+        // story's own URL can be matched against.
+        const sourceKey = assetKeyOf(entry.source_filename)?.key;
+
         return [
             {
                 map: "assetIds",
@@ -395,6 +403,18 @@ export const getCopyMapWrites = (entry: CopyManifestEntry): CopyMapWrite[] => {
                 key: entry.source_filename,
                 value: entry.target_filename,
             },
+            ...(sourceKey
+                ? [
+                      {
+                          map: "assetKeys" as const,
+                          key: sourceKey,
+                          value: {
+                              id: entry.target_id,
+                              filename: entry.target_filename,
+                          },
+                      },
+                  ]
+                : []),
         ];
     }
 

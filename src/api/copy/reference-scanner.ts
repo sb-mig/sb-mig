@@ -27,6 +27,10 @@ type StoryContext = {
 type ScannerState = {
     schemas: CopyComponentSchemaRegistry;
     options: Required<Pick<CopyReferenceScannerOptions, "referencePolicy">>;
+    /** Strings are only scanned for URLs of this space; unset scans none. */
+    sourceSpaceId?: string;
+    /** Paths of `filename`s already recorded as an asset object. */
+    assetObjectFilenamePaths: Set<string>;
     context: StoryContext;
     storyReferences: CopyGraphStoryReference[];
     assetReferences: CopyGraphAssetReference[];
@@ -38,6 +42,121 @@ type ScannerState = {
 };
 
 const RESERVED_CONTENT_KEYS = new Set(["_uid", "component", "_editable"]);
+
+/* ------------------------------------------------------------------ *
+ * Asset URLs inside strings
+ * ------------------------------------------------------------------ */
+
+/**
+ * One asset URL, taken apart. The identity of an asset inside a string is its
+ * PATH, never the whole URL: the asset library answers
+ * `https://s3.amazonaws.com/a.storyblok.com/f/…` for a file whose own content
+ * URL is `https://a.storyblok.com/f/…`, so comparing URLs as text matches
+ * nothing. Everything after the file name (`/m/800x0`, a query, a fragment) is
+ * the caller's to keep: it is display, not identity.
+ */
+export type CopyAssetUrlParts = {
+    spaceId: string;
+    dimensions: string;
+    hash: string;
+    name: string;
+    /** `/f/<spaceId>/<dimensions>/<hash>/<name>` — the asset key. */
+    key: string;
+    /** Whatever follows the file name, as written. */
+    rest: string;
+};
+
+export type CopyAssetUrlMatch = CopyAssetUrlParts & {
+    /** The URL exactly as written, host form and tail included. */
+    url: string;
+    start: number;
+    end: number;
+    /** Where the key sits inside the scanned text, so only it is replaced. */
+    keyStart: number;
+    keyEnd: number;
+};
+
+// The host forms Storyblok writes: the CDN, the same CDN behind its S3 bucket
+// path, a protocol-relative CDN URL, and the legacy image service. A `)` ends
+// a URL so a markdown link does not swallow its own closing bracket, and the
+// `d` flag gives the exact bounds of the key inside the text.
+const ASSET_URL_ANCHORED =
+    /^(?:https?:)?\/\/(?:s3\.amazonaws\.com\/)?(?:a|img2)\.storyblok\.com(?:\/[^\s"'<>\\)]*?)?\/f\/(\d+)\/([^/\s"'<>\\)]+)\/([^/\s"'<>\\)]+)\/([^/\s"'<>\\)?#]+)((?:\/m(?:\/[^\s"'<>\\)?#]*)?)?(?:\?[^\s"'<>\\)]*)?(?:#[^\s"'<>\\)]*)?)/d;
+
+const ASSET_URL_GLOBAL = new RegExp(
+    ASSET_URL_ANCHORED.source.replace(/^\^/, ""),
+    "gd",
+);
+
+const toAssetUrlMatch = (match: RegExpExecArray): CopyAssetUrlMatch => {
+    // Groups 1-4 exist whenever the pattern matched at all.
+    const url = match[0];
+    const spaceId = match[1] ?? "";
+    const dimensions = match[2] ?? "";
+    const hash = match[3] ?? "";
+    const name = match[4] ?? "";
+    const rest = match[5] ?? "";
+    // `d` gives the exact bounds of the file name and of the space id, so the
+    // key can be replaced without rebuilding — or even reading — the host.
+    const indices = match.indices as Array<[number, number] | undefined>;
+    const keyStart = (indices[1]?.[0] ?? 0) - "/f/".length;
+    const keyEnd = indices[4]?.[1] ?? 0;
+
+    return {
+        spaceId,
+        dimensions,
+        hash,
+        name,
+        key: `/f/${spaceId}/${dimensions}/${hash}/${name}`,
+        rest,
+        url,
+        start: match.index,
+        end: match.index + url.length,
+        keyStart,
+        keyEnd,
+    };
+};
+
+/**
+ * The asset key of a value that IS an asset URL (or starts with one).
+ * `undefined` for anything else — a story URL, a relative path, a number.
+ */
+export const assetKeyOf = (value: unknown): CopyAssetUrlParts | undefined => {
+    if (typeof value !== "string" || value.length === 0) {
+        return undefined;
+    }
+
+    const match = ASSET_URL_ANCHORED.exec(value) as RegExpExecArray | null;
+
+    if (!match) {
+        return undefined;
+    }
+
+    const { spaceId, dimensions, hash, name, key, rest } =
+        toAssetUrlMatch(match);
+
+    return { spaceId, dimensions, hash, name, key, rest };
+};
+
+/** Every asset URL inside a longer text: HTML, markdown, a link field. */
+export const findAssetUrls = (text: unknown): CopyAssetUrlMatch[] => {
+    if (typeof text !== "string" || text.length === 0) {
+        return [];
+    }
+
+    const matches: CopyAssetUrlMatch[] = [];
+
+    ASSET_URL_GLOBAL.lastIndex = 0;
+
+    let match = ASSET_URL_GLOBAL.exec(text) as RegExpExecArray | null;
+
+    while (match) {
+        matches.push(toAssetUrlMatch(match));
+        match = ASSET_URL_GLOBAL.exec(text) as RegExpExecArray | null;
+    }
+
+    return matches;
+};
 
 export const scanStoryReferences = ({
     story,
@@ -53,6 +172,10 @@ export const scanStoryReferences = ({
         options: {
             referencePolicy: options.referencePolicy ?? "preserve",
         },
+        ...(options.sourceSpaceId
+            ? { sourceSpaceId: options.sourceSpaceId }
+            : {}),
+        assetObjectFilenamePaths: new Set<string>(),
         context: {
             sourceStoryId: story.id,
             sourceStoryUuid: story.uuid,
@@ -69,6 +192,11 @@ export const scanStoryReferences = ({
 
     scanStoryMetadata(story, state);
     scanComponentNode(story.content, "content", state);
+    // Schema-blind, and deliberately last: an asset URL is just as real inside
+    // a link, an SEO string, a plugin object or a component whose schema this
+    // run never saw. The schema-aware pass goes first so an asset object's own
+    // `filename` is recorded as the object it is, not twice.
+    scanStringAssetUrls(story.content, "content", state);
 
     return {
         storyReferences: state.storyReferences,
@@ -293,11 +421,16 @@ const scanAssetField = (
         ...state.context,
         assetId,
         filename,
+        ...(assetKeyOf(filename)
+            ? { assetKey: assetKeyOf(filename)?.key }
+            : {}),
+        shape: "object",
         path,
         status: "planned",
     };
 
     state.assetReferences.push(reference);
+    state.assetObjectFilenamePaths.add(`${path}.filename`);
 
     if (assetId !== undefined && filename) {
         const node: CopyGraphAssetNode = {
@@ -535,3 +668,62 @@ const getAssetNodeKey = (asset: CopyGraphAssetNode): string =>
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
     Boolean(value) && typeof value === "object" && !Array.isArray(value);
+
+/**
+ * Every string in a story's content, at any depth and under any key — the
+ * `__i18n__` copies of a field, a plugin's own object, a richtext node's
+ * `attrs`, a component with no schema — checked for asset URLs of the source
+ * space. A URL of another space is left to the foreign-space report, and an
+ * asset object's own `filename` is skipped because it is already recorded.
+ */
+const scanStringAssetUrls = (
+    node: unknown,
+    path: string,
+    state: ScannerState,
+) => {
+    if (typeof node === "string") {
+        if (
+            state.sourceSpaceId === undefined ||
+            state.assetObjectFilenamePaths.has(path)
+        ) {
+            return;
+        }
+
+        for (const match of findAssetUrls(node)) {
+            if (match.spaceId !== state.sourceSpaceId) {
+                continue;
+            }
+
+            state.assetReferences.push({
+                type: "asset_reference",
+                ...state.context,
+                filename: match.url,
+                assetKey: match.key,
+                shape: "string",
+                path,
+                status: "planned",
+            });
+        }
+
+        return;
+    }
+
+    if (Array.isArray(node)) {
+        node.forEach((item, index) =>
+            scanStringAssetUrls(item, `${path}[${index}]`, state),
+        );
+        return;
+    }
+
+    if (!isRecord(node)) {
+        return;
+    }
+
+    for (const [key, value] of Object.entries(node)) {
+        if (RESERVED_CONTENT_KEYS.has(key)) {
+            continue;
+        }
+
+        scanStringAssetUrls(value, `${path}.${key}`, state);
+    }
+};

@@ -73,6 +73,7 @@ import {
     parseManifestJsonl,
     planCopyRelinkStoryRewrite,
     planStoryTranslatedSlugs,
+    assetKeyOf,
     rewriteCopyReferences,
     scanStoriesReferences,
     selectRelinkLedgerAssetMappings,
@@ -242,6 +243,14 @@ type CopyDryRunAssetReferenceSummary = {
     planned: CopyDryRunAssetReferenceBucket;
     unresolved: CopyDryRunAssetReferenceBucket;
     unsupported: CopyDryRunAssetReferenceBucket;
+    /**
+     * How the stories hold their references: as an asset object, or as a URL
+     * written into a text, HTML, link or plugin field.
+     */
+    byShape: {
+        object: CopyDryRunAssetReferenceBucket;
+        string: CopyDryRunAssetReferenceBucket;
+    };
     foreignAssetSpaces: CopyDryRunForeignAssetSpaceSummary[];
 };
 
@@ -1900,6 +1909,12 @@ const buildCopyAssetsCommand = ({
     return args.map(quoteCommandArg).join(" ");
 };
 
+/**
+ * One asset, however it is written. Reading the URL is `assetKeyOf`'s job and
+ * nobody else's: the same file appears under several hosts and with several
+ * image-service tails, and counting those as different assets was exactly the
+ * bug this command had.
+ */
 const parseStoryblokAssetUrl = (
     filename: string | undefined,
 ): { spaceId?: string; uniqueKey?: string } => {
@@ -1907,37 +1922,17 @@ const parseStoryblokAssetUrl = (
         return {};
     }
 
-    let url: URL;
-    try {
-        url = new URL(filename);
-    } catch {
-        return {
-            uniqueKey: filename,
-        };
-    }
+    const parts = assetKeyOf(filename);
 
-    if (url.hostname !== "a.storyblok.com") {
+    if (!parts) {
         return {
-            uniqueKey: filename,
-        };
-    }
-
-    const parts = url.pathname.split("/").filter(Boolean);
-    const fIndex = parts.indexOf("f");
-    const spaceId = fIndex >= 0 ? parts[fIndex + 1] : undefined;
-    const assetHash = fIndex >= 0 ? parts[fIndex + 3] : undefined;
-    const assetName = fIndex >= 0 ? parts.slice(fIndex + 4).join("/") : "";
-
-    if (!spaceId || !assetHash || !assetName) {
-        return {
-            spaceId,
             uniqueKey: filename,
         };
     }
 
     return {
-        spaceId,
-        uniqueKey: `storyblok:${spaceId}:${assetHash}:${assetName}`,
+        spaceId: parts.spaceId,
+        uniqueKey: `storyblok:${parts.spaceId}:${parts.hash}:${parts.name}`,
     };
 };
 
@@ -1981,6 +1976,13 @@ const buildAssetReferenceSummary = ({
         string,
         { occurrences: number; uniqueAssets: Set<string> }
     >();
+    const shapes = ["object", "string"] as const;
+    const uniqueByShape = new Map<(typeof shapes)[number], Set<string>>(
+        shapes.map((shape) => [shape, new Set<string>()]),
+    );
+    const occurrencesByShape = new Map<(typeof shapes)[number], number>(
+        shapes.map((shape) => [shape, 0]),
+    );
 
     for (const reference of graph.assetReferences) {
         const status = reference.status;
@@ -1991,6 +1993,13 @@ const buildAssetReferenceSummary = ({
             (occurrencesByStatus.get(status) ?? 0) + 1,
         );
         uniqueByStatus.get(status)?.add(uniqueKey);
+
+        // A reference the scanner did not label is an asset object: that is
+        // the only shape that existed before string URLs were scanned.
+        const shape = reference.shape ?? "object";
+
+        occurrencesByShape.set(shape, (occurrencesByShape.get(shape) ?? 0) + 1);
+        uniqueByShape.get(shape)?.add(uniqueKey);
 
         const parsed = parseStoryblokAssetUrl(reference.filename);
         if (parsed.spaceId && parsed.spaceId !== sourceSpace) {
@@ -2012,11 +2021,22 @@ const buildAssetReferenceSummary = ({
         uniqueAssets: uniqueByStatus.get(status)?.size ?? 0,
     });
 
+    const shapeBucket = (
+        shape: (typeof shapes)[number],
+    ): CopyDryRunAssetReferenceBucket => ({
+        occurrences: occurrencesByShape.get(shape) ?? 0,
+        uniqueAssets: uniqueByShape.get(shape)?.size ?? 0,
+    });
+
     return {
         mapped: bucket("mapped"),
         planned: bucket("planned"),
         unresolved: bucket("unresolved"),
         unsupported: bucket("unsupported"),
+        byShape: {
+            object: shapeBucket("object"),
+            string: shapeBucket("string"),
+        },
         foreignAssetSpaces: Array.from(foreignSpaces.entries())
             .map(([spaceId, summary]) => ({
                 spaceId,
@@ -3464,14 +3484,17 @@ const collectAssetFolderAncestors = ({
 const hasMappedAssetReference = ({
     assetId,
     filename,
+    assetKey,
     copyMaps,
 }: {
     assetId?: number;
     filename?: string;
+    assetKey?: string;
     copyMaps: CopyMaps;
 }): boolean =>
     (assetId !== undefined && copyMaps.assetIds.has(assetId)) ||
-    (filename !== undefined && copyMaps.assetFilenames.has(filename));
+    (filename !== undefined && copyMaps.assetFilenames.has(filename)) ||
+    (assetKey !== undefined && copyMaps.assetKeys.has(assetKey));
 
 const annotateReferencesWithManifestMaps = ({
     graph,
@@ -3674,6 +3697,9 @@ const buildStoryReferenceDryRunGraph = ({
         schemas,
         options: {
             referencePolicy: "preserve",
+            // Asset URLs written into text, HTML, link and plugin fields are
+            // references too; only this space's own files are ours to follow.
+            sourceSpaceId: sourceSpace,
             onProgress: onScanProgress,
         },
     });
@@ -3754,6 +3780,9 @@ const buildReferencedAssetsGraph = ({
         schemas,
         options: {
             referencePolicy: "preserve",
+            // Asset URLs written into text, HTML, link and plugin fields are
+            // references too; only this space's own files are ours to follow.
+            sourceSpaceId: sourceSpace,
             onProgress: onScanProgress,
         },
     });
@@ -3767,16 +3796,37 @@ const buildReferencedAssetsGraph = ({
             .map((reference) => reference.filename)
             .filter((filename): filename is string => filename !== undefined),
     );
+    // The library answers a different host than the content writes, so a file
+    // a story mentions only as a URL is found by its key or not at all.
+    const referencedAssetKeys = new Set(
+        scanResult.assetReferences
+            .map((reference) => reference.assetKey)
+            .filter((assetKey): assetKey is string => assetKey !== undefined),
+    );
+    const isReferencedAssetKey = (
+        filename: unknown,
+        keys: ReadonlySet<string>,
+    ): boolean => {
+        const assetKey = assetKeyOf(filename)?.key;
+
+        return assetKey !== undefined && keys.has(assetKey);
+    };
     const selectedAssets = sourceAssets.filter(
         (asset) =>
             referencedAssetIds.has(Number(asset.id)) ||
-            referencedFilenames.has(String(asset.filename)),
+            referencedFilenames.has(String(asset.filename)) ||
+            isReferencedAssetKey(asset.filename, referencedAssetKeys),
     );
     const selectedAssetIds = new Set(
         selectedAssets.map((asset) => Number(asset.id)),
     );
     const selectedFilenames = new Set(
         selectedAssets.map((asset) => String(asset.filename)),
+    );
+    const selectedAssetKeys = new Set(
+        selectedAssets
+            .map((asset) => assetKeyOf(asset.filename)?.key)
+            .filter((assetKey): assetKey is string => assetKey !== undefined),
     );
     const selectedAssetFolders = collectAssetFolderAncestors({
         assets: selectedAssets,
@@ -3820,7 +3870,9 @@ const buildReferencedAssetsGraph = ({
                 (reference.assetId !== undefined &&
                     selectedAssetIds.has(reference.assetId)) ||
                 (reference.filename !== undefined &&
-                    selectedFilenames.has(reference.filename));
+                    selectedFilenames.has(reference.filename)) ||
+                (reference.assetKey !== undefined &&
+                    selectedAssetKeys.has(reference.assetKey));
 
             return {
                 ...reference,
@@ -5423,6 +5475,14 @@ const logDryRunCopyPlan = async ({
             Logger.warning(
                 `[dry-run] Unique asset refs: ${report.assetReferenceSummary.mapped.uniqueAssets} mapped, ${report.assetReferenceSummary.planned.uniqueAssets} planned, ${report.assetReferenceSummary.unresolved.uniqueAssets} unresolved.`,
             );
+
+            // Only worth a line when a story really holds one: a space with no
+            // string URLs reads exactly as it did before.
+            if (report.assetReferenceSummary.byShape.string.occurrences > 0) {
+                Logger.warning(
+                    `[dry-run] Asset refs by shape: ${report.assetReferenceSummary.byShape.object.occurrences} in asset fields, ${report.assetReferenceSummary.byShape.string.occurrences} as URLs in text (${report.assetReferenceSummary.byShape.string.uniqueAssets} unique asset(s)).`,
+                );
+            }
 
             for (const foreignSpace of report.assetReferenceSummary
                 .foreignAssetSpaces) {
