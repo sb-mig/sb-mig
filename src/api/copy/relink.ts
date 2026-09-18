@@ -4,7 +4,11 @@ import type {
     CopyMaps,
 } from "./types.js";
 
-import { createEmptyCopyMaps } from "./manifest.js";
+import {
+    applyCopyMapWrites,
+    createEmptyCopyMaps,
+    getCopyAssetMapWrites,
+} from "./manifest.js";
 import {
     formatCopyPlanGateLedger,
     formatCopyPlanGateReferences,
@@ -106,22 +110,16 @@ const applyCopyRelinkAssetMapping = (
     maps: CopyMaps,
     mapping: CopyRelinkAssetMapping,
 ) => {
-    maps.assetIds.set(mapping.sourceId, {
-        id: mapping.targetId,
-        filename: mapping.targetFilename,
-    });
-    maps.assetFilenames.set(mapping.sourceFilename, mapping.targetFilename);
-
-    // A story holds the file's own URL, whose host may differ from the one the
-    // library answered with; only the key matches both.
-    const sourceKey = assetKeyOf(mapping.sourceFilename)?.key;
-
-    if (sourceKey) {
-        maps.assetKeys.set(sourceKey, {
-            id: mapping.targetId,
-            filename: mapping.targetFilename,
-        });
-    }
+    // The one writer of an asset mapping: id, file name and key together.
+    applyCopyMapWrites(
+        maps,
+        getCopyAssetMapWrites({
+            sourceId: mapping.sourceId,
+            sourceFilename: mapping.sourceFilename,
+            targetId: mapping.targetId,
+            targetFilename: mapping.targetFilename,
+        }),
+    );
 };
 
 /**

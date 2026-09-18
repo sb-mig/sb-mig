@@ -73,7 +73,9 @@ import {
     parseManifestJsonl,
     planCopyRelinkStoryRewrite,
     planStoryTranslatedSlugs,
+    applyCopyMapWrites,
     assetKeyOf,
+    getCopyAssetMapWrites,
     rewriteCopyReferences,
     scanStoriesReferences,
     selectRelinkLedgerAssetMappings,
@@ -5191,13 +5193,14 @@ const copyAssetsAndWriteManifests = async ({
                 resourcePath: manifestPaths.assets,
                 entry,
             });
-            copyMaps.assetIds.set(entry.source_id, {
-                id: entry.target_id,
-                filename: entry.target_filename,
-            });
-            copyMaps.assetFilenames.set(
-                entry.source_filename,
-                entry.target_filename,
+            applyCopyMapWrites(
+                copyMaps,
+                getCopyAssetMapWrites({
+                    sourceId: entry.source_id,
+                    sourceFilename: entry.source_filename,
+                    targetId: entry.target_id,
+                    targetFilename: entry.target_filename,
+                }),
             );
             graphAsset.targetFilename = entry.target_filename;
             graphAsset.targetAssetFolderId = entry.target_asset_folder_id;
@@ -5298,13 +5301,14 @@ const copyAssetsAndWriteManifests = async ({
             resourcePath: manifestPaths.assets,
             entry,
         });
-        copyMaps.assetIds.set(entry.source_id, {
-            id: entry.target_id,
-            filename: entry.target_filename,
-        });
-        copyMaps.assetFilenames.set(
-            entry.source_filename,
-            entry.target_filename,
+        applyCopyMapWrites(
+            copyMaps,
+            getCopyAssetMapWrites({
+                sourceId: entry.source_id,
+                sourceFilename: entry.source_filename,
+                targetId: entry.target_id,
+                targetFilename: entry.target_filename,
+            }),
         );
         graphAsset.targetFilename = entry.target_filename;
         graphAsset.targetAssetFolderId = entry.target_asset_folder_id;

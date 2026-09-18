@@ -77,30 +77,43 @@ export type CopyAssetUrlMatch = CopyAssetUrlParts & {
 };
 
 // The host forms Storyblok writes: the CDN, the same CDN behind its S3 bucket
-// path, a protocol-relative CDN URL, and the legacy image service. A `)` ends
-// a URL so a markdown link does not swallow its own closing bracket, and the
-// `d` flag gives the exact bounds of the key inside the text.
+// path, a protocol-relative CDN URL, and the legacy image service. Between the
+// host and `/f/` the image service may put its own segments
+// (`/600x0/filters:format(webp)/f/…`): at most three, each bounded, so the
+// scan of a text that repeats the host without ever reaching `/f/` stays
+// linear. A `)` ends the file name so a markdown link does not swallow its own
+// closing bracket, and the `d` flag gives the exact bounds of the key.
 const ASSET_URL_ANCHORED =
-    /^(?:https?:)?\/\/(?:s3\.amazonaws\.com\/)?(?:a|img2)\.storyblok\.com(?:\/[^\s"'<>\\)]*?)?\/f\/(\d+)\/([^/\s"'<>\\)]+)\/([^/\s"'<>\\)]+)\/([^/\s"'<>\\)?#]+)((?:\/m(?:\/[^\s"'<>\\)?#]*)?)?(?:\?[^\s"'<>\\)]*)?(?:#[^\s"'<>\\)]*)?)/d;
+    /^(?:https?:)?\/\/(?:s3\.amazonaws\.com\/)?(?:a|img2)\.storyblok\.com(?:\/[^/\s"'<>\\]{1,64}){0,3}\/f\/(\d+)\/([^/\s"'<>\\)]+)\/([^/\s"'<>\\)]+)\/([^/\s"'<>\\)?#]+)((?:\/m(?:\/[^\s"'<>\\)?#]*)?)?(?:\?[^\s"'<>\\)]*)?(?:#[^\s"'<>\\)]*)?)/d;
 
 const ASSET_URL_GLOBAL = new RegExp(
     ASSET_URL_ANCHORED.source.replace(/^\^/, ""),
     "gd",
 );
 
+// `See https://a.storyblok.com/f/1/x/h/photo.png. Next` ends a sentence, not a
+// file name: of 2,969 file names in a real library none ends in punctuation.
+const SENTENCE_TAIL = /[.,;:!?]+$/;
+
 const toAssetUrlMatch = (match: RegExpExecArray): CopyAssetUrlMatch => {
     // Groups 1-4 exist whenever the pattern matched at all.
-    const url = match[0];
     const spaceId = match[1] ?? "";
     const dimensions = match[2] ?? "";
     const hash = match[3] ?? "";
-    const name = match[4] ?? "";
+    const rawName = match[4] ?? "";
     const rest = match[5] ?? "";
+    // Only when nothing follows the name: inside `?x=1.` the dot is the
+    // query's, and the name already ended at the `?`.
+    const trimmed =
+        rest.length === 0 ? rawName.replace(SENTENCE_TAIL, "") : rawName;
+    const name = trimmed.length > 0 ? trimmed : rawName;
+    const dropped = (match[4] ?? "").length - name.length;
+    const url = match[0].slice(0, match[0].length - dropped);
     // `d` gives the exact bounds of the file name and of the space id, so the
     // key can be replaced without rebuilding — or even reading — the host.
     const indices = match.indices as Array<[number, number] | undefined>;
     const keyStart = (indices[1]?.[0] ?? 0) - "/f/".length;
-    const keyEnd = indices[4]?.[1] ?? 0;
+    const keyEnd = (indices[4]?.[1] ?? 0) - dropped;
 
     return {
         spaceId,
@@ -669,61 +682,137 @@ const getAssetNodeKey = (asset: CopyGraphAssetNode): string =>
 const isRecord = (value: unknown): value is Record<string, unknown> =>
     Boolean(value) && typeof value === "object" && !Array.isArray(value);
 
+/* ------------------------------------------------------------------ *
+ * The shared string walk
+ * ------------------------------------------------------------------ */
+
+export type CopyStringVisit = {
+    value: string;
+    path: string;
+    /** Writes a new value back where the string was found. */
+    replace: (next: string) => void;
+};
+
 /**
- * Every string in a story's content, at any depth and under any key — the
+ * Every string of a story's content, at any depth and under any key — the
  * `__i18n__` copies of a field, a plugin's own object, a richtext node's
- * `attrs`, a component with no schema — checked for asset URLs of the source
- * space. A URL of another space is left to the foreign-space report, and an
- * asset object's own `filename` is skipped because it is already recorded.
+ * `attrs` however deeply nested, a component with no schema.
+ *
+ * The scanner and the rewriter BOTH walk through this one function. That is
+ * the point: a PLAN that counts a reference the rewrite cannot reach is the
+ * lie this whole feature exists to remove, and two walks kept in step by hand
+ * drift apart. `skipPaths` is the only asymmetry either side may ask for, and
+ * both use it for the same thing — the `filename` of an asset object, which is
+ * handled as the object it belongs to.
+ */
+export const walkCopyStrings = ({
+    value,
+    path,
+    skipPaths,
+    visit,
+}: {
+    value: unknown;
+    path: string;
+    skipPaths?: ReadonlySet<string>;
+    visit: (found: CopyStringVisit) => void;
+}): void => {
+    if (typeof value === "string") {
+        if (!skipPaths?.has(path)) {
+            visit({ value, path, replace: () => undefined });
+        }
+
+        return;
+    }
+
+    if (Array.isArray(value)) {
+        value.forEach((item, index) => {
+            const itemPath = `${path}[${index}]`;
+
+            if (typeof item === "string") {
+                if (skipPaths?.has(itemPath)) {
+                    return;
+                }
+
+                visit({
+                    value: item,
+                    path: itemPath,
+                    replace: (next) => {
+                        value[index] = next;
+                    },
+                });
+                return;
+            }
+
+            walkCopyStrings({ value: item, path: itemPath, skipPaths, visit });
+        });
+        return;
+    }
+
+    if (!isRecord(value)) {
+        return;
+    }
+
+    for (const [key, entry] of Object.entries(value)) {
+        if (RESERVED_CONTENT_KEYS.has(key)) {
+            continue;
+        }
+
+        const entryPath = `${path}.${key}`;
+
+        if (typeof entry === "string") {
+            if (skipPaths?.has(entryPath)) {
+                continue;
+            }
+
+            visit({
+                value: entry,
+                path: entryPath,
+                replace: (next) => {
+                    value[key] = next;
+                },
+            });
+            continue;
+        }
+
+        walkCopyStrings({ value: entry, path: entryPath, skipPaths, visit });
+    }
+};
+
+/**
+ * The scanner's half of the shared walk: every asset URL of the source space
+ * found in a string becomes a reference. A URL of another space is recorded
+ * nowhere — the foreign-space report reads asset OBJECTS only, and a foreign
+ * URL in a text is not something this copy can act on.
  */
 const scanStringAssetUrls = (
     node: unknown,
     path: string,
     state: ScannerState,
 ) => {
-    if (typeof node === "string") {
-        if (
-            state.sourceSpaceId === undefined ||
-            state.assetObjectFilenamePaths.has(path)
-        ) {
-            return;
-        }
+    if (state.sourceSpaceId === undefined) {
+        return;
+    }
 
-        for (const match of findAssetUrls(node)) {
-            if (match.spaceId !== state.sourceSpaceId) {
-                continue;
+    walkCopyStrings({
+        value: node,
+        path,
+        skipPaths: state.assetObjectFilenamePaths,
+        visit: ({ value, path: stringPath }) => {
+            for (const match of findAssetUrls(value)) {
+                if (match.spaceId !== state.sourceSpaceId) {
+                    continue;
+                }
+
+                state.assetReferences.push({
+                    type: "asset_reference",
+                    ...state.context,
+                    filename: match.url,
+                    assetKey: match.key,
+                    shape: "string",
+                    path: stringPath,
+                    status: "planned",
+                });
             }
-
-            state.assetReferences.push({
-                type: "asset_reference",
-                ...state.context,
-                filename: match.url,
-                assetKey: match.key,
-                shape: "string",
-                path,
-                status: "planned",
-            });
-        }
-
-        return;
-    }
-
-    if (Array.isArray(node)) {
-        node.forEach((item, index) =>
-            scanStringAssetUrls(item, `${path}[${index}]`, state),
-        );
-        return;
-    }
-
-    if (!isRecord(node)) {
-        return;
-    }
-
-    for (const [key, value] of Object.entries(node)) {
-        if (RESERVED_CONTENT_KEYS.has(key)) {
-            continue;
-        }
-
-        scanStringAssetUrls(value, `${path}.${key}`, state);
-    }
+        },
+    });
 };

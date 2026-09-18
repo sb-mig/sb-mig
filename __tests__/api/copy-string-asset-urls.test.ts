@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import {
+    applyCopyMapWrites,
     assetKeyOf,
     buildCopyMaps,
+    createEmptyCopyMaps,
+    getCopyAssetMapWrites,
     buildCopyRelinkMaps,
     findAssetUrls,
     rewriteCopyReferences,
@@ -349,6 +352,285 @@ describe("asset URLs in strings: the rewriter rewrites what the ledger proves (R
             `${CDN}${TARGET_KEY}`,
         );
         expect(result.records[0]?.field).toBe("filename");
+    });
+});
+
+describe("asset URLs in strings: one walk for both passes (lap 2, A)", () => {
+    /** A URL in every place the two passes used to disagree about. */
+    const awkward = () => ({
+        component: "page",
+        intro: {
+            type: "doc",
+            content: [
+                {
+                    type: "paragraph",
+                    content: [
+                        {
+                            type: "text",
+                            text: "link",
+                            marks: [
+                                {
+                                    type: "link",
+                                    attrs: {
+                                        href: `${CDN}${KEY}`,
+                                        // Nested inside a link's attrs: the
+                                        // rewriter used to visit top-level
+                                        // attr strings only.
+                                        custom: { download: `${CDN}${KEY}` },
+                                        story: { url: `${CDN}${OTHER_KEY}` },
+                                    },
+                                },
+                            ],
+                        },
+                    ],
+                },
+                {
+                    type: "blok",
+                    attrs: {
+                        // Not `body`, so the blok rewriter never looked here.
+                        caption: `${CDN}${OTHER_KEY}`,
+                        body: [{ component: "card", image: `${CDN}${KEY}` }],
+                    },
+                },
+                {
+                    type: "blok",
+                    // `body` that is not an array at all.
+                    attrs: { body: { image: `${CDN}${KEY}` } },
+                },
+            ],
+        },
+        // Strings inside an array (lap 2, G4).
+        gallery: [`${CDN}${KEY}`, "not a url", `${CDN}${OTHER_KEY}`],
+    });
+
+    // A canary. Mutation that must turn it red: give the rewriter its own
+    // walk again (skip a richtext link's attrs, or visit only top-level attr
+    // strings).
+    it("counts exactly the paths the rewrite reaches", () => {
+        const scanned = scanStoryReferences({
+            story: { id: 1, uuid: "u", full_slug: "s", content: awkward() },
+            schemas: { page: { intro: { type: "richtext" } } },
+            options: { sourceSpaceId: SOURCE_SPACE },
+        })
+            .assetReferences.filter((reference) => reference.shape === "string")
+            .map((reference) => reference.path.replace(/^content/, "$"));
+        const rewritten = rewriteCopyReferences({
+            value: awkward(),
+            maps: buildCopyMaps(assetLedger),
+            schemas: { page: { intro: { type: "richtext" } } },
+        });
+        const rewrittenPaths = rewritten.records
+            .filter((record) => record.field === "string")
+            .map((record) => record.path);
+
+        expect(scanned.length).toBe(8);
+        expect(new Set(rewrittenPaths)).toEqual(new Set(scanned));
+        expect(JSON.stringify(rewritten.value)).not.toContain(
+            `/f/${SOURCE_SPACE}/`,
+        );
+    });
+
+    // A canary. Mutation that must turn it red: let the string pass visit the
+    // `filename` of an asset object the object rule already rewrote.
+    it("rewrites an asset object's filename once, by the object rule only", () => {
+        // A ledger where the first file's target is the second file's source.
+        const chained = [
+            {
+                ...assetLedger[0]!,
+                source_id: 900,
+                target_id: 9000,
+                source_filename: `${CDN}${KEY}`,
+                target_filename: `${CDN}${OTHER_KEY}`,
+            },
+            {
+                ...assetLedger[0]!,
+                source_id: 901,
+                target_id: 9001,
+                source_filename: `${CDN}${OTHER_KEY}`,
+                target_filename: `${CDN}${TARGET_OTHER_KEY}`,
+            },
+        ];
+        const result = rewriteCopyReferences({
+            value: {
+                image: {
+                    fieldtype: "asset",
+                    id: 900,
+                    filename: `${CDN}${KEY}`,
+                },
+            },
+            maps: buildCopyMaps(chained),
+            schemas,
+        });
+        const image = (result.value as any).image;
+
+        // The id says 9000, so the file name must be 9000's file too.
+        expect(image.id).toBe(9000);
+        expect(image.filename).toBe(`${CDN}${OTHER_KEY}`);
+    });
+});
+
+describe("asset URLs in strings: one writer of an asset mapping (lap 2, B)", () => {
+    // B canary. Mutation that must turn it red: write only two of the three
+    // maps in getCopyAssetMapWrites.
+    it("writes the id, the file name and the key together", () => {
+        const maps = createEmptyCopyMaps();
+
+        applyCopyMapWrites(
+            maps,
+            getCopyAssetMapWrites({
+                sourceId: 900,
+                sourceFilename: `${S3}${KEY}`,
+                targetId: 9000,
+                targetFilename: `${CDN}${TARGET_KEY}`,
+            }),
+        );
+
+        expect(maps.assetIds.get(900)).toEqual({
+            id: 9000,
+            filename: `${CDN}${TARGET_KEY}`,
+        });
+        expect(maps.assetFilenames.get(`${S3}${KEY}`)).toBe(
+            `${CDN}${TARGET_KEY}`,
+        );
+        expect(maps.assetKeys.get(KEY)).toEqual({
+            id: 9000,
+            filename: `${CDN}${TARGET_KEY}`,
+        });
+    });
+
+    it("writes no key for a file name that is not an asset URL", () => {
+        const maps = createEmptyCopyMaps();
+
+        applyCopyMapWrites(
+            maps,
+            getCopyAssetMapWrites({
+                sourceId: 5,
+                sourceFilename: "a.png",
+                targetId: 6,
+                targetFilename: "b.png",
+            }),
+        );
+
+        expect(maps.assetKeys.size).toBe(0);
+        expect(maps.assetFilenames.get("a.png")).toBe("b.png");
+    });
+});
+
+describe("asset URLs in strings: the text around a URL (lap 2, C, E, F)", () => {
+    // C canary. Mutation that must turn it red: allow a trailing `.` in the
+    // file name.
+    it("leaves a sentence's punctuation out of the file name", () => {
+        const sentence = `See ${CDN}${KEY}. Next`;
+
+        expect(assetKeyOf(`${CDN}${KEY}.`)?.key).toBe(KEY);
+        expect(findAssetUrls(sentence).map((match) => match.key)).toEqual([
+            KEY,
+        ]);
+        expect(
+            findAssetUrls(`${CDN}${KEY}, ${CDN}${OTHER_KEY}.`).map(
+                (match) => match.key,
+            ),
+        ).toEqual([KEY, OTHER_KEY]);
+
+        const result = rewriteCopyReferences({
+            value: { text: sentence },
+            maps: buildCopyMaps(assetLedger),
+            schemas,
+        });
+
+        expect((result.value as any).text).toBe(
+            `See ${CDN}${TARGET_KEY}. Next`,
+        );
+    });
+
+    // E canary. Mutation that must turn it red: bar the image service's own
+    // filter segments between the host and `/f/`.
+    it("reads the legacy image service's filter form", () => {
+        expect(
+            assetKeyOf(`//img2.storyblok.com/600x0/filters:format(webp)${KEY}`)
+                ?.key,
+        ).toBe(KEY);
+        expect(
+            assetKeyOf(`https://img2.storyblok.com/fit-in/200x200${KEY}`)?.key,
+        ).toBe(KEY);
+    });
+
+    // F canary. Mutation that must turn it red: leave a richtext image node's
+    // `attrs.id` at the source asset's id.
+    it("re-points a richtext image node's id with its src", () => {
+        const result = rewriteCopyReferences({
+            value: {
+                type: "doc",
+                content: [
+                    {
+                        type: "image",
+                        attrs: { id: 900, src: `${CDN}${KEY}`, alt: "x" },
+                    },
+                ],
+            },
+            maps: buildCopyMaps(assetLedger),
+            schemas,
+        });
+        const attrs = (result.value as any).content[0].attrs;
+
+        expect(attrs).toMatchObject({ id: 9000, src: `${CDN}${TARGET_KEY}` });
+        expect(
+            result.records.filter((record) => record.field === "id"),
+        ).toHaveLength(1);
+    });
+});
+
+describe("asset URLs in strings: host forms and counts (lap 2, G2, G3)", () => {
+    // G2 canary. Mutation that must turn it red: rebuild the URL on the plain
+    // CDN host instead of replacing the key inside the URL as written.
+    it("keeps the host form each occurrence was written with", () => {
+        const result = rewriteCopyReferences({
+            value: {
+                s3: `${S3}${KEY}`,
+                protocolRelative: `//a.storyblok.com${OTHER_KEY}`,
+                img2: `https://img2.storyblok.com/600x0/filters:format(webp)${KEY}`,
+            },
+            maps: buildCopyMaps(assetLedger),
+            schemas,
+        });
+        const value = result.value as any;
+
+        expect(value.s3).toBe(`${S3}${TARGET_KEY}`);
+        expect(value.protocolRelative).toBe(
+            `//a.storyblok.com${TARGET_OTHER_KEY}`,
+        );
+        expect(value.img2).toBe(
+            `https://img2.storyblok.com/600x0/filters:format(webp)${TARGET_KEY}`,
+        );
+    });
+
+    // G3 canary. Mutation that must turn it red: stop skipping the `filename`
+    // of an object already recorded as an asset object.
+    it("counts an asset object in an asset field exactly once", () => {
+        const references = scanStoryReferences({
+            story: {
+                id: 1,
+                uuid: "u",
+                full_slug: "s",
+                content: {
+                    component: "page",
+                    hero: {
+                        fieldtype: "asset",
+                        id: 900,
+                        filename: `${CDN}${KEY}`,
+                    },
+                },
+            },
+            schemas: { page: { hero: { type: "asset" } } },
+            options: { sourceSpaceId: SOURCE_SPACE },
+        }).assetReferences;
+
+        expect(references).toHaveLength(1);
+        expect(references[0]).toMatchObject({
+            shape: "object",
+            assetId: 900,
+            assetKey: KEY,
+        });
     });
 });
 
