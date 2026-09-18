@@ -634,6 +634,171 @@ describe("asset URLs in strings: host forms and counts (lap 2, G2, G3)", () => {
     });
 });
 
+describe("asset URLs in strings: an object takes one entry whole (lap 3, I)", () => {
+    // I canary. Mutation that must turn it red: take only the file name from
+    // the key entry and leave the object's id alone.
+    it("gives an object found by its path the target's id as well as its name", () => {
+        const result = rewriteCopyReferences({
+            value: {
+                image: {
+                    fieldtype: "asset",
+                    // The id a story stored before the file was replaced: it
+                    // is in no ledger line. Only the path finds this asset.
+                    id: 123456,
+                    filename: `${CDN}${KEY}`,
+                },
+            },
+            maps: buildCopyMaps(assetLedger),
+            schemas,
+        });
+        const image = (result.value as any).image;
+
+        expect(image).toMatchObject({
+            id: 9000,
+            filename: `${CDN}${TARGET_KEY}`,
+        });
+        expect(
+            result.records.map((record) => [record.field, record.targetValue]),
+        ).toEqual([
+            ["id", 9000],
+            ["filename", `${CDN}${TARGET_KEY}`],
+        ]);
+    });
+
+    it("still takes both values from the id entry when the id is known", () => {
+        const result = rewriteCopyReferences({
+            value: {
+                image: { fieldtype: "asset", id: 900, filename: "stale.jpg" },
+            },
+            maps: buildCopyMaps(assetLedger),
+            schemas,
+        });
+
+        expect((result.value as any).image).toMatchObject({
+            id: 9000,
+            filename: `${CDN}${TARGET_KEY}`,
+        });
+    });
+
+    // I canary. Mutation that must turn it red: record an id rewrite even when
+    // the ledger entry names the id the object already holds.
+    it("records no id rewrite when the entry maps that id to itself", () => {
+        // A ledger line whose source and target ids are the same file in the
+        // same space — what a same-space copy, or a rerun of one, writes.
+        const selfMapping: CopyManifestEntry[] = [
+            {
+                type: "asset",
+                source_space_id: SOURCE_SPACE,
+                target_space_id: SOURCE_SPACE,
+                action: "created",
+                created_at: "2026-09-18T00:00:00.000Z",
+                source_id: 900,
+                target_id: 900,
+                source_filename: `${S3}${KEY}`,
+                target_filename: `${CDN}${KEY}`,
+            },
+        ];
+        const result = rewriteCopyReferences({
+            value: {
+                image: {
+                    fieldtype: "asset",
+                    id: 900,
+                    filename: `${CDN}${KEY}`,
+                },
+            },
+            maps: buildCopyMaps(selfMapping),
+            schemas,
+        });
+
+        expect((result.value as any).image).toMatchObject({
+            id: 900,
+            filename: `${CDN}${KEY}`,
+        });
+        expect(result.records).toEqual([]);
+    });
+
+    it("records nothing for an object whose id and name are already the target's", () => {
+        const result = rewriteCopyReferences({
+            value: {
+                image: {
+                    fieldtype: "asset",
+                    id: 9000,
+                    filename: `${CDN}${TARGET_KEY}`,
+                },
+            },
+            maps: buildCopyMaps(assetLedger),
+            schemas,
+        });
+
+        expect(result.records).toEqual([]);
+    });
+});
+
+describe("asset URLs in strings: the prefix bound and the tail guard (lap 3, J)", () => {
+    // J canary. Mutation that must turn it red: tighten the prefix bound back
+    // to two or three segments.
+    it("reads up to six image-service segments and stops past that", () => {
+        const four = `https://img2.storyblok.com/fit-in/600x0/smart/filters:format(webp)${KEY}`;
+        const three = `https://img2.storyblok.com/600x0/smart/filters:format(webp)${KEY}`;
+        const seven = `https://img2.storyblok.com/a/b/c/d/e/f/g${KEY}`;
+
+        expect(assetKeyOf(four)?.key).toBe(KEY);
+        expect(assetKeyOf(three)?.key).toBe(KEY);
+        expect(assetKeyOf(seven)).toBeUndefined();
+        // A single segment longer than the old 64-character bound still reads.
+        expect(
+            assetKeyOf(
+                `https://img2.storyblok.com/filters:format(webp):quality(80):focal(${"1".repeat(80)})${KEY}`,
+            )?.key,
+        ).toBe(KEY);
+    });
+
+    // J canary. Mutation that must turn it red: trim the file name even when
+    // something follows it (drop the `rest.length === 0` guard).
+    it("only trims punctuation when the file name ends the URL", () => {
+        const withQuery = `${CDN}/f/${SOURCE_SPACE}/1200x630/${HASH}/a.pdf.?x=1`;
+        const parsed = assetKeyOf(withQuery);
+
+        expect(parsed?.key).toBe(`/f/${SOURCE_SPACE}/1200x630/${HASH}/a.pdf.`);
+        expect(parsed?.rest).toBe("?x=1");
+
+        const found = findAssetUrls(withQuery);
+
+        expect(found[0]?.url).toBe(withQuery);
+        expect(withQuery.slice(found[0]!.keyStart, found[0]!.keyEnd)).toBe(
+            parsed?.key,
+        );
+
+        // And a real key with a query and a sentence's full stop after it:
+        // both survive the rewrite untouched.
+        const sentence = `${CDN}${KEY}?utm_source=x. Next`;
+        const result = rewriteCopyReferences({
+            value: { text: sentence },
+            maps: buildCopyMaps(assetLedger),
+            schemas,
+        });
+
+        expect((result.value as any).text).toBe(
+            `${CDN}${TARGET_KEY}?utm_source=x. Next`,
+        );
+    });
+});
+
+describe("asset URLs in strings: a record is only written where a value was (lap 3, K)", () => {
+    // K canary. Mutation that must turn it red: visit a string passed as the
+    // whole value, whose `replace` cannot write anywhere.
+    it("records nothing for a bare string value nothing holds", () => {
+        const result = rewriteCopyReferences({
+            value: `${CDN}${KEY}`,
+            maps: buildCopyMaps(assetLedger),
+            schemas,
+        });
+
+        expect(result.records).toEqual([]);
+        expect(result.value).toBe(`${CDN}${KEY}`);
+    });
+});
+
 describe("asset URLs in strings: relink repairs them (R6)", () => {
     // R6 canary. Mutation that must turn it red: select ledger asset mappings
     // by the source id and the verbatim source filename only.

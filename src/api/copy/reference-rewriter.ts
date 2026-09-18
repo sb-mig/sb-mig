@@ -243,26 +243,30 @@ const rewriteAssetObject = (
 
     state.assetObjectFilenamePaths.add(`${path}.filename`);
 
-    const targetById =
-        typeof node.id === "number"
+    // One ledger entry decides BOTH values. An object whose stored id differs
+    // from the library's id for the same file — 156 of 23,082 on a real space,
+    // where a file was replaced after the story was written — is found by its
+    // path; taking the target's file name without the target's id would leave
+    // an object naming two different assets.
+    const entry =
+        (typeof node.id === "number"
             ? state.maps.assetIds.get(node.id)
-            : undefined;
-    // By key too: an object whose id is gone still names the file, and the
-    // ledger's own filename may carry a different host than the story's.
+            : undefined) ??
+        (sourceKey ? state.maps.assetKeys.get(sourceKey) : undefined);
+    // The exact-file-name map carries no id, so a match by it stays what it
+    // has always been: the file name alone.
     const targetFilename =
-        targetById?.filename ??
-        state.maps.assetFilenames.get(node.filename) ??
-        (sourceKey ? state.maps.assetKeys.get(sourceKey)?.filename : undefined);
+        entry?.filename ?? state.maps.assetFilenames.get(node.filename);
 
-    if (typeof node.id === "number" && targetById) {
+    if (typeof node.id === "number" && entry && node.id !== entry.id) {
         addRecord(state, {
             type: "asset",
             path: `${path}.id`,
             sourceValue: node.id,
-            targetValue: targetById.id,
+            targetValue: entry.id,
             field: "id",
         });
-        node.id = targetById.id;
+        node.id = entry.id;
     }
 
     if (targetFilename && node.filename !== targetFilename) {

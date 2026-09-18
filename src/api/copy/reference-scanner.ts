@@ -79,12 +79,12 @@ export type CopyAssetUrlMatch = CopyAssetUrlParts & {
 // The host forms Storyblok writes: the CDN, the same CDN behind its S3 bucket
 // path, a protocol-relative CDN URL, and the legacy image service. Between the
 // host and `/f/` the image service may put its own segments
-// (`/600x0/filters:format(webp)/f/…`): at most three, each bounded, so the
-// scan of a text that repeats the host without ever reaching `/f/` stays
-// linear. A `)` ends the file name so a markdown link does not swallow its own
+// (`/fit-in/600x0/smart/filters:format(webp)/f/…`): up to six, each bounded,
+// so the scan of a text that repeats the host without ever reaching `/f/`
+// stays linear. The numbers are headroom, not a specification. A `)` ends the file name so a markdown link does not swallow its own
 // closing bracket, and the `d` flag gives the exact bounds of the key.
 const ASSET_URL_ANCHORED =
-    /^(?:https?:)?\/\/(?:s3\.amazonaws\.com\/)?(?:a|img2)\.storyblok\.com(?:\/[^/\s"'<>\\]{1,64}){0,3}\/f\/(\d+)\/([^/\s"'<>\\)]+)\/([^/\s"'<>\\)]+)\/([^/\s"'<>\\)?#]+)((?:\/m(?:\/[^\s"'<>\\)?#]*)?)?(?:\?[^\s"'<>\\)]*)?(?:#[^\s"'<>\\)]*)?)/d;
+    /^(?:https?:)?\/\/(?:s3\.amazonaws\.com\/)?(?:a|img2)\.storyblok\.com(?:\/[^/\s"'<>\\]{1,200}){0,6}\/f\/(\d+)\/([^/\s"'<>\\)]+)\/([^/\s"'<>\\)]+)\/([^/\s"'<>\\)?#]+)((?:\/m(?:\/[^\s"'<>\\)?#]*)?)?(?:\?[^\s"'<>\\)]*)?(?:#[^\s"'<>\\)]*)?)/d;
 
 const ASSET_URL_GLOBAL = new RegExp(
     ASSET_URL_ANCHORED.source.replace(/^\^/, ""),
@@ -701,9 +701,14 @@ export type CopyStringVisit = {
  * The scanner and the rewriter BOTH walk through this one function. That is
  * the point: a PLAN that counts a reference the rewrite cannot reach is the
  * lie this whole feature exists to remove, and two walks kept in step by hand
- * drift apart. `skipPaths` is the only asymmetry either side may ask for, and
- * both use it for the same thing — the `filename` of an asset object, which is
- * handled as the object it belongs to.
+ * drift apart.
+ *
+ * `skipPaths` is the only asymmetry either side may ask for, and each fills it
+ * with the `filename`s its own object rule owns: the scanner's are the asset
+ * fields its schema knows, the rewriter's are every object it rewrote as an
+ * asset object. So an asset object inside a plugin — no schema, no asset field
+ * — is COUNTED as a string reference and REWRITTEN as a file name. The paths
+ * agree; which rule handles them does not have to.
  */
 export const walkCopyStrings = ({
     value,
@@ -716,11 +721,10 @@ export const walkCopyStrings = ({
     skipPaths?: ReadonlySet<string>;
     visit: (found: CopyStringVisit) => void;
 }): void => {
+    // A string passed as the whole value has no container to write a rewrite
+    // back into, so it is not visited: a pass must never record a change it
+    // could not make.
     if (typeof value === "string") {
-        if (!skipPaths?.has(path)) {
-            visit({ value, path, replace: () => undefined });
-        }
-
         return;
     }
 
