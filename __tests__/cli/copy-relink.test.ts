@@ -1140,6 +1140,31 @@ describe("copy relink", () => {
         await rm(tempDir, { recursive: true, force: true });
     });
 
+    // MAR-3356 lap 2 · finding 1 canary. Mutation that must turn it red: drop
+    // the `progress.finish()` at the end of the rewrite loop, so the finished
+    // phase keeps the row and reappears under every later line.
+    it("leaves no live line behind when the relink finishes", async () => {
+        const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-relink-"));
+        const written = await withStdout(
+            () =>
+                copyCommand(
+                    relinkFlags({
+                        manifestRoot: path.join(tempDir, ".sb-mig"),
+                        yes: true,
+                        progress: "line",
+                    }) as any,
+                ),
+            { isTTY: true },
+        );
+
+        expect(getActiveProgress()).toBeUndefined();
+        // The live row was drawn, and it was ended.
+        expect(written).toContain("\r");
+        expect(written).toContain("relinking 1/1 (100%)");
+
+        await rm(tempDir, { recursive: true, force: true });
+    });
+
     // MAR-3356 lap 2 · finding 3 canary. Mutation that must turn it red: drop
     // the `finally` that closes the live line, so every later message redraws
     // a dead progress line underneath itself.
