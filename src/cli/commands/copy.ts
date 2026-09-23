@@ -3844,10 +3844,16 @@ const getAssetMetadataPayloadFields = (
     asset: any,
     internalTagIds: number[],
 ) => ({
-    ...(asset.alt ? { alt: asset.alt } : {}),
-    ...(asset.title ? { title: asset.title } : {}),
-    ...(asset.copyright ? { copyright: asset.copyright } : {}),
-    ...(asset.source ? { source: asset.source } : {}),
+    // Always stated, empty included (MAR-3373): a field the source does not
+    // have is cleared in the copy, never left holding whatever an earlier
+    // write put there — the stale alt of another file with the same name.
+    // The source's OWN empty value is sent, `null` staying `null`: Storyblok
+    // reads back exactly what was written (measured: "" → "", null → null),
+    // so this is the form that reads back equal to the source.
+    alt: asset.alt ?? null,
+    title: asset.title ?? null,
+    copyright: asset.copyright ?? null,
+    source: asset.source ?? null,
     ...(asset.focus ? { focus: asset.focus } : {}),
     ...(asset.meta_data ? { meta_data: asset.meta_data } : {}),
     ...(asset.is_private === undefined ? {} : { is_private: asset.is_private }),

@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "fs/promises";
 import { tmpdir } from "os";
 import path from "path";
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
     getStoryBySlug: vi.fn(),
@@ -714,5 +714,190 @@ describe("copy assets: internal tags", () => {
         );
 
         await rm(tempDir, { recursive: true, force: true });
+    });
+});
+
+/**
+ * MAR-3373: the metadata write states alt, title, copyright and source every
+ * time, empty included, so a value the source does not have is cleared in the
+ * copy instead of left behind (3 Hult files kept another file's alt). Every
+ * test reads the PUT body the run handed to `updateAsset`.
+ */
+describe("copy assets: a metadata write clears what the source does not have (MAR-3373)", () => {
+    const TARGET_FILE =
+        "https://a.storyblok.com/f/222/1200x630/9c8d7e6f5a/one.jpg";
+    const FOUR = ["alt", "title", "copyright", "source"] as const;
+    const writtenFields = (call = 0) => {
+        const payload = mocks.updateAsset.mock.calls[call]?.[0]?.payload ?? {};
+
+        return Object.fromEntries(FOUR.map((field) => [field, payload[field]]));
+    };
+    let tempDir: string;
+    let manifestRoot: string;
+
+    beforeEach(async () => {
+        vi.clearAllMocks();
+        tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-meta-"));
+        manifestRoot = path.join(tempDir, ".sb-mig");
+        mocks.getAllInternalTags.mockResolvedValue({ internal_tags: [] });
+        mocks.getAllAssetFolders.mockResolvedValue({ asset_folders: [] });
+        mocks.downloadAsset.mockResolvedValue("/tmp/one.jpg");
+        mocks.createAssetAndFinalize.mockResolvedValue({
+            id: 7000,
+            filename: TARGET_FILE,
+            asset_folder_id: null,
+        });
+        mocks.updateAsset.mockResolvedValue({});
+        mocks.getSpace.mockResolvedValue({ space: { languages: [] } });
+        mocks.sbApiGet.mockResolvedValue({
+            data: { space: { languages: [] } },
+        });
+    });
+
+    afterEach(async () => {
+        await rm(tempDir, { recursive: true, force: true });
+    });
+
+    const serve = (source: Record<string, any>, target: any[] = []) =>
+        mocks.getAllAssets.mockImplementation(({ spaceId }: any) =>
+            Promise.resolve(
+                spaceId === "111"
+                    ? { assets: [sourceAsset(source)] }
+                    : { assets: target },
+            ),
+        );
+
+    // R1 canary. Mutation that must turn it red: send `alt` only when the
+    // source has one (`...(asset.alt ? { alt } : {})`), which leaves a stale
+    // alt in the copy.
+    it("states all four fields, the source's own empty values included", async () => {
+        serve({
+            alt: null,
+            title: "T",
+            copyright: undefined,
+            source: "",
+        });
+
+        await runCopyAssets({ yes: true, manifestRoot });
+
+        expect(mocks.updateAsset).toHaveBeenCalledTimes(1);
+        // null stays null and "" stays "": Storyblok reads back exactly what
+        // was written, so this is the form equal to the source on read-back.
+        expect(writtenFields()).toEqual({
+            alt: null,
+            title: "T",
+            copyright: null,
+            source: "",
+        });
+        expect(Object.keys(mocks.updateAsset.mock.calls[0]![0].payload)).toEqual(
+            expect.arrayContaining([...FOUR]),
+        );
+    });
+
+    it("clears a copy the ledger already maps, whose alt came from another file", async () => {
+        // The Hult shape: the copy carries another file's alt; the source has none.
+        await writeLedger(manifestRoot, [
+            {
+                type: "asset",
+                source_space_id: "111",
+                target_space_id: "222",
+                source_id: 700,
+                target_id: 7000,
+                source_filename: sourceAsset().filename,
+                target_filename: TARGET_FILE,
+                action: "created",
+                created_at: "2026-09-23T00:00:00.000Z",
+            },
+        ]);
+        serve({ alt: null }, [
+            {
+                id: 7000,
+                filename: TARGET_FILE,
+                alt: "Signposts labeled Boston, London, Dubai",
+            },
+        ]);
+
+        await runCopyAssets({ yes: true, manifestRoot });
+
+        expect(mocks.createAssetAndFinalize).not.toHaveBeenCalled();
+        expect(mocks.updateAsset.mock.calls[0]![0]).toMatchObject({
+            assetId: 7000,
+            payload: { alt: null },
+        });
+    });
+
+    // R3 canary. Mutation that must turn it red: build the new-upload payload
+    // any other way than the rewrite's.
+    it("gives a new upload, a ledger match and a file-name match the same payload", async () => {
+        const source = {
+            alt: null,
+            title: "Title",
+            copyright: "",
+            source: undefined,
+        };
+        const ledgerLine = {
+            type: "asset",
+            source_space_id: "111",
+            target_space_id: "222",
+            source_id: 700,
+            target_id: 7000,
+            source_filename: sourceAsset().filename,
+            target_filename: TARGET_FILE,
+            action: "created",
+            created_at: "2026-09-23T00:00:00.000Z",
+        };
+
+        // 1. a new upload: nothing in the ledger, nothing in the target
+        serve(source, []);
+        await runCopyAssets({ yes: true, manifestRoot });
+
+        const created = mocks.updateAsset.mock.calls[0]![0].payload;
+
+        // 2. the same source again, now through the ledger
+        vi.clearAllMocks();
+        await rm(manifestRoot, { recursive: true, force: true });
+        await writeLedger(manifestRoot, [ledgerLine]);
+        mocks.getAllInternalTags.mockResolvedValue({ internal_tags: [] });
+        mocks.getAllAssetFolders.mockResolvedValue({ asset_folders: [] });
+        mocks.updateAsset.mockResolvedValue({});
+        serve(source, [{ id: 7000, filename: TARGET_FILE }]);
+        await runCopyAssets({ yes: true, manifestRoot });
+
+        const ledgerMatched = mocks.updateAsset.mock.calls[0]![0].payload;
+
+        // 3. and once more, found in the target by its file name
+        vi.clearAllMocks();
+        await rm(manifestRoot, { recursive: true, force: true });
+        mocks.getAllInternalTags.mockResolvedValue({ internal_tags: [] });
+        mocks.getAllAssetFolders.mockResolvedValue({ asset_folders: [] });
+        mocks.updateAsset.mockResolvedValue({});
+        serve(source, [{ id: 7000, filename: TARGET_FILE }]);
+        await runCopyAssets({ yes: true, manifestRoot });
+
+        const nameMatched = mocks.updateAsset.mock.calls[0]![0].payload;
+
+        expect(created).toEqual(ledgerMatched);
+        expect(created).toEqual(nameMatched);
+        expect(
+            Object.fromEntries(FOUR.map((field) => [field, created[field]])),
+        ).toEqual({ alt: null, title: "Title", copyright: "", source: null });
+    });
+
+    it("still sends a tag only when it maps (MAR-3354 unchanged)", async () => {
+        serve({ alt: null, internal_tag_ids: [10] });
+        mocks.getAllInternalTags.mockImplementation(({ spaceId }: any) =>
+            Promise.resolve(
+                spaceId === "111"
+                    ? { internal_tags: [tag(10, "Only in the source")] }
+                    : { internal_tags: [] },
+            ),
+        );
+
+        await runCopyAssets({ yes: true, manifestRoot });
+
+        const payload = mocks.updateAsset.mock.calls[0]![0].payload;
+
+        expect(payload).not.toHaveProperty("internal_tag_ids");
+        expect(payload.alt).toBeNull();
     });
 });
