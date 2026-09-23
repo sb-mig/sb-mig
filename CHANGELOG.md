@@ -1,3 +1,15 @@
+# [6.5.0-beta.14](https://github.com/sb-mig/sb-mig/compare/v6.5.0-beta.13...v6.5.0-beta.14) (2026-09-23)
+
+
+### Bug Fixes
+
+* **assets:** retry a failed download, upload or finish on transient network errors, never re-creating the asset (MAR-3355) ([2e221d6](https://github.com/sb-mig/sb-mig/commit/2e221d646e8c2d666a096ca0647567ca0e18fa44))
+
+
+### Features
+
+* **copy:** copy relink keeps each story's publication state — republish published stories with the repair, never publish unpublished changes (MAR-3163) ([bb85069](https://github.com/sb-mig/sb-mig/commit/bb85069b1444afa3dc3973ad3cc46ec26e15894c))
+
 # [6.5.0-beta.13](https://github.com/sb-mig/sb-mig/compare/v6.5.0-beta.12...v6.5.0-beta.13) (2026-09-23)
 
 
