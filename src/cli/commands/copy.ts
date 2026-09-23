@@ -103,6 +103,7 @@ import {
     resolveCopySpaceConcurrency,
     runCopySpace,
 } from "../../api/copy/space-apply.js";
+import { hasStoryChangedSinceRead } from "../../api/data-migration/component-data-migration.js";
 import {
     buildPublishedLayerContext,
     resolveStoryLayerState,
@@ -182,9 +183,19 @@ type CopyItemOutcome =
     | "create_failed"
     | "skipped_parent_failed"
     | "published"
-    | "publish_skipped";
+    | "publish_skipped"
+    // copy relink (MAR-3163): the repair is in the draft, the publish failed.
+    | "publish_failed"
+    // copy relink (MAR-3163): someone changed the story after relink read it,
+    // so it was not written at all; a rerun picks it up.
+    | "changed_since_read";
 
-type CopyOutcomeRecord = { outcome: CopyItemOutcome; targetId?: number };
+type CopyOutcomeRecord = {
+    outcome: CopyItemOutcome;
+    targetId?: number;
+    /** Why a story is listed for a person, when it is. */
+    reason?: string;
+};
 
 /**
  * One failed write, collected so the run carries on past it. Stories are named
@@ -2635,6 +2646,8 @@ const COPY_ITEM_OUTCOMES: CopyItemOutcome[] = [
     "update_failed",
     "create_failed",
     "skipped_parent_failed",
+    "publish_failed",
+    "changed_since_read",
 ];
 
 const countCopyOutcomes = (
@@ -3689,11 +3702,15 @@ const toProgressOutcome = (outcome: CopyItemOutcome): ProgressOutcome => {
         return "metadata_failed";
     }
 
-    if (outcome === "create_failed") {
+    if (outcome === "create_failed" || outcome === "publish_failed") {
         return "failed";
     }
 
-    if (outcome === "skipped_parent_failed" || outcome === "publish_skipped") {
+    if (
+        outcome === "skipped_parent_failed" ||
+        outcome === "publish_skipped" ||
+        outcome === "changed_since_read"
+    ) {
         return "skipped";
     }
 
@@ -7128,6 +7145,208 @@ const validateRelinkAssetMappings = async ({
 };
 
 /**
+ * What `copy relink` does with the publication state of each story it writes
+ * (MAR-3163). The state is the TARGET story's, as relink read it — never the
+ * source's: the target is what readers see, and a duplicate's source may have
+ * moved on since.
+ *
+ * - `republish`: clean-published. The repair is saved, then published.
+ * - `save_only`: never published or unpublished, or `--publicationMode
+ *   save-only`. The repair is saved; nothing goes live.
+ * - `republish_from_history`: published with unpublished changes, and the
+ *   target's own history holds its published version. That version is
+ *   repaired and published, then the repaired draft is put back.
+ * - `draft_only_listed`: published with unpublished changes and no published
+ *   version to repair, or a publish state the story does not say. The repair
+ *   is saved as a draft only, and the story is listed for a person.
+ */
+type RelinkPublicationTreatment =
+    | "republish"
+    | "save_only"
+    | "republish_from_history"
+    | "draft_only_listed";
+
+type RelinkPublicationDecision = {
+    treatment: RelinkPublicationTreatment;
+    /** Why a `draft_only_listed` story is listed. */
+    reason?: "dirty_without_published_layer" | "published_state_unknown";
+    /** For `republish_from_history`: the published layer and its repair. */
+    publishedLayer?: { story: any; rewrite: CopyRelinkStoryRewrite };
+};
+
+type RelinkPublicationCounts = {
+    republished: number;
+    savedOnly: number;
+    fromHistory: number;
+    listed: number;
+};
+
+type RelinkPublicationPlan = {
+    mode: PublicationMode;
+    /** Keyed by planned target full_slug, like the relink outcomes. */
+    decisions: Map<string, RelinkPublicationDecision>;
+    counts: RelinkPublicationCounts;
+    listed: Array<{ fullSlug: string; reason: string }>;
+};
+
+/**
+ * The publication decision for every story relink will write. Read-only: the
+ * only reads are the version histories of stories with unpublished changes,
+ * taken from the TARGET space, on a dry-run as on an apply.
+ */
+const planRelinkPublication = async ({
+    matches,
+    publication,
+    targetSpace,
+    copyMaps,
+    schemas,
+}: {
+    matches: CopyRelinkMatchRecord[];
+    publication: CopyPublicationOptions;
+    targetSpace: string;
+    copyMaps: CopyMaps;
+    schemas: CopyComponentSchemaRegistry;
+}): Promise<RelinkPublicationPlan> => {
+    // Only what relink writes: a story whose repair changes something.
+    // Folders are never published, and a story already correct is left alone.
+    const written = matches.filter(
+        (record) =>
+            record.item.type === "story" &&
+            record.targetStory &&
+            record.rewrite?.changed,
+    );
+    const decisions = new Map<string, RelinkPublicationDecision>();
+    const counts: RelinkPublicationCounts = {
+        republished: 0,
+        savedOnly: 0,
+        fromHistory: 0,
+        listed: 0,
+    };
+    const listed: RelinkPublicationPlan["listed"] = [];
+
+    if (publication.mode === "save-only") {
+        for (const record of written) {
+            decisions.set(record.item.targetFullSlug, {
+                treatment: "save_only",
+            });
+        }
+
+        counts.savedOnly = written.length;
+
+        return { mode: publication.mode, decisions, counts, listed };
+    }
+
+    const dirty = written.filter(
+        (record) =>
+            resolveStoryLayerState(record.targetStory) === "dirty-published",
+    );
+    // The published layer of the TARGET story: the latest `published` entry
+    // of its own version history.
+    const layerContext =
+        dirty.length > 0
+            ? await buildPublishedLayerContext(
+                  {
+                      items: dirty.map((record) => ({
+                          story: record.targetStory,
+                      })),
+                      from: targetSpace,
+                  },
+                  apiConfig,
+              )
+            : { records: [] as PublishedLayerRecord[] };
+    const layerByStoryId = new Map(
+        layerContext.records.map(
+            (layer) => [String(layer.storyId), layer] as const,
+        ),
+    );
+
+    for (const record of written) {
+        const fullSlug = record.item.targetFullSlug;
+        const state = resolveStoryLayerState(record.targetStory);
+
+        if (state === "clean-published") {
+            decisions.set(fullSlug, { treatment: "republish" });
+            counts.republished += 1;
+            continue;
+        }
+
+        if (state === "draft-only") {
+            decisions.set(fullSlug, { treatment: "save_only" });
+            counts.savedOnly += 1;
+            continue;
+        }
+
+        const layerStory =
+            state === "dirty-published"
+                ? layerByStoryId.get(String(record.targetStory.id))
+                      ?.publishedLayerItem?.story
+                : undefined;
+
+        if (layerStory) {
+            decisions.set(fullSlug, {
+                treatment: "republish_from_history",
+                publishedLayer: {
+                    story: layerStory,
+                    rewrite: planCopyRelinkStoryRewrite({
+                        content: layerStory.content,
+                        maps: copyMaps,
+                        schemas,
+                    }),
+                },
+            });
+            counts.fromHistory += 1;
+            continue;
+        }
+
+        const reason =
+            state === "dirty-published"
+                ? "dirty_without_published_layer"
+                : "published_state_unknown";
+
+        decisions.set(fullSlug, { treatment: "draft_only_listed", reason });
+        counts.listed += 1;
+        listed.push({
+            fullSlug: String(record.targetStory.full_slug ?? fullSlug),
+            reason,
+        });
+    }
+
+    return { mode: publication.mode, decisions, counts, listed };
+};
+
+const RELINK_LISTED_PREVIEW = 20;
+
+/**
+ * The relink PLAN's publication lines: the four numbers first, then every
+ * story that will be left for a person, by name.
+ */
+const formatRelinkPublicationPlan = (plan: RelinkPublicationPlan): string[] => {
+    const { counts } = plan;
+
+    if (plan.mode === "save-only") {
+        return [
+            `  publication: save-only — ${counts.savedOnly} repair(s) saved as drafts; nothing is published`,
+        ];
+    }
+
+    const lines = [
+        `  publication: ${counts.republished} published — republished with the repair; ${counts.savedOnly} drafts — saved only; ${counts.fromHistory} with unpublished changes — live version repaired from its history; ${counts.listed} with unpublished changes and no published version — draft only, listed`,
+    ];
+
+    for (const item of plan.listed.slice(0, RELINK_LISTED_PREVIEW)) {
+        lines.push(`    listed: ${item.fullSlug} (${item.reason})`);
+    }
+
+    if (plan.listed.length > RELINK_LISTED_PREVIEW) {
+        lines.push(
+            `    … and ${plan.listed.length - RELINK_LISTED_PREVIEW} more listed in the report`,
+        );
+    }
+
+    return lines;
+};
+
+/**
  * The write half of `copy relink`: record the adopted mappings, then store the
  * rewritten content of every story whose references actually changed. Stories
  * that already point at the right target are never updated.
@@ -7138,6 +7357,8 @@ const relinkTargetStories = async ({
     sourceSpace,
     targetSpace,
     output,
+    publication = { mode: "save-only" },
+    publicationPlan,
 }: {
     matches: CopyRelinkMatchRecord[];
     manifestPaths: ReturnType<typeof getDefaultCopyManifestPaths>;
@@ -7145,6 +7366,10 @@ const relinkTargetStories = async ({
     targetSpace: string;
     /** How this run talks while it works. */
     output?: CopyOutput;
+    /** How a written story is published; `save-only` without it. */
+    publication?: CopyPublicationOptions;
+    /** Per story, what its publication state gets (MAR-3163). */
+    publicationPlan?: RelinkPublicationPlan;
 }) => {
     let adopted = 0;
 
@@ -7204,7 +7429,12 @@ const relinkTargetStories = async ({
     let unchangedStories = 0;
     let rewrittenReferences = 0;
     let publishedStories = 0;
+    let publishFailedStories = 0;
+    let changedSinceReadStories = 0;
     const failures: CopyRunFailure[] = [];
+    // What was written but not published, and why: the report's answer to
+    // "which stories must a person look at?".
+    const notPublished: Array<{ fullSlug: string; reason: string }> = [];
     // Keyed by planned target full_slug, the key every relink plan item has.
     // A planned story missing from the target gets no outcome: nothing was
     // written and nothing could be.
@@ -7239,59 +7469,212 @@ const relinkTargetStories = async ({
             continue;
         }
 
-        const result = await managementApi.stories.updateStory(
-            { ...record.targetStory, content: record.rewrite.content },
-            String(record.targetStory.id),
-            {
-                publish: false,
-                force_update: true,
-                quiet: output?.quiet,
-            },
-            {
-                ...apiConfig,
-                spaceId: targetSpace,
-            },
-        );
+        const fullSlug = record.item.targetFullSlug;
+        const decision: RelinkPublicationDecision =
+            publicationPlan?.decisions.get(fullSlug) ?? {
+                treatment: "save_only",
+            };
+        const willPublish =
+            decision.treatment === "republish" ||
+            decision.treatment === "republish_from_history";
+        const writeContent = async (content: unknown) =>
+            managementApi.stories.updateStory(
+                { ...record.targetStory, content },
+                String(record.targetStory.id),
+                {
+                    publish: false,
+                    force_update: true,
+                    quiet: output?.quiet,
+                },
+                {
+                    ...apiConfig,
+                    spaceId: targetSpace,
+                },
+            );
+        /** A failed PUT, recorded; `undefined` when the write went through. */
+        const failedWrite = (
+            result: any,
+            content: unknown,
+            note = "",
+        ): string | undefined => {
+            try {
+                assertStoryUpdateSucceeded({
+                    result,
+                    sourceStory: record.sourceStory ?? record.targetStory,
+                    targetStoryId: targetId,
+                    targetSpace,
+                    content,
+                });
 
-        try {
-            assertStoryUpdateSucceeded({
-                result,
-                sourceStory: record.sourceStory ?? record.targetStory,
-                targetStoryId: Number(record.targetStory.id),
+                return undefined;
+            } catch (error) {
+                const message = `${error instanceof Error ? error.message : String(error)}${note}`;
+                const status = Number(result?.status);
+
+                progress.fail(message);
+                failures.push({
+                    resource: "story",
+                    path: targetLabel,
+                    phase: "update",
+                    ...(Number.isFinite(status) && status > 0
+                        ? { status }
+                        : {}),
+                    message,
+                    targetId,
+                });
+                outcomes.set(fullSlug, { outcome: "update_failed", targetId });
+                progress.tick({ name: targetLabel, outcome: "failed" });
+
+                return message;
+            }
+        };
+
+        // Relink read every target before its first write, and on a real
+        // space this write can come hours later. A story someone changed in
+        // the meantime is not published — and not written at all: its new
+        // content is not what this repair was planned on.
+        if (willPublish) {
+            const reread = await managementApi.stories
+                .getStoryById(String(targetId), {
+                    ...apiConfig,
+                    spaceId: targetSpace,
+                })
+                .catch(() => undefined);
+            const current = reread?.story;
+
+            if (
+                !current ||
+                hasStoryChangedSinceRead(record.targetStory, current)
+            ) {
+                const reason = current
+                    ? "changed_since_read"
+                    : "could_not_reread";
+
+                changedSinceReadStories += 1;
+                notPublished.push({ fullSlug: targetLabel, reason });
+                outcomes.set(fullSlug, {
+                    outcome: "changed_since_read",
+                    targetId,
+                    reason,
+                });
+                progress.tick({ name: targetLabel, outcome: "skipped" });
+                continue;
+            }
+        }
+
+        let layerReferences = 0;
+        let publishResult: any;
+
+        if (decision.treatment === "republish_from_history") {
+            // The copy-stories order: the repaired PUBLISHED layer is saved
+            // and published, then the repaired draft is put back on top, so
+            // the unfinished draft never goes live.
+            const layer = decision.publishedLayer!;
+            const layerResult = await writeContent(layer.rewrite.content);
+
+            if (failedWrite(layerResult, layer.rewrite.content)) {
+                continue;
+            }
+
+            layerReferences = layer.rewrite.rewrittenReferences;
+            publishResult = await publishCopiedStory({
+                storyId: targetId,
+                story: {
+                    ...record.targetStory,
+                    content: layer.rewrite.content,
+                },
+                publication,
                 targetSpace,
-                content: record.rewrite.content,
             });
-        } catch (error) {
-            const message =
-                error instanceof Error ? error.message : String(error);
-            const status = Number(result?.status);
+
+            // Put the draft back whether or not the publish went through:
+            // the draft slot now holds the published layer, and leaving it
+            // there would lose the author's unpublished changes.
+            const draftResult = await writeContent(record.rewrite.content);
+
+            if (
+                failedWrite(
+                    draftResult,
+                    record.rewrite.content,
+                    " The published layer was written as the draft and the draft could not be put back: the story's unpublished changes must be restored by hand.",
+                )
+            ) {
+                continue;
+            }
+        } else {
+            const result = await writeContent(record.rewrite.content);
+
+            if (failedWrite(result, record.rewrite.content)) {
+                continue;
+            }
+
+            if (decision.treatment === "republish") {
+                publishResult = await publishCopiedStory({
+                    storyId: targetId,
+                    story: {
+                        ...record.targetStory,
+                        content: record.rewrite.content,
+                    },
+                    publication,
+                    targetSpace,
+                });
+            }
+        }
+
+        updatedStories += 1;
+        rewrittenReferences +=
+            record.rewrite.rewrittenReferences + layerReferences;
+
+        if (publishResult && publishResult.ok === false) {
+            // The repair is in the draft; only going live was refused.
+            const status = Number(publishResult?.status);
+            const message = `The repair of '${targetLabel}' was saved in target story '${targetId}', but publishing it failed (${describeCreateFailure(publishResult)}). It is not live.`;
 
             progress.fail(message);
             failures.push({
                 resource: "story",
                 path: targetLabel,
-                phase: "update",
+                phase: "publish",
                 ...(Number.isFinite(status) && status > 0 ? { status } : {}),
                 message,
                 targetId,
             });
-            outcomes.set(record.item.targetFullSlug, {
-                outcome: "update_failed",
+            publishFailedStories += 1;
+            outcomes.set(fullSlug, {
+                outcome: "publish_failed",
                 targetId,
+                ...(Number.isFinite(status) && status > 0
+                    ? { reason: `publish refused (status ${status})` }
+                    : {}),
             });
             progress.tick({ name: targetLabel, outcome: "failed" });
             continue;
         }
 
-        updatedStories += 1;
-        rewrittenReferences += record.rewrite.rewrittenReferences;
-        outcomes.set(record.item.targetFullSlug, {
-            outcome: "updated",
-            targetId,
-        });
+        if (publishResult?.ok) {
+            const published = publishResult.stage !== "publish_skipped";
 
-        if (record.targetStory.published === true) {
-            publishedStories += 1;
+            if (published) {
+                publishedStories += 1;
+            }
+
+            outcomes.set(fullSlug, {
+                outcome: published ? "published" : "publish_skipped",
+                targetId,
+            });
+        } else {
+            if (decision.treatment === "draft_only_listed" && decision.reason) {
+                notPublished.push({
+                    fullSlug: targetLabel,
+                    reason: decision.reason,
+                });
+            }
+
+            outcomes.set(fullSlug, {
+                outcome: "updated",
+                targetId,
+                ...(decision.reason ? { reason: decision.reason } : {}),
+            });
         }
 
         progress.tick({ name: targetLabel });
@@ -7311,9 +7694,19 @@ const relinkTargetStories = async ({
     );
 
     if (publishedStories > 0) {
-        Logger.warning(
-            `${publishedStories} relinked story/stories are published in the target: the repair is in the DRAFT only. Publish them to update live content.`,
+        Logger.success(
+            `Published ${publishedStories} story/stories with the repair: each was live before, and is live now with its references repaired.`,
         );
+    }
+
+    if (notPublished.length > 0) {
+        Logger.warning(
+            `${notPublished.length} story/stories were not published, so their live content keeps its old references until a person decides:`,
+        );
+
+        for (const item of notPublished) {
+            Logger.warning(`  - ${item.fullSlug}: ${item.reason}`);
+        }
     }
 
     if (failures.length > 0) {
@@ -7333,6 +7726,9 @@ const relinkTargetStories = async ({
         updatedStories,
         unchangedStories,
         rewrittenReferences,
+        publishedStories,
+        publishFailedStories,
+        changedSinceReadStories,
         failures,
         outcomes,
     };
@@ -7897,6 +8293,30 @@ const runCopyCommand = async (props: CLIOptions) => {
             const yes = Boolean(flags["yes"]);
             const destination = readStringFlag(flags, ["destination", "where"]);
 
+            // Before the first read. `collapse-draft` publishes a story's
+            // draft as its live version — the one thing a relink must never
+            // do to a story whose unpublished changes are unfinished work.
+            if (
+                parseCopyPublicationMode(
+                    readStringFlag(flags, [
+                        "publicationMode",
+                        "publication-mode",
+                    ]),
+                ) === "collapse-draft"
+            ) {
+                Logger.error(
+                    "--publicationMode collapse-draft is not available for copy relink: it would publish unfinished drafts. Use preserve-layers (the default) or save-only.",
+                );
+                process.exitCode = 1;
+                break;
+            }
+
+            const publication = await resolveCopyPublicationOptions({
+                flags,
+                targetSpace,
+                dryRun,
+            });
+
             Logger.warning(
                 `Relinking stories in space '${targetSpace}' against their sources in space '${sourceSpace}'.`,
             );
@@ -8103,6 +8523,40 @@ const runCopyCommand = async (props: CLIOptions) => {
                 Logger.log(line),
             );
 
+            // What each written story's publication state gets: read from the
+            // TARGET story, with the published layer from the target's own
+            // history for stories with unpublished changes (read-only).
+            const publicationPlan = await planRelinkPublication({
+                matches,
+                publication,
+                targetSpace,
+                copyMaps,
+                schemas,
+            });
+
+            formatRelinkPublicationPlan(publicationPlan).forEach((line) =>
+                Logger.log(line),
+            );
+
+            if (publication.mode !== "save-only") {
+                const targetSpaceData: any = await managementApi.spaces
+                    .getSpace(
+                        { spaceId: targetSpace },
+                        { ...apiConfig, spaceId: targetSpace },
+                    )
+                    .catch(() => undefined);
+                const extraLanguages = targetSpaceData?.space?.languages;
+
+                if (
+                    Array.isArray(extraLanguages) &&
+                    extraLanguages.length > 0
+                ) {
+                    Logger.log(
+                        `  publication languages: publishing uses --publicationLanguages (default all); per-language publish state is not reproduced yet (MAR-3076).`,
+                    );
+                }
+            }
+
             formatCopySelectionsLine(
                 plannedSelections,
                 plan,
@@ -8117,17 +8571,38 @@ const runCopyCommand = async (props: CLIOptions) => {
             ) => {
                 const items = relinkPlan.map((item) => {
                     const record = applied?.outcomes.get(item.targetFullSlug);
+                    const decision = publicationPlan.decisions.get(
+                        item.targetFullSlug,
+                    );
+                    const planned = decision
+                        ? {
+                              ...item,
+                              publication: decision.treatment,
+                              ...(decision.reason
+                                  ? { reason: decision.reason }
+                                  : {}),
+                          }
+                        : item;
 
                     return record
                         ? {
-                              ...item,
+                              ...planned,
                               outcome: record.outcome,
                               ...(record.targetId !== undefined
                                   ? { targetId: record.targetId }
                                   : {}),
+                              ...(record.reason
+                                  ? { reason: record.reason }
+                                  : {}),
                           }
-                        : item;
+                        : planned;
                 });
+                const publicationCounts = {
+                    republished: publicationPlan.counts.republished,
+                    savedOnly: publicationPlan.counts.savedOnly,
+                    fromHistory: publicationPlan.counts.fromHistory,
+                    listed: publicationPlan.counts.listed,
+                };
 
                 return {
                     schemaVersion: 1,
@@ -8147,6 +8622,11 @@ const runCopyCommand = async (props: CLIOptions) => {
                     },
                     summary: applied
                         ? {
+                              ...publicationCounts,
+                              published: applied.publishedStories,
+                              publish_failed: applied.publishFailedStories,
+                              changed_since_read:
+                                  applied.changedSinceReadStories,
                               updatedStories: applied.updatedStories,
                               unchangedStories: applied.unchangedStories,
                               rewrittenReferences: applied.rewrittenReferences,
@@ -8159,7 +8639,7 @@ const runCopyCommand = async (props: CLIOptions) => {
                               ),
                               failed: applied.failures.length,
                           }
-                        : {},
+                        : publicationCounts,
                     plan: relinkSummary,
                     items,
                     failures: applied?.failures ?? [],
@@ -8188,6 +8668,8 @@ const runCopyCommand = async (props: CLIOptions) => {
                 sourceSpace,
                 targetSpace,
                 output: resolveCopyOutput(flags),
+                publication,
+                publicationPlan,
             });
             const relinkReport = buildRelinkReport(relinked);
 
@@ -8197,7 +8679,7 @@ const runCopyCommand = async (props: CLIOptions) => {
 
             if (relinked.failures.length > 0) {
                 Logger.error(
-                    `copy relink finished with ${relinked.failures.length} failed write(s); every other story went through. Outcomes: ${formatCopyOutcomeCounts(relinkReport.summary.outcomes ?? countCopyOutcomes([]))}.`,
+                    `copy relink finished with ${relinked.failures.length} failed write(s); every other story went through. Outcomes: ${formatCopyOutcomeCounts("outcomes" in relinkReport.summary ? relinkReport.summary.outcomes : countCopyOutcomes([]))}.`,
                 );
                 process.exitCode = 1;
             }

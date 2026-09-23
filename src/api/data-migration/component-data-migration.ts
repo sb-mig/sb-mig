@@ -1114,7 +1114,10 @@ const assertNoMissingPublishedLayers = (context: PublishedLayerContext) => {
     );
 };
 
-const hasStoryChangedSinceRead = (sourceStory: any, currentStory: any) => {
+export const hasStoryChangedSinceRead = (
+    sourceStory: any,
+    currentStory: any,
+) => {
     if (
         sourceStory.current_version_id !== undefined &&
         currentStory.current_version_id !== undefined

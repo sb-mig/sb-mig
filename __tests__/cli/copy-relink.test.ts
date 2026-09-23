@@ -10,6 +10,11 @@ const mocks = vi.hoisted(() => ({
     getAllStories: vi.fn(),
     createStory: vi.fn(),
     updateStory: vi.fn(),
+    // MAR-3163: relink now reads version history for a dirty-published
+    // story, publishes what was live, and asks the target for its languages.
+    getStoryVersions: vi.fn(),
+    publishStoryLanguages: vi.fn(),
+    getSpace: vi.fn(),
     getAllComponents: vi.fn(),
     getAssetById: vi.fn(),
     createTree: vi.fn(),
@@ -39,6 +44,11 @@ vi.mock("../../src/api/managementApi.js", () => ({
             getAllStories: mocks.getAllStories,
             createStory: mocks.createStory,
             updateStory: mocks.updateStory,
+            getStoryVersions: mocks.getStoryVersions,
+            publishStoryLanguages: mocks.publishStoryLanguages,
+        },
+        spaces: {
+            getSpace: mocks.getSpace,
         },
         components: {
             getAllComponents: mocks.getAllComponents,
@@ -268,6 +278,12 @@ describe("copy relink", () => {
         ]);
         mocks.updateStory.mockResolvedValue({ ok: true });
         mocks.getAssetById.mockResolvedValue(undefined);
+        mocks.getStoryVersions.mockResolvedValue({ story_versions: [] });
+        mocks.publishStoryLanguages.mockResolvedValue({
+            ok: true,
+            stage: "publish",
+        });
+        mocks.getSpace.mockResolvedValue({ space: { languages: [] } });
     });
 
     it("rebuilds the mapping from the target space and repairs the reference", async () => {
