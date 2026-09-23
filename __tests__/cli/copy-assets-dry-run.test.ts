@@ -17,6 +17,7 @@ const mocks = vi.hoisted(() => ({
     getAllStories: vi.fn(),
     getAllComponents: vi.fn(),
     getAllAssets: vi.fn(),
+    getAllInternalTags: vi.fn(),
     getAllAssetFolders: vi.fn(),
     createAsset: vi.fn(),
     createAssetFolder: vi.fn(),
@@ -51,6 +52,9 @@ vi.mock("../../src/api/managementApi.js", () => ({
         },
         spaces: {
             getSpace: mocks.getSpace,
+        },
+        internalTags: {
+            getAllInternalTags: mocks.getAllInternalTags,
         },
         assets: {
             getAllAssets: mocks.getAllAssets,
@@ -136,6 +140,7 @@ describe("copy assets dry-run", () => {
 
     beforeEach(() => {
         vi.clearAllMocks();
+        mocks.getAllInternalTags.mockResolvedValue({ internal_tags: [] });
 
         mocks.getStoryBySlug.mockImplementation((slug: string) => {
             if (slug === "blog/post") {

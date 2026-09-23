@@ -8,6 +8,7 @@ import type {
     CopyRelinkStoryRewrite,
     CopyAssetFolderManifestEntry,
     CopyAssetManifestEntry,
+    CopyInternalTagManifestEntry,
     CopyComponentSchemaRegistry,
     CopyManifestEntry,
     CopyManifestFileInput,
@@ -75,6 +76,7 @@ import {
     planStoryTranslatedSlugs,
     applyCopyMapWrites,
     assetKeyOf,
+    getCopyMapWrites,
     getCopyAssetMapWrites,
     rewriteCopyReferences,
     scanStoriesReferences,
@@ -323,6 +325,47 @@ type CopyDryRunComponentCompatibility = {
     findings: ComponentCompatibilityFinding[];
 };
 
+/**
+ * What the run can do about the tags of the assets it touches: the tags the
+ * target already has, the names a person must create there, and how many
+ * assets are waiting on them.
+ */
+type CopyInternalTagsReport = {
+    matched: string[];
+    missing: string[];
+    assetsWithMissingTags: number;
+};
+
+/**
+ * The PLAN's internal-tag line, or nothing when no selected asset carries a
+ * tag. The missing names are the point: they are what a person has to create
+ * in Storyblok before a rerun can attach them.
+ */
+const formatInternalTagsPlanLine = (
+    tags: CopyInternalTagsReport,
+    targetSpace: string,
+): string | undefined => {
+    if (tags.matched.length === 0 && tags.missing.length === 0) {
+        return undefined;
+    }
+
+    const head = `  internal tags: ${tags.matched.length} matched, ${tags.missing.length} missing in space ${targetSpace}`;
+
+    return tags.missing.length === 0
+        ? head
+        : `${head} — create them in Storyblok (Assets → Tags) and rerun: ${tags.missing.join(", ")}`;
+};
+
+const toInternalTagsReport = (
+    plan: CopyInternalTagPlan,
+): CopyInternalTagsReport => ({
+    matched: plan.matched
+        .map((tag) => tag.name)
+        .sort((left, right) => left.localeCompare(right, "en")),
+    missing: plan.missing,
+    assetsWithMissingTags: plan.assetsWithMissingTags,
+});
+
 type CopyAssetsDryRunReport = {
     schemaVersion: 1;
     command: "copy assets";
@@ -341,6 +384,7 @@ type CopyAssetsDryRunReport = {
         warnings: number;
         errors: number;
     };
+    internalTags: CopyInternalTagsReport;
     graph: ReturnType<typeof buildCopyAssetsGraph>;
     limitations: string[];
     commands: {
@@ -370,6 +414,7 @@ type CopyAssetsApplyReport = {
         outcomes: Record<CopyItemOutcome, number>;
         failed: number;
     };
+    internalTags: CopyInternalTagsReport;
     graph: ReturnType<typeof buildCopyAssetsGraph>;
     /** One line per asset folder and asset, in write order, with what happened to it. */
     items: CopyAssetsApplyItem[];
@@ -2486,6 +2531,7 @@ const buildCopyAssetsDryRunReport = ({
     input,
     outputPath,
     graph,
+    internalTags,
 }: {
     sourceSpace: string;
     targetSpace: string;
@@ -2493,6 +2539,7 @@ const buildCopyAssetsDryRunReport = ({
     input: Record<string, any>;
     outputPath?: string;
     graph: ReturnType<typeof buildCopyAssetsGraph>;
+    internalTags: CopyInternalTagPlan;
 }): CopyAssetsDryRunReport => {
     const graphSummary = summarizeCopyGraph(graph);
 
@@ -2514,6 +2561,7 @@ const buildCopyAssetsDryRunReport = ({
             warnings: graphSummary.warnings,
             errors: graphSummary.errors,
         },
+        internalTags: toInternalTagsReport(internalTags),
         graph,
         limitations: graph.limitations,
         commands: {
@@ -3403,7 +3451,240 @@ const selectSourceAssetsFromGraph = ({
     };
 };
 
-const getAssetMetadataPayload = (asset: any) => ({
+/**
+ * What a run can do about the internal tags of the assets it is copying.
+ *
+ * A personal access token cannot create an internal tag — `POST internal_tags`
+ * answers 403 "This endpoint does not support this token type" — so a tag the
+ * target lacks is not created, it is NAMED, and a person makes it in Storyblok
+ * and reruns. Matching is by trimmed name, the ledger's own mappings first, so
+ * a tag renamed in the target keeps the mapping this pair already agreed on.
+ */
+type CopyInternalTagPlan = {
+    /** Source tag id -> target tag id, for tags the target really has. */
+    mapping: Map<number, number>;
+    matched: { sourceId: number; targetId: number; name: string }[];
+    /** Names of tags a selected asset uses and the target does not have. */
+    missing: string[];
+    /** Selected assets carrying at least one tag. */
+    assetsWithTags: number;
+    /** Selected assets that will lose at least one tag until it is created. */
+    assetsWithMissingTags: number;
+};
+
+const EMPTY_INTERNAL_TAG_PLAN: CopyInternalTagPlan = {
+    mapping: new Map(),
+    matched: [],
+    missing: [],
+    assetsWithTags: 0,
+    assetsWithMissingTags: 0,
+};
+
+const assetInternalTagIds = (asset: any): number[] =>
+    Array.isArray(asset?.internal_tag_ids)
+        ? asset.internal_tag_ids
+              .map((id: unknown) => Number(id))
+              .filter((id: number) => Number.isFinite(id))
+        : [];
+
+const buildCopyInternalTagPlan = ({
+    sourceTags,
+    targetTags,
+    assets,
+    ledgerTagIds,
+}: {
+    sourceTags: { id: number; name: string }[];
+    targetTags: { id: number; name: string }[];
+    assets: any[];
+    ledgerTagIds?: Map<number, number>;
+}): CopyInternalTagPlan => {
+    const sourceTagById = new Map(
+        sourceTags.map((tag) => [Number(tag.id), tag] as const),
+    );
+    const targetTagByName = new Map(
+        targetTags.map(
+            (tag) => [String(tag.name ?? "").trim(), Number(tag.id)] as const,
+        ),
+    );
+    const targetTagIds = new Set(targetTags.map((tag) => Number(tag.id)));
+    const usedTagIds = new Set<number>();
+
+    for (const asset of assets) {
+        for (const id of assetInternalTagIds(asset)) {
+            usedTagIds.add(id);
+        }
+    }
+
+    const mapping = new Map<number, number>();
+    const matched: CopyInternalTagPlan["matched"] = [];
+    const missing = new Set<string>();
+
+    for (const sourceId of [...usedTagIds].sort((a, b) => a - b)) {
+        const tag = sourceTagById.get(sourceId);
+        // A tag id an asset carries but the tag list does not hold: nothing to
+        // match on, and nothing to name but the id itself.
+        const name = String(tag?.name ?? "").trim();
+        const fromLedger = ledgerTagIds?.get(sourceId);
+        const targetId =
+            fromLedger !== undefined && targetTagIds.has(fromLedger)
+                ? fromLedger
+                : name.length > 0
+                  ? targetTagByName.get(name)
+                  : undefined;
+
+        if (targetId === undefined) {
+            missing.add(name.length > 0 ? name : `#${sourceId}`);
+            continue;
+        }
+
+        mapping.set(sourceId, targetId);
+        matched.push({ sourceId, targetId, name });
+    }
+
+    let assetsWithTags = 0;
+    let assetsWithMissingTags = 0;
+
+    for (const asset of assets) {
+        const ids = assetInternalTagIds(asset);
+
+        if (ids.length === 0) {
+            continue;
+        }
+
+        assetsWithTags += 1;
+
+        if (ids.some((id) => !mapping.has(id))) {
+            assetsWithMissingTags += 1;
+        }
+    }
+
+    return {
+        mapping,
+        matched,
+        missing: [...missing].sort((left, right) =>
+            left.localeCompare(right, "en"),
+        ),
+        assetsWithTags,
+        assetsWithMissingTags,
+    };
+};
+
+/**
+ * The metadata PUT of one asset, for a freshly created and for an already
+ * matched target alike. The body carries only tag ids the target really has;
+ * an asset whose tags are all missing is still written, without the key, so
+ * alt, title and copyright land either way.
+ */
+const writeAssetMetadata = async ({
+    asset,
+    assetName,
+    targetAssetId,
+    targetSpace,
+    internalTagMapping,
+    failures,
+    matched,
+}: {
+    asset: any;
+    assetName: string;
+    targetAssetId: number;
+    targetSpace: string;
+    internalTagMapping: Map<number, number>;
+    failures: CopyRunFailure[];
+    matched: boolean;
+}): Promise<CopyItemOutcome> => {
+    const payload = getAssetMetadataPayload(asset, internalTagMapping);
+
+    if (Object.keys(payload).length === 0) {
+        return matched ? "matched" : "created";
+    }
+
+    try {
+        await managementApi.assets.updateAsset(
+            {
+                spaceId: targetSpace,
+                assetId: targetAssetId,
+                payload,
+            },
+            {
+                ...apiConfig,
+                spaceId: targetSpace,
+            },
+        );
+    } catch (error) {
+        const status = resolveThrownStatus(error);
+        const message = `Asset '${assetName}' was copied as target asset '${targetAssetId}', but its metadata (alt, title, copyright) could not be written${status ? ` (status ${status})` : ""}: ${describeThrown(error)}.`;
+
+        Logger.error(message);
+        failures.push({
+            resource: "asset",
+            name: assetName,
+            phase: "update",
+            ...(status ? { status } : {}),
+            message,
+            sourceId: Number(asset.id),
+            targetId: targetAssetId,
+        });
+
+        return "update_failed";
+    }
+
+    return matched ? "matched" : "created";
+};
+
+/** Both spaces' asset tags, read the only way a personal token may read them. */
+const readInternalTagPlan = async ({
+    sourceSpace,
+    targetSpace,
+    assets,
+    ledgerTagIds,
+}: {
+    sourceSpace: string;
+    targetSpace: string;
+    assets: any[];
+    ledgerTagIds?: Map<number, number>;
+}): Promise<CopyInternalTagPlan> => {
+    const readTags = async (spaceId: string) => {
+        const result = await managementApi.internalTags.getAllInternalTags(
+            { spaceId, objectType: "asset" },
+            { ...apiConfig, spaceId },
+        );
+
+        return (result?.internal_tags ?? []).map((tag: any) => ({
+            id: Number(tag.id),
+            name: String(tag.name ?? ""),
+        }));
+    };
+
+    const [sourceTags, targetTags] = await Promise.all([
+        readTags(sourceSpace),
+        readTags(targetSpace),
+    ]);
+
+    return buildCopyInternalTagPlan({
+        sourceTags,
+        targetTags,
+        assets,
+        ledgerTagIds,
+    });
+};
+
+const getAssetMetadataPayload = (
+    asset: any,
+    internalTagMapping?: Map<number, number>,
+) => {
+    // Only ids the target really has: one unknown id makes Storyblok reject the
+    // whole payload, and alt, title and copyright are lost with it.
+    const mappedTagIds = assetInternalTagIds(asset)
+        .map((id) => internalTagMapping?.get(id))
+        .filter((id): id is number => id !== undefined);
+
+    return getAssetMetadataPayloadFields(asset, mappedTagIds);
+};
+
+const getAssetMetadataPayloadFields = (
+    asset: any,
+    internalTagIds: number[],
+) => ({
     ...(asset.alt ? { alt: asset.alt } : {}),
     ...(asset.title ? { title: asset.title } : {}),
     ...(asset.copyright ? { copyright: asset.copyright } : {}),
@@ -3413,9 +3694,7 @@ const getAssetMetadataPayload = (asset: any) => ({
     ...(asset.is_private === undefined ? {} : { is_private: asset.is_private }),
     ...(asset.locked === undefined ? {} : { locked: asset.locked }),
     ...(asset.publish_at === undefined ? {} : { publish_at: asset.publish_at }),
-    ...(asset.internal_tag_ids?.length
-        ? { internal_tag_ids: asset.internal_tag_ids }
-        : {}),
+    ...(internalTagIds.length ? { internal_tag_ids: internalTagIds } : {}),
 });
 
 const findUniqueTargetAssetByFileName = (
@@ -3442,6 +3721,7 @@ const buildCopyAssetsApplyReport = ({
     assetsMatched,
     items,
     failures,
+    internalTags,
 }: {
     sourceSpace: string;
     targetSpace: string;
@@ -3455,6 +3735,7 @@ const buildCopyAssetsApplyReport = ({
     assetsMatched: number;
     items: CopyAssetsApplyItem[];
     failures: CopyRunFailure[];
+    internalTags: CopyInternalTagsReport;
 }): CopyAssetsApplyReport => ({
     schemaVersion: 1,
     command: "copy assets",
@@ -3476,6 +3757,7 @@ const buildCopyAssetsApplyReport = ({
         outcomes: countCopyOutcomes(items.map((item) => item.outcome)),
         failed: failures.length,
     },
+    internalTags,
     graph,
     items,
     failures,
@@ -5227,9 +5509,50 @@ const copyAssetsAndWriteManifests = async ({
     // them: it would land in the root, silently misplaced.
     const unavailableFolderIds = new Set<number>();
 
+    // The tags before the first metadata write: every PUT below carries the
+    // target's own ids, and a tag the target lacks is named, never invented.
+    const internalTagPlan = await readInternalTagPlan({
+        sourceSpace,
+        targetSpace,
+        assets: sourceAssets,
+        ledgerTagIds: copyMaps.internalTagIds,
+    });
+    const internalTagsReport = toInternalTagsReport(internalTagPlan);
+    const internalTagPlanLine = formatInternalTagsPlanLine(
+        internalTagsReport,
+        targetSpace,
+    );
+
+    const tagsRecordedAt = new Date().toISOString();
+
+    for (const tag of internalTagPlan.matched) {
+        const tagEntry: CopyInternalTagManifestEntry = {
+            type: "internal_tag",
+            source_space_id: sourceSpace,
+            target_space_id: targetSpace,
+            source_id: tag.sourceId,
+            target_id: tag.targetId,
+            name: tag.name,
+            object_type: "asset",
+            action: "matched_by_target_key",
+            created_at: tagsRecordedAt,
+        };
+
+        await appendCopyManifestEntry({
+            combinedPath: manifestPaths.combined,
+            resourcePath: manifestPaths.internalTags,
+            entry: tagEntry,
+        });
+        applyCopyMapWrites(copyMaps, getCopyMapWrites(tagEntry));
+    }
+
     Logger.warning(
         `Copying assets from space '${sourceSpace}' to space '${targetSpace}'.`,
     );
+
+    if (internalTagPlanLine) {
+        Logger.warning(internalTagPlanLine);
+    }
 
     for (const folderNode of graph.assetFolders) {
         const sourceFolder = sourceFolderById.get(folderNode.sourceId);
@@ -5433,12 +5756,25 @@ const copyAssetsAndWriteManifests = async ({
                       ) ?? null);
             graphAsset.action = "match";
             assetsMatched += 1;
+            // An asset the ledger already maps still gets its metadata: the
+            // rehearsal lost 99 alt texts to a rejected tag id, and this is
+            // the run that puts them back.
+            const ledgerMatchedOutcome = await writeAssetMetadata({
+                asset,
+                assetName,
+                targetAssetId: Number(mappedTargetAsset.id),
+                targetSpace,
+                internalTagMapping: internalTagPlan.mapping,
+                failures,
+                matched: true,
+            });
+
             items.push({
                 resource: "asset",
                 sourceId: Number(asset.id),
                 name: assetName,
                 targetId: Number(mappedTargetAsset.id),
-                outcome: "matched",
+                outcome: ledgerMatchedOutcome,
             });
             continue;
         }
@@ -5490,12 +5826,25 @@ const copyAssetsAndWriteManifests = async ({
             graphAsset.targetAssetFolderId = entry.target_asset_folder_id;
             graphAsset.action = "match";
             assetsMatched += 1;
+            // A matched asset still gets its metadata written: this is how an
+            // asset whose earlier copy lost its alt to a rejected tag id gets
+            // it back, and how a tag created in the UI since then is attached.
+            const matchedOutcome = await writeAssetMetadata({
+                asset,
+                assetName,
+                targetAssetId: Number(entry.target_id),
+                targetSpace,
+                internalTagMapping: internalTagPlan.mapping,
+                failures,
+                matched: true,
+            });
+
             items.push({
                 resource: "asset",
                 sourceId: Number(asset.id),
                 name: assetName,
                 targetId: entry.target_id,
-                outcome: "matched",
+                outcome: matchedOutcome,
             });
             continue;
         }
@@ -5603,36 +5952,15 @@ const copyAssetsAndWriteManifests = async ({
         // now, and a rerun must find it even if its metadata never lands.
         let outcome: CopyItemOutcome = "created";
 
-        if (Object.keys(getAssetMetadataPayload(asset)).length > 0) {
-            try {
-                await managementApi.assets.updateAsset(
-                    {
-                        spaceId: targetSpace,
-                        assetId: Number(targetAsset.id),
-                        payload: getAssetMetadataPayload(asset),
-                    },
-                    {
-                        ...apiConfig,
-                        spaceId: targetSpace,
-                    },
-                );
-            } catch (error) {
-                const status = resolveThrownStatus(error);
-                const message = `Asset '${assetName}' was copied as target asset '${entry.target_id}', but its metadata (alt, title, copyright) could not be written${status ? ` (status ${status})` : ""}: ${describeThrown(error)}.`;
-
-                Logger.error(message);
-                failures.push({
-                    resource: "asset",
-                    name: assetName,
-                    phase: "update",
-                    ...(status ? { status } : {}),
-                    message,
-                    sourceId: Number(asset.id),
-                    targetId: entry.target_id,
-                });
-                outcome = "update_failed";
-            }
-        }
+        outcome = await writeAssetMetadata({
+            asset,
+            assetName,
+            targetAssetId: Number(targetAsset.id),
+            targetSpace,
+            internalTagMapping: internalTagPlan.mapping,
+            failures,
+            matched: false,
+        });
 
         items.push({
             resource: "asset",
@@ -5661,6 +5989,7 @@ const copyAssetsAndWriteManifests = async ({
         assetsMatched,
         items,
         failures,
+        internalTags: internalTagsReport,
     });
 
     if (outputPath) {
@@ -5947,6 +6276,15 @@ const logDryRunCopyAssetsPlan = async ({
     Logger.warning(
         `[dry-run] Would plan ${report.summary.assetFolders} asset folder(s) and ${report.summary.assets} asset(s).`,
     );
+
+    const internalTagsLine = formatInternalTagsPlanLine(
+        report.internalTags,
+        report.normalized.targetSpaceId,
+    );
+
+    if (internalTagsLine) {
+        Logger.warning(`[dry-run]${internalTagsLine}`);
+    }
 
     for (const folder of report.graph.assetFolders) {
         Logger.warning(
@@ -7419,6 +7757,20 @@ export const copyCommand = async (props: CLIOptions) => {
                     input: { ...flags },
                     outputPath,
                     graph,
+                    internalTags: await readInternalTagPlan({
+                        sourceSpace,
+                        targetSpace,
+                        assets: scopedSource.assets,
+                        ledgerTagIds: buildCopyMaps(
+                            await loadManifest(
+                                getDefaultCopyManifestPaths({
+                                    sourceSpaceId: sourceSpace,
+                                    targetSpaceId: targetSpace,
+                                    rootDir: manifestRoot,
+                                }).combined,
+                            ),
+                        ).internalTagIds,
+                    }),
                 });
 
                 await logDryRunCopyAssetsPlan({ report });
