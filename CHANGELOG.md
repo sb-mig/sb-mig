@@ -1,3 +1,10 @@
+# [6.5.0-beta.15](https://github.com/sb-mig/sb-mig/compare/v6.5.0-beta.14...v6.5.0-beta.15) (2026-09-23)
+
+
+### Bug Fixes
+
+* **copy:** a copy assets metadata write carries empty fields too, so a stale alt, title or copyright is cleared ([18f1fd7](https://github.com/sb-mig/sb-mig/commit/18f1fd74dfad7e89649a84137f6cad6e9189e889))
+
 # [6.5.0-beta.14](https://github.com/sb-mig/sb-mig/compare/v6.5.0-beta.13...v6.5.0-beta.14) (2026-09-23)
 
 
