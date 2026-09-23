@@ -534,6 +534,68 @@ describe("copy assets: internal tags", () => {
         await rm(tempDir, { recursive: true, force: true });
     });
 
+    // R5 canary, the second matched path (MAR-3354 lap 3, A). Mutation that
+    // must turn it red: replace the `writeAssetMetadata` call of the
+    // target-key-matched branch with the bare outcome.
+    //
+    // This is the path a run takes after a native space duplicate with a fresh
+    // or lost --manifestRoot: the file is already in the target, no ledger line
+    // maps it, and it is found by its file name. Its metadata has to be written
+    // too, or the assets that lost their alt keep it lost.
+    it("writes the metadata of an asset the target already holds by file name", async () => {
+        const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-tags-"));
+        // No ledger at all: the match can only come from the target listing.
+        const manifestRoot = path.join(tempDir, ".sb-mig");
+
+        mocks.getAllAssets.mockImplementation(({ spaceId }: any) =>
+            Promise.resolve(
+                spaceId === "111"
+                    ? { assets: [sourceAsset({ internal_tag_ids: [10] })] }
+                    : {
+                          assets: [
+                              {
+                                  id: 7001,
+                                  filename:
+                                      "https://a.storyblok.com/f/222/1200x630/9c8d7e6f5a/one.jpg",
+                                  asset_folder_id: null,
+                              },
+                          ],
+                      },
+            ),
+        );
+        mocks.getAllInternalTags.mockImplementation(({ spaceId }: any) =>
+            Promise.resolve(
+                spaceId === "111"
+                    ? { internal_tags: [tag(10, "A")] }
+                    : { internal_tags: [tag(90, "A")] },
+            ),
+        );
+
+        await runCopyAssets({ yes: true, manifestRoot });
+
+        // Matched by file name, not uploaded again, and its metadata written.
+        expect(mocks.createAssetAndFinalize).not.toHaveBeenCalled();
+        expect(mocks.updateAsset).toHaveBeenCalledTimes(1);
+        expect(mocks.updateAsset.mock.calls[0][0]).toMatchObject({
+            spaceId: "222",
+            assetId: 7001,
+            payload: { alt: "the alt text", internal_tag_ids: [90] },
+        });
+        expect(
+            (await readLedger(manifestRoot)).filter(
+                (entry) => entry.type === "asset",
+            ),
+        ).toEqual([
+            expect.objectContaining({
+                source_id: 700,
+                target_id: 7001,
+                action: "matched_by_target_key",
+            }),
+        ]);
+
+        await rm(tempDir, { recursive: true, force: true });
+    });
+
     // R6 canary. Mutation that must turn it red: drop `internalTags` from the
     // apply report, or stop printing the line before the first write.
     it("prints the line and reports the names on an apply run", async () => {
