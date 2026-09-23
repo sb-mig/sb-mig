@@ -188,6 +188,190 @@ describe("asset URLs in strings: the key is the identity (R1)", () => {
     });
 });
 
+describe("asset URLs in strings: the dimensions segment is optional (MAR-3353 R1)", () => {
+    // The shape a migrated file is written with: no dimensions segment.
+    // 189 of 4,766 files on a real library look like this.
+    const SHORT_HASH = "4a4ecad472";
+    const SHORT_KEY = `/f/${SOURCE_SPACE}/${SHORT_HASH}/hult_whistle_blower_policy.pdf`;
+    const SHORT_IMAGE_KEY = `/f/${SOURCE_SPACE}/9a8555bcc0/logo.png`;
+
+    // R1 canary. Mutation that must turn it red: make the dimensions segment
+    // mandatory again (drop the short pattern).
+    it.each([
+        ["short PDF", `${CDN}${SHORT_KEY}`, "", SHORT_KEY, ""],
+        ["short PNG", `${CDN}${SHORT_IMAGE_KEY}`, "", SHORT_IMAGE_KEY, ""],
+        ["short on the s3 host", `${S3}${SHORT_KEY}`, "", SHORT_KEY, ""],
+        [
+            "short, protocol-relative",
+            `//a.storyblok.com${SHORT_KEY}`,
+            "",
+            SHORT_KEY,
+            "",
+        ],
+        [
+            "short with a query tail",
+            `${CDN}${SHORT_KEY}?cb=1`,
+            "",
+            SHORT_KEY,
+            "?cb=1",
+        ],
+        [
+            "short with a resize tail",
+            `${CDN}${SHORT_IMAGE_KEY}/m/800x0`,
+            "",
+            SHORT_IMAGE_KEY,
+            "/m/800x0",
+        ],
+        [
+            "short behind the image service",
+            `https://img2.storyblok.com/fit-in/600x0${SHORT_KEY}`,
+            "",
+            SHORT_KEY,
+            "",
+        ],
+        ["long with dimensions", `${CDN}${KEY}`, "1200x630", KEY, ""],
+        [
+            "long with the x placeholder",
+            `${CDN}/f/${SOURCE_SPACE}/x/2b7c4d6e9a/flyer.pdf`,
+            "x",
+            `/f/${SOURCE_SPACE}/x/2b7c4d6e9a/flyer.pdf`,
+            "",
+        ],
+        [
+            "long whose dimensions look like a hash",
+            `${CDN}/f/${SOURCE_SPACE}/abcdef12/1234abcd/name.jpg`,
+            "abcdef12",
+            `/f/${SOURCE_SPACE}/abcdef12/1234abcd/name.jpg`,
+            "",
+        ],
+    ])("reads a %s", (_label, url, dimensions, key, rest) => {
+        expect(assetKeyOf(url)).toMatchObject({
+            spaceId: SOURCE_SPACE,
+            dimensions,
+            key,
+            rest,
+        });
+    });
+
+    // R1 canary. Mutation that must turn it red: build the key from the parts
+    // with an empty middle segment (`/f/<space>//<hash>/<name>`).
+    it("writes the key exactly as the path was written", () => {
+        const short = assetKeyOf(`${CDN}${SHORT_KEY}`);
+
+        expect(short?.key).not.toContain("//");
+        expect(short?.key).toBe(SHORT_KEY);
+
+        // The bounds agree with the key in both shapes, so a rewrite replaces
+        // exactly the path and nothing around it.
+        const html = `<a href="${CDN}${SHORT_KEY}">policy</a> <img src="${CDN}${KEY}">`;
+
+        expect(
+            findAssetUrls(html).map((match) => [
+                match.key,
+                html.slice(match.keyStart, match.keyEnd),
+            ]),
+        ).toEqual([
+            [SHORT_KEY, SHORT_KEY],
+            [KEY, KEY],
+        ]);
+    });
+
+    it("finds both shapes in one text, each once", () => {
+        const html = `<p><a href="${CDN}${SHORT_KEY}">x</a> <img src="${CDN}${SHORT_IMAGE_KEY}/m/800x0"> <img src="${CDN}${KEY}"></p>`;
+
+        expect(findAssetUrls(html).map((match) => match.key)).toEqual([
+            SHORT_KEY,
+            SHORT_IMAGE_KEY,
+            KEY,
+        ]);
+    });
+
+    it("still refuses a path that is neither shape", () => {
+        // Two segments where the first is not a hash: nothing says which is
+        // which, so it stays unrecognised, exactly as before.
+        expect(
+            assetKeyOf(`${CDN}/f/${SOURCE_SPACE}/x/hero.jpg`),
+        ).toBeUndefined();
+        expect(assetKeyOf(`${CDN}/f/${SOURCE_SPACE}/hero.jpg`)).toBeUndefined();
+    });
+
+    // R2 canary. Mutation that must turn it red: key the maps by a path built
+    // with an empty middle segment.
+    it("matches a short-form ledger line to a short-form URL in content", () => {
+        const shortLedger: CopyManifestEntry[] = [
+            {
+                type: "asset",
+                source_space_id: SOURCE_SPACE,
+                target_space_id: "222",
+                action: "created",
+                created_at: "2026-09-23T00:00:00.000Z",
+                source_id: 950,
+                target_id: 9500,
+                // The library answers the s3 host; the story holds its own.
+                source_filename: `${S3}${SHORT_KEY}`,
+                target_filename: `${CDN}/f/222/${SHORT_HASH}/hult_whistle_blower_policy.pdf`,
+            },
+        ];
+        const maps = buildCopyMaps(shortLedger);
+
+        expect(maps.assetKeys.get(SHORT_KEY)).toEqual({
+            id: 9500,
+            filename: `${CDN}/f/222/${SHORT_HASH}/hult_whistle_blower_policy.pdf`,
+        });
+
+        const result = rewriteCopyReferences({
+            value: {
+                html: `<p>Read the <a href="${CDN}${SHORT_KEY}">policy</a>.</p>`,
+                link: {
+                    linktype: "asset",
+                    url: `${CDN}${SHORT_KEY}`,
+                    cached_url: `${CDN}${SHORT_KEY}`,
+                },
+            },
+            maps,
+            schemas,
+        });
+        const value = result.value as any;
+
+        expect(value.html).toBe(
+            `<p>Read the <a href="${CDN}/f/222/${SHORT_HASH}/hult_whistle_blower_policy.pdf">policy</a>.</p>`,
+        );
+        expect(value.link.url).toBe(
+            `${CDN}/f/222/${SHORT_HASH}/hult_whistle_blower_policy.pdf`,
+        );
+        expect(value.link.cached_url).toBe(value.link.url);
+        expect(result.records).toHaveLength(3);
+    });
+
+    // R4 canary. Mutation that must turn it red: any change to the long-form
+    // pattern. These are the keys the released version produced, verbatim.
+    it.each([
+        [
+            `${CDN}/f/111/1200x630/2b7c4d6e9a/flyer.pdf`,
+            "/f/111/1200x630/2b7c4d6e9a/flyer.pdf",
+        ],
+        [
+            `${S3}/f/111/800x400/1111111111222222222233333333334444444444/inline.jpg`,
+            "/f/111/800x400/1111111111222222222233333333334444444444/inline.jpg",
+        ],
+        [
+            `${CDN}/f/12345/1920x1080/abc/image.png`,
+            "/f/12345/1920x1080/abc/image.png",
+        ],
+        [
+            `${CDN}/f/12345/500x500/hash123/avatar.png`,
+            "/f/12345/500x500/hash123/avatar.png",
+        ],
+        [`${CDN}/f/1/x/h/photo.png`, "/f/1/x/h/photo.png"],
+        [
+            `${CDN}/f/123456/100x100/xyz789/thumb.webp`,
+            "/f/123456/100x100/xyz789/thumb.webp",
+        ],
+    ])("keeps the released key of %s", (url, key) => {
+        expect(assetKeyOf(url)?.key).toBe(key);
+    });
+});
+
 describe("asset URLs in strings: the maps know assets by key (R2)", () => {
     // R2 canary. Mutation that must turn it red: key `assetKeys` by the raw
     // `source_filename` instead of by its asset key.
