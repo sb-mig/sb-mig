@@ -4,9 +4,14 @@ import type { SBAsset } from "../assets/assets.types.js";
 
 import { createCopyGraph } from "./graph.js";
 
+/**
+ * What a `copy assets` dry-run cannot tell. It reads the ledger and both of the
+ * target's listings, so what is already copied, what the target already holds
+ * by folder path or file name, and what will be uploaded are all decided — by
+ * the same code the apply runs. What it cannot do is write: no ledger line and
+ * no upload, so whether each upload will succeed is known only on apply.
+ */
 export const COPY_ASSETS_DRY_RUN_LIMITATIONS = [
-    "target_conflicts_not_checked",
-    "target_asset_identity_not_resolved",
     "manifests_not_written_in_dry_run",
 ];
 
