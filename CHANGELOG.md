@@ -1,3 +1,15 @@
+# [6.5.0-beta.12](https://github.com/sb-mig/sb-mig/compare/v6.5.0-beta.11...v6.5.0-beta.12) (2026-09-23)
+
+
+### Bug Fixes
+
+* **copy:** count the relink writes, fit the live line to the terminal, and never leave it open (MAR-3356) ([3ae8413](https://github.com/sb-mig/sb-mig/commit/3ae841362a7083964750dea42cb8cbdca06bab48))
+
+
+### Features
+
+* **copy:** live progress line in a terminal, heartbeat lines in CI, --verbose for per-item detail (MAR-3356) ([fa8d7e3](https://github.com/sb-mig/sb-mig/commit/fa8d7e3bd8e888f40074d2572385dab7fd6219cc))
+
 # [6.5.0-beta.11](https://github.com/sb-mig/sb-mig/compare/v6.5.0-beta.10...v6.5.0-beta.11) (2026-09-23)
 
 
