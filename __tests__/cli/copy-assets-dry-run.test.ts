@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "fs/promises";
 import { tmpdir } from "os";
 import path from "path";
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
     getStoryBySlug: vi.fn(),
@@ -14,6 +14,9 @@ const mocks = vi.hoisted(() => ({
     publishStoryLanguages: vi.fn(),
     getSpace: vi.fn(),
     sbApiGet: vi.fn(),
+    sbApiPost: vi.fn(),
+    sbApiPut: vi.fn(),
+    sbApiDelete: vi.fn(),
     getAllStories: vi.fn(),
     getAllComponents: vi.fn(),
     getAllAssets: vi.fn(),
@@ -31,6 +34,9 @@ vi.mock("../../src/cli/api-config.js", () => ({
         spaceId: "default-space",
         sbApi: {
             get: mocks.sbApiGet,
+            post: mocks.sbApiPost,
+            put: mocks.sbApiPut,
+            delete: mocks.sbApiDelete,
         },
     },
 }));
@@ -78,6 +84,7 @@ vi.mock("../../src/utils/logger.js", () => ({
 }));
 
 import { copyCommand } from "../../src/cli/commands/copy.js";
+import Logger from "../../src/utils/logger.js";
 
 const quoteCommandArg = (value: string): string =>
     /^[a-zA-Z0-9_./:-]+$/.test(value) ? value : JSON.stringify(value);
@@ -272,11 +279,10 @@ describe("copy assets dry-run", () => {
                     },
                 ],
             },
-            limitations: [
-                "target_conflicts_not_checked",
-                "target_asset_identity_not_resolved",
-                "manifests_not_written_in_dry_run",
-            ],
+            // MAR-3359: the dry-run reads the ledger and the target library,
+            // so it no longer claims it could not check them. Every item is
+            // still `create`: this target is empty and there is no ledger.
+            limitations: ["manifests_not_written_in_dry_run"],
         });
         expect(report.commands.dryRun).toBe(
             "sb-mig copy assets --from source-space --to target-space --all --dry-run --outputPath " +
@@ -1035,6 +1041,36 @@ describe("copy assets dry-run", () => {
             ].join("\n") + "\n",
             "utf8",
         );
+        // MAR-3359 R3: a ledger mapping counts as "already copied" only while
+        // the target still holds what it points at, so the target listing
+        // holds the three things this ledger says were copied. (It was empty
+        // before only because the old apply never looked.)
+        mocks.getAllAssetFolders.mockImplementation(({ spaceId }) =>
+            Promise.resolve({
+                asset_folders:
+                    spaceId === "source-space"
+                        ? sourceAssetFolders
+                        : [
+                              { id: 110, name: "Root", parent_id: null },
+                              { id: 120, name: "Nested", parent_id: 110 },
+                          ],
+            }),
+        );
+        mocks.getAllAssets.mockImplementation(({ spaceId }) =>
+            Promise.resolve({
+                assets:
+                    spaceId === "source-space"
+                        ? [sourceAsset]
+                        : [
+                              {
+                                  id: 220,
+                                  filename:
+                                      "https://a.storyblok.com/f/456/nested/image.jpg",
+                                  asset_folder_id: 120,
+                              },
+                          ],
+            }),
+        );
 
         await copyCommand({
             input: ["copy", "assets"],
@@ -1173,5 +1209,595 @@ describe("copy assets dry-run", () => {
 
             await finish();
         });
+    });
+});
+
+/**
+ * MAR-3359: the dry-run says what the apply will do, because both ask the
+ * same decision. Every test here drives the real command and reads what a
+ * person reads — the printed lines and the two JSON reports — never the
+ * decision function itself.
+ */
+describe("copy assets: the plan is the apply's own decision (MAR-3359)", () => {
+    const SOURCE = "111";
+    const TARGET = "222";
+
+    const url = (space: string, dims: string, hash: string, name: string) =>
+        `https://a.storyblok.com/f/${space}/${dims}/${hash}/${name}`;
+
+    const sourceAssetOf = (
+        id: number,
+        folderId: number | null,
+        filename: string,
+    ) => ({ id, filename, asset_folder_id: folderId });
+
+    type World = {
+        sourceFolders: any[];
+        sourceAssets: any[];
+        targetFolders: any[];
+        targetAssets: any[];
+    };
+
+    let world: World;
+    let nextTargetId: number;
+
+    const setWorld = (next: World) => {
+        world = next;
+        mocks.getAllAssetFolders.mockImplementation(({ spaceId }: any) =>
+            Promise.resolve({
+                asset_folders:
+                    spaceId === SOURCE
+                        ? world.sourceFolders
+                        : world.targetFolders,
+            }),
+        );
+        mocks.getAllAssets.mockImplementation(({ spaceId }: any) =>
+            Promise.resolve({
+                assets:
+                    spaceId === SOURCE ? world.sourceAssets : world.targetAssets,
+            }),
+        );
+    };
+
+    const ledgerAsset = (
+        sourceId: number,
+        targetId: number,
+        sourceFilename: string,
+        targetFilename: string,
+        action = "created",
+    ) => ({
+        type: "asset",
+        source_space_id: SOURCE,
+        target_space_id: TARGET,
+        source_id: sourceId,
+        target_id: targetId,
+        source_filename: sourceFilename,
+        target_filename: targetFilename,
+        action,
+        created_at: "2026-09-23T00:00:00.000Z",
+    });
+
+    const ledgerFolder = (sourceId: number, targetId: number) => ({
+        type: "asset_folder",
+        source_space_id: SOURCE,
+        target_space_id: TARGET,
+        source_id: sourceId,
+        target_id: targetId,
+        action: "created",
+        created_at: "2026-09-23T00:00:00.000Z",
+    });
+
+    let tempDir: string;
+    let manifestRoot: string;
+    const ledgerFile = () =>
+        path.join(manifestRoot, "copy", SOURCE, TARGET, "manifest.jsonl");
+
+    const writeLedger = async (entries: unknown[]) => {
+        await mkdir(path.dirname(ledgerFile()), { recursive: true });
+        await writeFile(
+            ledgerFile(),
+            entries.map((entry) => JSON.stringify(entry)).join("\n") + "\n",
+            "utf8",
+        );
+    };
+
+    const readLedgerLines = async (): Promise<any[]> =>
+        (await readFile(ledgerFile(), "utf8"))
+            .trim()
+            .split("\n")
+            .filter(Boolean)
+            .map((line) => JSON.parse(line));
+
+    const run = async (dryRun: boolean, extra: Record<string, unknown> = {}) => {
+        const outputPath = path.join(
+            tempDir,
+            dryRun ? "dry-run.json" : "apply.json",
+        );
+
+        await copyCommand({
+            input: ["copy", "assets"],
+            flags: {
+                from: SOURCE,
+                to: TARGET,
+                all: true,
+                manifestRoot,
+                outputPath,
+                ...(dryRun ? { dryRun: true } : {}),
+                ...extra,
+            },
+        } as any);
+
+        return JSON.parse(await readFile(outputPath, "utf8"));
+    };
+
+    const warnings = () =>
+        (Logger.warning as unknown as ReturnType<typeof vi.fn>).mock.calls.map(
+            (call) => String(call[0]),
+        );
+
+    /** What the dry-run said about one source id, and what the apply did. */
+    const dryActionOf = (report: any, resource: string, sourceId: number) =>
+        (resource === "asset"
+            ? report.graph.assets
+            : report.graph.assetFolders
+        ).find((node: any) => node.sourceId === sourceId)?.action;
+    const planOf = (report: any, resource: string, sourceId: number) =>
+        (resource === "asset" ? report.plan.assets : report.plan.folders).find(
+            (item: any) => item.sourceId === sourceId,
+        );
+    const appliedOutcomeOf = (
+        report: any,
+        resource: string,
+        sourceId: number,
+    ) =>
+        report.items.find(
+            (item: any) =>
+                item.resource === resource && item.sourceId === sourceId,
+        )?.outcome;
+    const asDryAction = (outcome: string | undefined) =>
+        outcome === "matched"
+            ? "match"
+            : outcome === "created"
+              ? "create"
+              : outcome;
+
+    beforeEach(async () => {
+        vi.clearAllMocks();
+        tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-asset-plan-"));
+        manifestRoot = path.join(tempDir, ".sb-mig");
+        nextTargetId = 9000;
+        mocks.getAllInternalTags.mockResolvedValue({ internal_tags: [] });
+        mocks.downloadAsset.mockResolvedValue("/tmp/file.jpg");
+        mocks.createAssetFolder.mockImplementation(({ payload }: any) =>
+            Promise.resolve({
+                asset_folder: {
+                    id: (nextTargetId += 1),
+                    name: payload.name,
+                    parent_id: payload.parent_id,
+                },
+            }),
+        );
+        mocks.createAssetAndFinalize.mockImplementation(({ payload }: any) => {
+            nextTargetId += 1;
+
+            return Promise.resolve({
+                id: nextTargetId,
+                filename: String(payload.filename).replace(
+                    `/f/${SOURCE}/`,
+                    `/f/${TARGET}/`,
+                ),
+                asset_folder_id: payload.asset_folder_id,
+            });
+        });
+        mocks.updateAsset.mockResolvedValue({});
+    });
+
+    afterEach(async () => {
+        await rm(tempDir, { recursive: true, force: true });
+    });
+
+    /**
+     * The R1 fixture: a ledger mapping two assets and one folder, a target
+     * library holding one more asset by unique file name and one folder by
+     * path, and two assets that are nowhere yet.
+     */
+    const mixedWorld = async () => {
+        const one = url(SOURCE, "100x100", "aaaaaaaa01", "one.jpg");
+        const two = url(SOURCE, "100x100", "aaaaaaaa02", "two.jpg");
+        const three = url(SOURCE, "100x100", "aaaaaaaa03", "three.jpg");
+        const four = url(SOURCE, "100x100", "aaaaaaaa04", "four.jpg");
+        const five = url(SOURCE, "100x100", "aaaaaaaa05", "five.jpg");
+
+        setWorld({
+            sourceFolders: [
+                { id: 10, name: "Root", parent_id: null },
+                { id: 20, name: "Nested", parent_id: 10 },
+                { id: 30, name: "Other", parent_id: null },
+            ],
+            sourceAssets: [
+                sourceAssetOf(201, 20, one),
+                sourceAssetOf(202, 20, two),
+                sourceAssetOf(203, 20, three),
+                sourceAssetOf(204, 20, four),
+                sourceAssetOf(205, 30, five),
+            ],
+            targetFolders: [
+                { id: 110, name: "Root", parent_id: null },
+                { id: 120, name: "Nested", parent_id: 110 },
+            ],
+            targetAssets: [
+                {
+                    id: 2201,
+                    filename: url(TARGET, "100x100", "bbbbbbbb01", "one.jpg"),
+                    asset_folder_id: 120,
+                },
+                {
+                    // The ledger's copy of two.jpg, renamed in the target
+                    // since; and below, an unrelated file called two.jpg.
+                    // Ledger first and file name first land on different
+                    // files, so the order is visible in the target ids.
+                    id: 2202,
+                    filename: url(
+                        TARGET,
+                        "100x100",
+                        "bbbbbbbb02",
+                        "two-renamed.jpg",
+                    ),
+                    asset_folder_id: 120,
+                },
+                {
+                    id: 2299,
+                    filename: url(TARGET, "100x100", "dddddddd99", "two.jpg"),
+                    asset_folder_id: 110,
+                },
+                {
+                    id: 2203,
+                    filename: url(TARGET, "100x100", "bbbbbbbb03", "three.jpg"),
+                    asset_folder_id: 120,
+                },
+            ],
+        });
+        await writeLedger([
+            ledgerFolder(10, 110),
+            ledgerAsset(
+                201,
+                2201,
+                one,
+                url(TARGET, "100x100", "bbbbbbbb01", "one.jpg"),
+            ),
+            ledgerAsset(
+                202,
+                2202,
+                two,
+                url(TARGET, "100x100", "bbbbbbbb02", "two-renamed.jpg"),
+            ),
+        ]);
+    };
+
+    // R1 canary. Mutations that must turn it red: make the dry-run plan
+    // without the ledger; make the apply decide without the ledger (so it
+    // looks at the file name first).
+    it("says exactly what the apply then does, item by item", async () => {
+        await mixedWorld();
+
+        const dry = await run(true);
+        const applied = await run(false);
+
+        const folderIds = [10, 20, 30];
+        const assetIds = [201, 202, 203, 204, 205];
+
+        expect(
+            folderIds.map((id) => dryActionOf(dry, "asset_folder", id)),
+        ).toEqual(["match", "match", "create"]);
+        expect(assetIds.map((id) => dryActionOf(dry, "asset", id))).toEqual([
+            "match",
+            "match",
+            "match",
+            "create",
+            "create",
+        ]);
+        expect(
+            folderIds.map((id) =>
+                asDryAction(appliedOutcomeOf(applied, "asset_folder", id)),
+            ),
+        ).toEqual(
+            folderIds.map((id) => dryActionOf(dry, "asset_folder", id)),
+        );
+        expect(
+            assetIds.map((id) =>
+                asDryAction(appliedOutcomeOf(applied, "asset", id)),
+            ),
+        ).toEqual(assetIds.map((id) => dryActionOf(dry, "asset", id)));
+        // And the same files: every match lands where the dry-run said.
+        const matchedTargets = (report: any, source: "dry" | "applied") =>
+            [201, 202, 203].map((id) =>
+                source === "dry"
+                    ? planOf(report, "asset", id)?.targetId
+                    : report.items.find(
+                          (item: any) =>
+                              item.resource === "asset" && item.sourceId === id,
+                      )?.targetId,
+            );
+
+        expect(matchedTargets(dry, "dry")).toEqual([2201, 2202, 2203]);
+        expect(matchedTargets(applied, "applied")).toEqual(
+            matchedTargets(dry, "dry"),
+        );
+        // Two uploads and one folder, exactly what the dry-run counted.
+        expect(mocks.createAssetAndFinalize).toHaveBeenCalledTimes(2);
+        expect(mocks.createAssetFolder).toHaveBeenCalledTimes(1);
+    });
+
+    // R2 canary. Mutation that must turn it red: append a ledger line during
+    // the dry-run.
+    it("reads the ledger and the target library, and writes nothing", async () => {
+        await mixedWorld();
+
+        const before = await readFile(ledgerFile());
+
+        await run(true);
+
+        expect(mocks.getAllAssets).toHaveBeenCalledWith(
+            { spaceId: TARGET },
+            expect.objectContaining({ spaceId: TARGET }),
+        );
+        expect(mocks.getAllAssetFolders).toHaveBeenCalledWith(
+            { spaceId: TARGET },
+            expect.objectContaining({ spaceId: TARGET }),
+        );
+        expect(mocks.createAsset).not.toHaveBeenCalled();
+        expect(mocks.createAssetAndFinalize).not.toHaveBeenCalled();
+        expect(mocks.createAssetFolder).not.toHaveBeenCalled();
+        expect(mocks.updateAsset).not.toHaveBeenCalled();
+        expect(mocks.downloadAsset).not.toHaveBeenCalled();
+        expect(mocks.sbApiPost).not.toHaveBeenCalled();
+        expect(mocks.sbApiPut).not.toHaveBeenCalled();
+        expect(mocks.sbApiDelete).not.toHaveBeenCalled();
+        expect(Buffer.compare(await readFile(ledgerFile()), before)).toBe(0);
+    });
+
+    // R3 canary. Mutation that must turn it red: trust a ledger mapping
+    // without checking that the target still holds it.
+    it("uploads again what the ledger maps to a file the target no longer holds", async () => {
+        const seven = url(SOURCE, "100x100", "aaaaaaaa07", "seven.jpg");
+
+        setWorld({
+            sourceFolders: [],
+            sourceAssets: [sourceAssetOf(7, null, seven)],
+            targetFolders: [],
+            // 70 was copied once, then deleted in the target by hand.
+            targetAssets: [],
+        });
+        await writeLedger([
+            ledgerAsset(7, 70, seven, url(TARGET, "100x100", "cccc", "seven.jpg")),
+        ]);
+
+        const dry = await run(true);
+
+        expect(planOf(dry, "asset", 7)).toMatchObject({
+            action: "create",
+            via: "stale_ledger",
+            staleReason: "deleted_in_target",
+        });
+        expect(dry.summary).toMatchObject({
+            assetsStaleInLedger: 1,
+            assetsAlreadyCopied: 0,
+        });
+
+        await run(false);
+
+        // Uploaded again, never a metadata write to the missing 70.
+        expect(mocks.createAssetAndFinalize).toHaveBeenCalledTimes(1);
+        expect(
+            mocks.updateAsset.mock.calls.map((call) => call[0].assetId),
+        ).not.toContain(70);
+
+        const { buildCopyMaps, loadManifest } = await import(
+            "../../src/api/copy/index.js"
+        );
+        const maps = buildCopyMaps(await loadManifest(ledgerFile()));
+
+        // The new line supersedes the stale one: a rerun maps 7 to the new copy.
+        expect(maps.assetIds.get(7)?.id).toBe(nextTargetId);
+        expect(nextTargetId).not.toBe(70);
+    });
+
+    /**
+     * The Hult shape: one photo name at two crops, in two folders. A was
+     * uploaded; B must never be "matched" to A's copy by file name.
+     */
+    const hultWorld = ({
+        sourceAssets,
+        bCrop = "1307x1963",
+    }: {
+        sourceAssets: "A and B" | "B only";
+        /** B's dimensions segment; Hult's B is a smaller crop of A. */
+        bCrop?: string;
+    }) => {
+        const a = url(SOURCE, "6336x9520", "e2c0000001", "do01001801.jpg");
+        const b = url(SOURCE, bCrop, "0960000002", "do01001801.jpg");
+        const t1 = url(TARGET, "6336x9520", "f000000001", "do01001801.jpg");
+
+        setWorld({
+            sourceFolders: [
+                { id: 1, name: "F1", parent_id: null },
+                { id: 2, name: "F2", parent_id: null },
+            ],
+            sourceAssets:
+                sourceAssets === "A and B"
+                    ? [sourceAssetOf(501, 1, a), sourceAssetOf(502, 2, b)]
+                    : [sourceAssetOf(502, 2, b)],
+            targetFolders: [
+                { id: 11, name: "F1", parent_id: null },
+                { id: 12, name: "F2", parent_id: null },
+            ],
+            targetAssets: [{ id: 7001, filename: t1, asset_folder_id: 11 }],
+        });
+
+        return { a, b, t1 };
+    };
+
+    // R7 (a) canary. Mutation that must turn it red: drop the "claimed by
+    // another source" check.
+    it("never matches a file to the copy another source already owns", async () => {
+        // B at the SAME crop as A: the dimensions cannot tell them apart, so
+        // only the claim can keep B off A's copy.
+        const { a, t1 } = hultWorld({
+            sourceAssets: "A and B",
+            bCrop: "6336x9520",
+        });
+
+        await writeLedger([
+            ledgerFolder(1, 11),
+            ledgerFolder(2, 12),
+            ledgerAsset(501, 7001, a, t1),
+        ]);
+
+        const dry = await run(true);
+
+        expect(planOf(dry, "asset", 501)).toMatchObject({
+            action: "match",
+            via: "ledger",
+        });
+        // B shares A's file name and size; A's claim alone rules it out.
+        expect(planOf(dry, "asset", 502)).toMatchObject({ action: "create" });
+        expect(planOf(dry, "asset", 502).via).toBeUndefined();
+    });
+
+    // R7 (b) canary. Mutation that must turn it red: drop the dimensions
+    // check. Here the ledger holds no line for A, so the claim cannot help.
+    it("never matches a file cropped to other dimensions", async () => {
+        hultWorld({ sourceAssets: "B only" });
+
+        const dry = await run(true);
+
+        expect(planOf(dry, "asset", 502)).toMatchObject({ action: "create" });
+        expect(dry.summary).toMatchObject({
+            assetsFoundInTarget: 0,
+            assetsToUpload: 1,
+        });
+    });
+
+    // R7 (c) canary. Mutations that must turn it red: drop the "claimed by
+    // another source" check, or trust a ledger line without it.
+    it("heals a ledger line that matched another source's copy", async () => {
+        const { a, b, t1 } = hultWorld({ sourceAssets: "A and B" });
+
+        await writeLedger([
+            ledgerFolder(1, 11),
+            ledgerFolder(2, 12),
+            ledgerAsset(501, 7001, a, t1),
+            // What the Hult resume wrote: B "matched" A's copy by file name.
+            ledgerAsset(502, 7001, b, t1, "matched_by_target_key"),
+        ]);
+
+        const dry = await run(true);
+
+        expect(planOf(dry, "asset", 502)).toMatchObject({
+            action: "create",
+            via: "stale_ledger",
+            staleReason: "claimed_by_another_source",
+        });
+        expect(planOf(dry, "asset", 501)).toMatchObject({
+            action: "match",
+            via: "ledger",
+        });
+        expect(
+            warnings().some((line) =>
+                line.includes("stale in ledger: claimed by another source"),
+            ),
+        ).toBe(true);
+
+        await run(false);
+
+        // B is uploaded into its own folder, and its new line supersedes
+        // the bad one.
+        expect(mocks.createAssetAndFinalize).toHaveBeenCalledTimes(1);
+        expect(mocks.createAssetAndFinalize.mock.calls[0][0]).toMatchObject({
+            payload: { filename: b, asset_folder_id: 12 },
+        });
+
+        const lastLineForB = (await readLedgerLines())
+            .filter((entry) => entry.type === "asset" && entry.source_id === 502)
+            .pop();
+
+        expect(lastLineForB).toMatchObject({
+            target_id: nextTargetId,
+            action: "created",
+        });
+    });
+
+    // R4 canary. Mutation that must turn it red: count every item as a
+    // planned create.
+    it("says the plan in seven numbers, the same in the log and the report", async () => {
+        await mixedWorld();
+
+        const dry = await run(true);
+        const line = warnings().find((entry) =>
+            entry.startsWith("[dry-run] assets: "),
+        );
+
+        expect(line).toBe(
+            "[dry-run] assets: 2 already copied (ledger), 1 found in target, 2 will upload, 0 stale in ledger (will upload again); folders: 1 already copied, 1 found in target, 1 will create",
+        );
+        expect(dry.summary).toMatchObject({
+            assetsAlreadyCopied: 2,
+            assetsFoundInTarget: 1,
+            assetsToUpload: 2,
+            assetsStaleInLedger: 0,
+            foldersAlreadyCopied: 1,
+            foldersFoundInTarget: 1,
+            foldersToCreate: 1,
+            plannedCreates: 3,
+        });
+        expect(
+            dry.summary.assetsAlreadyCopied +
+                dry.summary.assetsFoundInTarget +
+                dry.summary.assetsToUpload +
+                dry.summary.assetsStaleInLedger,
+        ).toBe(dry.summary.assets);
+        expect(
+            dry.summary.foldersAlreadyCopied +
+                dry.summary.foldersFoundInTarget +
+                dry.summary.foldersToCreate,
+        ).toBe(dry.summary.assetFolders);
+        // The line comes before any per-item line.
+        const lines = warnings();
+
+        expect(lines.indexOf(String(line))).toBeLessThan(
+            lines.findIndex((entry) => entry.startsWith("[dry-run]   ")),
+        );
+        expect(dry.limitations).not.toContain(
+            "target_asset_identity_not_resolved",
+        );
+    });
+
+    // R5 canary. Mutation that must turn it red: never print the ledger line.
+    it("says it is resuming from a ledger, and only when there is one", async () => {
+        await mixedWorld();
+
+        await run(true);
+
+        const ledgerLines = () =>
+            warnings().filter((line) => line.includes("ledger: "));
+
+        expect(ledgerLines()).toEqual([
+            expect.stringMatching(
+                /^\[dry-run\] ledger: 3 entries loaded from .*manifest\.jsonl \(resuming;/,
+            ),
+        ]);
+
+        vi.mocked(Logger.warning).mockClear();
+        await run(false);
+
+        expect(ledgerLines()).toEqual([
+            expect.stringMatching(/^ledger: 3 entries loaded from /),
+        ]);
+
+        await rm(ledgerFile());
+        vi.mocked(Logger.warning).mockClear();
+        await run(true);
+
+        expect(ledgerLines()).toEqual([]);
     });
 });

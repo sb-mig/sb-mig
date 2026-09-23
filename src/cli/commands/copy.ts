@@ -30,6 +30,15 @@ import fs from "fs/promises";
 import path from "path";
 
 import {
+    countAssetCopyPlan,
+    createAssetCopyDecider,
+    describeStaleReason,
+    formatAssetCopyPlanLine,
+    planAssetCopy,
+    type AssetCopyPlan,
+    type AssetCopyPlanCounts,
+} from "../../api/copy/asset-plan.js";
+import {
     appendManifestEntry,
     applyStoryManifestEntryToMaps,
     archiveCopyManifests,
@@ -52,6 +61,7 @@ import {
     formatCopyManifestPairList,
     formatCopyManifestRemovalPlan,
     formatCopyPlanGate,
+    formatCopyPlanGateLedger,
     formatCopySpacePlanGate,
     buildCopySpacePlanGateSummary,
     parseCopySpaceOnly,
@@ -387,12 +397,22 @@ type CopyAssetsDryRunReport = {
         selection: CopyAssetsSelectionReport;
     };
     summary: {
+        /** Only the creates: folders to make and files to upload. */
         plannedCreates: number;
         assetFolders: number;
         assets: number;
         warnings: number;
         errors: number;
+        assetsAlreadyCopied: number;
+        assetsFoundInTarget: number;
+        assetsToUpload: number;
+        assetsStaleInLedger: number;
+        foldersAlreadyCopied: number;
+        foldersFoundInTarget: number;
+        foldersToCreate: number;
     };
+    /** Per item: what the apply will do, and why. */
+    plan: AssetCopyPlan;
     internalTags: CopyInternalTagsReport;
     graph: ReturnType<typeof buildCopyAssetsGraph>;
     limitations: string[];
@@ -2540,6 +2560,7 @@ const buildCopyAssetsDryRunReport = ({
     input,
     outputPath,
     graph,
+    plan,
     internalTags,
 }: {
     sourceSpace: string;
@@ -2548,9 +2569,11 @@ const buildCopyAssetsDryRunReport = ({
     input: Record<string, any>;
     outputPath?: string;
     graph: ReturnType<typeof buildCopyAssetsGraph>;
+    plan: AssetCopyPlan;
     internalTags: CopyInternalTagPlan;
 }): CopyAssetsDryRunReport => {
     const graphSummary = summarizeCopyGraph(graph);
+    const counts = countAssetCopyPlan(plan);
 
     return {
         schemaVersion: 1,
@@ -2564,12 +2587,23 @@ const buildCopyAssetsDryRunReport = ({
             selection: toSelectionReport(selection),
         },
         summary: {
-            plannedCreates: graphSummary.assetFolders + graphSummary.assets,
+            plannedCreates:
+                counts.assetsToUpload +
+                counts.assetsStaleInLedger +
+                counts.foldersToCreate,
             assetFolders: graphSummary.assetFolders,
             assets: graphSummary.assets,
             warnings: graphSummary.warnings,
             errors: graphSummary.errors,
+            assetsAlreadyCopied: counts.assetsAlreadyCopied,
+            assetsFoundInTarget: counts.assetsFoundInTarget,
+            assetsToUpload: counts.assetsToUpload,
+            assetsStaleInLedger: counts.assetsStaleInLedger,
+            foldersAlreadyCopied: counts.foldersAlreadyCopied,
+            foldersFoundInTarget: counts.foldersFoundInTarget,
+            foldersToCreate: counts.foldersToCreate,
         },
+        plan,
         internalTags: toInternalTagsReport(internalTags),
         graph,
         limitations: graph.limitations,
@@ -3804,16 +3838,192 @@ const getAssetMetadataPayloadFields = (
     ...(internalTagIds.length ? { internal_tag_ids: internalTagIds } : {}),
 });
 
-const findUniqueTargetAssetByFileName = (
-    targetAssets: any[],
-    fileName: string,
-): any | undefined => {
-    const matches = targetAssets.filter(
-        (asset) => getFileName(asset.filename) === fileName,
+/**
+ * The one decision a `copy assets` run makes about each folder and asset,
+ * built from the ledger and the target's two listings. The dry-run walks it
+ * whole; the apply asks it item by item. See `api/copy/asset-plan.ts`.
+ */
+const createCopyAssetsDecider = ({
+    ledgerEntries,
+    targetAssetFolders,
+    targetAssets,
+}: {
+    ledgerEntries: CopyManifestEntry[];
+    targetAssetFolders: any[];
+    targetAssets: any[];
+}) =>
+    createAssetCopyDecider({
+        ledgerEntries,
+        targetFolders: targetAssetFolders,
+        targetAssets,
+        targetFolderIdByPath: new Map(
+            [...buildAssetFolderPathMap(targetAssetFolders)].map(
+                ([folderPath, folder]) =>
+                    [folderPath, Number(folder.id)] as const,
+            ),
+        ),
+    });
+
+/**
+ * The items of a run, in the order the apply walks them: folders by depth as
+ * the graph holds them, assets in the source listing's order, limited to the
+ * selection. The order matters: a file-name match claims its target for the
+ * rest of the run.
+ */
+const toAssetPlanInputs = ({
+    graph,
+    sourceAssets,
+}: {
+    graph: ReturnType<typeof buildCopyAssetsGraph>;
+    sourceAssets: any[];
+}) => {
+    const selected = new Set(graph.assets.map((asset) => asset.sourceId));
+
+    return {
+        folders: graph.assetFolders.map((folder) => ({
+            sourceId: folder.sourceId,
+            sourcePath: folder.sourcePath,
+            sourceParentId: folder.sourceParentId ?? null,
+        })),
+        assets: sourceAssets
+            .filter((asset) => selected.has(Number(asset.id)))
+            .map((asset) => ({
+                sourceId: Number(asset.id),
+                sourceFilename: String(asset.filename ?? ""),
+                sourceAssetFolderId: asset.asset_folder_id ?? null,
+            })),
+    };
+};
+
+/**
+ * The dry-run's plan for `--all`, `--asset` and `--assetFolder`: the target's
+ * two listings, read the way the apply reads them, and the apply's own
+ * decision walked over the selection. Nothing is written. Each graph node
+ * carries the action the apply will take.
+ */
+const planCopyAssetsAgainstTarget = async ({
+    targetSpace,
+    graph,
+    sourceAssets,
+    ledgerEntries,
+}: {
+    targetSpace: string;
+    graph: ReturnType<typeof buildCopyAssetsGraph>;
+    sourceAssets: any[];
+    ledgerEntries: CopyManifestEntry[];
+}): Promise<AssetCopyPlan> => {
+    const [targetAssetFoldersResult, targetAssetsResult] = await Promise.all([
+        managementApi.assets.getAllAssetFolders(
+            { spaceId: targetSpace },
+            { ...apiConfig, spaceId: targetSpace },
+        ),
+        managementApi.assets.getAllAssets(
+            { spaceId: targetSpace },
+            { ...apiConfig, spaceId: targetSpace },
+        ),
+    ]);
+    const targetAssetFolders = Array.isArray(
+        targetAssetFoldersResult?.asset_folders,
+    )
+        ? targetAssetFoldersResult.asset_folders
+        : [];
+    const targetAssets = Array.isArray(targetAssetsResult?.assets)
+        ? targetAssetsResult.assets
+        : [];
+    const plan = planAssetCopy({
+        decider: createCopyAssetsDecider({
+            ledgerEntries,
+            targetAssetFolders,
+            targetAssets,
+        }),
+        ...toAssetPlanInputs({ graph, sourceAssets }),
+    });
+    const folderDecisions = new Map(
+        plan.folders.map((item) => [item.sourceId, item] as const),
+    );
+    const assetDecisions = new Map(
+        plan.assets.map((item) => [item.sourceId, item] as const),
+    );
+    const targetAssetById = new Map(
+        targetAssets.map((asset: any) => [Number(asset.id), asset] as const),
     );
 
-    return matches.length === 1 ? matches[0] : undefined;
+    for (const folder of graph.assetFolders) {
+        const decision = folderDecisions.get(folder.sourceId);
+
+        if (decision) {
+            folder.action = decision.action;
+        }
+    }
+
+    for (const asset of graph.assets) {
+        const decision = assetDecisions.get(asset.sourceId);
+
+        if (!decision) {
+            continue;
+        }
+
+        asset.action = decision.action;
+
+        const target =
+            decision.action === "match"
+                ? targetAssetById.get(Number(decision.targetId))
+                : undefined;
+
+        if (target?.filename) {
+            asset.targetFilename = target.filename;
+        }
+    }
+
+    return plan;
 };
+
+/**
+ * `--referenced-by-stories` plans through the story scanner, which annotates
+ * its graph from the ledger alone and never lists the target: its plan is
+ * that annotation, said in the same numbers. Its limitations say what it did
+ * not check.
+ */
+const planFromAnnotatedGraph = (
+    graph: ReturnType<typeof buildCopyAssetsGraph>,
+): AssetCopyPlan => ({
+    folders: graph.assetFolders.map((folder) => ({
+        sourceId: folder.sourceId,
+        action: folder.action === "match" ? "match" : "create",
+        ...(folder.action === "match" ? { via: "ledger" as const } : {}),
+    })),
+    assets: graph.assets.map((asset) => ({
+        sourceId: asset.sourceId,
+        action: asset.action === "match" ? "match" : "create",
+        ...(asset.action === "match" ? { via: "ledger" as const } : {}),
+    })),
+});
+
+/**
+ * The ledger line `copy stories` prints, said only when there is a ledger to
+ * resume from. `copy assets` has no `--fresh`, so it names what the ledger is
+ * used for instead of advertising a flag it does not have.
+ */
+const formatCopyAssetsLedgerLine = ({
+    entries,
+    path: ledgerPath,
+}: {
+    entries: number;
+    path: string;
+}): string | undefined =>
+    entries > 0
+        ? formatCopyPlanGateLedger(
+              {
+                  path: path.resolve(ledgerPath),
+                  entries,
+                  ignored: false,
+              },
+              {
+                  resumeNote:
+                      "resuming; what it maps and the target still holds is not uploaded again",
+              },
+          ).trim()
+        : undefined;
 
 const buildCopyAssetsApplyReport = ({
     sourceSpace,
@@ -5646,22 +5856,28 @@ const copyAssetsAndWriteManifests = async ({
             (folder) => [Number(folder.id), folder] as const,
         ),
     );
-    const graphFolderBySourceId = new Map(
-        graph.assetFolders.map((folder) => [folder.sourceId, folder] as const),
-    );
     const graphAssetBySourceId = new Map(
         graph.assets.map((asset) => [asset.sourceId, asset] as const),
     );
+    const targetAssetById = new Map(
+        targetAssets.map((asset: any) => [Number(asset.id), asset] as const),
+    );
+    // The same decision the dry-run printed, asked item by item: ledger,
+    // then the target library, then create. It is told of every mapping this
+    // run appends, so a file-name match never lands on a copy another source
+    // made earlier in the same run, and it remembers which folders could not
+    // be made, so nothing is created inside them.
+    const decider = createCopyAssetsDecider({
+        ledgerEntries: existingManifestEntries,
+        targetAssetFolders,
+        targetAssets,
+    });
     let assetFoldersCreated = 0;
     let assetFoldersMatched = 0;
     let assetsCreated = 0;
     let assetsMatched = 0;
     const items: CopyAssetsApplyItem[] = [];
     const failures: CopyRunFailure[] = [];
-    // Source folders that do not exist in the target after this run, because
-    // their create failed or their own parent's did. Nothing is created inside
-    // them: it would land in the root, silently misplaced.
-    const unavailableFolderIds = new Set<number>();
 
     // The tags before the first metadata write: every PUT below carries the
     // target's own ids, and a tag the target lacks is named, never invented.
@@ -5704,6 +5920,32 @@ const copyAssetsAndWriteManifests = async ({
         `Copying assets from space '${sourceSpace}' to space '${targetSpace}'.`,
     );
 
+    const ledgerLine = formatCopyAssetsLedgerLine({
+        entries: existingManifestEntries.length,
+        path: manifestPaths.combined,
+    });
+
+    if (ledgerLine) {
+        Logger.warning(ledgerLine);
+    }
+
+    // What the dry-run said, from the same decision and the same inputs, so
+    // the end counts can be read against it.
+    Logger.warning(
+        formatAssetCopyPlanLine(
+            countAssetCopyPlan(
+                planAssetCopy({
+                    decider: createCopyAssetsDecider({
+                        ledgerEntries: existingManifestEntries,
+                        targetAssetFolders,
+                        targetAssets,
+                    }),
+                    ...toAssetPlanInputs({ graph, sourceAssets }),
+                }),
+            ),
+        ),
+    );
+
     if (internalTagPlanLine) {
         Logger.warning(internalTagPlanLine);
     }
@@ -5728,11 +5970,18 @@ const copyAssetsAndWriteManifests = async ({
             folderNode.sourcePath || sourceFolder.name || folderNode.sourceId,
         );
 
-        const mappedTargetFolderId = copyMaps.assetFolderIds.get(
-            folderNode.sourceId,
-        );
+        const folderDecision = decider.decideFolder({
+            sourceId: folderNode.sourceId,
+            sourcePath: folderNode.sourcePath,
+            sourceParentId,
+        });
 
-        if (mappedTargetFolderId) {
+        if (
+            folderDecision.action === "match" &&
+            folderDecision.via === "ledger"
+        ) {
+            const mappedTargetFolderId = Number(folderDecision.targetId);
+
             folderNode.targetParentId =
                 sourceParentId === null
                     ? null
@@ -5750,9 +5999,12 @@ const copyAssetsAndWriteManifests = async ({
             continue;
         }
 
-        const existingTargetFolder = folderNode.sourcePath
-            ? targetFolderByPath.get(folderNode.sourcePath)
-            : undefined;
+        const existingTargetFolder =
+            folderDecision.action === "match" &&
+            folderDecision.via === "target_key" &&
+            folderNode.sourcePath
+                ? targetFolderByPath.get(folderNode.sourcePath)
+                : undefined;
         const createdAt = new Date().toISOString();
 
         if (existingTargetFolder) {
@@ -5780,6 +6032,10 @@ const copyAssetsAndWriteManifests = async ({
                 entry,
             });
             copyMaps.assetFolderIds.set(entry.source_id, entry.target_id);
+            decider.recordFolder({
+                sourceId: entry.source_id,
+                targetId: entry.target_id,
+            });
             folderNode.targetParentId = entry.target_parent_id;
             folderNode.action = "match";
             assetFoldersMatched += 1;
@@ -5794,11 +6050,7 @@ const copyAssetsAndWriteManifests = async ({
             continue;
         }
 
-        if (
-            sourceParentId !== null &&
-            unavailableFolderIds.has(sourceParentId)
-        ) {
-            unavailableFolderIds.add(folderNode.sourceId);
+        if (folderDecision.action === "skip") {
             folderProgress.tick({ name: folderName, outcome: "skipped" });
             items.push({
                 resource: "asset_folder",
@@ -5852,7 +6104,7 @@ const copyAssetsAndWriteManifests = async ({
                 message,
                 sourceId: folderNode.sourceId,
             });
-            unavailableFolderIds.add(folderNode.sourceId);
+            decider.markFolderUnavailable(folderNode.sourceId);
             folderProgress.tick({ name: folderName, outcome: "failed" });
             items.push({
                 resource: "asset_folder",
@@ -5887,6 +6139,10 @@ const copyAssetsAndWriteManifests = async ({
             entry,
         });
         copyMaps.assetFolderIds.set(entry.source_id, entry.target_id);
+        decider.recordFolder({
+            sourceId: entry.source_id,
+            targetId: entry.target_id,
+        });
         folderNode.targetParentId = entry.target_parent_id;
         folderNode.action = "create";
         assetFoldersCreated += 1;
@@ -5914,7 +6170,15 @@ const copyAssetsAndWriteManifests = async ({
         }
 
         const assetName = String(asset.filename ?? asset.id);
-        const mappedTargetAsset = copyMaps.assetIds.get(Number(asset.id));
+        const assetDecision = decider.decideAsset({
+            sourceId: Number(asset.id),
+            sourceFilename: String(asset.filename ?? ""),
+            sourceAssetFolderId: asset.asset_folder_id ?? null,
+        });
+        const mappedTargetAsset =
+            assetDecision.action === "match" && assetDecision.via === "ledger"
+                ? copyMaps.assetIds.get(Number(asset.id))
+                : undefined;
 
         if (mappedTargetAsset) {
             graphAsset.targetFilename = mappedTargetAsset.filename;
@@ -5956,11 +6220,11 @@ const copyAssetsAndWriteManifests = async ({
             continue;
         }
 
-        const fileName = getFileName(asset.filename);
-        const existingTargetAsset = findUniqueTargetAssetByFileName(
-            targetAssets,
-            fileName,
-        );
+        const existingTargetAsset =
+            assetDecision.action === "match" &&
+            assetDecision.via === "target_key"
+                ? targetAssetById.get(Number(assetDecision.targetId))
+                : undefined;
         const targetAssetFolderId =
             asset.asset_folder_id === null ||
             asset.asset_folder_id === undefined
@@ -5999,6 +6263,11 @@ const copyAssetsAndWriteManifests = async ({
                     targetFilename: entry.target_filename,
                 }),
             );
+            decider.recordAsset({
+                sourceId: entry.source_id,
+                targetId: entry.target_id,
+                action: entry.action,
+            });
             graphAsset.targetFilename = entry.target_filename;
             graphAsset.targetAssetFolderId = entry.target_asset_folder_id;
             graphAsset.action = "match";
@@ -6032,11 +6301,7 @@ const copyAssetsAndWriteManifests = async ({
             continue;
         }
 
-        if (
-            asset.asset_folder_id !== null &&
-            asset.asset_folder_id !== undefined &&
-            unavailableFolderIds.has(Number(asset.asset_folder_id))
-        ) {
+        if (assetDecision.action === "skip") {
             assetProgress.tick({
                 name: getFileName(asset.filename),
                 outcome: "skipped",
@@ -6135,6 +6400,11 @@ const copyAssetsAndWriteManifests = async ({
                 targetFilename: entry.target_filename,
             }),
         );
+        decider.recordAsset({
+            sourceId: entry.source_id,
+            targetId: entry.target_id,
+            action: entry.action,
+        });
         graphAsset.targetFilename = entry.target_filename;
         graphAsset.targetAssetFolderId = entry.target_asset_folder_id;
         graphAsset.action = "create";
@@ -6451,10 +6721,59 @@ const logDryRunCopyPlan = async ({
     );
 };
 
+/** Why an item's line says what it says: where the decision came from. */
+const describePlanVia = (
+    decision:
+        | {
+              via?: string;
+              staleReason?: Parameters<typeof describeStaleReason>[0];
+          }
+        | undefined,
+): string => {
+    if (decision?.via === "ledger") {
+        return " (already copied)";
+    }
+
+    if (decision?.via === "target_key") {
+        return " (found in target)";
+    }
+
+    if (decision?.via === "stale_ledger") {
+        return ` (stale in ledger: ${describeStaleReason(decision.staleReason)}; will upload again)`;
+    }
+
+    return "";
+};
+
+const toAssetCopyPlanCounts = (
+    summary: CopyAssetsDryRunReport["summary"],
+): AssetCopyPlanCounts => ({
+    assetsAlreadyCopied: summary.assetsAlreadyCopied,
+    assetsFoundInTarget: summary.assetsFoundInTarget,
+    assetsToUpload: summary.assetsToUpload,
+    assetsStaleInLedger: summary.assetsStaleInLedger,
+    assetsSkipped:
+        summary.assets -
+        summary.assetsAlreadyCopied -
+        summary.assetsFoundInTarget -
+        summary.assetsToUpload -
+        summary.assetsStaleInLedger,
+    foldersAlreadyCopied: summary.foldersAlreadyCopied,
+    foldersFoundInTarget: summary.foldersFoundInTarget,
+    foldersToCreate: summary.foldersToCreate,
+    foldersSkipped:
+        summary.assetFolders -
+        summary.foldersAlreadyCopied -
+        summary.foldersFoundInTarget -
+        summary.foldersToCreate,
+});
+
 const logDryRunCopyAssetsPlan = async ({
     report,
+    ledgerLine,
 }: {
     report: CopyAssetsDryRunReport;
+    ledgerLine?: string;
 }) => {
     const selectionLabel =
         report.normalized.selection === "all"
@@ -6477,6 +6796,14 @@ const logDryRunCopyAssetsPlan = async ({
         `[dry-run] Would plan ${report.summary.assetFolders} asset folder(s) and ${report.summary.assets} asset(s).`,
     );
 
+    if (ledgerLine) {
+        Logger.warning(`[dry-run] ${ledgerLine}`);
+    }
+
+    Logger.warning(
+        `[dry-run] ${formatAssetCopyPlanLine(toAssetCopyPlanCounts(report.summary))}`,
+    );
+
     const internalTagsLine = formatInternalTagsPlanLine(
         report.internalTags,
         report.normalized.targetSpaceId,
@@ -6486,14 +6813,27 @@ const logDryRunCopyAssetsPlan = async ({
         Logger.warning(`[dry-run]${internalTagsLine}`);
     }
 
+    const folderPlan = new Map(
+        report.plan.folders.map((item) => [item.sourceId, item] as const),
+    );
+    const assetPlan = new Map(
+        report.plan.assets.map((item) => [item.sourceId, item] as const),
+    );
+
     for (const folder of report.graph.assetFolders) {
+        const decision = folderPlan.get(folder.sourceId);
+
         Logger.warning(
-            `[dry-run]   asset_folder ${folder.targetPath ?? `#${folder.sourceId}`}`,
+            `[dry-run]   asset_folder ${folder.action.padEnd(6)} ${folder.targetPath ?? `#${folder.sourceId}`}${describePlanVia(decision)}`,
         );
     }
 
     for (const asset of report.graph.assets) {
-        Logger.warning(`[dry-run]   asset ${asset.targetFilename}`);
+        const decision = assetPlan.get(asset.sourceId);
+
+        Logger.warning(
+            `[dry-run]   asset ${asset.action.padEnd(6)} ${asset.targetFilename}${describePlanVia(decision)}`,
+        );
     }
 
     report.graph.warnings.forEach((warning) =>
@@ -7983,6 +8323,22 @@ const runCopyCommand = async (props: CLIOptions) => {
             }
 
             if (dryRun) {
+                // Read, never written: the dry-run appends no ledger line.
+                const ledgerPath = getDefaultCopyManifestPaths({
+                    sourceSpaceId: sourceSpace,
+                    targetSpaceId: targetSpace,
+                    rootDir: manifestRoot,
+                }).combined;
+                const ledgerEntries = await loadManifest(ledgerPath);
+                const plan =
+                    selection.type === "referenced_by_stories"
+                        ? planFromAnnotatedGraph(graph)
+                        : await planCopyAssetsAgainstTarget({
+                              targetSpace,
+                              graph,
+                              sourceAssets: scopedSource.assets,
+                              ledgerEntries,
+                          });
                 const report = buildCopyAssetsDryRunReport({
                     sourceSpace,
                     targetSpace,
@@ -7990,23 +8346,23 @@ const runCopyCommand = async (props: CLIOptions) => {
                     input: { ...flags },
                     outputPath,
                     graph,
+                    plan,
                     internalTags: await readInternalTagPlan({
                         sourceSpace,
                         targetSpace,
                         assets: scopedSource.assets,
-                        ledgerTagIds: buildCopyMaps(
-                            await loadManifest(
-                                getDefaultCopyManifestPaths({
-                                    sourceSpaceId: sourceSpace,
-                                    targetSpaceId: targetSpace,
-                                    rootDir: manifestRoot,
-                                }).combined,
-                            ),
-                        ).internalTagIds,
+                        ledgerTagIds:
+                            buildCopyMaps(ledgerEntries).internalTagIds,
                     }),
                 });
 
-                await logDryRunCopyAssetsPlan({ report });
+                await logDryRunCopyAssetsPlan({
+                    report,
+                    ledgerLine: formatCopyAssetsLedgerLine({
+                        entries: ledgerEntries.length,
+                        path: ledgerPath,
+                    }),
+                });
 
                 if (outputPath) {
                     await writeDryRunReport(outputPath, report);

@@ -88,9 +88,10 @@ describe("copy assets graph", () => {
             ],
             warnings: [],
         });
-        expect(graph.limitations).toContain(
-            "target_asset_identity_not_resolved",
-        );
+        // MAR-3359: the dry-run reads the ledger and the target library, so
+        // the target identity of an asset is resolved; only the writes are
+        // left to the apply.
+        expect(graph.limitations).toEqual(["manifests_not_written_in_dry_run"]);
         expect(graph.limitations).toContain("manifests_not_written_in_dry_run");
     });
 
