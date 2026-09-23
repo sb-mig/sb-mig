@@ -9,6 +9,8 @@ export interface ExtendedISbStoriesParams extends ISbStoriesParams {
 
 interface ModifyStoryOptions {
     publish?: boolean;
+    /** Say nothing per story: the caller shows a progress line instead. */
+    quiet?: boolean;
     force_update?: boolean;
     publishLanguages?: PublishLanguagesOption;
     preservePublishState?: boolean;

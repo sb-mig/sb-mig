@@ -12,6 +12,8 @@
  * The facts are identical in all three; only their delivery differs.
  */
 
+import chalk from "chalk";
+
 export type ProgressMode = "line" | "plain" | "off";
 
 export type ProgressModePreference = ProgressMode | "auto";
@@ -22,6 +24,8 @@ export type ProgressOutcome = "ok" | "metadata_failed" | "failed" | "skipped";
 export type ProgressStream = {
     write: (chunk: string) => unknown;
     isTTY?: boolean;
+    /** How wide the terminal is, when it is a terminal. */
+    columns?: number;
 };
 
 export type Progress = {
@@ -51,11 +55,33 @@ export const setActiveProgress = (progress: Progress | undefined): void => {
     activeProgress = progress;
 };
 
+/**
+ * Give the terminal row back, whatever happened.
+ *
+ * A phase that throws between its first tick and its `finish` would otherwise
+ * stay registered, and every line printed afterwards would redraw a dead
+ * progress line under itself. Callers put this in a `finally`. Idempotent.
+ */
+export const finishActiveProgress = (): void => {
+    const progress = activeProgress;
+
+    activeProgress = undefined;
+    progress?.finish();
+};
+
 const REDRAW_INTERVAL_MS = 100;
 const PLAIN_EVERY_ITEMS = 50;
 const PLAIN_EVERY_MS = 30_000;
 const ETA_WINDOW = 50;
 const ETA_MIN_ITEMS = 20;
+/** Below this, a shortened file name says nothing, so the whole tail goes. */
+const MIN_NAME_ROOM = 4;
+
+/** Cut to fit, marking the cut. A line that wraps is a line that scrolls. */
+const clampToWidth = (text: string, limit?: number): string =>
+    limit !== undefined && text.length > limit
+        ? `${text.slice(0, Math.max(0, limit - 1))}…`
+        : text;
 
 /**
  * `auto` follows the world: a person's terminal gets the live line, everything
@@ -114,6 +140,10 @@ export const createProgress = ({
     /** Injectable clock: the heartbeat and the ETA are time, not item count. */
     now?: () => number;
 }): Progress => {
+    // A phase that never finished (it threw) still owns the terminal row.
+    // Close it before this one draws, so no dead line is redrawn underneath.
+    finishActiveProgress();
+
     const startedAt = now();
     const durations: number[] = [];
     const counts: Record<ProgressOutcome, number> = {
@@ -143,7 +173,7 @@ export const createProgress = ({
         return formatDuration(average * (total - done));
     };
 
-    const describe = (): string => {
+    const describe = (limit?: number): string => {
         const percent = total > 0 ? Math.floor((done / total) * 100) : 100;
         const parts = [
             `${label} ${done}/${total} (${percent}%)`,
@@ -169,11 +199,38 @@ export const createProgress = ({
             parts.push(`failed ${counts.failed}`);
         }
 
-        if (lastName) {
-            parts.push(`last: ${lastName}`);
+        const base = parts.join(" · ");
+
+        if (!lastName) {
+            return clampToWidth(base, limit);
         }
 
-        return parts.join(" · ");
+        const tail = ` · last: ${lastName}`;
+
+        if (limit === undefined || base.length + tail.length <= limit) {
+            return `${base}${tail}`;
+        }
+
+        // The counters are what the phase is for; the file name is the first
+        // thing asked to give up its characters.
+        const room = limit - base.length - " · last: ".length;
+
+        return room >= MIN_NAME_ROOM
+            ? `${base} · last: ${lastName.slice(0, room - 1)}…`
+            : clampToWidth(base, limit);
+    };
+
+    /**
+     * The widest a redrawn line may be. One column is left free: a line that
+     * fills the last column wraps, and a wrapped line cannot be redrawn — every
+     * `\r` then leaves the overflow behind as a new line.
+     */
+    const liveWidth = (): number | undefined => {
+        const columns = stream.columns;
+
+        return typeof columns === "number" && columns > 1
+            ? columns - 1
+            : undefined;
     };
 
     /** Blank the live line so something else may own the terminal row. */
@@ -193,7 +250,7 @@ export const createProgress = ({
             return;
         }
 
-        const text = describe();
+        const text = describe(liveWidth());
         const padding =
             liveLineLength > text.length
                 ? " ".repeat(liveLineLength - text.length)
@@ -255,7 +312,9 @@ export const createProgress = ({
             }
         },
         fail: (message) => {
-            progress.printLine(message);
+            // The same mark and colour `Logger.error` gives a failure, so a
+            // failure reads the same whether a progress line owns the row.
+            progress.printLine(chalk.red(`✘ ${message}`));
         },
         printLine: (text) => {
             clearLive();
@@ -285,7 +344,7 @@ export const createProgress = ({
 
             writePlain();
         },
-        snapshot: describe,
+        snapshot: () => describe(mode === "line" ? liveWidth() : undefined),
     };
 
     if (mode === "line") {

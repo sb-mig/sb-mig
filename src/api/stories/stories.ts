@@ -674,8 +674,12 @@ export const getStoriesByFullSlugs = async (
 export const updateStory: UpdateStory = (content, storyId, options, config) => {
     const { spaceId, sbApi } = config;
     const storyLabel = resolveStoryLabel(content, storyId);
-    Logger.warning("Trying to update Story...");
-    Logger.log(`Updating story '${storyLabel}' in space: ${spaceId}`);
+    const quiet = options.quiet === true;
+
+    if (!quiet) {
+        Logger.warning("Trying to update Story...");
+        Logger.log(`Updating story '${storyLabel}' in space: ${spaceId}`);
+    }
 
     // console.log("THis is content to update: ");
     // console.log(JSON.stringify(content, null, 2));
@@ -687,9 +691,11 @@ export const updateStory: UpdateStory = (content, storyId, options, config) => {
             force_update: options.force_update === true,
         })
         .then((res: any) => {
-            // Through the Logger, so a live progress line can lend it the
-            // terminal row instead of being written over.
-            Logger.log(`${chalk.green(res.data.story.full_slug)} updated.`);
+            if (!quiet) {
+                // Through the Logger, so a live progress line can lend it the
+                // terminal row instead of being written over.
+                Logger.log(`${chalk.green(res.data.story.full_slug)} updated.`);
+            }
             return {
                 ok: true,
                 stage: "update",

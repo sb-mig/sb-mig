@@ -1,3 +1,5 @@
+import { inspect } from "util";
+
 import chalk from "chalk";
 
 import { getActiveProgress } from "./progress.js";
@@ -11,7 +13,11 @@ const say = (content: any) => {
     const progress = getActiveProgress();
 
     if (progress) {
-        progress.printLine(String(content));
+        // `console.log` renders an object; `String()` would flatten it to
+        // `[object Object]`, so a live line must not cost the reader the fact.
+        progress.printLine(
+            typeof content === "string" ? content : inspect(content),
+        );
         return;
     }
 

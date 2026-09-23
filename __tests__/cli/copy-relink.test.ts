@@ -65,6 +65,38 @@ vi.mock("../../src/utils/logger.js", () => ({
 
 import { copyCommand } from "../../src/cli/commands/copy.js";
 import Logger from "../../src/utils/logger.js";
+import { getActiveProgress } from "../../src/utils/progress.js";
+
+/** Reads what the run wrote to the terminal, as a pipe would see it. */
+const withStdout = async (
+    run: () => Promise<unknown>,
+    { isTTY = false }: { isTTY?: boolean } = {},
+) => {
+    const chunks: string[] = [];
+    const write = process.stdout.write;
+    const wasTTY = process.stdout.isTTY;
+    const ci = process.env["CI"];
+
+    (process.stdout as any).isTTY = isTTY;
+    delete process.env["CI"];
+    (process.stdout as any).write = (chunk: any) => {
+        chunks.push(String(chunk));
+        return true;
+    };
+
+    try {
+        await run();
+    } finally {
+        (process.stdout as any).write = write;
+        (process.stdout as any).isTTY = wasTTY;
+
+        if (ci !== undefined) {
+            process.env["CI"] = ci;
+        }
+    }
+
+    return chunks.join("");
+};
 
 const planLines = () =>
     (Logger.log as unknown as ReturnType<typeof vi.fn>).mock.calls.map((call) =>
@@ -1013,6 +1045,146 @@ describe("copy relink", () => {
                 targetId: 1002,
             }),
         ]);
+
+        await rm(tempDir, { recursive: true, force: true });
+    });
+
+    // MAR-3356 lap 2 · finding 1 canary. Mutation that must turn it red:
+    // count the ledger-adoption loop instead of the loop that saves stories.
+    it("counts the stories it writes, not the ledger pass", async () => {
+        const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-relink-"));
+        const written = await withStdout(() =>
+            copyCommand(
+                relinkFlags({
+                    manifestRoot: path.join(tempDir, ".sb-mig"),
+                    yes: true,
+                }) as any,
+            ),
+        );
+        const rows = written
+            .split("\n")
+            .filter((line) => line.startsWith("relinking "));
+
+        // One story is written; the folder carries no rewrite, and adopting
+        // two ledger rows is not the work.
+        expect(mocks.updateStory).toHaveBeenCalledTimes(1);
+        expect(rows[0]).toContain("relinking 0/1 (0%)");
+        expect(rows[rows.length - 1]).toContain("relinking 1/1 (100%)");
+        expect(rows[rows.length - 1]).toContain("ok 1");
+        expect(written).not.toContain("\r");
+
+        await rm(tempDir, { recursive: true, force: true });
+    });
+
+    // MAR-3356 lap 2 · finding 1 canary. Mutation that must turn it red: tick
+    // a rejected update as `ok`, so the line disagrees with the report.
+    it("counts a rejected update as a failure on the line", async () => {
+        const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-relink-"));
+
+        process.exitCode = undefined;
+        mocks.updateStory.mockResolvedValue({ ok: false, status: 422 });
+
+        const written = await withStdout(() =>
+            copyCommand(
+                relinkFlags({
+                    manifestRoot: path.join(tempDir, ".sb-mig"),
+                    yes: true,
+                }) as any,
+            ),
+        );
+        const rows = written
+            .split("\n")
+            .filter((line) => line.startsWith("relinking "));
+
+        expect(rows[rows.length - 1]).toContain("relinking 1/1 (100%)");
+        expect(rows[rows.length - 1]).toContain("failed 1");
+
+        await rm(tempDir, { recursive: true, force: true });
+    });
+
+    // MAR-3356 lap 2 · finding 1 canary. Mutation that must turn it red:
+    // print the per-story line whatever the caller asked for.
+    it("keeps the per-story line for --verbose", async () => {
+        const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-relink-"));
+        const rewritten = () =>
+            (Logger.success as unknown as ReturnType<typeof vi.fn>).mock.calls
+                .map((call) => String(call[0]))
+                .filter((line) => line.includes("reference(s) rewritten."));
+
+        await copyCommand(
+            relinkFlags({
+                manifestRoot: path.join(tempDir, ".sb-mig"),
+                yes: true,
+            }) as any,
+        );
+
+        expect(rewritten()).toEqual([]);
+
+        vi.clearAllMocks();
+        mocks.updateStory.mockResolvedValue({ ok: true });
+
+        await copyCommand(
+            relinkFlags({
+                manifestRoot: path.join(tempDir, ".sb-mig"),
+                yes: true,
+                verbose: true,
+            }) as any,
+        );
+
+        // The first run adopted the mapping, so the second rewrites both the
+        // uuid and the id of the same reference.
+        expect(rewritten()).toEqual([
+            "  imported/blog/post-1: 2 reference(s) rewritten.",
+        ]);
+
+        await rm(tempDir, { recursive: true, force: true });
+    });
+
+    // MAR-3356 lap 2 · finding 3 canary. Mutation that must turn it red: drop
+    // the `finally` that closes the live line, so every later message redraws
+    // a dead progress line underneath itself.
+    it("gives the terminal row back when a phase throws", async () => {
+        const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-relink-"));
+
+        mocks.updateStory.mockRejectedValue(new Error("network is down"));
+
+        await withStdout(
+            () =>
+                expect(
+                    copyCommand(
+                        relinkFlags({
+                            manifestRoot: path.join(tempDir, ".sb-mig"),
+                            yes: true,
+                            progress: "line",
+                        }) as any,
+                    ),
+                ).rejects.toThrow("network is down"),
+            { isTTY: true },
+        );
+
+        expect(getActiveProgress()).toBeUndefined();
+
+        await rm(tempDir, { recursive: true, force: true });
+    });
+
+    // MAR-3356 lap 2 · finding 4 canary. Mutation that must turn it red:
+    // accept any --progress value and fall back to auto.
+    it("refuses a --progress value it does not know", async () => {
+        const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-relink-"));
+
+        await expect(
+            copyCommand(
+                relinkFlags({
+                    manifestRoot: path.join(tempDir, ".sb-mig"),
+                    yes: true,
+                    progress: "bogus",
+                }) as any,
+            ),
+        ).rejects.toThrow("--progress must be one of: auto, line, plain, off.");
+
+        // It stopped before reading anything, let alone writing.
+        expect(mocks.getAllStories).not.toHaveBeenCalled();
+        expect(mocks.updateStory).not.toHaveBeenCalled();
 
         await rm(tempDir, { recursive: true, force: true });
     });

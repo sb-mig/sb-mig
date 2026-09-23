@@ -107,6 +107,7 @@ import { mapWithConcurrency } from "../../utils/async-utils.js";
 import Logger from "../../utils/logger.js";
 import {
     createProgress,
+    finishActiveProgress,
     resolveProgressMode,
     type Progress,
     type ProgressMode,
@@ -3600,10 +3601,31 @@ type CopyOutput = {
     phase: (label: string, total: number) => Progress;
 };
 
+/** `--progress` is a closed set: a typo must be said out loud, not guessed. */
+const parseProgressPreference = (
+    value: string | undefined,
+): ProgressModePreference => {
+    if (value === undefined) {
+        return "auto";
+    }
+
+    if (
+        value === "auto" ||
+        value === "line" ||
+        value === "plain" ||
+        value === "off"
+    ) {
+        return value;
+    }
+
+    throw new Error("--progress must be one of: auto, line, plain, off.");
+};
+
 const resolveCopyOutput = (flags: Record<string, any>): CopyOutput => {
     const verbose = Boolean(flags["verbose"]);
-    const preference = (readStringFlag(flags, ["progress"]) ??
-        "auto") as ProgressModePreference;
+    const preference = parseProgressPreference(
+        readStringFlag(flags, ["progress"]),
+    );
     const resolved = resolveProgressMode({
         preference,
         isTTY: process.stdout.isTTY,
@@ -3698,7 +3720,8 @@ const writeAssetMetadata = async ({
 
         // Through the progress, so the message owns its own row instead of
         // landing inside a half-drawn live line.
-        (progress ?? NO_PROGRESS).fail(`✘ ${message}`);
+        // `fail` marks and colours the line itself.
+        (progress ?? NO_PROGRESS).fail(message);
         failures.push({
             resource: "asset",
             name: assetName,
@@ -4990,6 +5013,7 @@ const rewriteCopiedStoryContents = async ({
                             {
                                 force_update: true,
                                 publish: false,
+                                quiet: output?.quiet,
                             },
                             {
                                 ...apiConfig,
@@ -5035,6 +5059,7 @@ const rewriteCopiedStoryContents = async ({
                             {
                                 force_update: true,
                                 publish: false,
+                                quiet: output?.quiet,
                             },
                             {
                                 ...apiConfig,
@@ -5075,6 +5100,7 @@ const rewriteCopiedStoryContents = async ({
                     {
                         force_update: true,
                         publish: false,
+                        quiet: output?.quiet,
                     },
                     {
                         ...apiConfig,
@@ -6059,7 +6085,7 @@ const copyAssetsAndWriteManifests = async ({
             const status = resolveThrownStatus(createError);
             const message = `Failed to copy asset '${assetName}' into space '${targetSpace}'${status ? ` (status ${status})` : ""}: ${createError ? describeThrown(createError) : "the upload response carried no asset"}.`;
 
-            assetProgress.fail(`✘ ${message}`);
+            assetProgress.fail(message);
             failures.push({
                 resource: "asset",
                 name: assetName,
@@ -6777,19 +6803,10 @@ const relinkTargetStories = async ({
     output?: CopyOutput;
 }) => {
     let adopted = 0;
-    const progress = output
-        ? output.phase("relinking", matches.length)
-        : NO_PROGRESS;
 
+    // The ledger pass below is bookkeeping and takes no time; the phase worth
+    // watching is the one that saves stories one by one, further down.
     for (const record of matches) {
-        progress.tick({
-            name: String(
-                record.targetStory?.full_slug ??
-                    record.sourceStory?.full_slug ??
-                    "",
-            ),
-            outcome: record.match === "adopted" ? "ok" : "skipped",
-        });
         if (
             record.match !== "adopted" ||
             !record.sourceStory?.uuid ||
@@ -6830,6 +6847,15 @@ const relinkTargetStories = async ({
         );
     }
 
+    // One item per story the plan actually writes to: a story with no rewrite
+    // plan is not work, and a planned story missing from the target is not
+    // there to write.
+    const plannedWrites = matches.filter(
+        (record) => record.targetStory && record.rewrite,
+    ).length;
+    const progress = output
+        ? output.phase("relinking", plannedWrites)
+        : NO_PROGRESS;
     let updatedStories = 0;
     let unchangedStories = 0;
     let rewrittenReferences = 0;
@@ -6865,6 +6891,7 @@ const relinkTargetStories = async ({
                 outcome: "matched",
                 targetId,
             });
+            progress.tick({ name: targetLabel });
             continue;
         }
 
@@ -6874,6 +6901,7 @@ const relinkTargetStories = async ({
             {
                 publish: false,
                 force_update: true,
+                quiet: output?.quiet,
             },
             {
                 ...apiConfig,
@@ -6894,7 +6922,7 @@ const relinkTargetStories = async ({
                 error instanceof Error ? error.message : String(error);
             const status = Number(result?.status);
 
-            Logger.error(message);
+            progress.fail(message);
             failures.push({
                 resource: "story",
                 path: targetLabel,
@@ -6907,6 +6935,7 @@ const relinkTargetStories = async ({
                 outcome: "update_failed",
                 targetId,
             });
+            progress.tick({ name: targetLabel, outcome: "failed" });
             continue;
         }
 
@@ -6921,10 +6950,17 @@ const relinkTargetStories = async ({
             publishedStories += 1;
         }
 
-        Logger.success(
-            `  ${targetLabel}: ${record.rewrite.rewrittenReferences} reference(s) rewritten.`,
-        );
+        progress.tick({ name: targetLabel });
+
+        // Per-story detail, like every other per-item line in a copy.
+        if (!output || output.verbose) {
+            Logger.success(
+                `  ${targetLabel}: ${record.rewrite.rewrittenReferences} reference(s) rewritten.`,
+            );
+        }
     }
+
+    progress.finish();
 
     Logger.success(
         `Relinked ${updatedStories} story/stories in space '${targetSpace}'; rewrote ${rewrittenReferences} reference(s). ${unchangedStories} story/stories already resolved correctly and were left untouched.`,
@@ -6958,10 +6994,14 @@ const relinkTargetStories = async ({
     };
 };
 
-export const copyCommand = async (props: CLIOptions) => {
+const runCopyCommand = async (props: CLIOptions) => {
     const { input, flags } = props;
 
     const command = input[1];
+
+    // Before the first read: a typo in --progress is the run's own mistake,
+    // and it must not cost a single request to find out.
+    parseProgressPreference(readStringFlag(flags, ["progress"]));
 
     switch (command) {
         case COPY_COMMANDS.stories: {
@@ -8355,5 +8395,20 @@ export const copyCommand = async (props: CLIOptions) => {
             Logger.warning(
                 "Unsupported copy command. Use: sb-mig copy stories --from <sourceSpaceId> --to <targetSpaceId> --source <full_slug> --destination <target_folder>, sb-mig copy assets --from <sourceSpaceId> --to <targetSpaceId> --all --dry-run, or sb-mig copy manifests to list the copy ledgers on disk.",
             );
+    }
+};
+
+/**
+ * Every copy command runs inside one guarantee: whatever happens — a finished
+ * phase, an early `break`, a throw from the middle of a write loop — the live
+ * progress line is closed and the terminal row is given back. Without it, a
+ * phase that throws stays registered and every later line redraws a dead
+ * progress line underneath itself.
+ */
+export const copyCommand = async (props: CLIOptions) => {
+    try {
+        await runCopyCommand(props);
+    } finally {
+        finishActiveProgress();
     }
 };
