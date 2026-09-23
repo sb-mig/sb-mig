@@ -57,6 +57,7 @@ import {
     updateAsset,
 } from "../../src/api/assets/index.js";
 import { managementApi } from "../../src/api/managementApi.js";
+import Logger from "../../src/utils/logger.js";
 
 describe("Assets API", () => {
     beforeEach(() => {
@@ -396,6 +397,39 @@ describe("Assets API", () => {
             id: 987,
             filename: "https://a.storyblok.com/f/123/direct.jpg",
         });
+    });
+
+    // MAR-3356 R4 canary. Mutation that must turn it red: print the per-asset
+    // lines whatever the caller asked, so a progress line cannot own the row.
+    it("says its two lines by default and nothing when the caller asks for quiet", async () => {
+        const sbApi = {
+            put: vi.fn().mockResolvedValue({ data: { asset: { id: 987 } } }),
+        };
+        const args = {
+            spaceId: "12345",
+            assetId: 987,
+            payload: { meta_data: { alt: "a" } },
+        };
+
+        await updateAsset(args, { spaceId: "12345", sbApi: sbApi as any });
+
+        // Today's behaviour for every caller that asks for nothing.
+        expect(Logger.log).toHaveBeenCalledWith(
+            "Trying to update asset with id 987.",
+        );
+        expect(Logger.success).toHaveBeenCalledWith(
+            "Asset '987' has been updated.",
+        );
+
+        vi.clearAllMocks();
+
+        await updateAsset(
+            { ...args, quiet: true },
+            { spaceId: "12345", sbApi: sbApi as any },
+        );
+
+        expect(Logger.log).not.toHaveBeenCalled();
+        expect(Logger.success).not.toHaveBeenCalled();
     });
 
     it("updates asset metadata with Storyblok's asset update payload", async () => {

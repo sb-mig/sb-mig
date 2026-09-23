@@ -74,6 +74,8 @@ export type GetAllAssets = (
     }: {
         spaceId: string;
         search?: string;
+        /** Silence the per-page heartbeat; the caller shows its own progress. */
+        quiet?: boolean;
     },
     config: RequestBaseConfig,
 ) => Promise<SBAllAssetRequestResult>;
@@ -118,6 +120,8 @@ export type CreateAsset = (
         spaceId: string;
         pathToFile: string;
         payload?: CreateAssetPayload;
+        /** Silence the upload line; the caller shows its own progress. */
+        quiet?: boolean;
     },
     config: RequestBaseConfig,
 ) => Promise<SignedResponseObject>;
@@ -130,6 +134,8 @@ export type CreateAssetAndFinalize = (
         spaceId: string;
         pathToFile: string;
         payload?: CreateAssetPayload;
+        /** Silence the upload line; the caller shows its own progress. */
+        quiet?: boolean;
     },
     config: RequestBaseConfig,
 ) => Promise<SBAsset>;
@@ -142,15 +148,19 @@ export type UpdateAsset = (
         spaceId: string;
         assetId: number;
         payload: UpdateAssetPayload;
+        /** Silence the two update lines; the caller shows its own progress. */
+        quiet?: boolean;
     },
     config: RequestBaseConfig,
 ) => Promise<any>;
 export type UploadFile = ({
     signedResponseObject,
     pathToFile,
+    quiet,
 }: {
     signedResponseObject: SignedResponseObject;
     pathToFile: string;
+    quiet?: boolean;
 }) => Promise<void>;
 export type FinalizeUpload = ({
     signedResponseObject,
@@ -181,6 +191,6 @@ export type RequestSignedUploadUrl = (
 ) => Promise<any>;
 
 export type DownloadAsset = (
-    args: { payload: AssetPayload },
+    args: { payload: AssetPayload; quiet?: boolean },
     config: RequestBaseConfig,
 ) => Promise<string>;

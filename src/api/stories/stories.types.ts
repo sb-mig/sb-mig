@@ -9,6 +9,8 @@ export interface ExtendedISbStoriesParams extends ISbStoriesParams {
 
 interface ModifyStoryOptions {
     publish?: boolean;
+    /** Say nothing per story: the caller shows a progress line instead. */
+    quiet?: boolean;
     force_update?: boolean;
     publishLanguages?: PublishLanguagesOption;
     preservePublishState?: boolean;
@@ -71,7 +73,13 @@ export type GetStoryVersions = (
 ) => Promise<any>;
 
 export type GetAllStories = (
-    args: { options?: ExtendedISbStoriesParams },
+    args: {
+        options?: ExtendedISbStoriesParams;
+        /** Silence the listing chatter; the caller shows its own progress. */
+        quiet?: boolean;
+        /** Told how the read is going, for a caller with a progress line. */
+        onProgress?: (progress: { fetched: number; total: number }) => void;
+    },
     config: RequestBaseConfig,
 ) => Promise<any>;
 

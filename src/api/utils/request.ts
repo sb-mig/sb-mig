@@ -14,12 +14,21 @@ interface GetAllItemsWithPagination {
     apiFn: (...args: any) => any;
     params: any;
     itemsKey: string;
+    /**
+     * Silence the per-page heartbeat. A caller that shows its own progress
+     * asks for this; a caller that passes nothing keeps today's lines.
+     */
+    quiet?: boolean;
+    /** Told how far the listing has come, for a caller with a progress line. */
+    onPage?: (progress: { fetched: number; total: number }) => void;
 }
 
 export const getAllItemsWithPagination = async ({
     apiFn,
     params,
     itemsKey,
+    quiet,
+    onPage,
 }: GetAllItemsWithPagination) => {
     const per_page = 100;
     const allItems = [];
@@ -56,9 +65,16 @@ export const getAllItemsWithPagination = async ({
                     : response.total - amountOfFetchedItems;
 
             if (amountOfFetchedItems && !Number.isNaN(amountOfFetchedItems)) {
-                Logger.success(
-                    `${amountOfFetchedItems} of ${response.total} items fetched.`,
-                );
+                onPage?.({
+                    fetched: amountOfFetchedItems,
+                    total: response.total,
+                });
+
+                if (!quiet) {
+                    Logger.success(
+                        `${amountOfFetchedItems} of ${response.total} items fetched.`,
+                    );
+                }
             }
         }
 

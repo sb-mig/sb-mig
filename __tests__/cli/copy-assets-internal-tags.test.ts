@@ -534,6 +534,85 @@ describe("copy assets: internal tags", () => {
         await rm(tempDir, { recursive: true, force: true });
     });
 
+    const withStdout = async (run: () => Promise<unknown>) => {
+        const chunks: string[] = [];
+        const write = process.stdout.write;
+        const isTTY = process.stdout.isTTY;
+        const ci = process.env["CI"];
+
+        // A pipe, not a terminal: the plain renderer, whose lines are readable.
+        (process.stdout as any).isTTY = false;
+        delete process.env["CI"];
+        (process.stdout as any).write = (chunk: any) => {
+            chunks.push(String(chunk));
+            return true;
+        };
+
+        try {
+            await run();
+        } finally {
+            (process.stdout as any).write = write;
+            (process.stdout as any).isTTY = isTTY;
+
+            if (ci !== undefined) {
+                process.env["CI"] = ci;
+            }
+        }
+
+        return chunks.join("");
+    };
+
+    // MAR-3356 R4/R5 canary. Mutation that must turn it red: print the
+    // per-asset lines unconditionally (drop `quiet`), or skip a phase.
+    it("names each phase with its total and says nothing per asset", async () => {
+        const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-tags-"));
+        const written = await withStdout(() =>
+            runCopyAssets({
+                yes: true,
+                manifestRoot: path.join(tempDir, ".sb-mig"),
+            }),
+        );
+
+        expect(written).toContain("asset folders 0/0");
+        expect(written).toContain("assets 0/1");
+        expect(written).toContain("assets 1/1 (100%)");
+        expect(written).not.toContain("\r");
+        expect(mocks.downloadAsset.mock.calls[0]?.[0]).toMatchObject({
+            quiet: true,
+        });
+        expect(mocks.updateAsset.mock.calls[0]?.[0]).toMatchObject({
+            quiet: true,
+        });
+
+        await rm(tempDir, { recursive: true, force: true });
+    });
+
+    // MAR-3356 R4 canary. Mutation that must turn it red: ignore `--verbose`,
+    // so the per-item detail can never come back.
+    it("gives the per-item detail back with --verbose", async () => {
+        const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-tags-"));
+
+        await withStdout(() =>
+            runCopyAssets({
+                yes: true,
+                verbose: true,
+                manifestRoot: path.join(tempDir, ".sb-mig"),
+            }),
+        );
+
+        expect(mocks.downloadAsset.mock.calls[0]?.[0]).toMatchObject({
+            quiet: false,
+        });
+        expect(mocks.createAssetAndFinalize.mock.calls[0]?.[0]).toMatchObject({
+            quiet: false,
+        });
+        expect(mocks.updateAsset.mock.calls[0]?.[0]).toMatchObject({
+            quiet: false,
+        });
+
+        await rm(tempDir, { recursive: true, force: true });
+    });
+
     // R5 canary, the second matched path (MAR-3354 lap 3, A). Mutation that
     // must turn it red: replace the `writeAssetMetadata` call of the
     // target-key-matched branch with the bare outcome.

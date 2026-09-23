@@ -273,6 +273,8 @@ export const copyDescription = `
                        Select assets referenced by a story/folder scope. Requires --source. [assets only]
         --dry-run       Preview story paths, manifest-mapped references, and likely target conflicts without writing to Storyblok. With copy manifests --prune, print the plan and stop. With copy space, print the schema PLAN and write nothing.
         --yes           Skip the confirmation gate shown after a PLAN block, before the first write. Required in non-interactive runs (CI). [stories, relink, space, and manifests --prune]
+        --progress      How a running copy reports where it is: auto, line, plain or off. Default: auto, which is one line redrawn in place when the output is a terminal and CI is not set, and whole heartbeat lines otherwise. [copy]
+        --verbose       Print the per-item detail again (downloads, uploads, per-asset and per-story lines) instead of the progress line. [copy]
         --only          Restrict copy space to some of: languages, settings, groups, components, presets, datasources. Comma-separated or repeatable. The write order stays languages, settings, groups, components, presets, datasources. [space only]
         --allow-missing-plugins
                        Write even when the target space's field-type plugins can be read and lack some the source components use. Those components are then rejected by Storyblok and reported. [space only]
@@ -360,6 +362,7 @@ export const copyDescription = `
         copy space prints a PLAN block with create, update and skip counts per resource and asks before the first write; without a terminal and without --yes it refuses. A failed write is reported and the run carries on, then exits 1.
         copy assets matches by manifest first, then safe target folder path or unique asset file name before creating.
         copy assets uploads assets, finalizes the upload, and writes source-to-target asset/folder manifests.
+        copy piped into a file or a pager writes plain progress lines by itself: stdout is not a terminal then, so the log holds whole lines and never a carriage return. Setting CI does the same in a terminal.
         copy assets matches internal tags by name and never creates or removes one: the Management API refuses tag writes to a personal access token. A tag the target already has is attached to the copied asset; a tag it lacks is named in the PLAN so you can create it in Storyblok under Assets, Tags, and rerun. The asset's alt, title and copyright are written either way, and a rerun re-writes the metadata of assets that were already copied.
 
     EXAMPLES

@@ -1427,7 +1427,7 @@ describe("copy stories dry-run", () => {
                 slug: "blog",
             }),
             "1001",
-            { force_update: true, publish: false },
+            { force_update: true, publish: false, quiet: true },
             expect.objectContaining({ spaceId: "target-space" }),
         );
         expect(mocks.updateStory).toHaveBeenCalledWith(
@@ -1453,7 +1453,7 @@ describe("copy stories dry-run", () => {
                 slug: "post-1",
             }),
             "1002",
-            { force_update: true, publish: false },
+            { force_update: true, publish: false, quiet: true },
             expect.objectContaining({ spaceId: "target-space" }),
         );
 
@@ -1809,7 +1809,7 @@ describe("copy stories dry-run", () => {
                 slug: "plain",
             }),
             "1003",
-            { force_update: true, publish: false },
+            { force_update: true, publish: false, quiet: true },
             expect.objectContaining({ spaceId: "target-space" }),
         );
 
@@ -1895,7 +1895,7 @@ describe("copy stories dry-run", () => {
                 slug: "published",
             }),
             "1004",
-            { force_update: true, publish: false },
+            { force_update: true, publish: false, quiet: true },
             expect.objectContaining({ spaceId: "target-space" }),
         );
         expect(mocks.publishStoryLanguages).toHaveBeenCalledWith(
@@ -1987,7 +1987,7 @@ describe("copy stories dry-run", () => {
                 slug: "published",
             }),
             "1004",
-            { force_update: true, publish: false },
+            { force_update: true, publish: false, quiet: true },
             expect.objectContaining({ spaceId: "target-space" }),
         );
         expect(mocks.publishStoryLanguages).not.toHaveBeenCalled();
@@ -2087,7 +2087,7 @@ describe("copy stories dry-run", () => {
                 slug: "dirty",
             }),
             "1005",
-            { force_update: true, publish: false },
+            { force_update: true, publish: false, quiet: true },
             expect.objectContaining({ spaceId: "target-space" }),
         );
         expect(mocks.publishStoryLanguages).toHaveBeenCalledWith(
@@ -2114,7 +2114,7 @@ describe("copy stories dry-run", () => {
                 slug: "dirty",
             }),
             "1005",
-            { force_update: true, publish: false },
+            { force_update: true, publish: false, quiet: true },
             expect.objectContaining({ spaceId: "target-space" }),
         );
 
@@ -2303,7 +2303,7 @@ describe("copy stories dry-run", () => {
                 slug: "blog",
             }),
             "1001",
-            { force_update: true, publish: false },
+            { force_update: true, publish: false, quiet: true },
             expect.objectContaining({ spaceId: "target-space" }),
         );
         expect(mocks.updateStory).toHaveBeenCalledWith(
@@ -2313,7 +2313,7 @@ describe("copy stories dry-run", () => {
                 slug: "post-1",
             }),
             "1002",
-            { force_update: true, publish: false },
+            { force_update: true, publish: false, quiet: true },
             expect.objectContaining({ spaceId: "target-space" }),
         );
 
@@ -2405,7 +2405,7 @@ describe("copy stories dry-run", () => {
                 slug: "blog",
             }),
             "1001",
-            { force_update: true, publish: false },
+            { force_update: true, publish: false, quiet: true },
             expect.objectContaining({ spaceId: "target-space" }),
         );
 
@@ -2461,6 +2461,9 @@ describe("copy stories dry-run", () => {
         expect(mocks.createAssetFolder).toHaveBeenCalledTimes(2);
         expect(mocks.createAssetAndFinalize).toHaveBeenCalledWith(
             {
+                // MAR-3356: the asset phase asks the API layer to stay quiet,
+                // because the progress line is what the terminal shows.
+                quiet: true,
                 spaceId: "target-space",
                 pathToFile: "/tmp/source-image.jpg",
                 payload: {
@@ -2557,7 +2560,7 @@ describe("copy stories dry-run", () => {
                 slug: "blog",
             }),
             "1001",
-            { force_update: true, publish: false },
+            { force_update: true, publish: false, quiet: true },
             expect.objectContaining({ spaceId: "target-space" }),
         );
 
@@ -2668,7 +2671,7 @@ describe("copy stories dry-run", () => {
             expect(mocks.updateStory).toHaveBeenCalledWith(
                 expect.objectContaining({ is_folder: true, slug: "blog" }),
                 "1001",
-                { force_update: true, publish: false },
+                { force_update: true, publish: false, quiet: true },
                 expect.objectContaining({ spaceId: "target-space" }),
             );
             expect(mocks.publishStoryLanguages).not.toHaveBeenCalled();
