@@ -141,6 +141,7 @@ describe("copy reference scanner", () => {
                 assetId: 300,
                 filename: "https://a.storyblok.com/f/111/hero.jpg",
                 path: "content.hero[0].image",
+                shape: "object",
                 status: "planned",
             },
             {
@@ -151,6 +152,7 @@ describe("copy reference scanner", () => {
                 assetId: 301,
                 filename: "https://a.storyblok.com/f/111/gallery-1.jpg",
                 path: "content.hero[0].gallery[0]",
+                shape: "object",
                 status: "planned",
             },
             {
@@ -161,6 +163,7 @@ describe("copy reference scanner", () => {
                 assetId: 302,
                 filename: "https://a.storyblok.com/f/111/gallery-2.jpg",
                 path: "content.hero[0].gallery[1]",
+                shape: "object",
                 status: "planned",
             },
             {
@@ -171,6 +174,7 @@ describe("copy reference scanner", () => {
                 assetId: 303,
                 filename: "https://a.storyblok.com/f/111/card.jpg",
                 path: "content.hero[0].body.content[1].attrs.body[0].media",
+                shape: "object",
                 status: "planned",
             },
         ]);

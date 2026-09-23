@@ -315,6 +315,7 @@ export const copyDescription = `
         copy relink builds the mapping from the ledger plus target paths, then rewrites each target story's own content. It never creates stories and never copies content from the source.
         copy relink leaves a story untouched when its references already resolve, and updates the draft only, so published stories need publishing afterwards.
         copy relink prints the same PLAN block and confirmation gate as copy stories, with the exact number of references it is about to rewrite.
+        copy stories and copy relink count asset URLs written into text, HTML, link and plugin fields as asset references, like an asset field: they are copied with --with-assets or copy assets --referenced-by-stories, and rewritten to the target file by copy stories and copy relink. Only URLs of the source space are touched, and only when the ledger proves that file was copied; a URL of another space, or of an asset that was never copied, is left exactly as it is, with its host form, its /m/ resize suffix and any query string unchanged.
         copy stories creates or matches target story shells, then fills them with rewritten source content.
         copy stories matches existing targets by manifest first, then target full_slug when safe, so reruns can reuse mapped target stories.
         copy stories rewrites mapped asset and story references after story manifests exist.

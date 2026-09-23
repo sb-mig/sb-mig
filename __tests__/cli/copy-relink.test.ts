@@ -813,6 +813,53 @@ describe("copy relink", () => {
         await rm(tempDir, { recursive: true, force: true });
     });
 
+    // MAR-3162 R6 canary. Mutation that must turn it red: select ledger asset
+    // mappings by the source id and the verbatim source filename only, so a
+    // story that mentions the file only as its own URL selects nothing.
+    it("repairs an asset URL a story holds as a plain string", async () => {
+        const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-relink-"));
+        const manifestRoot = path.join(tempDir, ".sb-mig");
+        const sourceUrl =
+            "https://a.storyblok.com/f/111/1200x630/2b7c4d6e9a0b1c2d3e4f5a6b/flyer.pdf";
+        const targetUrl =
+            "https://a.storyblok.com/f/222/1200x630/2b7c4d6e9a0b1c2d3e4f5a6b/flyer.pdf";
+
+        // The only mention of the file is a URL inside text, and the ledger
+        // holds the library's own s3 host form of the same file.
+        targetPost.content = {
+            component: "page",
+            html: `<a href="${sourceUrl}">flyer</a>`,
+        };
+
+        await writeLedger(manifestRoot, [
+            assetLedgerEntry({
+                source_id: 70,
+                target_id: 7007,
+                source_filename: `https://s3.amazonaws.com/a.storyblok.com${sourceUrl.slice("https://a.storyblok.com".length)}`,
+                target_filename: targetUrl,
+            }),
+        ]);
+        mocks.getAssetById.mockResolvedValue({
+            id: 7007,
+            filename: targetUrl,
+        });
+
+        await copyCommand(relinkFlags({ manifestRoot, dryRun: true }) as any);
+
+        expect(planLines().join("\n")).toContain(
+            "rewrite: 1 reference in 1 story; 0 already correct and left untouched",
+        );
+
+        await copyCommand(relinkFlags({ manifestRoot, yes: true }) as any);
+
+        expect(mocks.updateStory).toHaveBeenCalledTimes(1);
+        expect(mocks.updateStory.mock.calls[0][0]).toMatchObject({
+            content: { html: `<a href="${targetUrl}">flyer</a>` },
+        });
+
+        await rm(tempDir, { recursive: true, force: true });
+    });
+
     it("rewrites the path of a story that moved after it was copied", async () => {
         const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-relink-"));
         const manifestRoot = path.join(tempDir, ".sb-mig");

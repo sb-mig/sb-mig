@@ -7,11 +7,24 @@ import type {
     CopyWarning,
 } from "./types.js";
 
+import {
+    assetKeyOf,
+    findAssetUrls,
+    walkCopyStrings,
+} from "./reference-scanner.js";
+
 type RewriteState = {
     maps: CopyMaps;
     schemas?: CopyComponentSchemaRegistry;
     records: CopyRewriteRecord[];
     warnings: CopyWarning[];
+    /**
+     * `filename`s already rewritten as part of an asset object. The string
+     * pass skips them, the way the scanner skips them when counting: one value
+     * is rewritten by one rule, so a ledger whose target is also a source
+     * cannot leave an object with one file's id and another's name.
+     */
+    assetObjectFilenamePaths: Set<string>;
 };
 
 const RESERVED_CONTENT_KEYS = new Set(["_uid", "component", "_editable"]);
@@ -31,9 +44,14 @@ export const rewriteCopyReferences = <T>({
         schemas,
         records: [],
         warnings: [],
+        assetObjectFilenamePaths: new Set<string>(),
     };
 
     rewriteNode(clonedValue, "$", state);
+    // The string pass walks the whole value afterwards, through the same
+    // function the scanner counts with: whatever the PLAN counted, this pass
+    // reaches.
+    rewriteStringAssetUrls(clonedValue, "$", state);
 
     return {
         value: clonedValue,
@@ -68,6 +86,7 @@ const rewriteNode = (node: unknown, path: string, state: RewriteState) => {
     }
 
     rewriteAssetObject(node, path, state);
+    rewriteRichtextImageNode(node, path, state);
     rewriteStoryLinkObject(node, path, state);
     rewriteRichtextLinkObject(node, path, state);
     rewriteSchemaAwareOptions(node, path, state);
@@ -85,6 +104,8 @@ const rewriteNode = (node: unknown, path: string, state: RewriteState) => {
 
     for (const [key, value] of Object.entries(node)) {
         if (key === "attrs" && (node.type === "link" || node.type === "blok")) {
+            // Owned by the link and blok rewriters above; the string pass
+            // reaches every asset URL inside them afterwards.
             continue;
         }
 
@@ -92,36 +113,160 @@ const rewriteNode = (node: unknown, path: string, state: RewriteState) => {
     }
 };
 
+/**
+ * A richtext image node names its file twice: `attrs.src` and `attrs.id`. The
+ * string pass re-points the src; without this the node would keep the SOURCE
+ * space's asset id beside the target's URL.
+ */
+const rewriteRichtextImageNode = (
+    node: Record<string, any>,
+    path: string,
+    state: RewriteState,
+) => {
+    if (node.type !== "image" || !isRecord(node.attrs)) {
+        return;
+    }
+
+    const attrs = node.attrs as Record<string, any>;
+    const sourceKey =
+        typeof attrs.src === "string" ? assetKeyOf(attrs.src)?.key : undefined;
+    const target = sourceKey ? state.maps.assetKeys.get(sourceKey) : undefined;
+
+    if (!target || typeof attrs.id !== "number" || attrs.id === target.id) {
+        return;
+    }
+
+    addRecord(state, {
+        type: "asset",
+        path: `${path}.attrs.id`,
+        sourceValue: attrs.id,
+        targetValue: target.id,
+        field: "id",
+    });
+    attrs.id = target.id;
+};
+
+/**
+ * Every asset URL in every string of the value, re-pointed at the target
+ * space, through the same walk the scanner counts with.
+ *
+ * Only the key is replaced, and only when the ledger holds that key: the host
+ * form as written, the `/m/…` suffix, the query, the fragment and every
+ * character around the URL survive byte for byte. A URL the ledger does not
+ * know is left exactly as it is — a target URL is never built by swapping the
+ * space id of a source one, because nothing proves that file was ever copied.
+ */
+const rewriteStringAssetUrls = (
+    value: unknown,
+    path: string,
+    state: RewriteState,
+) => {
+    walkCopyStrings({
+        value,
+        path,
+        skipPaths: state.assetObjectFilenamePaths,
+        visit: ({ value: text, path: stringPath, replace }) => {
+            const matches = findAssetUrls(text);
+
+            if (matches.length === 0) {
+                return;
+            }
+
+            const replacements: {
+                match: (typeof matches)[number];
+                key: string;
+            }[] = [];
+
+            for (const match of matches) {
+                const target = state.maps.assetKeys.get(match.key);
+                const targetKey = target
+                    ? assetKeyOf(target.filename)?.key
+                    : undefined;
+
+                if (!targetKey || targetKey === match.key) {
+                    continue;
+                }
+
+                replacements.push({ match, key: targetKey });
+            }
+
+            if (replacements.length === 0) {
+                return;
+            }
+
+            let rewritten = "";
+            let cursor = 0;
+
+            for (const replacement of replacements) {
+                const { match } = replacement;
+
+                rewritten +=
+                    text.slice(cursor, match.keyStart) + replacement.key;
+                cursor = match.keyEnd;
+
+                addRecord(state, {
+                    type: "asset",
+                    path: stringPath,
+                    sourceValue: match.url,
+                    targetValue:
+                        text.slice(match.start, match.keyStart) +
+                        replacement.key +
+                        text.slice(match.keyEnd, match.end),
+                    field: "string",
+                });
+            }
+
+            rewritten += text.slice(cursor);
+            replace(rewritten);
+        },
+    });
+};
+
 const rewriteAssetObject = (
     node: Record<string, any>,
     path: string,
     state: RewriteState,
 ) => {
+    const sourceKey =
+        typeof node.filename === "string"
+            ? assetKeyOf(node.filename)?.key
+            : undefined;
     const hasAssetShape =
         typeof node.filename === "string" &&
         (typeof node.id === "number" ||
-            state.maps.assetFilenames.has(node.filename));
+            state.maps.assetFilenames.has(node.filename) ||
+            (sourceKey !== undefined && state.maps.assetKeys.has(sourceKey)));
 
     if (!hasAssetShape) {
         return;
     }
 
-    const targetById =
-        typeof node.id === "number"
-            ? state.maps.assetIds.get(node.id)
-            : undefined;
-    const targetFilename =
-        targetById?.filename ?? state.maps.assetFilenames.get(node.filename);
+    state.assetObjectFilenamePaths.add(`${path}.filename`);
 
-    if (typeof node.id === "number" && targetById) {
+    // One ledger entry decides BOTH values. An object whose stored id differs
+    // from the library's id for the same file — 156 of 23,082 on a real space,
+    // where a file was replaced after the story was written — is found by its
+    // path; taking the target's file name without the target's id would leave
+    // an object naming two different assets.
+    const entry =
+        (typeof node.id === "number"
+            ? state.maps.assetIds.get(node.id)
+            : undefined) ??
+        (sourceKey ? state.maps.assetKeys.get(sourceKey) : undefined);
+    // The exact-file-name map carries no id, so a match by it stays what it
+    // has always been: the file name alone.
+    const targetFilename =
+        entry?.filename ?? state.maps.assetFilenames.get(node.filename);
+
+    if (typeof node.id === "number" && entry && node.id !== entry.id) {
         addRecord(state, {
             type: "asset",
             path: `${path}.id`,
             sourceValue: node.id,
-            targetValue: targetById.id,
+            targetValue: entry.id,
             field: "id",
         });
-        node.id = targetById.id;
+        node.id = entry.id;
     }
 
     if (targetFilename && node.filename !== targetFilename) {

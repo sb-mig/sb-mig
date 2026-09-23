@@ -4,7 +4,11 @@ import type {
     CopyMaps,
 } from "./types.js";
 
-import { createEmptyCopyMaps } from "./manifest.js";
+import {
+    applyCopyMapWrites,
+    createEmptyCopyMaps,
+    getCopyAssetMapWrites,
+} from "./manifest.js";
 import {
     formatCopyPlanGateLedger,
     formatCopyPlanGateReferences,
@@ -12,6 +16,7 @@ import {
     type CopyPlanGateReferences,
 } from "./plan-gate.js";
 import { rewriteCopyReferences } from "./reference-rewriter.js";
+import { assetKeyOf } from "./reference-scanner.js";
 
 /**
  * How a planned story was matched to a story that already exists in the target
@@ -105,11 +110,16 @@ const applyCopyRelinkAssetMapping = (
     maps: CopyMaps,
     mapping: CopyRelinkAssetMapping,
 ) => {
-    maps.assetIds.set(mapping.sourceId, {
-        id: mapping.targetId,
-        filename: mapping.targetFilename,
-    });
-    maps.assetFilenames.set(mapping.sourceFilename, mapping.targetFilename);
+    // The one writer of an asset mapping: id, file name and key together.
+    applyCopyMapWrites(
+        maps,
+        getCopyAssetMapWrites({
+            sourceId: mapping.sourceId,
+            sourceFilename: mapping.sourceFilename,
+            targetId: mapping.targetId,
+            targetFilename: mapping.targetFilename,
+        }),
+    );
 };
 
 /**
@@ -167,6 +177,7 @@ export const buildCopyRelinkClassificationMaps = ({
         storyIdFullSlugs: new Map(ledgerMaps.storyIdFullSlugs),
         assetIds: new Map(ledgerMaps.assetIds),
         assetFilenames: new Map(ledgerMaps.assetFilenames),
+        assetKeys: new Map(ledgerMaps.assetKeys),
         assetFolderIds: new Map(ledgerMaps.assetFolderIds),
     };
 
@@ -295,10 +306,16 @@ export const selectRelinkLedgerAssetMappings = ({
             targetFilename: String(entry.target_filename ?? ""),
         };
 
+        // The key as well as the filename: content that mentions the file only
+        // as its own URL never contains the ledger's library filename.
+        const sourceKey = assetKeyOf(mapping.sourceFilename)?.key;
+
         if (
-            [mapping.sourceId, mapping.sourceFilename].some((value) =>
-                mentionsValue(serializedContent, value),
-            )
+            [
+                mapping.sourceId,
+                mapping.sourceFilename,
+                ...(sourceKey ? [sourceKey] : []),
+            ].some((value) => mentionsValue(serializedContent, value))
         ) {
             mappings.set(mapping.sourceId, mapping);
         }
