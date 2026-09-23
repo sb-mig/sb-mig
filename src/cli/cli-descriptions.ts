@@ -263,9 +263,9 @@ export const copyDescription = `
         --mode          Copy mode: subtree, children, or self. Default: subtree. folder/* defaults to children.
         --with-assets   For copy stories, copy referenced assets first and rewrite copied stories to target asset IDs/filenames.
         --publicationMode
-                       How copy stories should preserve Storyblok publication state. Values: preserve-layers, collapse-draft, save-only. Default: preserve-layers. [stories only]
+                       How copy stories and copy relink preserve Storyblok publication state. Values: preserve-layers, collapse-draft, save-only. Default: preserve-layers. copy relink refuses collapse-draft. [stories and relink]
         --publicationLanguages
-                       Language scope to publish when publicationMode publishes stories. Values: default, all, or comma-separated Storyblok language codes. Default: all. [stories only]
+                       Language scope to publish when publicationMode publishes stories. Values: default, all, or comma-separated Storyblok language codes. Default: all. [stories and relink]
         --all           Select all assets and asset folders. [assets only]
         --asset         Select one source asset by numeric ID, exact Storyblok asset URL, or unique file name. Repeatable. [assets only]
         --assetFolder   Select one source asset folder by numeric ID or folder path. Includes descendants and assets in that subtree. Repeatable. [assets only]
@@ -315,7 +315,8 @@ export const copyDescription = `
         copy relink repairs stories that were copied before the stories they reference, which leaves source-space IDs and UUIDs in target content forever; copying the referenced stories later does not fix the content that was already written.
         copy relink takes the same --source, --destination and --mode as the copy stories run it repairs, so the planned target paths line up.
         copy relink builds the mapping from the ledger plus target paths, then rewrites each target story's own content. It never creates stories and never copies content from the source.
-        copy relink leaves a story untouched when its references already resolve, and updates the draft only, so published stories need publishing afterwards.
+        copy relink leaves a story untouched when its references already resolve, and keeps each story's publication state, read from the TARGET story: a published story is republished with its repair; a draft or unpublished story is saved and not published; a story with unpublished changes has the published version from its own history repaired and republished, then its draft put back, so the unfinished draft never goes live. When that history has no published version, or a story does not say its state, the repair is saved as a draft only and the story is listed. --publicationMode save-only saves every repair as a draft and publishes nothing.
+        copy relink re-reads a story before publishing it and writes nothing to a story someone changed after the run read it (outcome changed_since_read); a rerun picks it up.
         copy relink prints the same PLAN block and confirmation gate as copy stories, with the exact number of references it is about to rewrite.
         copy stories and copy relink count asset URLs written into text, HTML, link and plugin fields as asset references, like an asset field: they are copied with --with-assets or copy assets --referenced-by-stories, and rewritten to the target file by copy stories and copy relink. Only URLs of the source space are touched, and only when the ledger proves that file was copied; a URL of another space, or of an asset that was never copied, is left exactly as it is, with its host form, its /m/ resize suffix and any query string unchanged.
         copy assets --dry-run reads the ledger and the target library, and decides with the same code the apply runs: on a rerun it shows what is already copied (ledger), what the target already holds (found in target), what will upload, and what the ledger maps to a file the target no longer holds or that another source file owns (stale in ledger, uploaded again). A file-name match never reuses another source file's copy, and a same-named file at a different size is a different file.
