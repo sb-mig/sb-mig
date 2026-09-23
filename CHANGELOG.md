@@ -1,3 +1,10 @@
+# [6.5.0-beta.11](https://github.com/sb-mig/sb-mig/compare/v6.5.0-beta.10...v6.5.0-beta.11) (2026-09-23)
+
+
+### Features
+
+* **copy:** carry asset internal tags with copy assets (MAR-3354) ([f03f18e](https://github.com/sb-mig/sb-mig/commit/f03f18e931f01412bb663352d715edf4177b6958))
+
 # [6.5.0-beta.10](https://github.com/sb-mig/sb-mig/compare/v6.5.0-beta.9...v6.5.0-beta.10) (2026-09-23)
 
 
