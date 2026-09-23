@@ -1,3 +1,18 @@
+# [6.5.0-beta.9](https://github.com/sb-mig/sb-mig/compare/v6.5.0-beta.8...v6.5.0-beta.9) (2026-09-23)
+
+
+### Bug Fixes
+
+* **copy:** count, copy and rewrite asset URLs stored as plain strings (MAR-3162) ([976460f](https://github.com/sb-mig/sb-mig/commit/976460f7575fb311ceaeff17c74c13415fe5ae71))
+* **copy:** make --source / say and mean exactly what it copies (MAR-3137) ([d9a7515](https://github.com/sb-mig/sb-mig/commit/d9a75158258be10b5fa6cbd771d47ef730a35c03))
+* **copy:** scan and rewrite asset URLs through one shared string walk (MAR-3162) ([16b201f](https://github.com/sb-mig/sb-mig/commit/16b201f90774f1a88f1169a250ab5fca829bf8ec))
+* **copy:** take an asset object's id and file name from one ledger entry (MAR-3162) ([3c312ef](https://github.com/sb-mig/sb-mig/commit/3c312ef90947ed3fd4af020c1bf85d1046d4297b))
+
+
+### Features
+
+* **copy:** select the whole space with --source / (MAR-3137) ([f96826c](https://github.com/sb-mig/sb-mig/commit/f96826c22c596c57e1234cf9ce90db2568b34847))
+
 # [6.5.0-beta.8](https://github.com/sb-mig/sb-mig/compare/v6.5.0-beta.7...v6.5.0-beta.8) (2026-09-17)
 
 
