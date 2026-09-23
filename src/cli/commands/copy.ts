@@ -124,6 +124,7 @@ import {
     type ProgressOutcome,
     type ProgressModePreference,
 } from "../../utils/progress.js";
+import { retryAttemptsOf } from "../../utils/retry.js";
 import { getFileName } from "../../utils/string-utils.js";
 import { apiConfig } from "../api-config.js";
 import { askYesNo } from "../helpers.js";
@@ -6348,7 +6349,10 @@ const copyAssetsAndWriteManifests = async ({
 
         if (!targetAsset?.id) {
             const status = resolveThrownStatus(createError);
-            const message = `Failed to copy asset '${assetName}' into space '${targetSpace}'${status ? ` (status ${status})` : ""}: ${createError ? describeThrown(createError) : "the upload response carried no asset"}.`;
+            // A step that was retried says how often, so "failed" is never
+            // read as "failed once" (MAR-3355).
+            const attempts = retryAttemptsOf(createError);
+            const message = `Failed to copy asset '${assetName}' into space '${targetSpace}'${status ? ` (status ${status})` : ""}: ${createError ? describeThrown(createError) : "the upload response carried no asset"}${attempts && attempts > 1 ? ` (after ${attempts} attempts)` : "."}`;
 
             assetProgress.fail(message);
             failures.push({

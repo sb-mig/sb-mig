@@ -22,8 +22,59 @@ import FormData from "form-data";
 
 import { createDir, isDirectoryExists } from "../../utils/files.js";
 import Logger from "../../utils/logger.js";
+import { errorCodeOf, errorStatusOf, withRetry } from "../../utils/retry.js";
 import { getFileName, getSizeFromURL } from "../../utils/string-utils.js";
 import { getAllItemsWithPagination } from "../utils/request.js";
+
+/** Every retry says so, through the Logger, so a live progress line lends it the row. */
+const logRetry = (line: string) => Logger.warning(line);
+
+/**
+ * storyblok-js-client answers a request that never got a response — a reset
+ * socket, a DNS miss — by RESOLVING `{ message: <the fetch error> }` instead of
+ * throwing. Left alone, that reads as a success with no data. This turns it
+ * back into the thrown error it is, with the socket's own `code` kept, so the
+ * retry can tell a dropped connection from a refusal.
+ */
+export const throwIfUnanswered = <T>(result: T): T => {
+    const record = result as any;
+
+    if (
+        record !== null &&
+        typeof record === "object" &&
+        !("data" in record) &&
+        !("status" in record) &&
+        record.message !== null &&
+        typeof record.message === "object"
+    ) {
+        const inner = record.message;
+        const reason =
+            (typeof inner?.cause?.message === "string"
+                ? inner.cause.message
+                : undefined) ??
+            (typeof inner?.message === "string" ? inner.message : undefined) ??
+            "the request got no answer";
+
+        throw Object.assign(new Error(reason), {
+            code: errorCodeOf(inner),
+            cause: inner,
+        });
+    }
+
+    return result;
+};
+
+/**
+ * The only answers to the signed-URL POST worth asking again: the server
+ * refused before doing anything. A socket error is NOT one of them — the POST
+ * may already have created the asset record, and a second POST would leave a
+ * duplicate in the target.
+ */
+const isRefusedBeforeCreate = (error: unknown): boolean => {
+    const status = errorStatusOf(error);
+
+    return status === 429 || status === 503;
+};
 
 const isStoryblokSize = (size: string | undefined): size is string =>
     Boolean(size && /^\d+x\d+$/i.test(size));
@@ -100,19 +151,35 @@ const requestSignedUploadUrl: RequestSignedUploadUrl = (
 ) => {
     const { sbApi, debug } = config;
     const signedUploadPayload = prepareSignedUploadPayload(payload);
-    return sbApi
-        .post(`spaces/${spaceId}/assets/`, signedUploadPayload)
-        .then((signedResponseObject) => {
-            if (debug) {
-                Logger.log(
-                    `Signed upload URL has been requested for ${signedUploadPayload.filename}.`,
-                );
-            }
-            return (signedResponseObject as any as { data: any }).data; // this is very bad... but storyblok-js-client types are pretty broken
-        })
-        .catch((err) => {
-            console.log(err);
-        });
+
+    // This POST creates the asset record. It is asked again only when the
+    // server refused outright (429/503); any other failure is final, because
+    // a second POST after a lost answer can leave a second asset behind.
+    return withRetry(
+        () =>
+            sbApi
+                .post(`spaces/${spaceId}/assets/`, signedUploadPayload)
+                .then(throwIfUnanswered)
+                .then((signedResponseObject) => {
+                    if (debug) {
+                        Logger.log(
+                            `Signed upload URL has been requested for ${signedUploadPayload.filename}.`,
+                        );
+                    }
+                    return (signedResponseObject as any as { data: any }).data; // this is very bad... but storyblok-js-client types are pretty broken
+                }),
+        {
+            step: "signed-URL request",
+            subject: signedUploadPayload.filename,
+            onRetry: logRetry,
+            isRetryable: isRefusedBeforeCreate,
+        },
+    ).catch((err) => {
+        // The same line as before, and then the failure is the caller's:
+        // resolving `undefined` here only moved the crash to the upload.
+        Logger.log(err);
+        throw err;
+    });
 };
 
 const uploadFile: UploadFile = ({
@@ -121,41 +188,55 @@ const uploadFile: UploadFile = ({
     quiet,
 }) => {
     const file = pathToFile;
-    const form = new FormData();
 
-    // apply all fields from the signed response object to the second request
-    for (const key in signedResponseObject.fields) {
-        form.append(key, signedResponseObject.fields[key]);
-    }
+    // One attempt: a fresh form every time (a submitted form's file stream is
+    // spent), always to the SAME signed URL with the SAME fields — S3 accepts
+    // a second upload to one signed POST, so a retry never asks Storyblok for
+    // a new asset record.
+    const submitOnce = () =>
+        new Promise<void>((resolve, reject) => {
+            const form = new FormData();
 
-    // also append the file read stream
-    form.append("file", fs.createReadStream(file));
-
-    // submit your form
-    return new Promise<void>((resolve, reject) => {
-        form.submit(signedResponseObject.post_url, (err, res) => {
-            if (err) {
-                reject(err);
-                return;
+            // apply all fields from the signed response object to the second request
+            for (const key in signedResponseObject.fields) {
+                form.append(key, signedResponseObject.fields[key]);
             }
 
-            const statusCode = res?.statusCode;
-            if (statusCode === 204) {
-                if (!quiet) {
-                    Logger.upload(`Asset uploaded ${getFileName(file)}`);
+            // also append the file read stream
+            form.append("file", fs.createReadStream(file));
+
+            form.submit(signedResponseObject.post_url, (err, res) => {
+                if (err) {
+                    reject(err);
+                    return;
                 }
-                resolve();
-                return;
-            }
 
-            reject(
-                new Error(
-                    `Asset upload failed with status code ${
-                        statusCode ?? "unknown"
-                    }`,
-                ),
-            );
+                const statusCode = res?.statusCode;
+                if (statusCode === 204) {
+                    if (!quiet) {
+                        Logger.upload(`Asset uploaded ${getFileName(file)}`);
+                    }
+                    resolve();
+                    return;
+                }
+
+                reject(
+                    Object.assign(
+                        new Error(
+                            `Asset upload failed with status code ${
+                                statusCode ?? "unknown"
+                            }`,
+                        ),
+                        { status: statusCode },
+                    ),
+                );
+            });
         });
+
+    return withRetry(submitOnce, {
+        step: "upload",
+        subject: getFileName(file),
+        onRetry: logRetry,
     });
 };
 
@@ -192,13 +273,23 @@ export const finishAssetUpload: FinishAssetUpload = async (
 ) => {
     const { sbApi } = config;
 
-    return (sbApi as any)
-        .get(`spaces/${spaceId}/assets/${assetId}/finish_upload`, {})
-        .then(({ data }: any) => data)
-        .catch((err: any) => {
-            Logger.error(err);
-            throw err;
-        });
+    // Finishing twice is harmless (measured: the same asset answers both), so
+    // a transient failure is asked again.
+    return withRetry<any>(
+        () =>
+            (sbApi as any)
+                .get(`spaces/${spaceId}/assets/${assetId}/finish_upload`, {})
+                .then(throwIfUnanswered)
+                .then(({ data }: any) => data),
+        {
+            step: "finish",
+            subject: `asset ${assetId}`,
+            onRetry: logRetry,
+        },
+    ).catch((err: any) => {
+        Logger.error(err);
+        throw err;
+    });
 };
 
 export const downloadAsset: DownloadAsset = async (args, config) => {
@@ -225,13 +316,32 @@ export const downloadAsset: DownloadAsset = async (args, config) => {
         await createDir(downloadedAssetsFolder);
     }
 
-    return new Promise<string>((resolve, reject) => {
-        const file = fs.createWriteStream(
-            path.join(downloadedAssetsFolder, fileName),
-        );
+    const downloadOnce = () =>
+        new Promise<string>((resolve, reject) => {
+            const request = https.get(fileUrl, (response) => {
+                const statusCode = response.statusCode ?? 0;
 
-        https
-            .get(fileUrl, (response) => {
+                // An error page is not the file: saving it would upload the
+                // page as the asset. A 5xx is worth asking again; a 4xx is not.
+                if (statusCode >= 400) {
+                    response.resume();
+                    reject(
+                        Object.assign(
+                            new Error(
+                                `Asset download failed with status code ${statusCode}`,
+                            ),
+                            { status: statusCode },
+                        ),
+                    );
+                    return;
+                }
+
+                const file = fs.createWriteStream(
+                    path.join(downloadedAssetsFolder, fileName),
+                );
+
+                file.on("error", reject);
+                response.on("error", reject);
                 response.pipe(file);
                 file.on("finish", () => {
                     file.close();
@@ -245,11 +355,20 @@ export const downloadAsset: DownloadAsset = async (args, config) => {
                     }
                     resolve(path.join(downloadedAssetsFolder, fileName));
                 });
-            })
-            .on("error", (error) => {
-                Logger.error(`Error downloading image: ${error.message}`);
-                reject("error");
             });
+
+            request.on("error", reject);
+        });
+
+    return withRetry(downloadOnce, {
+        step: "download",
+        subject: fileName,
+        onRetry: logRetry,
+    }).catch((error) => {
+        Logger.error(`Error downloading image: ${error?.message ?? error}`);
+        // The real error, with its code: the string "error" told the caller
+        // nothing and could never be retried.
+        throw error;
     });
 };
 
