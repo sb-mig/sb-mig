@@ -3,6 +3,14 @@
 
 ### Bug Fixes
 
+* **assets:** retry a failed download, upload or finish on transient network errors, never re-creating the asset (MAR-3355) ([2e221d6](https://github.com/sb-mig/sb-mig/commit/2e221d646e8c2d666a096ca0647567ca0e18fa44))
+* **copy:** the copy assets plan reads the ledger and the target library, and a file-name match never claims another source's copy (MAR-3359) ([ec6e98e](https://github.com/sb-mig/sb-mig/commit/ec6e98e84713cf878fcf77612085ea53495c3876))
+
+# [6.5.0-beta.13](https://github.com/sb-mig/sb-mig/compare/v6.5.0-beta.12...v6.5.0-beta.13) (2026-09-23)
+
+
+### Bug Fixes
+
 * **copy:** the copy assets plan reads the ledger and the target library, and a file-name match never claims another source's copy (MAR-3359) ([ec6e98e](https://github.com/sb-mig/sb-mig/commit/ec6e98e84713cf878fcf77612085ea53495c3876))
 
 # [6.5.0-beta.12](https://github.com/sb-mig/sb-mig/compare/v6.5.0-beta.11...v6.5.0-beta.12) (2026-09-23)
