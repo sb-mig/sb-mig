@@ -1209,6 +1209,47 @@ describe("copy assets dry-run", () => {
 
             await finish();
         });
+
+        // MAR-3355 R4 canary. Mutation that must turn it red: drop the
+        // attempts from the failure message.
+        it("says how many attempts a failed upload made", async () => {
+            const { withRetry } = await import("../../src/utils/retry.js");
+            // The error exactly as the retried step lets it escape: three
+            // resets, the attempts marked on it by the retry itself.
+            const exhausted = await withRetry(
+                () =>
+                    Promise.reject(
+                        Object.assign(new Error("read ECONNRESET"), {
+                            code: "ECONNRESET",
+                        }),
+                    ),
+                {
+                    step: "upload",
+                    subject: "image.jpg",
+                    onRetry: () => undefined,
+                    sleep: async () => undefined,
+                },
+            ).catch((error) => error);
+
+            mocks.createAssetAndFinalize.mockRejectedValue(exhausted);
+
+            await runApply();
+
+            expect(process.exitCode).toBe(1);
+
+            const report = await readReport();
+
+            expect(report.items.at(-1)).toMatchObject({
+                resource: "asset",
+                outcome: "create_failed",
+            });
+            expect(report.failures).toHaveLength(1);
+            expect(report.failures[0].message).toBe(
+                "Failed to copy asset 'https://a.storyblok.com/f/123/nested/image.jpg' into space 'target-space': read ECONNRESET (after 3 attempts)",
+            );
+
+            await finish();
+        });
     });
 });
 
