@@ -1,4 +1,8 @@
-export type CopyResourceType = "story" | "asset" | "asset_folder";
+export type CopyResourceType =
+    | "story"
+    | "asset"
+    | "asset_folder"
+    | "internal_tag";
 
 export type CopyAction =
     | "created"
@@ -69,10 +73,24 @@ export type CopyAssetFolderManifestEntry = CopyManifestEntryBase & {
     target_path?: string;
 };
 
+/**
+ * One asset internal tag of the source matched to a tag of the same name in
+ * the target. Only matches are recorded: a personal access token cannot create
+ * an internal tag, so a tag the target lacks has no mapping to remember.
+ */
+export type CopyInternalTagManifestEntry = CopyManifestEntryBase & {
+    type: "internal_tag";
+    source_id: number;
+    target_id: number;
+    name: string;
+    object_type: "asset";
+};
+
 export type CopyManifestEntry =
     | CopyStoryManifestEntry
     | CopyAssetManifestEntry
-    | CopyAssetFolderManifestEntry;
+    | CopyAssetFolderManifestEntry
+    | CopyInternalTagManifestEntry;
 
 export type CopyMaps = {
     storyIds: Map<number, number>;
@@ -102,6 +120,15 @@ export type CopyMaps = {
      */
     assetKeys: Map<string, { id: number; filename: string }>;
     assetFolderIds: Map<number, number>;
+    /**
+     * Source internal tag id -> the target tag of the same name. Read before
+     * the target is listed, so a tag renamed in the target keeps its mapping.
+     *
+     * Optional because not every set of maps carries one: `copy relink` builds
+     * its classification maps by hand out of story mappings and never reads a
+     * tag. A ledger-built map always has it.
+     */
+    internalTagIds?: Map<number, number>;
 };
 
 export type CopyScope = {

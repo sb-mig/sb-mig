@@ -1,6 +1,7 @@
 import type {
     CopyAssetFolderManifestEntry,
     CopyAssetManifestEntry,
+    CopyInternalTagManifestEntry,
     CopyManifestEntry,
     CopyMaps,
     CopyResourceType,
@@ -18,6 +19,7 @@ export type CopyManifestPaths = {
     stories: string;
     assets: string;
     assetFolders: string;
+    internalTags: string;
     report: string;
 };
 
@@ -170,6 +172,7 @@ export const getDefaultCopyManifestPaths = ({
         stories: path.join(copyRoot, "stories.manifest.jsonl"),
         assets: path.join(copyRoot, "assets.manifest.jsonl"),
         assetFolders: path.join(copyRoot, "asset-folders.manifest.jsonl"),
+        internalTags: path.join(copyRoot, "internal-tags.manifest.jsonl"),
         report: path.join(copyRoot, "report.json"),
     };
 };
@@ -216,6 +219,7 @@ export const createEmptyCopyMaps = (): CopyMaps => ({
     assetFilenames: new Map(),
     assetKeys: new Map(),
     assetFolderIds: new Map(),
+    internalTagIds: new Map(),
 });
 
 export const loadManifest = async <T extends CopyManifestEntry>(
@@ -405,6 +409,16 @@ export const getCopyMapWrites = (entry: CopyManifestEntry): CopyMapWrite[] => {
         ];
     }
 
+    if (isInternalTagManifestEntry(entry)) {
+        return [
+            {
+                map: "internalTagIds",
+                key: entry.source_id,
+                value: entry.target_id,
+            },
+        ];
+    }
+
     return [];
 };
 
@@ -453,7 +467,11 @@ export const getCopyAssetMapWrites = ({
 
 export const applyCopyMapWrites = (maps: CopyMaps, writes: CopyMapWrite[]) => {
     for (const write of writes) {
-        (maps[write.map] as Map<unknown, unknown>).set(write.key, write.value);
+        // A map this set does not carry is a map nobody reads: skip rather
+        // than invent one the caller never asked for.
+        const target = maps[write.map] as Map<unknown, unknown> | undefined;
+
+        target?.set(write.key, write.value);
     }
 };
 
@@ -481,6 +499,7 @@ const COPY_RESOURCE_TYPES: CopyResourceType[] = [
     "story",
     "asset",
     "asset_folder",
+    "internal_tag",
 ];
 
 export const isCopyResourceType = (value: unknown): value is CopyResourceType =>
@@ -553,6 +572,16 @@ export const validateCopyManifestEntry = (entry: unknown): string[] => {
         }
     }
 
+    if (candidate["type"] === "internal_tag") {
+        if (!isPresentString(candidate["name"])) {
+            problems.push("no name");
+        }
+
+        if (candidate["object_type"] !== "asset") {
+            problems.push("object_type is not 'asset'");
+        }
+    }
+
     return problems;
 };
 
@@ -594,3 +623,7 @@ const isAssetManifestEntry = (
 const isAssetFolderManifestEntry = (
     entry: CopyManifestEntry,
 ): entry is CopyAssetFolderManifestEntry => entry.type === "asset_folder";
+
+const isInternalTagManifestEntry = (
+    entry: CopyManifestEntry,
+): entry is CopyInternalTagManifestEntry => entry.type === "internal_tag";

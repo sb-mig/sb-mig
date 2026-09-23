@@ -142,6 +142,7 @@ const MAP_LABELS: Record<CopyMapName, string> = {
     assetIds: "asset id",
     assetFilenames: "asset filename",
     assetKeys: "asset url path",
+    internalTagIds: "asset internal tag id",
     assetFolderIds: "asset folder id",
 };
 
@@ -153,6 +154,7 @@ const MAP_RESOURCES: Record<CopyMapName, CopyResourceType> = {
     assetIds: "asset",
     assetFilenames: "asset",
     assetKeys: "asset",
+    internalTagIds: "internal_tag",
     assetFolderIds: "asset_folder",
 };
 
@@ -218,6 +220,19 @@ const buildMappingRow = (entry: CopyManifestEntry): CopyManifestMappingRow => {
             targetId: entry.target_id,
             sourcePath: entry.source_filename,
             targetPath: entry.target_filename,
+        };
+    }
+
+    if (entry.type === "internal_tag") {
+        // A tag is named, not pathed: the name is what a match was made on.
+        return {
+            resource: "internal_tag",
+            action: entry.action,
+            recordedAt: entry.created_at,
+            sourceId: entry.source_id,
+            targetId: entry.target_id,
+            sourcePath: entry.name,
+            targetPath: entry.name,
         };
     }
 
@@ -523,6 +538,7 @@ const RESOURCE_LABELS: Record<CopyResourceType, string> = {
     story: "story",
     asset: "asset",
     asset_folder: "asset folder",
+    internal_tag: "internal tag",
 };
 
 const plural = (count: number, one: string, many: string) =>

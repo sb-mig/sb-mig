@@ -10,6 +10,7 @@ import {
     appendManifestEntries,
     appendManifestEntry,
     buildCopyMaps,
+    validateCopyManifestEntry,
     createCopyGraph,
     dedupeManifestEntries,
     dedupeManifestFile,
@@ -168,6 +169,54 @@ describe("copy manifest store", () => {
         const fileEntries = await dedupeManifestFile(manifestPath);
         expect(fileEntries).toEqual([latest, asset]);
         expect(await loadManifest(manifestPath)).toEqual([latest, asset]);
+    });
+
+    // MAR-3354 R4. Mutation that must turn it red: stop projecting
+    // `internal_tag` entries into the maps, or reject them as invalid.
+    it("projects an internal tag line into the tag map", () => {
+        const maps = buildCopyMaps([
+            {
+                type: "internal_tag",
+                source_space_id: "111",
+                target_space_id: "222",
+                source_id: 10,
+                target_id: 90,
+                name: "Expert Talk",
+                object_type: "asset",
+                action: "matched_by_target_key",
+                created_at: "2026-09-23T00:00:00.000Z",
+            } as any,
+        ]);
+
+        expect(maps.internalTagIds?.get(10)).toBe(90);
+    });
+
+    it("refuses an internal tag line that names no tag", () => {
+        expect(
+            validateCopyManifestEntry({
+                type: "internal_tag",
+                source_space_id: "111",
+                target_space_id: "222",
+                source_id: 10,
+                target_id: 90,
+                object_type: "asset",
+                action: "matched_by_target_key",
+                created_at: "2026-09-23T00:00:00.000Z",
+            }),
+        ).toContain("no name");
+        expect(
+            validateCopyManifestEntry({
+                type: "internal_tag",
+                source_space_id: "111",
+                target_space_id: "222",
+                source_id: 10,
+                target_id: 90,
+                name: "Expert Talk",
+                object_type: "component",
+                action: "matched_by_target_key",
+                created_at: "2026-09-23T00:00:00.000Z",
+            }),
+        ).toContain("object_type is not 'asset'");
     });
 
     it("builds runtime lookup maps for stories, assets, and asset folders", () => {

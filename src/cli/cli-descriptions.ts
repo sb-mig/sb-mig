@@ -292,7 +292,7 @@ export const copyDescription = `
         copy stories writes copied stories into the target Storyblok space unless --dry-run is passed.
         copy stories writes story ID/UUID manifests under .sb-mig/copy/<source>/<target>/ during apply.
         copy stories --with-assets writes referenced asset folders/assets before story writes unless --dry-run is passed.
-        copy assets writes asset folders and assets into the target Storyblok space unless --dry-run is passed.
+        copy assets writes asset folders and assets into the target Storyblok space unless --dry-run is passed, including each asset's alt, title, copyright and its internal tags.
         copy assets writes JSONL manifests under .sb-mig/copy/<source>/<target>/ during apply.
         --outputPath writes a local JSON report for dry-run or apply.
         copy manifests makes no Storyblok request in any mode.
@@ -360,6 +360,7 @@ export const copyDescription = `
         copy space prints a PLAN block with create, update and skip counts per resource and asks before the first write; without a terminal and without --yes it refuses. A failed write is reported and the run carries on, then exits 1.
         copy assets matches by manifest first, then safe target folder path or unique asset file name before creating.
         copy assets uploads assets, finalizes the upload, and writes source-to-target asset/folder manifests.
+        copy assets matches internal tags by name and never creates or removes one: the Management API refuses tag writes to a personal access token. A tag the target already has is attached to the copied asset; a tag it lacks is named in the PLAN so you can create it in Storyblok under Assets, Tags, and rerun. The asset's alt, title and copyright are written either way, and a rerun re-writes the metadata of assets that were already copied.
 
     EXAMPLES
         $ sb-mig copy stories --from 12345 --to 67890 --source blog/post-1 --destination imported

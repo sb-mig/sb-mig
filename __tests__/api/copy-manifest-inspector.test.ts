@@ -107,6 +107,35 @@ describe("copy manifest inspector", () => {
 
     // MAR-3162 lap 2 (G5). Mutation that must turn it red: drop the assetKeys
     // write from getCopyAssetMapWrites, so a real ledger line maps two keys.
+    // MAR-3354 R4. Mutation that must turn it red: drop the inspector's label
+    // rows for the tag map, or stop projecting the entry.
+    it("counts and labels the mapping an internal tag line makes", () => {
+        const inspection = inspect([
+            combined([
+                {
+                    type: "internal_tag",
+                    source_space_id: "111",
+                    target_space_id: "222",
+                    source_id: 10,
+                    target_id: 90,
+                    name: "Expert Talk",
+                    object_type: "asset",
+                    action: "matched_by_target_key",
+                    created_at: "2026-09-23T00:00:00.000Z",
+                },
+            ]),
+        ]);
+
+        expect(inspection.summary).toMatchObject({
+            entries: 1,
+            // One tag maps one thing: its id in the target.
+            mappingKeys: 1,
+            conflicts: 0,
+            errors: 0,
+        });
+        expect(inspection.findings).toEqual([]);
+    });
+
     it("counts three mappings for an asset line whose file names are real URLs", () => {
         const inspection = inspect([
             combined([
