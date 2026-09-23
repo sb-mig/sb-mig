@@ -1,3 +1,10 @@
+# [6.5.0-beta.10](https://github.com/sb-mig/sb-mig/compare/v6.5.0-beta.9...v6.5.0-beta.10) (2026-09-23)
+
+
+### Bug Fixes
+
+* **copy:** recognise asset URLs without a dimensions segment (MAR-3353) ([ccd5883](https://github.com/sb-mig/sb-mig/commit/ccd5883bfb617825bb71092512938bb534b7b5eb))
+
 # [6.5.0-beta.9](https://github.com/sb-mig/sb-mig/compare/v6.5.0-beta.8...v6.5.0-beta.9) (2026-09-23)
 
 
