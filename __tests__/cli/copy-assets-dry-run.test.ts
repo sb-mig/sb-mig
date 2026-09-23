@@ -494,6 +494,102 @@ describe("copy assets dry-run", () => {
     // MAR-3162 R4 + R7 claim layer. Mutations that must turn it red: select
     // source assets by referenced id and exact filename only (0 will copy); or
     // drop `byShape` from the dry-run report.
+    // MAR-3353 R3. Mutation that must turn it red: make the dimensions segment
+    // mandatory again, so the short-form URL is neither parsed nor counted.
+    it("counts a short-form and a long-form URL of one file as one asset", async () => {
+        const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-assets-"));
+        const outputPath = path.join(tempDir, "plans", "short-form.json");
+        const hash = "4a4ecad472";
+        // The same file, written both ways: the library's own short form, and
+        // a long form with a dimensions segment.
+        const shortUrl = `https://a.storyblok.com/f/111/${hash}/policy.pdf`;
+        const longUrl = `https://a.storyblok.com/f/111/1200x630/${hash}/policy.pdf`;
+        const libraryFilename = `https://s3.amazonaws.com/a.storyblok.com/f/111/${hash}/policy.pdf`;
+
+        mocks.getAllAssets.mockImplementation(({ spaceId }: any) =>
+            Promise.resolve(
+                spaceId === "111"
+                    ? {
+                          assets: [
+                              {
+                                  ...sourceAsset,
+                                  id: 700,
+                                  filename: libraryFilename,
+                                  asset_folder_id: null,
+                              },
+                          ],
+                      }
+                    : { assets: [] },
+            ),
+        );
+        mocks.getAllAssetFolders.mockResolvedValue({ asset_folders: [] });
+        mocks.getStoryBySlug.mockImplementation((slug: string) =>
+            Promise.resolve(
+                slug === "blog/post"
+                    ? {
+                          story: {
+                              id: 100,
+                              uuid: "source-story-uuid",
+                              name: "Post",
+                              slug: "post",
+                              full_slug: "blog/post",
+                              parent_id: 0,
+                              is_folder: false,
+                              content: {
+                                  component: "page",
+                                  seo: { og_image: shortUrl },
+                                  html: `<a href="${longUrl}">policy</a>`,
+                              },
+                          },
+                      }
+                    : undefined,
+            ),
+        );
+        mocks.getAllStories.mockResolvedValue([]);
+        mocks.getAllComponents.mockResolvedValue([
+            { name: "page", schema: { seo: { type: "custom" } } },
+        ]);
+        mocks.getStoriesByFullSlugs.mockResolvedValue([]);
+        mocks.getStoryById.mockResolvedValue(undefined);
+        mocks.getStoryVersions.mockResolvedValue({ story_versions: [] });
+        mocks.getSpace.mockResolvedValue({ space: { languages: [] } });
+        mocks.sbApiGet.mockResolvedValue({
+            data: { space: { languages: [] } },
+        });
+
+        await copyCommand({
+            input: ["copy", "stories"],
+            flags: {
+                from: "111",
+                to: "222",
+                source: "blog/post",
+                destination: "/",
+                withAssets: true,
+                dryRun: true,
+                outputPath,
+            },
+        } as any);
+
+        const report = JSON.parse(await readFile(outputPath, "utf8"));
+
+        expect(report.graph.assetReferences).toMatchObject([
+            { assetKey: `/f/111/${hash}/policy.pdf`, shape: "string" },
+            {
+                assetKey: `/f/111/1200x630/${hash}/policy.pdf`,
+                shape: "string",
+            },
+        ]);
+        // Two occurrences of one file: the unique count follows the hash and
+        // the file name, not the shape of the URL.
+        expect(report.assetReferenceSummary.byShape.string).toEqual({
+            occurrences: 2,
+            uniqueAssets: 1,
+        });
+        expect(report.summary.assets).toBe(1);
+
+        await rm(tempDir, { recursive: true, force: true });
+    });
+
     it("plans an asset a story mentions only as a URL inside a string", async () => {
         const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-assets-"));
         const outputPath = path.join(tempDir, "plans", "string-refs.json");

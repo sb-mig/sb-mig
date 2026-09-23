@@ -86,41 +86,65 @@ export type CopyAssetUrlMatch = CopyAssetUrlParts & {
 const ASSET_URL_ANCHORED =
     /^(?:https?:)?\/\/(?:s3\.amazonaws\.com\/)?(?:a|img2)\.storyblok\.com(?:\/[^/\s"'<>\\]{1,200}){0,6}\/f\/(\d+)\/([^/\s"'<>\\)]+)\/([^/\s"'<>\\)]+)\/([^/\s"'<>\\)?#]+)((?:\/m(?:\/[^\s"'<>\\)?#]*)?)?(?:\?[^\s"'<>\\)]*)?(?:#[^\s"'<>\\)]*)?)/d;
 
-const ASSET_URL_GLOBAL = new RegExp(
-    ASSET_URL_ANCHORED.source.replace(/^\^/, ""),
-    "gd",
-);
+/**
+ * The same URL without a dimensions segment: `/f/<space>/<hash>/<name>`.
+ * Measured on a real library, 189 of 4,766 files are written this way —
+ * migrated PDFs, zips and some images.
+ *
+ * Here the hash MUST look like one (lowercase hex), because that is the only
+ * thing that tells `/f/1/<hash>/policy.pdf/m/800x0` apart from a long-form URL
+ * whose file name is `m`. The long pattern above stays as permissive as it has
+ * always been, so no URL that parses today parses differently tomorrow.
+ */
+const ASSET_URL_SHORT_ANCHORED =
+    /^(?:https?:)?\/\/(?:s3\.amazonaws\.com\/)?(?:a|img2)\.storyblok\.com(?:\/[^/\s"'<>\\]{1,200}){0,6}\/f\/(\d+)\/([0-9a-f]{8,64})\/([^/\s"'<>\\)?#]+)((?:\/m(?:\/[^\s"'<>\\)?#]*)?)?(?:\?[^\s"'<>\\)]*)?(?:#[^\s"'<>\\)]*)?)/d;
+
+const toGlobal = (pattern: RegExp) =>
+    new RegExp(pattern.source.replace(/^\^/, ""), "gd");
+
+const ASSET_URL_GLOBAL = toGlobal(ASSET_URL_ANCHORED);
+const ASSET_URL_SHORT_GLOBAL = toGlobal(ASSET_URL_SHORT_ANCHORED);
 
 // `See https://a.storyblok.com/f/1/x/h/photo.png. Next` ends a sentence, not a
 // file name: of 2,969 file names in a real library none ends in punctuation.
 const SENTENCE_TAIL = /[.,;:!?]+$/;
 
-const toAssetUrlMatch = (match: RegExpExecArray): CopyAssetUrlMatch => {
-    // Groups 1-4 exist whenever the pattern matched at all.
+/** Which pattern produced a match: the groups after the space id differ. */
+type CopyAssetUrlShape = "long" | "short";
+
+const toAssetUrlMatch = (
+    match: RegExpExecArray,
+    shape: CopyAssetUrlShape,
+): CopyAssetUrlMatch => {
+    // The long form names its dimensions in group 2; the short form has none,
+    // and everything moves up by one.
+    const nameGroup = shape === "long" ? 4 : 3;
     const spaceId = match[1] ?? "";
-    const dimensions = match[2] ?? "";
-    const hash = match[3] ?? "";
-    const rawName = match[4] ?? "";
-    const rest = match[5] ?? "";
+    const dimensions = shape === "long" ? (match[2] ?? "") : "";
+    const hash = (shape === "long" ? match[3] : match[2]) ?? "";
+    const rawName = match[nameGroup] ?? "";
+    const rest = (shape === "long" ? match[5] : match[4]) ?? "";
     // Only when nothing follows the name: inside `?x=1.` the dot is the
     // query's, and the name already ended at the `?`.
     const trimmed =
         rest.length === 0 ? rawName.replace(SENTENCE_TAIL, "") : rawName;
     const name = trimmed.length > 0 ? trimmed : rawName;
-    const dropped = (match[4] ?? "").length - name.length;
+    const dropped = (match[nameGroup] ?? "").length - name.length;
     const url = match[0].slice(0, match[0].length - dropped);
     // `d` gives the exact bounds of the file name and of the space id, so the
     // key can be replaced without rebuilding — or even reading — the host.
     const indices = match.indices as Array<[number, number] | undefined>;
     const keyStart = (indices[1]?.[0] ?? 0) - "/f/".length;
-    const keyEnd = (indices[4]?.[1] ?? 0) - dropped;
+    const keyEnd = (indices[nameGroup]?.[1] ?? 0) - dropped;
 
     return {
         spaceId,
         dimensions,
         hash,
         name,
-        key: `/f/${spaceId}/${dimensions}/${hash}/${name}`,
+        // The path exactly as written: a URL with no dimensions segment must
+        // never gain an empty one.
+        key: `/f/${spaceId}/${dimensions ? `${dimensions}/` : ""}${hash}/${name}`,
         rest,
         url,
         start: match.index,
@@ -134,38 +158,111 @@ const toAssetUrlMatch = (match: RegExpExecArray): CopyAssetUrlMatch => {
  * The asset key of a value that IS an asset URL (or starts with one).
  * `undefined` for anything else — a story URL, a relative path, a number.
  */
+/**
+ * The two readings of one position, the longer one first. A short-form URL
+ * with a `/m/…` tail also matches the long pattern, ending at the `m`; the
+ * long-form URL of a file whose name looks like a hash matches both too. The
+ * reading that covers more of the text is the one the author wrote.
+ */
+const longestAssetUrlMatch = (
+    candidates: Array<{
+        match: RegExpExecArray | null;
+        shape: CopyAssetUrlShape;
+    }>,
+): CopyAssetUrlMatch | undefined => {
+    let longest: CopyAssetUrlMatch | undefined;
+
+    for (const candidate of candidates) {
+        if (!candidate.match) {
+            continue;
+        }
+
+        const parsed = toAssetUrlMatch(candidate.match, candidate.shape);
+
+        if (!longest || parsed.url.length > longest.url.length) {
+            longest = parsed;
+        }
+    }
+
+    return longest;
+};
+
 export const assetKeyOf = (value: unknown): CopyAssetUrlParts | undefined => {
     if (typeof value !== "string" || value.length === 0) {
         return undefined;
     }
 
-    const match = ASSET_URL_ANCHORED.exec(value) as RegExpExecArray | null;
+    const parsed = longestAssetUrlMatch([
+        {
+            match: ASSET_URL_ANCHORED.exec(value) as RegExpExecArray | null,
+            shape: "long",
+        },
+        {
+            match: ASSET_URL_SHORT_ANCHORED.exec(
+                value,
+            ) as RegExpExecArray | null,
+            shape: "short",
+        },
+    ]);
 
-    if (!match) {
+    if (!parsed) {
         return undefined;
     }
 
-    const { spaceId, dimensions, hash, name, key, rest } =
-        toAssetUrlMatch(match);
+    const { spaceId, dimensions, hash, name, key, rest } = parsed;
 
     return { spaceId, dimensions, hash, name, key, rest };
 };
 
-/** Every asset URL inside a longer text: HTML, markdown, a link field. */
+const scanAll = (
+    pattern: RegExp,
+    shape: CopyAssetUrlShape,
+    text: string,
+): CopyAssetUrlMatch[] => {
+    const matches: CopyAssetUrlMatch[] = [];
+
+    pattern.lastIndex = 0;
+
+    let match = pattern.exec(text) as RegExpExecArray | null;
+
+    while (match) {
+        matches.push(toAssetUrlMatch(match, shape));
+        match = pattern.exec(text) as RegExpExecArray | null;
+    }
+
+    return matches;
+};
+
+/**
+ * Every asset URL inside a longer text: HTML, markdown, a link field.
+ *
+ * Both shapes are scanned, then the readings are reconciled: at one position
+ * the longer reading wins, and a reading that begins inside one already taken
+ * is a second view of the same URL, not a second URL.
+ */
 export const findAssetUrls = (text: unknown): CopyAssetUrlMatch[] => {
     if (typeof text !== "string" || text.length === 0) {
         return [];
     }
 
+    const candidates = [
+        ...scanAll(ASSET_URL_GLOBAL, "long", text),
+        ...scanAll(ASSET_URL_SHORT_GLOBAL, "short", text),
+    ].sort((left, right) =>
+        left.start === right.start
+            ? right.url.length - left.url.length
+            : left.start - right.start,
+    );
     const matches: CopyAssetUrlMatch[] = [];
+    let taken = -1;
 
-    ASSET_URL_GLOBAL.lastIndex = 0;
+    for (const candidate of candidates) {
+        if (candidate.start < taken) {
+            continue;
+        }
 
-    let match = ASSET_URL_GLOBAL.exec(text) as RegExpExecArray | null;
-
-    while (match) {
-        matches.push(toAssetUrlMatch(match));
-        match = ASSET_URL_GLOBAL.exec(text) as RegExpExecArray | null;
+        matches.push(candidate);
+        taken = candidate.end;
     }
 
     return matches;
