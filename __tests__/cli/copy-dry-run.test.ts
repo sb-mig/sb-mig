@@ -2461,6 +2461,9 @@ describe("copy stories dry-run", () => {
         expect(mocks.createAssetFolder).toHaveBeenCalledTimes(2);
         expect(mocks.createAssetAndFinalize).toHaveBeenCalledWith(
             {
+                // MAR-3356: the asset phase asks the API layer to stay quiet,
+                // because the progress line is what the terminal shows.
+                quiet: true,
                 spaceId: "target-space",
                 pathToFile: "/tmp/source-image.jpg",
                 payload: {

@@ -105,6 +105,14 @@ import {
 import { createTree } from "../../api/stories/tree.js";
 import { mapWithConcurrency } from "../../utils/async-utils.js";
 import Logger from "../../utils/logger.js";
+import {
+    createProgress,
+    resolveProgressMode,
+    type Progress,
+    type ProgressMode,
+    type ProgressOutcome,
+    type ProgressModePreference,
+} from "../../utils/progress.js";
 import { getFileName } from "../../utils/string-utils.js";
 import { apiConfig } from "../api-config.js";
 import { askYesNo } from "../helpers.js";
@@ -3575,6 +3583,75 @@ const buildCopyInternalTagPlan = ({
  * an asset whose tags are all missing is still written, without the key, so
  * alt, title and copyright land either way.
  */
+/**
+ * How one run talks while it works: a live line, heartbeat lines, or nothing
+ * but the start and the end — and whether the API layer may print its own
+ * per-item detail.
+ *
+ * Decided once, from the flags and the world, and handed to every phase. With
+ * `--verbose` the progress steps aside (start and finish only) and today's
+ * per-item lines come back, so the two never fight over the same row.
+ */
+type CopyOutput = {
+    mode: ProgressMode;
+    verbose: boolean;
+    /** `quiet` for the API layer: the opposite of `--verbose`. */
+    quiet: boolean;
+    phase: (label: string, total: number) => Progress;
+};
+
+const resolveCopyOutput = (flags: Record<string, any>): CopyOutput => {
+    const verbose = Boolean(flags["verbose"]);
+    const preference = (readStringFlag(flags, ["progress"]) ??
+        "auto") as ProgressModePreference;
+    const resolved = resolveProgressMode({
+        preference,
+        isTTY: process.stdout.isTTY,
+        ci: process.env["CI"],
+    });
+    // Detail and a live line cannot share one terminal row.
+    const mode: ProgressMode = verbose ? "off" : resolved;
+
+    return {
+        mode,
+        verbose,
+        quiet: !verbose,
+        phase: (label, total) =>
+            createProgress({
+                label,
+                total,
+                mode,
+                stream: process.stdout,
+            }),
+    };
+};
+
+/** What a copied item's outcome means to a counter on the progress line. */
+const toProgressOutcome = (outcome: CopyItemOutcome): ProgressOutcome => {
+    if (outcome === "update_failed") {
+        return "metadata_failed";
+    }
+
+    if (outcome === "create_failed") {
+        return "failed";
+    }
+
+    if (outcome === "skipped_parent_failed" || outcome === "publish_skipped") {
+        return "skipped";
+    }
+
+    return "ok";
+};
+
+/** A progress that counts nothing, for a dry-run or a phase with no items. */
+const NO_PROGRESS: Progress = {
+    tick: () => undefined,
+    fail: (message) => Logger.error(message),
+    printLine: (text) => Logger.log(text),
+    finish: () => undefined,
+    snapshot: () => "",
+};
+
 const writeAssetMetadata = async ({
     asset,
     assetName,
@@ -3583,6 +3660,8 @@ const writeAssetMetadata = async ({
     internalTagMapping,
     failures,
     matched,
+    output,
+    progress,
 }: {
     asset: any;
     assetName: string;
@@ -3591,6 +3670,8 @@ const writeAssetMetadata = async ({
     internalTagMapping: Map<number, number>;
     failures: CopyRunFailure[];
     matched: boolean;
+    output?: CopyOutput;
+    progress?: Progress;
 }): Promise<CopyItemOutcome> => {
     const payload = getAssetMetadataPayload(asset, internalTagMapping);
 
@@ -3604,6 +3685,7 @@ const writeAssetMetadata = async ({
                 spaceId: targetSpace,
                 assetId: targetAssetId,
                 payload,
+                quiet: output?.quiet,
             },
             {
                 ...apiConfig,
@@ -3614,7 +3696,9 @@ const writeAssetMetadata = async ({
         const status = resolveThrownStatus(error);
         const message = `Asset '${assetName}' was copied as target asset '${targetAssetId}', but its metadata (alt, title, copyright) could not be written${status ? ` (status ${status})` : ""}: ${describeThrown(error)}.`;
 
-        Logger.error(message);
+        // Through the progress, so the message owns its own row instead of
+        // landing inside a half-drawn live line.
+        (progress ?? NO_PROGRESS).fail(`✘ ${message}`);
         failures.push({
             resource: "asset",
             name: assetName,
@@ -4610,6 +4694,7 @@ const rewriteCopiedStoryContents = async ({
     targetLanguageCodes,
     skippedSourceIds,
     outcomes = new Map<string, CopyOutcomeRecord>(),
+    output,
 }: {
     tree: any[];
     realParentId: number | null;
@@ -4625,7 +4710,27 @@ const rewriteCopiedStoryContents = async ({
     skippedSourceIds?: Set<number>;
     /** Per source full_slug, what happened; shared with phase 1 and the report. */
     outcomes?: Map<string, CopyOutcomeRecord>;
+    /** How this run talks while it works. */
+    output?: CopyOutput;
 }) => {
+    const treeCounts = countTreeStories(tree);
+    const progress = output
+        ? output.phase("content", treeCounts.stories + treeCounts.folders)
+        : NO_PROGRESS;
+    /**
+     * One place where a result is both remembered and shown: the progress can
+     * never disagree with the report, because they are written together.
+     */
+    const recordOutcome = (
+        fullSlug: string,
+        record: CopyOutcomeRecord,
+    ): void => {
+        outcomes.set(fullSlug, record);
+        progress.tick({
+            name: fullSlug,
+            outcome: toProgressOutcome(record.outcome),
+        });
+    };
     const manifestPaths = getDefaultCopyManifestPaths({
         sourceSpaceId: sourceSpace,
         targetSpaceId: targetSpace,
@@ -4780,7 +4885,7 @@ const rewriteCopiedStoryContents = async ({
             // reported as skipped, and the rest of the tree carries on.
             const skipChildrenOfFailedCreate = () =>
                 skipSubtree(node, new Set<number>(), (childFullSlug) => {
-                    outcomes.set(childFullSlug, {
+                    recordOutcome(childFullSlug, {
                         outcome: "skipped_parent_failed",
                     });
                     Logger.error(
@@ -4803,7 +4908,7 @@ const rewriteCopiedStoryContents = async ({
                     message: failure.message,
                     sourceId: Number(sourceStory.id),
                 });
-                outcomes.set(sourceFullSlug, { outcome: "create_failed" });
+                recordOutcome(sourceFullSlug, { outcome: "create_failed" });
                 skipChildrenOfFailedCreate();
             };
 
@@ -5075,7 +5180,7 @@ const rewriteCopiedStoryContents = async ({
                         sourceId: Number(sourceStory.id),
                         targetId,
                     });
-                    outcomes.set(sourceFullSlug, {
+                    recordOutcome(sourceFullSlug, {
                         outcome: "publish_skipped",
                         targetId,
                     });
@@ -5089,7 +5194,7 @@ const rewriteCopiedStoryContents = async ({
                     });
                     updatedStories += 1;
                     rewrittenReferences += update.rewrittenReferences;
-                    outcomes.set(sourceFullSlug, {
+                    recordOutcome(sourceFullSlug, {
                         outcome:
                             update.publish === "published"
                                 ? "published"
@@ -5114,7 +5219,7 @@ const rewriteCopiedStoryContents = async ({
                         message,
                         sourceId: Number(sourceStory.id),
                     });
-                    outcomes.set(sourceFullSlug, { outcome: "create_failed" });
+                    recordOutcome(sourceFullSlug, { outcome: "create_failed" });
                     skipChildrenOfFailedCreate();
                 } else {
                     const status = Number(update?.result?.status);
@@ -5133,7 +5238,7 @@ const rewriteCopiedStoryContents = async ({
                         sourceId: Number(sourceStory.id),
                         ...(targetId !== undefined ? { targetId } : {}),
                     });
-                    outcomes.set(sourceFullSlug, {
+                    recordOutcome(sourceFullSlug, {
                         outcome: "update_failed",
                         ...(targetId !== undefined ? { targetId } : {}),
                     });
@@ -5175,6 +5280,8 @@ const rewriteCopiedStoryContents = async ({
         // sets the exit code: throwing here would lose the report.
     }
 
+    progress.finish();
+
     return { updatedStories, rewrittenReferences, failures };
 };
 
@@ -5187,6 +5294,7 @@ const createStoriesAndWriteManifests = async ({
     targetSpace,
     manifestRoot,
     outcomes = new Map<string, CopyOutcomeRecord>(),
+    output,
 }: {
     tree: any[];
     realParentId: number | null;
@@ -5197,7 +5305,24 @@ const createStoriesAndWriteManifests = async ({
     manifestRoot?: string;
     /** Per source full_slug, what happened; shared with phase 2 and the report. */
     outcomes?: Map<string, CopyOutcomeRecord>;
+    /** How this run talks while it works. */
+    output?: CopyOutput;
 }) => {
+    const shellCounts = countTreeStories(tree);
+    const progress = output
+        ? output.phase("shells", shellCounts.stories + shellCounts.folders)
+        : NO_PROGRESS;
+    /** Remembered and shown together, so the two can never disagree. */
+    const recordOutcome = (
+        fullSlug: string,
+        record: CopyOutcomeRecord,
+    ): void => {
+        outcomes.set(fullSlug, record);
+        progress.tick({
+            name: fullSlug,
+            outcome: toProgressOutcome(record.outcome),
+        });
+    };
     const manifestPaths = getDefaultCopyManifestPaths({
         sourceSpaceId: sourceSpace,
         targetSpaceId: targetSpace,
@@ -5222,7 +5347,7 @@ const createStoriesAndWriteManifests = async ({
             const targetFullSlug = targetSlugBySourceSlug.get(sourceFullSlug);
             const skipChildren = () =>
                 skipSubtree(node, skippedSourceIds, (childFullSlug) => {
-                    outcomes.set(childFullSlug, {
+                    recordOutcome(childFullSlug, {
                         outcome: "skipped_parent_failed",
                     });
                     Logger.error(
@@ -5245,7 +5370,7 @@ const createStoriesAndWriteManifests = async ({
                         ? { sourceId: Number(sourceStory.id) }
                         : {}),
                 });
-                outcomes.set(sourceFullSlug, { outcome: "create_failed" });
+                recordOutcome(sourceFullSlug, { outcome: "create_failed" });
                 storiesSkippedParentFailed += skipChildren();
                 continue;
             }
@@ -5276,7 +5401,7 @@ const createStoriesAndWriteManifests = async ({
                     }
 
                     storiesMatched += 1;
-                    outcomes.set(sourceFullSlug, {
+                    recordOutcome(sourceFullSlug, {
                         outcome: "matched",
                         targetId: Number(mappedTargetId),
                     });
@@ -5319,7 +5444,7 @@ const createStoriesAndWriteManifests = async ({
                 });
                 applyStoryManifestEntryToMaps(copyMaps, entry);
                 storiesMatched += 1;
-                outcomes.set(sourceFullSlug, {
+                recordOutcome(sourceFullSlug, {
                     outcome: "matched",
                     targetId: entry.target_id,
                 });
@@ -5365,7 +5490,7 @@ const createStoriesAndWriteManifests = async ({
                         ),
                         sourceId: Number(sourceStory.id),
                     });
-                    outcomes.set(sourceFullSlug, { outcome: "create_failed" });
+                    recordOutcome(sourceFullSlug, { outcome: "create_failed" });
                     Logger.error(
                         `Failed to create target story for '${sourceFullSlug}' (${describeCreateFailure(createdStoryResult)}). Its children are skipped: they have no parent to be created under.`,
                     );
@@ -5405,7 +5530,7 @@ const createStoriesAndWriteManifests = async ({
             } else {
                 storiesMatched += 1;
             }
-            outcomes.set(sourceFullSlug, {
+            recordOutcome(sourceFullSlug, {
                 outcome: action === "created" ? "created" : "matched",
                 targetId: entry.target_id,
             });
@@ -5418,6 +5543,7 @@ const createStoriesAndWriteManifests = async ({
     await dedupeManifestFile(manifestPaths.stories);
     await dedupeManifestFile(manifestPaths.combined);
 
+    progress.finish();
     Logger.success(`Story manifest written to ${manifestPaths.stories}`);
     const plannedCounts = countTreeStories(tree);
 
@@ -5445,6 +5571,7 @@ const copyAssetsAndWriteManifests = async ({
     sourceAssetFolders,
     outputPath,
     manifestRoot,
+    output,
 }: {
     sourceSpace: string;
     targetSpace: string;
@@ -5455,6 +5582,7 @@ const copyAssetsAndWriteManifests = async ({
     sourceAssetFolders: any[];
     outputPath?: string;
     manifestRoot?: string;
+    output: CopyOutput;
 }): Promise<CopyAssetsApplyReport> => {
     const manifestPaths = getDefaultCopyManifestPaths({
         sourceSpaceId: sourceSpace,
@@ -5472,7 +5600,7 @@ const copyAssetsAndWriteManifests = async ({
             },
         );
     const targetAssetsResult = await managementApi.assets.getAllAssets(
-        { spaceId: targetSpace },
+        { spaceId: targetSpace, quiet: output.quiet },
         {
             ...apiConfig,
             spaceId: targetSpace,
@@ -5554,10 +5682,16 @@ const copyAssetsAndWriteManifests = async ({
         Logger.warning(internalTagPlanLine);
     }
 
+    const folderProgress = output.phase(
+        "asset folders",
+        graph.assetFolders.length,
+    );
+
     for (const folderNode of graph.assetFolders) {
         const sourceFolder = sourceFolderById.get(folderNode.sourceId);
 
         if (!sourceFolder) {
+            folderProgress.tick({ outcome: "skipped" });
             continue;
         }
 
@@ -5579,6 +5713,7 @@ const copyAssetsAndWriteManifests = async ({
                     : (copyMaps.assetFolderIds.get(sourceParentId) ?? null);
             folderNode.action = "match";
             assetFoldersMatched += 1;
+            folderProgress.tick({ name: folderName, outcome: "ok" });
             items.push({
                 resource: "asset_folder",
                 sourceId: folderNode.sourceId,
@@ -5622,6 +5757,7 @@ const copyAssetsAndWriteManifests = async ({
             folderNode.targetParentId = entry.target_parent_id;
             folderNode.action = "match";
             assetFoldersMatched += 1;
+            folderProgress.tick({ name: folderName, outcome: "ok" });
             items.push({
                 resource: "asset_folder",
                 sourceId: folderNode.sourceId,
@@ -5637,6 +5773,7 @@ const copyAssetsAndWriteManifests = async ({
             unavailableFolderIds.has(sourceParentId)
         ) {
             unavailableFolderIds.add(folderNode.sourceId);
+            folderProgress.tick({ name: folderName, outcome: "skipped" });
             items.push({
                 resource: "asset_folder",
                 sourceId: folderNode.sourceId,
@@ -5690,6 +5827,7 @@ const copyAssetsAndWriteManifests = async ({
                 sourceId: folderNode.sourceId,
             });
             unavailableFolderIds.add(folderNode.sourceId);
+            folderProgress.tick({ name: folderName, outcome: "failed" });
             items.push({
                 resource: "asset_folder",
                 sourceId: folderNode.sourceId,
@@ -5726,6 +5864,7 @@ const copyAssetsAndWriteManifests = async ({
         folderNode.targetParentId = entry.target_parent_id;
         folderNode.action = "create";
         assetFoldersCreated += 1;
+        folderProgress.tick({ name: folderName, outcome: "ok" });
         items.push({
             resource: "asset_folder",
             sourceId: folderNode.sourceId,
@@ -5734,6 +5873,12 @@ const copyAssetsAndWriteManifests = async ({
             outcome: "created",
         });
     }
+
+    folderProgress.finish();
+
+    // The plan's own count: a source asset outside this selection is not an
+    // item of this phase, so it neither counts nor ticks.
+    const assetProgress = output.phase("assets", graph.assets.length);
 
     for (const asset of sourceAssets) {
         const graphAsset = graphAssetBySourceId.get(Number(asset.id));
@@ -5767,8 +5912,14 @@ const copyAssetsAndWriteManifests = async ({
                 internalTagMapping: internalTagPlan.mapping,
                 failures,
                 matched: true,
+                output,
+                progress: assetProgress,
             });
 
+            assetProgress.tick({
+                name: getFileName(asset.filename),
+                outcome: toProgressOutcome(ledgerMatchedOutcome),
+            });
             items.push({
                 resource: "asset",
                 sourceId: Number(asset.id),
@@ -5837,8 +5988,14 @@ const copyAssetsAndWriteManifests = async ({
                 internalTagMapping: internalTagPlan.mapping,
                 failures,
                 matched: true,
+                output,
+                progress: assetProgress,
             });
 
+            assetProgress.tick({
+                name: getFileName(asset.filename),
+                outcome: toProgressOutcome(matchedOutcome),
+            });
             items.push({
                 resource: "asset",
                 sourceId: Number(asset.id),
@@ -5854,13 +6011,17 @@ const copyAssetsAndWriteManifests = async ({
             asset.asset_folder_id !== undefined &&
             unavailableFolderIds.has(Number(asset.asset_folder_id))
         ) {
+            assetProgress.tick({
+                name: getFileName(asset.filename),
+                outcome: "skipped",
+            });
             items.push({
                 resource: "asset",
                 sourceId: Number(asset.id),
                 name: assetName,
                 outcome: "skipped_parent_failed",
             });
-            Logger.error(
+            assetProgress.fail(
                 `  skipped: asset '${assetName}', because its asset folder was not created.`,
             );
             continue;
@@ -5871,12 +6032,13 @@ const copyAssetsAndWriteManifests = async ({
 
         try {
             const pathToFile = await managementApi.assets.downloadAsset(
-                { payload: asset },
+                { payload: asset, quiet: output.quiet },
                 apiConfig,
             );
 
             targetAsset = await managementApi.assets.createAssetAndFinalize(
                 {
+                    quiet: output.quiet,
                     spaceId: targetSpace,
                     pathToFile,
                     payload: {
@@ -5897,7 +6059,7 @@ const copyAssetsAndWriteManifests = async ({
             const status = resolveThrownStatus(createError);
             const message = `Failed to copy asset '${assetName}' into space '${targetSpace}'${status ? ` (status ${status})` : ""}: ${createError ? describeThrown(createError) : "the upload response carried no asset"}.`;
 
-            Logger.error(message);
+            assetProgress.fail(`✘ ${message}`);
             failures.push({
                 resource: "asset",
                 name: assetName,
@@ -5905,6 +6067,10 @@ const copyAssetsAndWriteManifests = async ({
                 ...(status ? { status } : {}),
                 message,
                 sourceId: Number(asset.id),
+            });
+            assetProgress.tick({
+                name: getFileName(asset.filename),
+                outcome: "failed",
             });
             items.push({
                 resource: "asset",
@@ -5960,8 +6126,14 @@ const copyAssetsAndWriteManifests = async ({
             internalTagMapping: internalTagPlan.mapping,
             failures,
             matched: false,
+            output,
+            progress: assetProgress,
         });
 
+        assetProgress.tick({
+            name: getFileName(asset.filename),
+            outcome: toProgressOutcome(outcome),
+        });
         items.push({
             resource: "asset",
             sourceId: Number(asset.id),
@@ -5970,6 +6142,8 @@ const copyAssetsAndWriteManifests = async ({
             outcome,
         });
     }
+
+    assetProgress.finish();
 
     await dedupeManifestFile(manifestPaths.assetFolders);
     await dedupeManifestFile(manifestPaths.assets);
@@ -6593,15 +6767,29 @@ const relinkTargetStories = async ({
     manifestPaths,
     sourceSpace,
     targetSpace,
+    output,
 }: {
     matches: CopyRelinkMatchRecord[];
     manifestPaths: ReturnType<typeof getDefaultCopyManifestPaths>;
     sourceSpace: string;
     targetSpace: string;
+    /** How this run talks while it works. */
+    output?: CopyOutput;
 }) => {
     let adopted = 0;
+    const progress = output
+        ? output.phase("relinking", matches.length)
+        : NO_PROGRESS;
 
     for (const record of matches) {
+        progress.tick({
+            name: String(
+                record.targetStory?.full_slug ??
+                    record.sourceStory?.full_slug ??
+                    "",
+            ),
+            outcome: record.match === "adopted" ? "ok" : "skipped",
+        });
         if (
             record.match !== "adopted" ||
             !record.sourceStory?.uuid ||
@@ -6798,6 +6986,7 @@ export const copyCommand = async (props: CLIOptions) => {
             const yes = Boolean(flags["yes"]);
             const fresh = Boolean(flags["fresh"]);
             const destination = readStringFlag(flags, ["destination", "where"]);
+            const copyOutput = resolveCopyOutput(flags);
 
             Logger.warning(
                 `Copying stories from space '${sourceSpace}' to space '${targetSpace}'.`,
@@ -7185,6 +7374,7 @@ export const copyCommand = async (props: CLIOptions) => {
                         sourceAssets,
                         sourceAssetFolders,
                         manifestRoot,
+                        output: copyOutput,
                     });
                 }
 
@@ -7224,6 +7414,7 @@ export const copyCommand = async (props: CLIOptions) => {
                     targetSpace,
                     manifestRoot,
                     outcomes,
+                    output: copyOutput,
                 });
                 storySummary = phaseOne.summary;
                 failures.push(...phaseOne.createFailures);
@@ -7247,6 +7438,7 @@ export const copyCommand = async (props: CLIOptions) => {
                     manifestRoot,
                     targetLanguageCodes,
                     outcomes,
+                    output: copyOutput,
                 });
 
                 failures.push(...phaseTwo.failures);
@@ -7611,6 +7803,7 @@ export const copyCommand = async (props: CLIOptions) => {
                 manifestPaths,
                 sourceSpace,
                 targetSpace,
+                output: resolveCopyOutput(flags),
             });
             const relinkReport = buildRelinkReport(relinked);
 
@@ -7792,6 +7985,7 @@ export const copyCommand = async (props: CLIOptions) => {
                 sourceAssetFolders: scopedSource.assetFolders,
                 outputPath,
                 manifestRoot,
+                output: resolveCopyOutput(flags),
             });
 
             break;

@@ -844,12 +844,15 @@ describe("copy assets dry-run", () => {
             },
             expect.objectContaining({ spaceId: "target-space" }),
         );
+        // `quiet` rides along now (MAR-3356): the progress line owns the
+        // terminal, so the API layer prints nothing per asset.
         expect(mocks.downloadAsset).toHaveBeenCalledWith(
-            { payload: sourceAsset },
+            { payload: sourceAsset, quiet: true },
             expect.any(Object),
         );
         expect(mocks.createAssetAndFinalize).toHaveBeenCalledWith(
             {
+                quiet: true,
                 spaceId: "target-space",
                 pathToFile: "/tmp/image.jpg",
                 payload: {
@@ -950,6 +953,7 @@ describe("copy assets dry-run", () => {
         expect(mocks.createAssetAndFinalize).toHaveBeenCalledTimes(1);
         expect(mocks.createAssetAndFinalize).toHaveBeenCalledWith(
             {
+                quiet: true,
                 spaceId: "target-space",
                 pathToFile: "/tmp/image.jpg",
                 payload: {

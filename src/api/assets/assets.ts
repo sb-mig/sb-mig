@@ -51,10 +51,11 @@ const prepareSignedUploadPayload = (
 
 // GET
 export const getAllAssets: GetAllAssets = async (args, config) => {
-    const { spaceId, search } = args;
+    const { spaceId, search, quiet } = args;
     const { sbApi } = config;
 
     const assets = await getAllItemsWithPagination({
+        quiet,
         apiFn: ({ per_page, page }) =>
             sbApi
                 .get(`spaces/${spaceId}/assets/`, {
@@ -114,7 +115,11 @@ const requestSignedUploadUrl: RequestSignedUploadUrl = (
         });
 };
 
-const uploadFile: UploadFile = ({ signedResponseObject, pathToFile }) => {
+const uploadFile: UploadFile = ({
+    signedResponseObject,
+    pathToFile,
+    quiet,
+}) => {
     const file = pathToFile;
     const form = new FormData();
 
@@ -136,7 +141,9 @@ const uploadFile: UploadFile = ({ signedResponseObject, pathToFile }) => {
 
             const statusCode = res?.statusCode;
             if (statusCode === 204) {
-                Logger.upload(`Asset uploaded ${getFileName(file)}`);
+                if (!quiet) {
+                    Logger.upload(`Asset uploaded ${getFileName(file)}`);
+                }
                 resolve();
                 return;
             }
@@ -196,7 +203,7 @@ export const finishAssetUpload: FinishAssetUpload = async (
 
 export const downloadAsset: DownloadAsset = async (args, config) => {
     const { debug, sbmigWorkingDirectory } = config;
-    const { payload } = args;
+    const { payload, quiet } = args;
     if (!sbmigWorkingDirectory) {
         throw Error("sbmigWorkingDirectory is not defined");
     }
@@ -206,11 +213,13 @@ export const downloadAsset: DownloadAsset = async (args, config) => {
         sbmigWorkingDirectory,
         "downloadedAssets",
     );
-    Logger.log(
-        `Downloading ${fileName} asset ${
-            debug ? `from ${fileUrl} to ${downloadedAssetsFolder}` : ""
-        }`,
-    );
+    if (!quiet) {
+        Logger.log(
+            `Downloading ${fileName} asset ${
+                debug ? `from ${fileUrl} to ${downloadedAssetsFolder}` : ""
+            }`,
+        );
+    }
 
     if (!isDirectoryExists(downloadedAssetsFolder)) {
         await createDir(downloadedAssetsFolder);
@@ -226,12 +235,14 @@ export const downloadAsset: DownloadAsset = async (args, config) => {
                 response.pipe(file);
                 file.on("finish", () => {
                     file.close();
-                    Logger.download(
-                        `Asset downloaded to ${path.join(
-                            downloadedAssetsFolder,
-                            fileName,
-                        )}`,
-                    );
+                    if (!quiet) {
+                        Logger.download(
+                            `Asset downloaded to ${path.join(
+                                downloadedAssetsFolder,
+                                fileName,
+                            )}`,
+                        );
+                    }
                     resolve(path.join(downloadedAssetsFolder, fileName));
                 });
             })
@@ -264,7 +275,7 @@ export const migrateAsset: MigrateAsset = async (
 };
 
 export const createAsset: CreateAsset = async (
-    { spaceId, pathToFile, payload = {} },
+    { spaceId, pathToFile, payload = {}, quiet },
     config,
 ) => {
     const signedResponseObject = await requestSignedUploadUrl(
@@ -278,17 +289,18 @@ export const createAsset: CreateAsset = async (
         config,
     );
 
-    await uploadFile({ signedResponseObject, pathToFile });
+    await uploadFile({ signedResponseObject, pathToFile, quiet });
 
     return signedResponseObject;
 };
 
 export const createAssetAndFinalize: CreateAssetAndFinalize = async (
-    { spaceId, pathToFile, payload = {} },
+    { spaceId, pathToFile, payload = {}, quiet },
     config,
 ) => {
     const signedResponseObject = await createAsset(
         {
+            quiet,
             spaceId,
             pathToFile,
             payload: {
@@ -312,16 +324,21 @@ export const createAssetAndFinalize: CreateAssetAndFinalize = async (
 };
 
 export const updateAsset: UpdateAsset = async (
-    { spaceId, assetId, payload },
+    { spaceId, assetId, payload, quiet },
     config,
 ) => {
     const { sbApi } = config;
-    Logger.log(`Trying to update asset with id ${assetId}.`);
+
+    if (!quiet) {
+        Logger.log(`Trying to update asset with id ${assetId}.`);
+    }
 
     return sbApi
         .put(`spaces/${spaceId}/assets/${assetId}`, payload)
         .then((res: any) => {
-            Logger.success(`Asset '${assetId}' has been updated.`);
+            if (!quiet) {
+                Logger.success(`Asset '${assetId}' has been updated.`);
+            }
             return res.data;
         })
         .catch((err: any) => {

@@ -435,9 +435,12 @@ export const removeAllStories: RemoveAllStories = async (config) => {
 
 // GET
 export const getAllStories: GetAllStories = async (args, config) => {
-    const { options } = args;
+    const { options, quiet, onProgress } = args;
     const { spaceId, sbApi } = config;
-    Logger.log(`Trying to get all Stories from: ${spaceId}`);
+
+    if (!quiet) {
+        Logger.log(`Trying to get all Stories from: ${spaceId}`);
+    }
 
     const params = notNullish<ExtendedISbStoriesParams>({
         with_slug: options?.with_slug,
@@ -446,10 +449,14 @@ export const getAllStories: GetAllStories = async (args, config) => {
         language: options?.language,
     });
 
-    console.log("These are params i will use: ");
-    console.log(params);
+    if (!quiet) {
+        console.log("These are params i will use: ");
+        console.log(params);
+    }
 
     const allStoriesWithoutContent = await getAllItemsWithPagination({
+        quiet,
+        onPage: onProgress,
         apiFn: ({ per_page, page }) =>
             sbApi.get(`spaces/${spaceId}/stories/`, {
                 ...params,
@@ -462,9 +469,11 @@ export const getAllStories: GetAllStories = async (args, config) => {
         itemsKey: "stories",
     });
 
-    Logger.success(
-        `Successfully pre-fetched ${allStoriesWithoutContent.length} stories.`,
-    );
+    if (!quiet) {
+        Logger.success(
+            `Successfully pre-fetched ${allStoriesWithoutContent.length} stories.`,
+        );
+    }
 
     let heartBeat = 0;
 
@@ -475,9 +484,15 @@ export const getAllStories: GetAllStories = async (args, config) => {
             const result = await getStoryById(story.id, config);
 
             heartBeat++;
+            onProgress?.({
+                fetched: heartBeat,
+                total: allStoriesWithoutContent.length,
+            });
+
             if (
-                heartBeat % 10 === 0 ||
-                heartBeat === allStoriesWithoutContent.length
+                !quiet &&
+                (heartBeat % 10 === 0 ||
+                    heartBeat === allStoriesWithoutContent.length)
             ) {
                 Logger.success(
                     `Successfully fetched ${heartBeat} stories with full content.`,
@@ -672,7 +687,9 @@ export const updateStory: UpdateStory = (content, storyId, options, config) => {
             force_update: options.force_update === true,
         })
         .then((res: any) => {
-            console.log(`${chalk.green(res.data.story.full_slug)} updated.`);
+            // Through the Logger, so a live progress line can lend it the
+            // terminal row instead of being written over.
+            Logger.log(`${chalk.green(res.data.story.full_slug)} updated.`);
             return {
                 ok: true,
                 stage: "update",
