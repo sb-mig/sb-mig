@@ -479,16 +479,20 @@ export const getAssetById: GetAssetById = async (
     return sbApi
         .get(`spaces/${spaceId}/assets/${assetId}`)
         .then(({ data }) => data)
-        .catch((err) => {
-            if (err.response.status === 404) {
+        .catch((err: any) => {
+            // A network error has no response: read it safely, and never
+            // answer for it. A 404 is "no such asset"; anything else is
+            // rethrown, so a blip is never mistaken for a missing file
+            // (MAR-3404).
+            if (err?.response?.status === 404) {
                 Logger.error(
                     `There is no assets in your Storyblok ${spaceId} space.`,
                 );
-                return true;
-            } else {
-                Logger.error(err);
-                return false;
+                return undefined;
             }
+
+            Logger.error(err);
+            throw err;
         });
 };
 

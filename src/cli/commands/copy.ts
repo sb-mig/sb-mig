@@ -7476,42 +7476,68 @@ const validateRelinkAssetMappings = async ({
         );
     }
 
-    const checked = await mapWithConcurrency(
-        mappings,
-        TARGET_CONFLICT_CHECK_CONCURRENCY,
-        async (mapping) => {
-            const targetAsset: any = await managementApi.assets.getAssetById(
-                { spaceId: targetSpace, assetId: mapping.targetId },
-                apiConfig,
-            );
-            const foundFilename = targetAsset?.filename;
+    // One complete read of the target library, not one GET per mapping
+    // (MAR-3404). The listing retries a dropped page and throws rather than
+    // come back short (MAR-3139), so a network problem stops the run here;
+    // it can never make a mapping look stale.
+    const progress = output
+        ? output.phase("checking asset mappings", mappings.length)
+        : NO_PROGRESS;
+    const targetLibrary = await managementApi.assets.getAllAssets(
+        { spaceId: targetSpace, quiet: output ? output.quiet : false },
+        { ...apiConfig, spaceId: targetSpace },
+    );
+    const filenameById = new Map<number, string>();
 
-            if (
-                Number(targetAsset?.id) === mapping.targetId &&
-                typeof foundFilename === "string" &&
-                foundFilename.length > 0
-            ) {
-                return {
-                    mapping: { ...mapping, targetFilename: foundFilename },
-                    valid: true,
-                };
-            }
+    for (const asset of Array.isArray(targetLibrary?.assets)
+        ? targetLibrary.assets
+        : []) {
+        if (typeof asset?.filename === "string" && asset.filename.length > 0) {
+            filenameById.set(Number(asset.id), asset.filename);
+        }
+    }
 
+    const checked = mappings.map((mapping) => {
+        const foundFilename = filenameById.get(mapping.targetId);
+
+        progress.tick({
+            name: mapping.sourceFilename || `#${mapping.sourceId}`,
+            outcome: foundFilename ? "ok" : "skipped",
+        });
+
+        if (foundFilename) {
+            return {
+                mapping: { ...mapping, targetFilename: foundFilename },
+                valid: true,
+            };
+        }
+
+        if (!output || output.verbose) {
             Logger.warning(
                 `Ignoring stale asset manifest mapping for '${mapping.sourceFilename || `#${mapping.sourceId}`}' because target asset '${mapping.targetId}' was not found in space '${targetSpace}'. References to it are left as they are.`,
             );
+        }
 
-            return { mapping, valid: false };
-        },
-    );
+        return { mapping, valid: false };
+    });
+
+    progress.finish();
+
+    const stale = checked
+        .filter((result) => !result.valid)
+        .map((result) => result.mapping);
+
+    if (stale.length > 0) {
+        Logger.warning(
+            `Ignoring ${stale.length} stale asset manifest mapping(s): their target assets are not in space '${targetSpace}', so references to them are left as they are. The report lists them (staleAssetMappings).`,
+        );
+    }
 
     return {
         valid: checked
             .filter((result) => result.valid)
             .map((result) => result.mapping),
-        stale: checked
-            .filter((result) => !result.valid)
-            .map((result) => result.mapping),
+        stale,
     };
 };
 
@@ -9134,6 +9160,9 @@ const runCopyCommand = async (props: CLIOptions) => {
                         : publicationCounts,
                     plan: relinkSummary,
                     items,
+                    // Mappings whose target asset is not in the complete
+                    // listing of the target library (MAR-3404).
+                    staleAssetMappings: ledgerAssetMappings.stale,
                     failures: applied?.failures ?? [],
                 };
             };
