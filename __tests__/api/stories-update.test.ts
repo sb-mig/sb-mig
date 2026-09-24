@@ -13,6 +13,12 @@ vi.mock("../../src/utils/logger.js", () => ({
     default: loggerMock,
 }));
 
+// Retries pause for real otherwise (MAR-3405: a story read retries).
+vi.mock("../../src/utils/async-utils.js", async (importOriginal) => ({
+    ...(await importOriginal<object>()),
+    delay: async () => {},
+}));
+
 import {
     getAllStories,
     getStoryById,
@@ -188,12 +194,29 @@ describe("getStoryById", () => {
             },
         } as any;
 
-        const result = await getStoryById("story-1", config);
-
-        expect(result).toBeUndefined();
-        expect(loggerMock.error).toHaveBeenCalledWith(
-            "Failed to fetch story 'story-1' with full content from space '291967263583956' (status 429). Response: Too Many Requests",
+        // MAR-3405: a 429 is retried, then rejects; it is no longer answered
+        // "no such story". The message keeps its shape: status and response.
+        await expect(getStoryById("story-1", config)).rejects.toThrow(
+            "Failed to fetch story 'story-1' with full content from space '291967263583956' (status 429). Response: Too Many Requests (after 3 attempts)",
         );
+        expect(get).toHaveBeenCalledTimes(3);
+    });
+
+    it("logs a 404 the same way and answers it with undefined", async () => {
+        const get = vi.fn().mockRejectedValue({
+            status: 404,
+            response: { data: ["Not Found"] },
+        });
+        const config = {
+            spaceId: "291967263583956",
+            sbApi: { get },
+        } as any;
+
+        await expect(getStoryById("story-1", config)).resolves.toBeUndefined();
+        expect(loggerMock.error).toHaveBeenCalledWith(
+            "Failed to fetch story 'story-1' with full content from space '291967263583956' (status 404). Response: Not Found",
+        );
+        expect(get).toHaveBeenCalledTimes(1);
     });
 });
 
@@ -1207,7 +1230,14 @@ describe("publishStoryLanguages: an optional quiet (MAR-3363)", () => {
         vi.clearAllMocks();
     });
 
-    const publish = (quiet?: boolean, get = vi.fn().mockResolvedValue({ data: { story: { id: 7, full_slug: "blog/a" } } })) =>
+    const publish = (
+        quiet?: boolean,
+        get = vi
+            .fn()
+            .mockResolvedValue({
+                data: { story: { id: 7, full_slug: "blog/a" } },
+            }),
+    ) =>
         publishStoryLanguages(
             {
                 storyId: 7,
@@ -1236,7 +1266,9 @@ describe("publishStoryLanguages: an optional quiet (MAR-3363)", () => {
     it("still names a refused publish when quiet", async () => {
         const result = await publish(
             true,
-            vi.fn().mockRejectedValue({ status: 422, message: "Unprocessable" }),
+            vi
+                .fn()
+                .mockRejectedValue({ status: 422, message: "Unprocessable" }),
         );
 
         expect(result).toMatchObject({ ok: false, status: 422 });

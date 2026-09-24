@@ -534,6 +534,57 @@ describe("copy relink", () => {
         await rm(tempDir, { recursive: true, force: true });
     });
 
+    // MAR-3405 R4 canary. Mutation that must turn it red: catch the
+    // rejection in relink's ledger matching and answer "missing" again.
+    it("stops on a target read that fails for good, and never calls the story missing", async () => {
+        const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-relink-"));
+        const manifestRoot = path.join(tempDir, ".sb-mig");
+        const reportPath = path.join(tempDir, "relink.json");
+
+        await setUpStaleLedgerMapping(manifestRoot);
+        mocks.getStoryById.mockImplementation(async (id: string) => {
+            if (String(id) === "3003") {
+                throw new Error(
+                    "Failed to fetch story '3003' with full content from space 'target-space' (fetch failed). Response: fetch failed (after 3 attempts)",
+                );
+            }
+
+            return undefined;
+        });
+
+        await expect(
+            copyCommand(
+                relinkFlags({
+                    manifestRoot,
+                    dryRun: true,
+                    outputPath: reportPath,
+                }) as any,
+            ),
+        ).rejects.toThrow("Failed to fetch story '3003'");
+
+        const printed = [
+            ...planLines(),
+            ...(
+                Logger.warning as unknown as ReturnType<typeof vi.fn>
+            ).mock.calls.map((call) => String(call[0])),
+        ];
+
+        expect(
+            printed.some(
+                (line) =>
+                    line.includes("stale story manifest mapping") ||
+                    line.includes("missing from target"),
+            ),
+        ).toBe(false);
+        expect(printed.some((line) => line.trim().startsWith("rewrite:"))).toBe(
+            false,
+        );
+        await expect(readFile(reportPath, "utf8")).rejects.toThrow();
+        expect(mocks.updateStory).not.toHaveBeenCalled();
+
+        await rm(tempDir, { recursive: true, force: true });
+    });
+
     // MAR-3060 lap 2 F1 canary (relink, outside the selection). Mutation that
     // must turn it red: ignore `deleted_at` in validateRelinkLedgerMappings.
     it("drops an out-of-selection ledger mapping whose target story is in the trash", async () => {
