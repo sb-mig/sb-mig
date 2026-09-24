@@ -17,6 +17,8 @@ const mocks = vi.hoisted(() => ({
     getSpace: vi.fn(),
     getAllComponents: vi.fn(),
     getAssetById: vi.fn(),
+    // MAR-3404: relink checks its asset mappings against one listing.
+    getAllAssets: vi.fn(),
     createTree: vi.fn(),
     traverseAndCreate: vi.fn(),
     sbApiGet: vi.fn(),
@@ -55,6 +57,7 @@ vi.mock("../../src/api/managementApi.js", () => ({
         },
         assets: {
             getAssetById: mocks.getAssetById,
+            getAllAssets: mocks.getAllAssets,
         },
     },
 }));
@@ -278,6 +281,7 @@ describe("copy relink", () => {
         ]);
         mocks.updateStory.mockResolvedValue({ ok: true });
         mocks.getAssetById.mockResolvedValue(undefined);
+        mocks.getAllAssets.mockResolvedValue({ assets: [] });
         mocks.getStoryVersions.mockResolvedValue({ story_versions: [] });
         mocks.publishStoryLanguages.mockResolvedValue({
             ok: true,
@@ -821,8 +825,9 @@ describe("copy relink", () => {
         const manifestRoot = path.join(tempDir, ".sb-mig");
 
         await setUpStaleAssetLedger(manifestRoot);
-        // The copied file was deleted in the target space since the copy.
-        mocks.getAssetById.mockResolvedValue(undefined);
+        // The copied file was deleted in the target space since the copy:
+        // the target library no longer lists it.
+        mocks.getAllAssets.mockResolvedValue({ assets: [] });
 
         await copyCommand(relinkFlags({ manifestRoot, yes: true }) as any);
 
@@ -841,9 +846,13 @@ describe("copy relink", () => {
         const manifestRoot = path.join(tempDir, ".sb-mig");
 
         await setUpStaleAssetLedger(manifestRoot);
-        mocks.getAssetById.mockResolvedValue({
-            id: 7007,
-            filename: "https://a.storyblok.com/f/222/logo.png",
+        mocks.getAllAssets.mockResolvedValue({
+            assets: [
+                {
+                    id: 7007,
+                    filename: "https://a.storyblok.com/f/222/logo.png",
+                },
+            ],
         });
 
         await copyCommand(relinkFlags({ manifestRoot, yes: true }) as any);
@@ -859,6 +868,208 @@ describe("copy relink", () => {
         });
 
         await rm(tempDir, { recursive: true, force: true });
+    });
+
+    describe("asset mappings are checked against one listing (MAR-3404)", () => {
+        const warnings = () =>
+            (
+                Logger.warning as unknown as ReturnType<typeof vi.fn>
+            ).mock.calls.map((call) => String(call[0]));
+
+        /** Three images copied as 7007, 7008, 7009; the target lists two. */
+        const setUpThreeImages = async (manifestRoot: string) => {
+            targetPost.content = {
+                component: "page",
+                hero: {
+                    fieldtype: "asset",
+                    id: 70,
+                    filename: "https://a.storyblok.com/f/111/a.png",
+                },
+                logo: {
+                    fieldtype: "asset",
+                    id: 71,
+                    filename: "https://a.storyblok.com/f/111/b.png",
+                },
+                icon: {
+                    fieldtype: "asset",
+                    id: 72,
+                    filename: "https://a.storyblok.com/f/111/c.png",
+                },
+            };
+
+            await writeLedger(manifestRoot, [
+                assetLedgerEntry({
+                    source_id: 70,
+                    target_id: 7007,
+                    source_filename: "https://a.storyblok.com/f/111/a.png",
+                    target_filename: "https://a.storyblok.com/f/222/a.png",
+                }),
+                assetLedgerEntry({
+                    source_id: 71,
+                    target_id: 7008,
+                    source_filename: "https://a.storyblok.com/f/111/b.png",
+                    target_filename: "https://a.storyblok.com/f/222/b.png",
+                }),
+                assetLedgerEntry({
+                    source_id: 72,
+                    target_id: 7009,
+                    source_filename: "https://a.storyblok.com/f/111/c.png",
+                    target_filename: "https://a.storyblok.com/f/222/c.png",
+                }),
+            ]);
+            mocks.getAllAssets.mockResolvedValue({
+                assets: [
+                    {
+                        id: 7007,
+                        filename: "https://a.storyblok.com/f/222/a.png",
+                    },
+                    {
+                        id: 7008,
+                        filename: "https://a.storyblok.com/f/222/b.png",
+                    },
+                ],
+            });
+        };
+
+        // R1 canary. Mutation that must turn it red: go back to one
+        // getAssetById per mapping.
+        it("keeps the listed targets, marks only the unlisted one stale, and makes no per-asset GET", async () => {
+            const tempDir = await mkdtemp(
+                path.join(tmpdir(), "sb-mig-relink-"),
+            );
+            const manifestRoot = path.join(tempDir, ".sb-mig");
+            const reportPath = path.join(tempDir, "relink.json");
+
+            await setUpThreeImages(manifestRoot);
+
+            await copyCommand(
+                relinkFlags({
+                    manifestRoot,
+                    dryRun: true,
+                    outputPath: reportPath,
+                }) as any,
+            );
+
+            expect(mocks.getAssetById).toHaveBeenCalledTimes(0);
+            expect(mocks.getAllAssets).toHaveBeenCalledTimes(1);
+            expect(mocks.getAllAssets.mock.calls[0][0]).toEqual({
+                spaceId: "target-space",
+                quiet: true,
+            });
+            expect(planLines().join("\n")).toContain(
+                // Two valid images, each rewritten in id and filename; the
+                // stale third one is left as it is (all three would be 6).
+                "rewrite: 4 references in 1 story;",
+            );
+
+            const report = JSON.parse(await readFile(reportPath, "utf8"));
+
+            expect(
+                report.staleAssetMappings.map(
+                    (mapping: any) => mapping.targetId,
+                ),
+            ).toEqual([7009]);
+
+            await rm(tempDir, { recursive: true, force: true });
+        });
+
+        // R4: without --verbose, one summary line and no per-asset lines.
+        it("sums the stale mappings in one line without --verbose", async () => {
+            const tempDir = await mkdtemp(
+                path.join(tmpdir(), "sb-mig-relink-"),
+            );
+            const manifestRoot = path.join(tempDir, ".sb-mig");
+
+            await setUpThreeImages(manifestRoot);
+
+            await copyCommand(
+                relinkFlags({ manifestRoot, dryRun: true }) as any,
+            );
+
+            const lines = [...planLines(), ...warnings()];
+
+            expect(lines.some((line) => line.includes("Trying to get"))).toBe(
+                false,
+            );
+            expect(
+                lines.filter((line) =>
+                    line.includes("Ignoring stale asset manifest mapping for"),
+                ),
+            ).toEqual([]);
+            expect(
+                lines.filter((line) =>
+                    line.includes("stale asset manifest mapping(s)"),
+                ),
+            ).toEqual([
+                "Ignoring 1 stale asset manifest mapping(s): their target assets are not in space 'target-space', so references to them are left as they are. The report lists them (staleAssetMappings).",
+            ]);
+
+            await rm(tempDir, { recursive: true, force: true });
+        });
+
+        it("names each stale mapping again with --verbose", async () => {
+            const tempDir = await mkdtemp(
+                path.join(tmpdir(), "sb-mig-relink-"),
+            );
+            const manifestRoot = path.join(tempDir, ".sb-mig");
+
+            await setUpThreeImages(manifestRoot);
+
+            await copyCommand(
+                relinkFlags({
+                    manifestRoot,
+                    dryRun: true,
+                    verbose: true,
+                }) as any,
+            );
+
+            expect(
+                warnings().filter((line) =>
+                    line.includes("Ignoring stale asset manifest mapping for"),
+                ),
+            ).toHaveLength(1);
+
+            await rm(tempDir, { recursive: true, force: true });
+        });
+
+        // R2 canary. Mutation that must turn it red: catch the listing error
+        // and carry on with an empty library.
+        it("stops on a listing that fails and marks nothing stale", async () => {
+            const tempDir = await mkdtemp(
+                path.join(tmpdir(), "sb-mig-relink-"),
+            );
+            const manifestRoot = path.join(tempDir, ".sb-mig");
+            const reportPath = path.join(tempDir, "relink.json");
+
+            await setUpThreeImages(manifestRoot);
+            mocks.getAllAssets.mockRejectedValue(
+                new Error("Listing assets failed on page 1 of ?: fetch failed"),
+            );
+
+            await expect(
+                copyCommand(
+                    relinkFlags({
+                        manifestRoot,
+                        dryRun: true,
+                        outputPath: reportPath,
+                    }) as any,
+                ),
+            ).rejects.toThrow(
+                "Listing assets failed on page 1 of ?: fetch failed",
+            );
+
+            expect(
+                warnings().some((line) =>
+                    line.includes("stale asset manifest"),
+                ),
+            ).toBe(false);
+            expect(
+                planLines().some((line) => line.startsWith("rewrite:")),
+            ).toBe(false);
+            await expect(readFile(reportPath, "utf8")).rejects.toThrow();
+
+            await rm(tempDir, { recursive: true, force: true });
+        });
     });
 
     // MAR-3162 R6 canary. Mutation that must turn it red: select ledger asset
@@ -887,9 +1098,8 @@ describe("copy relink", () => {
                 target_filename: targetUrl,
             }),
         ]);
-        mocks.getAssetById.mockResolvedValue({
-            id: 7007,
-            filename: targetUrl,
+        mocks.getAllAssets.mockResolvedValue({
+            assets: [{ id: 7007, filename: targetUrl }],
         });
 
         await copyCommand(relinkFlags({ manifestRoot, dryRun: true }) as any);
@@ -1330,7 +1540,11 @@ describe("copy relink", () => {
             mocks.getAllStories.mockImplementation(
                 async ({ onProgress }: any) => {
                     if (withTotal) {
-                        onProgress?.({ stage: "listing", fetched: 1, total: 1 });
+                        onProgress?.({
+                            stage: "listing",
+                            fetched: 1,
+                            total: 1,
+                        });
                     }
 
                     onProgress?.({ stage: "content", fetched: 1, total: 1 });
@@ -1339,14 +1553,16 @@ describe("copy relink", () => {
                 },
             );
         const successLines = () =>
-            (Logger.success as unknown as ReturnType<typeof vi.fn>).mock.calls.map(
-                (call) => String(call[0]),
-            );
+            (
+                Logger.success as unknown as ReturnType<typeof vi.fn>
+            ).mock.calls.map((call) => String(call[0]));
 
         // R2 canary. Mutation that must turn it red: leave `quiet` unset on
         // the listing, so its per-page and per-10 lines come back.
         it("lists, reads and matches on three phase lines, and says nothing per item", async () => {
-            const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-relink-"));
+            const tempDir = await mkdtemp(
+                path.join(tmpdir(), "sb-mig-relink-"),
+            );
 
             listingThatReports();
 
@@ -1387,7 +1603,9 @@ describe("copy relink", () => {
         });
 
         it("gives the per-item lines back with --verbose", async () => {
-            const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-relink-"));
+            const tempDir = await mkdtemp(
+                path.join(tmpdir(), "sb-mig-relink-"),
+            );
 
             listingThatReports();
 
@@ -1414,7 +1632,9 @@ describe("copy relink", () => {
         // gives the listing phase nothing true to count against, so no
         // listing line is drawn; the read still shows its own true total.
         it("never draws a made-up listing total", async () => {
-            const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-relink-"));
+            const tempDir = await mkdtemp(
+                path.join(tmpdir(), "sb-mig-relink-"),
+            );
 
             listingThatReports({ withTotal: false });
 
@@ -1437,7 +1657,9 @@ describe("copy relink", () => {
         // Fable's territory addition: a publishing relink says nothing per
         // published story unless asked.
         it("publishes without per-story lines, and with them under --verbose", async () => {
-            const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-relink-"));
+            const tempDir = await mkdtemp(
+                path.join(tmpdir(), "sb-mig-relink-"),
+            );
 
             targetPost = {
                 ...targetPost,
