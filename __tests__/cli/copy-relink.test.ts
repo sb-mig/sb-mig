@@ -1323,4 +1323,184 @@ describe("copy relink", () => {
 
         await rm(tempDir, { recursive: true, force: true });
     });
+
+    describe("reading shows where it is (MAR-3363)", () => {
+        /** The listing as the real one reports it: pages, then content. */
+        const listingThatReports = ({ withTotal = true } = {}) =>
+            mocks.getAllStories.mockImplementation(
+                async ({ onProgress }: any) => {
+                    if (withTotal) {
+                        onProgress?.({ stage: "listing", fetched: 1, total: 1 });
+                    }
+
+                    onProgress?.({ stage: "content", fetched: 1, total: 1 });
+
+                    return [{ story: sourcePost }];
+                },
+            );
+        const successLines = () =>
+            (Logger.success as unknown as ReturnType<typeof vi.fn>).mock.calls.map(
+                (call) => String(call[0]),
+            );
+
+        // R2 canary. Mutation that must turn it red: leave `quiet` unset on
+        // the listing, so its per-page and per-10 lines come back.
+        it("lists, reads and matches on three phase lines, and says nothing per item", async () => {
+            const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-relink-"));
+
+            listingThatReports();
+
+            const written = await withStdout(() =>
+                copyCommand(
+                    relinkFlags({
+                        manifestRoot: path.join(tempDir, ".sb-mig"),
+                        dryRun: true,
+                        progress: "plain",
+                    }) as any,
+                ),
+            );
+            const at = (label: string) => written.indexOf(label);
+
+            // In order, each with its own true total.
+            expect(at("listing stories 0/1")).toBeGreaterThanOrEqual(0);
+            expect(at("reading stories 0/1")).toBeGreaterThan(
+                at("listing stories 0/1"),
+            );
+            expect(at("matching target 0/2")).toBeGreaterThan(
+                at("reading stories 0/1"),
+            );
+            expect(written).toContain("listing stories 1/1 (100%)");
+            expect(written).toContain("reading stories 1/1 (100%)");
+            expect(written).toContain("matching target 2/2 (100%)");
+            expect(written).not.toContain("\r");
+            // The listing was asked to stay quiet, and the matching said
+            // nothing per item.
+            expect(mocks.getAllStories).toHaveBeenCalledWith(
+                expect.objectContaining({ quiet: true }),
+                expect.anything(),
+            );
+            expect(
+                successLines().some((line) => line.startsWith("Matched ")),
+            ).toBe(false);
+
+            await rm(tempDir, { recursive: true, force: true });
+        });
+
+        it("gives the per-item lines back with --verbose", async () => {
+            const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-relink-"));
+
+            listingThatReports();
+
+            await withStdout(() =>
+                copyCommand(
+                    relinkFlags({
+                        manifestRoot: path.join(tempDir, ".sb-mig"),
+                        dryRun: true,
+                        verbose: true,
+                    }) as any,
+                ),
+            );
+
+            expect(mocks.getAllStories).toHaveBeenCalledWith(
+                expect.objectContaining({ quiet: false }),
+                expect.anything(),
+            );
+            expect(successLines()).toContain("Matched 2 of 2 planned item(s).");
+
+            await rm(tempDir, { recursive: true, force: true });
+        });
+
+        // R3: a total is never made up. A listing without a `total` header
+        // gives the listing phase nothing true to count against, so no
+        // listing line is drawn; the read still shows its own true total.
+        it("never draws a made-up listing total", async () => {
+            const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-relink-"));
+
+            listingThatReports({ withTotal: false });
+
+            const written = await withStdout(() =>
+                copyCommand(
+                    relinkFlags({
+                        manifestRoot: path.join(tempDir, ".sb-mig"),
+                        dryRun: true,
+                        progress: "plain",
+                    }) as any,
+                ),
+            );
+
+            expect(written).not.toContain("listing stories");
+            expect(written).toContain("reading stories 1/1 (100%)");
+
+            await rm(tempDir, { recursive: true, force: true });
+        });
+
+        // Fable's territory addition: a publishing relink says nothing per
+        // published story unless asked.
+        it("publishes without per-story lines, and with them under --verbose", async () => {
+            const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-relink-"));
+
+            targetPost = {
+                ...targetPost,
+                published: true,
+                unpublished_changes: false,
+                updated_at: "2026-09-23T08:00:00.000Z",
+            };
+            mocks.getStoryById.mockImplementation((id: string) =>
+                Promise.resolve(
+                    String(id) === "1002" ? { story: targetPost } : undefined,
+                ),
+            );
+            listingThatReports();
+
+            await withStdout(() =>
+                copyCommand(
+                    relinkFlags({
+                        manifestRoot: path.join(tempDir, ".sb-mig"),
+                        yes: true,
+                    }) as any,
+                ),
+            );
+
+            expect(mocks.publishStoryLanguages).toHaveBeenCalledWith(
+                expect.objectContaining({ storyId: 1002, quiet: true }),
+                expect.anything(),
+            );
+
+            vi.clearAllMocks();
+            mocks.updateStory.mockResolvedValue({ ok: true });
+            mocks.publishStoryLanguages.mockResolvedValue({
+                ok: true,
+                stage: "publish",
+            });
+            mocks.getSpace.mockResolvedValue({ space: { languages: [] } });
+            mocks.getStoryVersions.mockResolvedValue({ story_versions: [] });
+            mocks.getAllComponents.mockResolvedValue([
+                { name: "page", schema: { cta: { type: "multilink" } } },
+            ]);
+            mocks.getStoryById.mockImplementation((id: string) =>
+                Promise.resolve(
+                    String(id) === "1002" ? { story: targetPost } : undefined,
+                ),
+            );
+            listingThatReports();
+            await rm(tempDir, { recursive: true, force: true });
+
+            await withStdout(() =>
+                copyCommand(
+                    relinkFlags({
+                        manifestRoot: path.join(tempDir, ".sb-mig"),
+                        yes: true,
+                        verbose: true,
+                    }) as any,
+                ),
+            );
+
+            expect(mocks.publishStoryLanguages).toHaveBeenCalledWith(
+                expect.objectContaining({ storyId: 1002, quiet: false }),
+                expect.anything(),
+            );
+
+            await rm(tempDir, { recursive: true, force: true });
+        });
+    });
 });

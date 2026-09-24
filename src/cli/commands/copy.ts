@@ -925,19 +925,83 @@ const resolveRootExcludes = (
  * with more roots than one page is read whole. No other filter is passed:
  * `in_trash=false` alongside it returns trashed items too.
  */
+/** The listing's page size: `getAllItemsWithPagination` asks for 100. */
+const STORY_LISTING_PAGE_SIZE = 100;
+
+/**
+ * One story listing, shown the way every other copy phase is (MAR-3363):
+ * `listing stories` over the pages of the listing, then `reading stories`
+ * over the stories whose full content is fetched one at a time. Each total is
+ * known before the phase's first tick — the listing's from its first page's
+ * `total` header, the content's from the listing's length — so neither is
+ * ever made up. Without `output` this is exactly the plain listing call,
+ * with its old lines, for every caller that shows no progress.
+ */
+const getAllStoriesWithProgress = async (
+    options: Record<string, unknown>,
+    sourceSpace: string,
+    output?: CopyOutput,
+) => {
+    let listing: Progress | undefined;
+    let reading: Progress | undefined;
+
+    try {
+        return await managementApi.stories.getAllStories(
+            {
+                options,
+                ...(output
+                    ? {
+                          quiet: output.quiet,
+                          onProgress: ({ stage, fetched, total }) => {
+                              if (stage === "listing") {
+                                  listing ??= output.phase(
+                                      "listing stories",
+                                      Math.max(
+                                          1,
+                                          Math.ceil(
+                                              total / STORY_LISTING_PAGE_SIZE,
+                                          ),
+                                      ),
+                                  );
+                                  listing.tick({
+                                      name: `${fetched} of ${total} stories`,
+                                  });
+                                  return;
+                              }
+
+                              if (!reading) {
+                                  listing?.finish();
+                                  reading = output.phase(
+                                      "reading stories",
+                                      total,
+                                  );
+                              }
+
+                              reading.tick();
+                          },
+                      }
+                    : {}),
+            },
+            {
+                ...apiConfig,
+                spaceId: sourceSpace,
+            },
+        );
+    } finally {
+        // A listing that threw still gives the terminal row back.
+        listing?.finish();
+        reading?.finish();
+    }
+};
+
 const listSourceRootItems = async (
     sourceSpace: string,
+    output?: CopyOutput,
 ): Promise<SourceRootItem[]> => {
-    const rootStories = await managementApi.stories.getAllStories(
-        {
-            options: {
-                with_parent: 0,
-            },
-        },
-        {
-            ...apiConfig,
-            spaceId: sourceSpace,
-        },
+    const rootStories = await getAllStoriesWithProgress(
+        { with_parent: 0 },
+        sourceSpace,
+        output,
     );
 
     const listed = (rootStories ?? []).map((item: any) => item?.story ?? item);
@@ -975,6 +1039,7 @@ const expandWholeSpaceSelections = async (
     selections: CopySelection[],
     excludes: string[],
     sourceSpace: string,
+    output?: CopyOutput,
 ): Promise<{
     selections: CopySelection[];
     expansion?: WholeSpaceExpansion;
@@ -983,7 +1048,7 @@ const expandWholeSpaceSelections = async (
         return { selections };
     }
 
-    const rootItems = await listSourceRootItems(sourceSpace);
+    const rootItems = await listSourceRootItems(sourceSpace, output);
 
     if (rootItems.length === 0) {
         throw new Error(
@@ -1053,11 +1118,16 @@ const expandWholeSpaceSelections = async (
 const collectSelectionForest = async (
     selections: CopySelection[],
     sourceSpace: string,
+    output?: CopyOutput,
 ): Promise<{ sourceStories: any[]; roots: any[] }> => {
     const forests: { stories: any[]; roots: any[] }[] = [];
 
     for (const selection of selections) {
-        const stories = await getStoriesForSelection(selection, sourceSpace);
+        const stories = await getStoriesForSelection(
+            selection,
+            sourceSpace,
+            output,
+        );
         const tree = createTree(normalizeStoriesForTree(stories, selection));
 
         forests.push({ stories, roots: selectTreeRoots(tree, selection) });
@@ -1259,6 +1329,7 @@ const getStoryBySlugOrThrow = async (slug: string, sourceSpace: string) => {
 const getStoriesForSelection = async (
     selection: CopySelection,
     sourceSpace: string,
+    output?: CopyOutput,
 ) => {
     const rootStory = await getStoryBySlugOrThrow(
         selection.source,
@@ -1280,16 +1351,10 @@ const getStoriesForSelection = async (
         return [rootStory];
     }
 
-    const children = await managementApi.stories.getAllStories(
-        {
-            options: {
-                starts_with: `${selection.source}/`,
-            },
-        },
-        {
-            ...apiConfig,
-            spaceId: sourceSpace,
-        },
+    const children = await getAllStoriesWithProgress(
+        { starts_with: `${selection.source}/` },
+        sourceSpace,
+        output,
     );
 
     return [rootStory, ...children];
@@ -1972,6 +2037,7 @@ type CopyTargetConflictCheck = {
 const findTargetConflicts = async (
     plan: CopyPlanItem[],
     targetSpace: string,
+    output?: CopyOutput,
 ): Promise<CopyTargetConflictCheck> => {
     let checked = 0;
 
@@ -1982,6 +2048,12 @@ const findTargetConflicts = async (
     Logger.warning(
         `Checking ${plan.length} planned target path(s) for existing stories/folders.`,
     );
+
+    const progress = output
+        ? output.phase("matching target", plan.length)
+        : NO_PROGRESS;
+    // The per-25 heartbeat is detail now: the phase line says where it is.
+    const sayHeartbeat = !output || output.verbose;
 
     const results = await mapWithConcurrency(
         plan,
@@ -1996,10 +2068,12 @@ const findTargetConflicts = async (
             );
 
             checked += 1;
+            progress.tick({ name: item.targetFullSlug });
             if (
-                checked === plan.length ||
-                checked % 25 === 0 ||
-                plan.length <= 25
+                sayHeartbeat &&
+                (checked === plan.length ||
+                    checked % 25 === 0 ||
+                    plan.length <= 25)
             ) {
                 Logger.success(
                     `Checked ${checked} of ${plan.length} target path(s) for conflicts.`,
@@ -2021,6 +2095,8 @@ const findTargetConflicts = async (
             };
         },
     );
+
+    progress.finish();
 
     const found = results.filter(
         (
@@ -4913,11 +4989,14 @@ const publishCopiedStory = async ({
     story,
     publication,
     targetSpace,
+    quiet,
 }: {
     storyId: number;
     story: any;
     publication: CopyPublicationOptions;
     targetSpace: string;
+    /** No per-story publish lines: the run shows a progress line instead. */
+    quiet?: boolean;
 }) => {
     const languages = publication.resolvedPublishLanguages;
 
@@ -4930,6 +5009,7 @@ const publishCopiedStory = async ({
             storyId,
             story,
             languages,
+            quiet,
         },
         {
             ...apiConfig,
@@ -5268,6 +5348,7 @@ const rewriteCopiedStoryContents = async ({
                     }
 
                     const publishResult = await publishCopiedStory({
+                        quiet: output?.quiet,
                         storyId: id,
                         story: publishedLayer.payload,
                         publication,
@@ -5347,6 +5428,7 @@ const rewriteCopiedStoryContents = async ({
                     shouldPublishCopiedCurrentStory(publication, sourceStory)
                 ) {
                     const publishResult = await publishCopiedStory({
+                        quiet: output?.quiet,
                         storyId: id,
                         story: current.payload,
                         publication,
@@ -6918,12 +7000,19 @@ const matchRelinkTargets = async ({
     sourceStories,
     copyMaps,
     targetSpace,
+    output,
 }: {
     plan: CopyPlanItem[];
     sourceStories: any[];
     copyMaps: CopyMaps;
     targetSpace: string;
+    /** How this run talks while it works (MAR-3363). */
+    output?: CopyOutput;
 }): Promise<CopyRelinkMatchRecord[]> => {
+    const progress = output
+        ? output.phase("matching target", plan.length)
+        : NO_PROGRESS;
+    const sayHeartbeat = !output || output.verbose;
     const sourceStoryByFullSlug = new Map<string, any>(
         sourceStories
             .map((item: any) => item?.story)
@@ -6979,10 +7068,12 @@ const matchRelinkTargets = async ({
             }
 
             checked += 1;
+            progress.tick({ name: item.targetFullSlug });
             if (
-                checked === plan.length ||
-                checked % 25 === 0 ||
-                plan.length <= 25
+                sayHeartbeat &&
+                (checked === plan.length ||
+                    checked % 25 === 0 ||
+                    plan.length <= 25)
             ) {
                 Logger.success(
                     `Matched ${checked} of ${plan.length} planned item(s).`,
@@ -6992,6 +7083,8 @@ const matchRelinkTargets = async ({
             return { item, sourceStory, targetStory, match };
         },
     );
+
+    progress.finish();
 
     return records;
 };
@@ -7008,9 +7101,12 @@ const matchRelinkTargets = async ({
 const validateRelinkLedgerMappings = async ({
     mappings,
     targetSpace,
+    output,
 }: {
     mappings: CopyRelinkStoryMapping[];
     targetSpace: string;
+    /** Only with --verbose does it say it is validating (MAR-3363). */
+    output?: CopyOutput;
 }): Promise<{
     valid: CopyRelinkStoryMapping[];
     stale: CopyRelinkStoryMapping[];
@@ -7019,9 +7115,11 @@ const validateRelinkLedgerMappings = async ({
         return { valid: [], stale: [] };
     }
 
-    Logger.warning(
-        `Validating ${mappings.length} ledger mapping(s) referenced by the target content but outside this selection.`,
-    );
+    if (!output || output.verbose) {
+        Logger.warning(
+            `Validating ${mappings.length} ledger mapping(s) referenced by the target content but outside this selection.`,
+        );
+    }
 
     const checked = await mapWithConcurrency(
         mappings,
@@ -7096,9 +7194,12 @@ const validateRelinkLedgerMappings = async ({
 const validateRelinkAssetMappings = async ({
     mappings,
     targetSpace,
+    output,
 }: {
     mappings: CopyRelinkAssetMapping[];
     targetSpace: string;
+    /** Only with --verbose does it say it is validating (MAR-3363). */
+    output?: CopyOutput;
 }): Promise<{
     valid: CopyRelinkAssetMapping[];
     stale: CopyRelinkAssetMapping[];
@@ -7107,9 +7208,11 @@ const validateRelinkAssetMappings = async ({
         return { valid: [], stale: [] };
     }
 
-    Logger.warning(
-        `Validating ${mappings.length} asset mapping(s) referenced by the target content.`,
-    );
+    if (!output || output.verbose) {
+        Logger.warning(
+            `Validating ${mappings.length} asset mapping(s) referenced by the target content.`,
+        );
+    }
 
     const checked = await mapWithConcurrency(
         mappings,
@@ -7584,6 +7687,7 @@ const relinkTargetStories = async ({
 
             layerReferences = layer.rewrite.rewrittenReferences;
             publishResult = await publishCopiedStory({
+                quiet: output?.quiet,
                 storyId: targetId,
                 story: {
                     ...record.targetStory,
@@ -7616,6 +7720,7 @@ const relinkTargetStories = async ({
 
             if (decision.treatment === "republish") {
                 publishResult = await publishCopiedStory({
+                    quiet: output?.quiet,
                     storyId: targetId,
                     story: {
                         ...record.targetStory,
@@ -7785,6 +7890,7 @@ const runCopyCommand = async (props: CLIOptions) => {
                     selections,
                     resolveRootExcludes(flags, selections),
                     sourceSpace,
+                    copyOutput,
                 );
 
             Logger.log(
@@ -7800,7 +7906,11 @@ const runCopyCommand = async (props: CLIOptions) => {
             // Every source value is read before the target is touched, so a
             // value that resolves to nothing fails first, and by name.
             const { sourceStories, roots: selectedRoots } =
-                await collectSelectionForest(plannedSelections, sourceSpace);
+                await collectSelectionForest(
+                    plannedSelections,
+                    sourceSpace,
+                    copyOutput,
+                );
             const publication = await resolveCopyPublicationOptions({
                 flags,
                 targetSpace,
@@ -7959,6 +8069,7 @@ const runCopyCommand = async (props: CLIOptions) => {
                 const { conflicts } = await findTargetConflicts(
                     plan,
                     targetSpace,
+                    copyOutput,
                 );
                 const dryRunLedgerMatches = await resolvePlanLedgerMatches({
                     plan,
@@ -8025,7 +8136,7 @@ const runCopyCommand = async (props: CLIOptions) => {
             }
 
             const { existingTargetStoryIdByFullSlug } =
-                await findTargetConflicts(plan, targetSpace);
+                await findTargetConflicts(plan, targetSpace, copyOutput);
             const gateLedgerMatches = await resolvePlanLedgerMatches({
                 plan,
                 sourceStories,
@@ -8322,6 +8433,8 @@ const runCopyCommand = async (props: CLIOptions) => {
                 targetSpace,
                 dryRun,
             });
+            // How this run talks while it works, read and write alike.
+            const relinkOutput = resolveCopyOutput(flags);
 
             Logger.warning(
                 `Relinking stories in space '${targetSpace}' against their sources in space '${sourceSpace}'.`,
@@ -8334,6 +8447,7 @@ const runCopyCommand = async (props: CLIOptions) => {
                     selections,
                     resolveRootExcludes(flags, selections),
                     sourceSpace,
+                    relinkOutput,
                 );
 
             Logger.log(
@@ -8347,7 +8461,11 @@ const runCopyCommand = async (props: CLIOptions) => {
             );
 
             const { sourceStories, roots: relinkRoots } =
-                await collectSelectionForest(plannedSelections, sourceSpace);
+                await collectSelectionForest(
+                    plannedSelections,
+                    sourceSpace,
+                    relinkOutput,
+                );
             const rootsToRelink = prepareTreeForCreate(relinkRoots);
 
             if (rootsToRelink.length === 0) {
@@ -8376,6 +8494,7 @@ const runCopyCommand = async (props: CLIOptions) => {
                 sourceStories,
                 copyMaps: ledgerMaps,
                 targetSpace,
+                output: relinkOutput,
             });
 
             // Every mapping must be complete BEFORE a single story is
@@ -8420,6 +8539,7 @@ const runCopyCommand = async (props: CLIOptions) => {
                         (match) => match.targetStory?.content,
                     ),
                 }),
+                output: relinkOutput,
                 targetSpace,
             });
             const validatedStoryMappings = [
@@ -8435,6 +8555,7 @@ const runCopyCommand = async (props: CLIOptions) => {
                         (match) => match.targetStory?.content,
                     ),
                 }),
+                output: relinkOutput,
                 targetSpace,
             });
             const copyMaps = buildCopyRelinkMaps({
@@ -8673,7 +8794,7 @@ const runCopyCommand = async (props: CLIOptions) => {
                 manifestPaths,
                 sourceSpace,
                 targetSpace,
-                output: resolveCopyOutput(flags),
+                output: relinkOutput,
                 publication,
                 publicationPlan,
             });

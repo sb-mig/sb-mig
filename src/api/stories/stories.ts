@@ -456,7 +456,12 @@ export const getAllStories: GetAllStories = async (args, config) => {
 
     const allStoriesWithoutContent = await getAllItemsWithPagination({
         quiet,
-        onPage: onProgress,
+        // The listing's own stage: pages of stubs, counted against the total
+        // the first page reports. Never confused with the content fetch below.
+        onPage: onProgress
+            ? ({ fetched, total }) =>
+                  onProgress({ stage: "listing", fetched, total })
+            : undefined,
         apiFn: ({ per_page, page }) =>
             sbApi.get(`spaces/${spaceId}/stories/`, {
                 ...params,
@@ -485,6 +490,7 @@ export const getAllStories: GetAllStories = async (args, config) => {
 
             heartBeat++;
             onProgress?.({
+                stage: "content",
                 fetched: heartBeat,
                 total: allStoriesWithoutContent.length,
             });
@@ -736,10 +742,13 @@ export const publishStoryLanguages = async (
         storyId,
         story,
         languages,
+        quiet,
     }: {
         storyId: string | number;
         story?: Record<string, any>;
         languages: string[];
+        /** Say nothing per story: the caller shows a progress line instead. */
+        quiet?: boolean;
     },
     config: { spaceId: string; sbApi: any },
 ) => {
@@ -747,17 +756,22 @@ export const publishStoryLanguages = async (
     const lang = languages.join(",");
     const storyLabel = resolveStoryLabel(story, String(storyId));
 
-    Logger.log(
-        `Publishing story '${storyLabel}' in space '${spaceId}' for languages: ${lang}`,
-    );
+    if (!quiet) {
+        Logger.log(
+            `Publishing story '${storyLabel}' in space '${spaceId}' for languages: ${lang}`,
+        );
+    }
 
     return sbApi
         .get(`spaces/${spaceId}/stories/${storyId}/publish`, { lang })
         .then((res: any) => {
             const publishedStory = res?.data?.story || story || {};
-            Logger.success(
-                `Published story '${storyLabel}' for languages: ${lang}`,
-            );
+
+            if (!quiet) {
+                Logger.success(
+                    `Published story '${storyLabel}' for languages: ${lang}`,
+                );
+            }
 
             return {
                 ok: true,
