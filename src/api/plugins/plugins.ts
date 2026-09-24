@@ -27,7 +27,11 @@ export const getAllPlugins: GetAllPlugins = (config) => {
 
                     return res;
                 })
-                .catch((err) => Logger.error(err)),
+                .catch((err: any) => {
+                    // A failed listing is never "no plugins" (MAR-3139).
+                    Logger.error(err);
+                    throw err;
+                }),
         params: {},
         itemsKey: "field_types",
     });

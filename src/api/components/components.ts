@@ -40,7 +40,11 @@ export const getAllComponents: GetAllComponents = (config) => {
 
                     return res;
                 })
-                .catch((err: any) => console.error(err)),
+                .catch((err: any) => {
+                    // A failed listing is never "no components" (MAR-3139).
+                    console.error(err);
+                    throw err;
+                }),
         params: {
             spaceId,
         },
@@ -187,7 +191,21 @@ export const getAllComponentsGroups: GetAllComponentsGroups = async (
 
                     return res;
                 })
-                .catch((err) => console.error(err)),
+                .catch((err: any) => {
+                    if (err?.response?.status === 404) {
+                        Logger.error(
+                            `There is no component groups in your Storyblok ${spaceId} space.`,
+                        );
+                        return {
+                            data: { component_groups: [] },
+                            total: 0,
+                            perPage: 100,
+                        };
+                    }
+
+                    console.error(err);
+                    throw err;
+                }),
         params: {
             spaceId,
         },

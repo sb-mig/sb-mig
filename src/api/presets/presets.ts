@@ -45,7 +45,21 @@ export const getAllPresets = (config: RequestBaseConfig) => {
 
                     return res;
                 })
-                .catch((err) => Logger.error(err)),
+                .catch((err: any) => {
+                    if (err?.response?.status === 404) {
+                        Logger.error(
+                            `There is no presets in your Storyblok ${spaceId} space.`,
+                        );
+                        return {
+                            data: { presets: [] },
+                            total: 0,
+                            perPage: 100,
+                        };
+                    }
+
+                    Logger.error(err);
+                    throw err;
+                }),
         params: {
             spaceId,
         },

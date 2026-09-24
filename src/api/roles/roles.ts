@@ -65,16 +65,20 @@ export const getAllRoles: GetAllRoles = async (config) => {
 
                     return res;
                 })
-                .catch((err) => {
-                    if (err.response.status === 404) {
+                .catch((err: any) => {
+                    if (err?.response?.status === 404) {
                         Logger.error(
                             `There is no roles in your Storyblok ${spaceId} space.`,
                         );
-                        return true;
-                    } else {
-                        Logger.error(err);
-                        return false;
+                        return {
+                            data: { space_roles: [] },
+                            total: 0,
+                            perPage: 100,
+                        };
                     }
+
+                    Logger.error(err);
+                    throw err;
                 }),
         params: {
             spaceId,
