@@ -25,8 +25,8 @@ import Logger from "../../utils/logger.js";
 import { notNullish } from "../../utils/object-utils.js";
 import {
     describeRetryReason,
-    isTransientError,
     retryAttemptsOf,
+    unwrapClientNetworkError,
     withRetry,
 } from "../../utils/retry.js";
 import { getAllItemsWithPagination } from "../utils/request.js";
@@ -342,27 +342,10 @@ const resolveStoryblokErrorStatus = (err: any): number | undefined =>
     err?.message?.response?.status;
 
 /**
- * storyblok-js-client does not reject a network failure with the fetch error
- * itself: it resolves `{ message: <the error> }` internally and then rejects
- * that wrapper, which has no status (measured: a refused connection arrives
- * as `{ message: TypeError("fetch failed", { cause: { code: "ECONNREFUSED" } }) }`).
- * Unwrapped, the socket code is visible to the retry decision and the line.
+ * A story read rejects with the fetch error itself rather than the client's
+ * `{ message: <error> }` wrapper (see `unwrapClientNetworkError` in
+ * utils/retry), so the error a caller sees names the socket failure.
  */
-const unwrapClientNetworkError = (err: any): any =>
-    err &&
-    typeof err === "object" &&
-    err.message instanceof Error &&
-    resolveStoryblokErrorStatus(err) === undefined
-        ? err.message
-        : err;
-
-/**
- * A read worth trying again: the transient classes of MAR-3355, plus Node's
- * `fetch failed`, which undici only throws for a network-level failure.
- */
-const isRetryableRead = (err: any): boolean =>
-    isTransientError(err) || err?.message === "fetch failed";
-
 const readThroughClient =
     <T>(request: () => Promise<T>) =>
     (): Promise<T> =>
@@ -583,7 +566,6 @@ export const getStoryById: GetStoryById = async (storyId, config) => {
                 step: `read story ${storyId}`,
                 subject: `space ${spaceId}`,
                 onRetry: (line) => Logger.warning(line),
-                isRetryable: isRetryableRead,
             },
         );
 
@@ -640,7 +622,6 @@ export const getStoryBySlug: GetStoryBySlug = async (slug, config) => {
             step: `find story ${slug}`,
             subject: `space ${spaceId}`,
             onRetry: (line) => Logger.warning(line),
-            isRetryable: isRetryableRead,
         },
     ).then((res: any) => res.data.stories);
 
