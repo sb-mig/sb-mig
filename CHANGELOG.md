@@ -1,3 +1,10 @@
+# [6.5.0-beta.19](https://github.com/sb-mig/sb-mig/compare/v6.5.0-beta.18...v6.5.0-beta.19) (2026-09-24)
+
+
+### Bug Fixes
+
+* **copy:** relink checks asset mappings against one listing of the target library — a network error never marks a mapping stale ([2d53487](https://github.com/sb-mig/sb-mig/commit/2d5348786a306f663cbc001c266d64a2bdd50f30))
+
 # [6.5.0-beta.18](https://github.com/sb-mig/sb-mig/compare/v6.5.0-beta.17...v6.5.0-beta.18) (2026-09-24)
 
 
