@@ -18,6 +18,19 @@ const fetchFailed = (code: string) =>
         cause: socketError(code),
     });
 
+/**
+ * What storyblok-js-client rejects a GET with when the connection drops
+ * (measured against a closed port, MAR-3409): the fetch error wrapped as
+ * `message`, no status anywhere.
+ */
+const clientWrappedDrop = (code: string) => ({
+    message: Object.assign(new TypeError("fetch failed"), {
+        cause: Object.assign(new Error(`connect ${code} 127.0.0.1:59999`), {
+            code,
+        }),
+    }),
+});
+
 /** What storyblok-js-client rejects an HTTP error with. */
 const clientHttpError = (status: number) => ({
     message: "Unprocessable",
@@ -52,6 +65,44 @@ describe("retry: transient is a closed list (MAR-3355 R1)", () => {
         ["a plain error", false, new Error("the payload is wrong")],
         ["the old bare string", false, "error"],
         ["nothing", false, undefined],
+        // MAR-3409 R1: the client's wrapper is seen through...
+        [
+            "the client's wrapped ECONNREFUSED",
+            true,
+            clientWrappedDrop("ECONNREFUSED"),
+        ],
+        [
+            "the client's wrapped ECONNRESET",
+            true,
+            clientWrappedDrop("ECONNRESET"),
+        ],
+        [
+            "a wrapped fetch failed with no code",
+            true,
+            { message: new TypeError("fetch failed") },
+        ],
+        ["a bare fetch failed", true, { message: "fetch failed" }],
+        // ...but never past an answer the server gave.
+        [
+            "a wrapper with a 422 and an object body",
+            false,
+            { message: { error: "Unprocessable" }, status: 422 },
+        ],
+        [
+            "a wrapper with a 404 on its response",
+            false,
+            { message: { error: "Not found" }, response: { status: 404 } },
+        ],
+        [
+            "a wrapper with a 503 and an object body",
+            true,
+            { message: { error: "busy" }, status: 503 },
+        ],
+        [
+            "a wrapped plain error",
+            false,
+            { message: new Error("the payload is wrong") },
+        ],
     ])("%s → transient: %s", (_name, expected, error) => {
         expect(isTransientError(error)).toBe(expected);
     });
@@ -72,6 +123,21 @@ describe("retry: transient is a closed list (MAR-3355 R1)", () => {
             "read ECONNRESET",
         );
         expect(describeRetryReason({ status: 503 })).toBe("status 503");
+        // MAR-3409 R2: the wrapped drop names its real cause, never
+        // `[object Object]` and never an empty string.
+        expect(describeRetryReason(clientWrappedDrop("ECONNREFUSED"))).toBe(
+            "connect ECONNREFUSED 127.0.0.1:59999",
+        );
+        expect(
+            describeRetryReason({
+                message: Object.assign(new TypeError("fetch failed"), {
+                    cause: { code: "ECONNREFUSED" },
+                }),
+            }),
+        ).toBe("ECONNREFUSED");
+        expect(errorCodeOf(clientWrappedDrop("ECONNREFUSED"))).toBe(
+            "ECONNREFUSED",
+        );
     });
 });
 

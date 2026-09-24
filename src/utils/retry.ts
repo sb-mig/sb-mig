@@ -38,7 +38,7 @@ const asRecord = (value: unknown): Record<string, any> | undefined =>
  * `TypeError: fetch failed` and keeps the socket error there).
  */
 export const errorCodeOf = (error: unknown): string | undefined => {
-    const record = asRecord(error);
+    const record = asRecord(unwrapClientNetworkError(error));
     const code = record?.["code"] ?? asRecord(record?.["cause"])?.["code"];
 
     return typeof code === "string" ? code : undefined;
@@ -64,10 +64,43 @@ const messageOf = (error: unknown): string | undefined => {
 };
 
 /**
+ * storyblok-js-client does not reject a network failure with the fetch error
+ * itself. It catches it, answers `{ message: <the error> }`, and a GET then
+ * rejects with that wrapper; a POST or PUT resolves it (measured against a
+ * closed port: `{ message: TypeError("fetch failed", { cause: { code:
+ * "ECONNREFUSED" } }) }`, with no status anywhere). The wrapper hides the
+ * socket code from every rule below, so a real network drop was never
+ * retried (MAR-3409).
+ *
+ * The inner error is handed back only when the wrapper carries no HTTP
+ * status: an answer from the server keeps its status rule, whatever its body.
+ */
+export const unwrapClientNetworkError = (error: unknown): unknown => {
+    const record = asRecord(error);
+    const inner = record?.["message"];
+
+    if (
+        inner !== null &&
+        typeof inner === "object" &&
+        errorStatusOf(error) === undefined
+    ) {
+        return inner;
+    }
+
+    return error;
+};
+
+/**
  * R1 — transient is a closed list: a dropped-network code, a `socket hang up`,
  * or a "not now" HTTP status. Everything else is final.
  */
 export const isTransientError = (error: unknown): boolean => {
+    const unwrapped = unwrapClientNetworkError(error);
+
+    if (unwrapped !== error) {
+        return isTransientError(unwrapped);
+    }
+
     const code = errorCodeOf(error);
 
     if (code && TRANSIENT_ERROR_CODES.has(code)) {
@@ -82,14 +115,22 @@ export const isTransientError = (error: unknown): boolean => {
 
     const causeMessage = messageOf(asRecord(error)?.["cause"]);
 
+    // Node's `fetch failed` is thrown only for a network-level failure.
     return (
         messageOf(error) === "socket hang up" ||
-        causeMessage === "socket hang up"
+        causeMessage === "socket hang up" ||
+        messageOf(error) === "fetch failed"
     );
 };
 
 /** `read ECONNRESET`, `status 503`, … — what a person reads in the retry line. */
 export const describeRetryReason = (error: unknown): string => {
+    const unwrapped = unwrapClientNetworkError(error);
+
+    if (unwrapped !== error) {
+        return describeRetryReason(unwrapped);
+    }
+
     const cause = asRecord(error)?.["cause"];
     const message = messageOf(cause) ?? messageOf(error);
     const status = errorStatusOf(error);

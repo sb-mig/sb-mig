@@ -313,6 +313,40 @@ describe("getAllItemsWithPagination", () => {
             ]);
         });
 
+        // MAR-3409 R3 canary. Mutation that must turn it red: drop the
+        // unwrap from isTransientError — the client's real wrapped network
+        // error is then final on the first attempt.
+        it("retries a page the client rejects with its wrapped network error", async () => {
+            const wrappedDrop = {
+                message: Object.assign(new TypeError("fetch failed"), {
+                    cause: Object.assign(
+                        new Error("connect ECONNREFUSED 127.0.0.1:59999"),
+                        { code: "ECONNREFUSED" },
+                    ),
+                }),
+            };
+            const apiFn = vi
+                .fn()
+                .mockResolvedValueOnce(page("stories", ids(1, 100), 150))
+                .mockRejectedValueOnce(wrappedDrop)
+                .mockResolvedValueOnce(page("stories", ids(101, 50), 150));
+
+            const result = await getAllItemsWithPagination({
+                apiFn,
+                params: { spaceId: "12345" },
+                itemsKey: "stories",
+                retry: noWait,
+            });
+
+            expect(result).toEqual(ids(1, 150));
+            expect(apiFn).toHaveBeenCalledTimes(3);
+            expect(
+                warnings().filter((line) => line.startsWith("retrying ")),
+            ).toEqual([
+                "retrying listing stories page 2 for 'space 12345' (1/2) after connect ECONNREFUSED 127.0.0.1:59999",
+            ]);
+        });
+
         // R3 canary. Mutation that must turn it red: return the first read
         // without checking it (skip the re-read).
         it("reads a shifted listing again and returns the clean second read", async () => {

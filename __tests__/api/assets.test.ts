@@ -609,7 +609,9 @@ describe("Assets API", () => {
             expect(sbApi.post).toHaveBeenCalledTimes(1);
             expect(formDataMock.instances).toHaveLength(2);
             // The same signed URL and the same fields, both times.
-            expect(formDataMock.instances.map((form) => form.submitUrl)).toEqual([
+            expect(
+                formDataMock.instances.map((form) => form.submitUrl),
+            ).toEqual([
                 "https://s3.example.com/upload",
                 "https://s3.example.com/upload",
             ]);
@@ -682,6 +684,54 @@ describe("Assets API", () => {
             await expect(create(sbApi)).resolves.toMatchObject({ id: 987 });
             expect(sbApi.get).toHaveBeenCalledTimes(2);
             expect(sbApi.post).toHaveBeenCalledTimes(1);
+        });
+
+        /**
+         * What storyblok-js-client really REJECTS a GET with when the
+         * connection drops (measured against a closed port, MAR-3409): the
+         * wrapper, no status anywhere, the socket error on the inner cause.
+         */
+        const clientWrappedDrop = (code: string) => ({
+            message: Object.assign(new TypeError("fetch failed"), {
+                cause: Object.assign(
+                    new Error(`connect ${code} 127.0.0.1:59999`),
+                    { code },
+                ),
+            }),
+        });
+
+        // MAR-3409 R3 canary. Mutation that must turn it red: drop the
+        // unwrap from isTransientError.
+        it("finishes again after the client rejects with its wrapped network error", async () => {
+            const sbApi = sbApiOf({
+                get: vi
+                    .fn()
+                    .mockRejectedValueOnce(clientWrappedDrop("ECONNREFUSED"))
+                    .mockResolvedValueOnce(finished),
+            });
+
+            await expect(create(sbApi)).resolves.toMatchObject({ id: 987 });
+            expect(sbApi.get).toHaveBeenCalledTimes(2);
+            expect(retryLines()).toEqual([
+                "retrying finish for 'asset 987' (1/2) after connect ECONNREFUSED 127.0.0.1:59999",
+            ]);
+        });
+
+        // MAR-3355's rule stands: the signed-URL POST creates the record, so
+        // a network drop is never asked again, wrapped or not. Only a refusal
+        // before the create (429/503) is.
+        it("still never posts twice when the POST rejects with the wrapped network error", async () => {
+            const sbApi = sbApiOf({
+                post: vi
+                    .fn()
+                    .mockRejectedValue(clientWrappedDrop("ECONNRESET")),
+            });
+
+            const error = await create(sbApi).catch((e) => e);
+
+            expect(sbApi.post).toHaveBeenCalledTimes(1);
+            expect(isTransientError(error)).toBe(true);
+            expect(retryLines()).toEqual([]);
         });
 
         describe("errors keep their shape (R3)", () => {
