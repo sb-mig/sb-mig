@@ -77,8 +77,16 @@ export type GetAllStories = (
         options?: ExtendedISbStoriesParams;
         /** Silence the listing chatter; the caller shows its own progress. */
         quiet?: boolean;
-        /** Told how the read is going, for a caller with a progress line. */
-        onProgress?: (progress: { fetched: number; total: number }) => void;
+        /**
+         * Told how the read is going, for a caller with a progress line. The
+         * listing (pages of story stubs) and the content fetch (one story at a
+         * time) are two stages with two totals; `stage` says which this is.
+         */
+        onProgress?: (progress: {
+            stage: "listing" | "content";
+            fetched: number;
+            total: number;
+        }) => void;
     },
     config: RequestBaseConfig,
 ) => Promise<any>;

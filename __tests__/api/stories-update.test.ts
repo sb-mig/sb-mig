@@ -17,6 +17,7 @@ import {
     getAllStories,
     getStoryById,
     parsePublishLanguagesOption,
+    publishStoryLanguages,
     resolvePublishLanguageCodes,
     resolveStoryPublishState,
     updateStories,
@@ -1119,5 +1120,126 @@ describe("getAllStories", () => {
             "spaces/291967263583956/stories/",
             expect.objectContaining({ with_parent: 0 }),
         );
+    });
+});
+
+describe("getAllStories: one callback, two stages (MAR-3363 R1)", () => {
+    /** 150 stories over two listing pages, then each read with full content. */
+    const sbApiOf = () => ({
+        get: vi.fn((path: string, params: any) => {
+            if (path.endsWith("/stories/")) {
+                const page = Number(params?.page ?? 1);
+                const count = page === 1 ? 100 : 50;
+
+                return Promise.resolve({
+                    data: {
+                        stories: Array.from({ length: count }, (_, index) => ({
+                            id: (page - 1) * 100 + index + 1,
+                        })),
+                    },
+                    total: 150,
+                    perPage: 100,
+                });
+            }
+
+            const id = Number(path.split("/").pop());
+
+            return Promise.resolve({ data: { story: { id } } });
+        }),
+    });
+
+    beforeEach(() => {
+        vi.clearAllMocks();
+    });
+
+    // R1 canary. Mutation that must turn it red: drop `stage` from the page
+    // call, so the listing and the content read look the same to a caller.
+    it("tells the listing pages from the content reads", async () => {
+        const calls: Array<{ stage: string; fetched: number; total: number }> =
+            [];
+
+        await getAllStories(
+            {
+                options: {},
+                quiet: true,
+                onProgress: (progress) => calls.push(progress),
+            },
+            { spaceId: "123", sbApi: sbApiOf() as any },
+        );
+
+        expect(calls.slice(0, 2)).toEqual([
+            { stage: "listing", fetched: 100, total: 150 },
+            { stage: "listing", fetched: 150, total: 150 },
+        ]);
+        expect(calls.slice(2)).toHaveLength(150);
+        expect(calls.slice(2).every((call) => call.stage === "content")).toBe(
+            true,
+        );
+        expect(calls.at(-1)).toEqual({
+            stage: "content",
+            fetched: 150,
+            total: 150,
+        });
+        // Quiet: no listing chatter, no per-10 heartbeat.
+        expect(loggerMock.success).not.toHaveBeenCalled();
+    });
+
+    it("says its old lines to a caller that asks for no progress", async () => {
+        await getAllStories(
+            { options: {} },
+            { spaceId: "123", sbApi: sbApiOf() as any },
+        );
+
+        const lines = loggerMock.success.mock.calls.map((call) =>
+            String(call[0]),
+        );
+
+        expect(lines).toContain("100 of 150 items fetched.");
+        expect(lines).toContain("Successfully pre-fetched 150 stories.");
+        expect(lines).toContain(
+            "Successfully fetched 150 stories with full content.",
+        );
+    });
+});
+
+describe("publishStoryLanguages: an optional quiet (MAR-3363)", () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+    });
+
+    const publish = (quiet?: boolean, get = vi.fn().mockResolvedValue({ data: { story: { id: 7, full_slug: "blog/a" } } })) =>
+        publishStoryLanguages(
+            {
+                storyId: 7,
+                story: { full_slug: "blog/a" },
+                languages: ["[default]"],
+                ...(quiet === undefined ? {} : { quiet }),
+            },
+            { spaceId: "123", sbApi: { get } },
+        );
+
+    it("says its two lines when the caller passes nothing", async () => {
+        await publish();
+
+        expect(loggerMock.log).toHaveBeenCalledTimes(1);
+        expect(loggerMock.success).toHaveBeenCalledTimes(1);
+    });
+
+    it("says nothing per story when the caller asks for quiet", async () => {
+        const result = await publish(true);
+
+        expect(result).toMatchObject({ ok: true, stage: "publish" });
+        expect(loggerMock.log).not.toHaveBeenCalled();
+        expect(loggerMock.success).not.toHaveBeenCalled();
+    });
+
+    it("still names a refused publish when quiet", async () => {
+        const result = await publish(
+            true,
+            vi.fn().mockRejectedValue({ status: 422, message: "Unprocessable" }),
+        );
+
+        expect(result).toMatchObject({ ok: false, status: 422 });
+        expect(loggerMock.error).toHaveBeenCalledTimes(1);
     });
 });

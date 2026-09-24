@@ -331,6 +331,10 @@ describe("copy stories dry-run", () => {
                 options: {
                     starts_with: "blog/",
                 },
+                // MAR-3363: the listing reports to the run's progress line
+                // and says nothing per page itself.
+                quiet: true,
+                onProgress: expect.any(Function),
             },
             expect.objectContaining({ spaceId: "source-space" }),
         );
@@ -1906,6 +1910,8 @@ describe("copy stories dry-run", () => {
                     slug: "published",
                 }),
                 languages: ["[default]"],
+                // MAR-3363: no per-story publish lines without --verbose.
+                quiet: true,
             },
             expect.objectContaining({ spaceId: "target-space" }),
         );
@@ -2100,6 +2106,8 @@ describe("copy stories dry-run", () => {
                     },
                 }),
                 languages: ["[default]"],
+                // MAR-3363: no per-story publish lines without --verbose.
+                quiet: true,
             },
             expect.objectContaining({ spaceId: "target-space" }),
         );
