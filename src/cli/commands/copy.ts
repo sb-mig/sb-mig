@@ -100,6 +100,15 @@ import {
     summarizeStoriesWillFail,
 } from "../../api/copy/index.js";
 import {
+    countLanguagePlans,
+    DIRTY_ANY_LANGUAGE_REASON,
+    formatLanguagePlanLine,
+    LANGUAGES_ALL_TOGETHER_LINE,
+    planStoryLanguages,
+    type LeftLanguage,
+    type StoryLanguagePlan,
+} from "../../api/copy/language-publication.js";
+import {
     resolveCopySpaceConcurrency,
     runCopySpace,
 } from "../../api/copy/space-apply.js";
@@ -147,7 +156,52 @@ type CopyPublicationOptions = {
     mode: PublicationMode;
     publishLanguages?: PublishLanguagesOption;
     resolvedPublishLanguages?: string[];
+    /**
+     * The languages a publish would take, for the PLAN — the resolved set on
+     * apply, the same set read from the target space on a dry-run (MAR-3076).
+     */
+    planningLanguages?: string[];
+    /** Does the space published INTO publish translations individually? */
+    translationsIndividually?: boolean;
+    /**
+     * Does the space the per-language STATE is read from publish them
+     * individually? The source for copy stories, the target for relink.
+     */
+    stateTranslationsIndividually?: boolean;
 };
+
+/**
+ * Whether a publish chooses languages one by one: only when both the space
+ * published into and the space the state comes from publish translations
+ * individually (MAR-3076). Otherwise every language goes together.
+ */
+const publishesPerLanguage = (publication: CopyPublicationOptions): boolean =>
+    publication.translationsIndividually === true &&
+    publication.stateTranslationsIndividually === true;
+
+/** What one story's publish takes, and what it leaves (MAR-3076). */
+const planPublishLanguages = ({
+    publication,
+    story,
+    layerPath,
+}: {
+    publication: CopyPublicationOptions;
+    story: any;
+    layerPath: boolean;
+}): StoryLanguagePlan =>
+    planStoryLanguages({
+        story,
+        languages:
+            publication.resolvedPublishLanguages ??
+            publication.planningLanguages ??
+            [],
+        layerPath,
+        perLanguage: publishesPerLanguage(publication),
+    });
+
+/** The report fields of one published story (MAR-3076 R4). */
+const languageReportFields = (plan: StoryLanguagePlan | undefined) =>
+    plan ? { publishedLanguages: plan.publish, leftLanguages: plan.left } : {};
 
 type CopySelection = {
     source: string;
@@ -166,6 +220,9 @@ type CopyPlanItem = {
     /** What the apply run did with this item. Absent on a dry-run. */
     outcome?: CopyItemOutcome;
     targetId?: number;
+    /** The languages a published story takes, and those it leaves (MAR-3076). */
+    publishedLanguages?: string[];
+    leftLanguages?: LeftLanguage[];
 };
 
 /**
@@ -195,6 +252,10 @@ type CopyOutcomeRecord = {
     targetId?: number;
     /** Why a story is listed for a person, when it is. */
     reason?: string;
+    /** The languages a published story went live in (MAR-3076). */
+    publishedLanguages?: string[];
+    /** The languages it left as they were, each with its state. */
+    leftLanguages?: LeftLanguage[];
 };
 
 /**
@@ -612,14 +673,59 @@ const parseCopyPublicationMode = (
     );
 };
 
+/** `GET spaces/:id`, for the language setting and codes; `undefined` if unread. */
+const readSpaceSettings = async (spaceId: string) => {
+    const response: any = await managementApi.spaces
+        .getSpace({ spaceId }, { ...apiConfig, spaceId })
+        .catch(() => undefined);
+
+    return response?.space as
+        | { use_translated_stories?: boolean; languages?: any[] }
+        | undefined;
+};
+
+/** The publish set a dry-run would resolve, from the space it already read. */
+const planningLanguagesFrom = (
+    publishLanguages: PublishLanguagesOption,
+    space: { languages?: any[] } | undefined,
+): string[] => {
+    if (publishLanguages === "default") {
+        return ["[default]"];
+    }
+
+    if (Array.isArray(publishLanguages)) {
+        return [
+            ...new Set(
+                publishLanguages.map((code) =>
+                    code === "default" ? "[default]" : code,
+                ),
+            ),
+        ];
+    }
+
+    const codes = (space?.languages ?? [])
+        .map((language: any) =>
+            typeof language === "string" ? language : language?.code,
+        )
+        .filter((code: any): code is string => Boolean(code));
+
+    return ["[default]", ...codes];
+};
+
 const resolveCopyPublicationOptions = async ({
     flags,
     targetSpace,
     dryRun,
+    stateSpace = targetSpace,
 }: {
     flags: Record<string, any>;
     targetSpace: string;
     dryRun: boolean;
+    /**
+     * The space whose stories carry the per-language state: the source for
+     * copy stories, the target (the default) for relink.
+     */
+    stateSpace?: string;
 }): Promise<CopyPublicationOptions> => {
     const mode = parseCopyPublicationMode(
         readStringFlag(flags, ["publicationMode", "publication-mode"]),
@@ -642,6 +748,13 @@ const resolveCopyPublicationOptions = async ({
     const publishLanguages = publicationLanguagesFlag
         ? parsePublishLanguagesOption(publicationLanguagesFlag)
         : "all";
+    // The one added read (MAR-3076 R5): does the target publish translations
+    // individually? The state space is read too when it is another space.
+    const targetSettings = await readSpaceSettings(targetSpace);
+    const stateSettings =
+        stateSpace === targetSpace
+            ? targetSettings
+            : await readSpaceSettings(stateSpace);
 
     return {
         mode,
@@ -652,7 +765,107 @@ const resolveCopyPublicationOptions = async ({
                   ...apiConfig,
                   spaceId: targetSpace,
               }),
+        planningLanguages: planningLanguagesFrom(
+            publishLanguages,
+            targetSettings,
+        ),
+        translationsIndividually:
+            targetSettings?.use_translated_stories === true,
+        stateTranslationsIndividually:
+            stateSettings?.use_translated_stories === true,
     };
+};
+
+/**
+ * For copy stories: the languages each planned source story would publish in,
+ * keyed by source full_slug (MAR-3076). A clean published story publishes its
+ * current content; a dirty one publishes its published layer under
+ * preserve-layers — the write decides again once that layer is read.
+ */
+const planCopyStoriesLanguages = ({
+    plan,
+    sourceStories,
+    publication,
+}: {
+    plan: CopyPlanItem[];
+    sourceStories: any[];
+    publication: CopyPublicationOptions;
+}): Map<string, StoryLanguagePlan> => {
+    const plans = new Map<string, StoryLanguagePlan>();
+
+    if (publication.mode === "save-only") {
+        return plans;
+    }
+
+    const sourceBySlug = new Map(
+        sourceStories
+            .map((item: any) => item?.story)
+            .filter(Boolean)
+            .map(
+                (story: any) => [String(story.full_slug ?? ""), story] as const,
+            ),
+    );
+
+    for (const item of plan) {
+        const story = sourceBySlug.get(item.sourceFullSlug);
+
+        if (item.type !== "story" || !story || story.is_folder === true) {
+            continue;
+        }
+
+        const state = resolveStoryLayerState(story);
+
+        if (state === "clean-published") {
+            plans.set(
+                item.sourceFullSlug,
+                planPublishLanguages({ publication, story, layerPath: false }),
+            );
+        } else if (state === "dirty-published") {
+            plans.set(
+                item.sourceFullSlug,
+                planPublishLanguages({
+                    publication,
+                    story,
+                    layerPath: publication.mode === "preserve-layers",
+                }),
+            );
+        }
+    }
+
+    return plans;
+};
+
+/**
+ * The run's `languages:` PLAN lines (MAR-3076 R1/R4): whether the target
+ * publishes translations one by one, and if it does, what the publishes take.
+ */
+const formatLanguagePlanLines = ({
+    publication,
+    plans,
+    sourceSpace,
+}: {
+    publication: CopyPublicationOptions;
+    plans: StoryLanguagePlan[];
+    /** copy stories only: warns when the source's per-language state is lost. */
+    sourceSpace?: string;
+}): string[] => {
+    if (publication.mode === "save-only") {
+        return [];
+    }
+
+    if (!publication.translationsIndividually) {
+        const lines = [`  ${LANGUAGES_ALL_TOGETHER_LINE}`];
+
+        if (sourceSpace && publication.stateTranslationsIndividually) {
+            lines.push(
+                `  languages: space ${sourceSpace} publishes translations individually and the target does not, so each translation's publish state cannot be reproduced; copy the setting first with copy space --only settings`,
+            );
+        }
+
+        return lines;
+    }
+
+    return [`  ${formatLanguagePlanLine(countLanguagePlans(plans))}`];
 };
 
 const normalizeDestination = (destination: string | undefined): string =>
@@ -2820,6 +3033,13 @@ const buildCopyStoriesApplyReport = ({
                   outcome: record.outcome,
                   ...(record.targetId !== undefined
                       ? { targetId: record.targetId }
+                      : {}),
+                  // What the publish really took, and what it left (MAR-3076).
+                  ...(record.publishedLanguages
+                      ? {
+                            publishedLanguages: record.publishedLanguages,
+                            leftLanguages: record.leftLanguages ?? [],
+                        }
                       : {}),
               }
             : item;
@@ -4990,6 +5210,7 @@ const publishCopiedStory = async ({
     publication,
     targetSpace,
     quiet,
+    languages: chosenLanguages,
 }: {
     storyId: number;
     story: any;
@@ -4997,8 +5218,13 @@ const publishCopiedStory = async ({
     targetSpace: string;
     /** No per-story publish lines: the run shows a progress line instead. */
     quiet?: boolean;
+    /**
+     * The languages this story publishes, when the space publishes
+     * translations individually (MAR-3076); the resolved set otherwise.
+     */
+    languages?: string[];
 }) => {
-    const languages = publication.resolvedPublishLanguages;
+    const languages = chosenLanguages ?? publication.resolvedPublishLanguages;
 
     if (!languages || languages.length === 0) {
         return { ok: true, stage: "publish_skipped" };
@@ -5079,6 +5305,8 @@ const rewriteCopiedStoryContents = async ({
     let updatedStories = 0;
     let rewrittenReferences = 0;
     const failures: CopyRunFailure[] = [];
+    // What each published story went live in, for its report item (MAR-3076).
+    const languagePlanBySourceId = new Map<number, StoryLanguagePlan>();
 
     const writeStoryMapping = async ({
         sourceStory,
@@ -5347,12 +5575,27 @@ const rewriteCopiedStoryContents = async ({
                         };
                     }
 
+                    // The content going live is the published layer, so a
+                    // translation with unpublished changes publishes its
+                    // live version here (MAR-3076 R3).
+                    const layerLanguages = planPublishLanguages({
+                        publication,
+                        story: sourceStory,
+                        layerPath: true,
+                    });
+
+                    languagePlanBySourceId.set(
+                        Number(sourceStory.id),
+                        layerLanguages,
+                    );
+
                     const publishResult = await publishCopiedStory({
                         quiet: output?.quiet,
                         storyId: id,
                         story: publishedLayer.payload,
                         publication,
                         targetSpace,
+                        languages: layerLanguages.publish,
                     });
 
                     if (!publishResult?.ok) {
@@ -5427,12 +5670,24 @@ const rewriteCopiedStoryContents = async ({
                     result?.ok &&
                     shouldPublishCopiedCurrentStory(publication, sourceStory)
                 ) {
+                    const currentLanguages = planPublishLanguages({
+                        publication,
+                        story: sourceStory,
+                        layerPath: false,
+                    });
+
+                    languagePlanBySourceId.set(
+                        Number(sourceStory.id),
+                        currentLanguages,
+                    );
+
                     const publishResult = await publishCopiedStory({
                         quiet: output?.quiet,
                         storyId: id,
                         story: current.payload,
                         publication,
                         targetSpace,
+                        languages: currentLanguages.publish,
                     });
 
                     if (!publishResult?.ok) {
@@ -5544,6 +5799,13 @@ const rewriteCopiedStoryContents = async ({
                                   ? "publish_skipped"
                                   : "updated",
                         targetId,
+                        ...languageReportFields(
+                            update.publish === "published"
+                                ? languagePlanBySourceId.get(
+                                      Number(sourceStory.id),
+                                  )
+                                : undefined,
+                        ),
                     });
                 }
             } catch (error) {
@@ -7292,6 +7554,8 @@ type RelinkPublicationCounts = {
 
 type RelinkPublicationPlan = {
     mode: PublicationMode;
+    /** Does the target publish translations individually? (MAR-3076) */
+    translationsIndividually?: boolean;
     /** Keyed by planned target full_slug, like the relink outcomes. */
     decisions: Map<string, RelinkPublicationDecision>;
     counts: RelinkPublicationCounts;
@@ -7342,7 +7606,13 @@ const planRelinkPublication = async ({
 
         counts.savedOnly = written.length;
 
-        return { mode: publication.mode, decisions, counts, listed };
+        return {
+            mode: publication.mode,
+            translationsIndividually: publication.translationsIndividually,
+            decisions,
+            counts,
+            listed,
+        };
     }
 
     const dirty = written.filter(
@@ -7420,7 +7690,13 @@ const planRelinkPublication = async ({
         });
     }
 
-    return { mode: publication.mode, decisions, counts, listed };
+    return {
+        mode: publication.mode,
+        translationsIndividually: publication.translationsIndividually,
+        decisions,
+        counts,
+        listed,
+    };
 };
 
 const RELINK_LISTED_PREVIEW = 20;
@@ -7443,7 +7719,15 @@ const formatRelinkPublicationPlan = (plan: RelinkPublicationPlan): string[] => {
     ];
 
     for (const item of plan.listed.slice(0, RELINK_LISTED_PREVIEW)) {
-        lines.push(`    listed: ${item.fullSlug} (${item.reason})`);
+        // With translations published one by one, the story-level flag also
+        // turns on for a translation's edit: say so rather than guess which.
+        const why =
+            plan.translationsIndividually &&
+            item.reason === "dirty_without_published_layer"
+                ? `${item.reason}: ${DIRTY_ANY_LANGUAGE_REASON}`
+                : item.reason;
+
+        lines.push(`    listed: ${item.fullSlug} (${why})`);
     }
 
     if (plan.listed.length > RELINK_LISTED_PREVIEW) {
@@ -7642,6 +7926,10 @@ const relinkTargetStories = async ({
         // space this write can come hours later. A story someone changed in
         // the meantime is not published — and not written at all: its new
         // content is not what this repair was planned on.
+        // The story as it is now: the re-read when relink publishes, whose
+        // `translated_stories` decide the languages (MAR-3076 R5).
+        let currentStory: any = record.targetStory;
+
         if (willPublish) {
             const reread = await managementApi.stories
                 .getStoryById(String(targetId), {
@@ -7669,10 +7957,13 @@ const relinkTargetStories = async ({
                 progress.tick({ name: targetLabel, outcome: "skipped" });
                 continue;
             }
+
+            currentStory = current;
         }
 
         let layerReferences = 0;
         let publishResult: any;
+        let languagePlan: StoryLanguagePlan | undefined;
 
         if (decision.treatment === "republish_from_history") {
             // The copy-stories order: the repaired PUBLISHED layer is saved
@@ -7686,8 +7977,16 @@ const relinkTargetStories = async ({
             }
 
             layerReferences = layer.rewrite.rewrittenReferences;
+            // The published layer goes live, so a translation with unpublished
+            // changes publishes its live version here (MAR-3076 R3).
+            languagePlan = planPublishLanguages({
+                publication,
+                story: currentStory,
+                layerPath: true,
+            });
             publishResult = await publishCopiedStory({
                 quiet: output?.quiet,
+                languages: languagePlan.publish,
                 storyId: targetId,
                 story: {
                     ...record.targetStory,
@@ -7719,8 +8018,14 @@ const relinkTargetStories = async ({
             }
 
             if (decision.treatment === "republish") {
+                languagePlan = planPublishLanguages({
+                    publication,
+                    story: currentStory,
+                    layerPath: false,
+                });
                 publishResult = await publishCopiedStory({
                     quiet: output?.quiet,
+                    languages: languagePlan.publish,
                     storyId: targetId,
                     story: {
                         ...record.targetStory,
@@ -7772,6 +8077,7 @@ const relinkTargetStories = async ({
             outcomes.set(fullSlug, {
                 outcome: published ? "published" : "publish_skipped",
                 targetId,
+                ...languageReportFields(published ? languagePlan : undefined),
             });
         } else {
             if (decision.treatment === "draft_only_listed" && decision.reason) {
@@ -7915,6 +8221,8 @@ const runCopyCommand = async (props: CLIOptions) => {
                 flags,
                 targetSpace,
                 dryRun,
+                // copy stories reads each language's state from the SOURCE.
+                stateSpace: sourceSpace,
             });
             const destinationParentId = await resolveDestinationParentId(
                 destination,
@@ -8095,6 +8403,21 @@ const runCopyCommand = async (props: CLIOptions) => {
                         plannedSourceStories,
                     });
 
+                const dryRunLanguagePlans = planCopyStoriesLanguages({
+                    plan,
+                    sourceStories,
+                    publication,
+                });
+
+                for (const item of plan) {
+                    Object.assign(
+                        item,
+                        languageReportFields(
+                            dryRunLanguagePlans.get(item.sourceFullSlug),
+                        ),
+                    );
+                }
+
                 Logger.warning("Building dry-run copy report.");
                 const report = buildCopyDryRunReport({
                     sourceSpace,
@@ -8124,6 +8447,12 @@ const runCopyCommand = async (props: CLIOptions) => {
                 ).forEach((line) => Logger.log(line));
 
                 await logDryRunCopyPlan({ report, translatedSlugs });
+
+                formatLanguagePlanLines({
+                    publication,
+                    plans: [...dryRunLanguagePlans.values()],
+                    sourceSpace,
+                }).forEach((line) => Logger.log(line));
 
                 if (outputPath) {
                     Logger.warning(
@@ -8204,6 +8533,17 @@ const runCopyCommand = async (props: CLIOptions) => {
             });
 
             formatCopyPlanGate(planGate).forEach((line) => Logger.log(line));
+            formatLanguagePlanLines({
+                publication,
+                plans: [
+                    ...planCopyStoriesLanguages({
+                        plan,
+                        sourceStories,
+                        publication,
+                    }).values(),
+                ],
+                sourceSpace,
+            }).forEach((line) => Logger.log(line));
 
             formatCopySelectionsLine(
                 plannedSelections,
@@ -8665,24 +9005,36 @@ const runCopyCommand = async (props: CLIOptions) => {
                 Logger.log(line),
             );
 
-            if (publication.mode !== "save-only") {
-                const targetSpaceData: any = await managementApi.spaces
-                    .getSpace(
-                        { spaceId: targetSpace },
-                        { ...apiConfig, spaceId: targetSpace },
-                    )
-                    .catch(() => undefined);
-                const extraLanguages = targetSpaceData?.space?.languages;
+            // Which languages each republish takes, from the target story as
+            // relink read it; the write re-reads and decides again (MAR-3076).
+            const relinkLanguagePlans = new Map<string, StoryLanguagePlan>();
+
+            for (const match of matches) {
+                const decision = publicationPlan.decisions.get(
+                    match.item.targetFullSlug,
+                );
 
                 if (
-                    Array.isArray(extraLanguages) &&
-                    extraLanguages.length > 0
+                    match.targetStory &&
+                    (decision?.treatment === "republish" ||
+                        decision?.treatment === "republish_from_history")
                 ) {
-                    Logger.log(
-                        `  publication languages: publishing uses --publicationLanguages (default all); per-language publish state is not reproduced yet (MAR-3076).`,
+                    relinkLanguagePlans.set(
+                        match.item.targetFullSlug,
+                        planPublishLanguages({
+                            publication,
+                            story: match.targetStory,
+                            layerPath:
+                                decision.treatment === "republish_from_history",
+                        }),
                     );
                 }
             }
+
+            formatLanguagePlanLines({
+                publication,
+                plans: [...relinkLanguagePlans.values()],
+            }).forEach((line) => Logger.log(line));
 
             formatCopySelectionsLine(
                 plannedSelections,
@@ -8708,6 +9060,11 @@ const runCopyCommand = async (props: CLIOptions) => {
                               ...(decision.reason
                                   ? { reason: decision.reason }
                                   : {}),
+                              // The planned languages; an apply replaces them
+                              // with what the publish really took.
+                              ...languageReportFields(
+                                  relinkLanguagePlans.get(item.targetFullSlug),
+                              ),
                           }
                         : item;
 
@@ -8720,6 +9077,14 @@ const runCopyCommand = async (props: CLIOptions) => {
                                   : {}),
                               ...(record.reason
                                   ? { reason: record.reason }
+                                  : {}),
+                              ...(record.publishedLanguages
+                                  ? {
+                                        publishedLanguages:
+                                            record.publishedLanguages,
+                                        leftLanguages:
+                                            record.leftLanguages ?? [],
+                                    }
                                   : {}),
                           }
                         : planned;

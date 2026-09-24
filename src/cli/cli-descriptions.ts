@@ -332,6 +332,7 @@ export const copyDescription = `
         publicationMode preserve-layers publishes clean published source stories; for dirty published source stories it copies the source published version, publishes it in target, then restores the source draft/current layer as save-only.
         publicationMode collapse-draft publishes published source stories from their current draft/current JSON.
         publicationMode save-only never publishes copied stories.
+        copy stories and copy relink publish each language as it was: when the target space publishes translations individually (the space setting use_translated_stories), a story goes live only in the languages that were live before — read from the source story for copy stories and from the target story for copy relink — and a translation that was only saved stays unpublished. A translation with unpublished changes is published only from its published version, never from its draft. When the target publishes all languages together, a published story goes live in every language, and the PLAN says so; copy space --only settings copies the setting.
         --publicationLanguages cannot be used with --publicationMode save-only.
         copy stories --with-assets scans selected stories with source component schemas and only copies referenced assets it can resolve from the source asset list.
         --dry-run checks likely target path conflicts and reports mapped/planned/unresolved story and asset references, with occurrence and unique-asset counts in JSON output.
