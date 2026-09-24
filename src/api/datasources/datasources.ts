@@ -22,10 +22,11 @@ export const getAllDatasources: GetAllDatasources = (config) => {
     Logger.log("Trying to get all Datasources.");
 
     return getAllItemsWithPagination({
-        // @ts-ignore
-        apiFn: ({ per_page, page }) => {
+        apiFn: ({ per_page, page }: { per_page: number; page: number }) => {
+            // The page is passed on: without it every page answers with the
+            // first 25 datasources again (MAR-3139).
             return sbApi
-                .get(`spaces/${spaceId}/datasources/`)
+                .get(`spaces/${spaceId}/datasources/`, { per_page, page })
                 .then((res) => {
                     if (res.total) {
                         Logger.log(`Amount of datasources: ${res.total}`);
@@ -33,16 +34,20 @@ export const getAllDatasources: GetAllDatasources = (config) => {
 
                     return res;
                 })
-                .catch((err) => {
-                    if (err.response.status === 404) {
+                .catch((err: any) => {
+                    if (err?.response?.status === 404) {
                         Logger.error(
                             `There is no datasources in your Storyblok ${spaceId} space.`,
                         );
-                        return true;
-                    } else {
-                        Logger.error(err);
-                        return false;
+                        return {
+                            data: { datasources: [] },
+                            total: 0,
+                            perPage: 100,
+                        };
                     }
+
+                    Logger.error(err);
+                    throw err;
                 });
         },
         params: {
