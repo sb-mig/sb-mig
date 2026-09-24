@@ -19,6 +19,8 @@ const mocks = vi.hoisted(() => ({
     getAssetById: vi.fn(),
     // MAR-3404: relink checks its asset mappings against one listing.
     getAllAssets: vi.fn(),
+    // MAR-3411: a startpage is adopted where it lives, through by_slugs.
+    getStoriesByFullSlugs: vi.fn(),
     createTree: vi.fn(),
     traverseAndCreate: vi.fn(),
     sbApiGet: vi.fn(),
@@ -44,6 +46,7 @@ vi.mock("../../src/api/managementApi.js", () => ({
             getStoryById: mocks.getStoryById,
             getStoryBySlug: mocks.getStoryBySlug,
             getAllStories: mocks.getAllStories,
+            getStoriesByFullSlugs: mocks.getStoriesByFullSlugs,
             createStory: mocks.createStory,
             updateStory: mocks.updateStory,
             getStoryVersions: mocks.getStoryVersions,
@@ -282,6 +285,7 @@ describe("copy relink", () => {
         mocks.updateStory.mockResolvedValue({ ok: true });
         mocks.getAssetById.mockResolvedValue(undefined);
         mocks.getAllAssets.mockResolvedValue({ assets: [] });
+        mocks.getStoriesByFullSlugs.mockResolvedValue([]);
         mocks.getStoryVersions.mockResolvedValue({ story_versions: [] });
         mocks.publishStoryLanguages.mockResolvedValue({
             ok: true,
@@ -583,6 +587,193 @@ describe("copy relink", () => {
         expect(mocks.updateStory).not.toHaveBeenCalled();
 
         await rm(tempDir, { recursive: true, force: true });
+    });
+
+    describe("folder startpages are adopted where they live (MAR-3411)", () => {
+        /** The folder's landing page: its `full_slug` is `blog/`. */
+        const sourceStartpage = {
+            id: 3,
+            name: "Blog home",
+            slug: "blog",
+            full_slug: "blog/",
+            is_folder: false,
+            is_startpage: true,
+            parent_id: 1,
+            uuid: "source-start-uuid",
+            content: { component: "page" },
+        };
+        /** The duplicate's copy of it, at `imported/blog/`. */
+        const targetStartpage = () => ({
+            id: 1003,
+            name: "Blog home",
+            slug: "blog",
+            full_slug: "imported/blog/",
+            is_folder: false,
+            is_startpage: true,
+            uuid: "target-start-uuid",
+            published: false,
+            content: brokenTargetContent(),
+        });
+
+        const setUpStartpage = ({
+            postLinksToStartpage = false,
+        }: { postLinksToStartpage?: boolean } = {}) => {
+            const post = postLinksToStartpage
+                ? {
+                      ...sourcePost,
+                      content: {
+                          component: "page",
+                          cta: {
+                              linktype: "story",
+                              id: 3,
+                              uuid: "source-start-uuid",
+                          },
+                      },
+                  }
+                : sourcePost;
+
+            mocks.getAllStories.mockResolvedValue([
+                { story: sourceStartpage },
+                { story: post },
+            ]);
+            mocks.createTree.mockImplementation((stories: any[]) => [
+                {
+                    id: stories[0].id,
+                    story: stories[0],
+                    children: stories.slice(1).map((story: any) => ({
+                        id: story.id,
+                        story,
+                        children: [],
+                    })),
+                },
+            ]);
+            // What the fix must not rely on: `with_slug` never resolves a
+            // startpage, at its planned name or at its folder path.
+            mocks.getStoriesByFullSlugs.mockImplementation(
+                async (slugs: string[]) =>
+                    slugs.includes("imported/blog/")
+                        ? [{ ...targetStartpage(), content: undefined }]
+                        : [],
+            );
+            mocks.getStoryById.mockImplementation(async (id: string) =>
+                String(id) === "1003"
+                    ? { story: targetStartpage() }
+                    : undefined,
+            );
+        };
+
+        // R1 canary. Mutation that must turn it red: look the startpage up
+        // by its planned name (`imported/blog/blog`) through getStoryBySlug.
+        it("adopts the startpage at its folder path and repairs it", async () => {
+            const tempDir = await mkdtemp(
+                path.join(tmpdir(), "sb-mig-relink-"),
+            );
+            const manifestRoot = path.join(tempDir, ".sb-mig");
+            const reportPath = path.join(tempDir, "relink.json");
+
+            setUpStartpage();
+
+            await copyCommand(
+                relinkFlags({
+                    manifestRoot,
+                    dryRun: true,
+                    outputPath: reportPath,
+                }) as any,
+            );
+
+            const report = JSON.parse(await readFile(reportPath, "utf8"));
+            const matchOf = (sourceFullSlug: string) =>
+                report.items.find(
+                    (item: any) => item.sourceFullSlug === sourceFullSlug,
+                )?.match;
+
+            expect(matchOf("blog/")).toBe("adopted");
+            expect(matchOf("blog/post-1")).toBe("adopted");
+            expect(
+                report.items.filter((item: any) => item.match === "missing"),
+            ).toEqual([]);
+            expect(mocks.getStoriesByFullSlugs).toHaveBeenCalledWith(
+                ["imported/blog/"],
+                expect.objectContaining({ spaceId: "target-space" }),
+            );
+
+            // The apply writes the repair into the `imported/blog/` story.
+            await copyCommand(relinkFlags({ manifestRoot, yes: true }) as any);
+
+            expect(
+                mocks.updateStory.mock.calls.map((call) => Number(call[1])),
+            ).toContain(1003);
+
+            await rm(tempDir, { recursive: true, force: true });
+        });
+
+        // R2: once the startpage is adopted, a link to it is not breaking.
+        it("does not count a link to the adopted startpage as breaking", async () => {
+            const tempDir = await mkdtemp(
+                path.join(tmpdir(), "sb-mig-relink-"),
+            );
+            const manifestRoot = path.join(tempDir, ".sb-mig");
+            const reportPath = path.join(tempDir, "relink.json");
+
+            setUpStartpage({ postLinksToStartpage: true });
+
+            await copyCommand(
+                relinkFlags({
+                    manifestRoot,
+                    dryRun: true,
+                    outputPath: reportPath,
+                }) as any,
+            );
+
+            expect(
+                planLines().some((line) => line.includes("WILL BREAK")),
+            ).toBe(false);
+            const report = JSON.parse(await readFile(reportPath, "utf8"));
+
+            expect(report.plan.references.willBreak).toBe(0);
+            expect(report.plan.references.breaking).toEqual([]);
+
+            await rm(tempDir, { recursive: true, force: true });
+        });
+
+        // R3 canary (command level). Mutation that must turn it red: catch
+        // the lookup's rejection in relink and answer "missing".
+        it("stops on a by-path lookup that fails, and never calls the startpage missing", async () => {
+            const tempDir = await mkdtemp(
+                path.join(tmpdir(), "sb-mig-relink-"),
+            );
+            const manifestRoot = path.join(tempDir, ".sb-mig");
+            const reportPath = path.join(tempDir, "relink.json");
+
+            setUpStartpage();
+            mocks.getStoriesByFullSlugs.mockRejectedValue(
+                new Error(
+                    "Could not look up stories by full_slug (imported/blog/) in space 'target-space': connect ECONNREFUSED 127.0.0.1:59999 (after 3 attempts).",
+                ),
+            );
+
+            await expect(
+                copyCommand(
+                    relinkFlags({
+                        manifestRoot,
+                        dryRun: true,
+                        outputPath: reportPath,
+                    }) as any,
+                ),
+            ).rejects.toThrow(
+                "Could not look up stories by full_slug (imported/blog/)",
+            );
+
+            expect(
+                planLines().some((line) =>
+                    line.includes("missing from target"),
+                ),
+            ).toBe(false);
+            await expect(readFile(reportPath, "utf8")).rejects.toThrow();
+            expect(mocks.updateStory).not.toHaveBeenCalled();
+
+            await rm(tempDir, { recursive: true, force: true });
+        });
     });
 
     // MAR-3060 lap 2 F1 canary (relink, outside the selection). Mutation that

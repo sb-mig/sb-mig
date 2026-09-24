@@ -7257,6 +7257,46 @@ type CopyRelinkMatchRecord = {
  * still-valid ledger mapping first, then by target path. Read-only — adopted
  * mappings are recorded only once the operator has confirmed the plan.
  */
+/**
+ * The target startpage of a planned startpage, read in full. The plan names a
+ * startpage by its own slug under its folder (`about/about`), but it lives at
+ * the folder's path (`about/`), which only `by_slugs` resolves. The listing
+ * stub is accepted only when it sits at the planned place, then read by id
+ * for the content relink rewrites. A failed lookup throws (MAR-3411): it is
+ * never read as "not in the target".
+ */
+const findRelinkStartpageAtFolder = async ({
+    plannedFullSlug,
+    targetSpace,
+}: {
+    plannedFullSlug: string;
+    targetSpace: string;
+}): Promise<any | undefined> => {
+    const planned = normaliseFullSlug(plannedFullSlug);
+    const folder = parentFullSlugOf(planned);
+
+    if (!folder) {
+        return undefined;
+    }
+
+    const config = { ...apiConfig, spaceId: targetSpace };
+    const candidates = await managementApi.stories.getStoriesByFullSlugs(
+        [`${folder}/`],
+        config,
+    );
+    const found = (candidates ?? []).find(
+        (story: any) =>
+            story?.id &&
+            story.is_startpage === true &&
+            story.is_folder !== true &&
+            isStoryAtPlannedPath(story, planned),
+    );
+
+    return found
+        ? managementApi.stories.getStoryById(String(found.id), config)
+        : undefined;
+};
+
 const matchRelinkTargets = async ({
     plan,
     sourceStories,
@@ -7314,14 +7354,22 @@ const matchRelinkTargets = async ({
             }
 
             if (!targetStory) {
+                // A folder startpage lives at `folder/`, which `with_slug`
+                // cannot resolve, while the plan names it `folder/<slug>`
+                // (MAR-3411): look it up where it lives, through `by_slugs`.
                 const existingTargetStory =
-                    await managementApi.stories.getStoryBySlug(
-                        item.targetFullSlug,
-                        {
-                            ...apiConfig,
-                            spaceId: targetSpace,
-                        },
-                    );
+                    sourceStory?.is_startpage === true
+                        ? await findRelinkStartpageAtFolder({
+                              plannedFullSlug: item.targetFullSlug,
+                              targetSpace,
+                          })
+                        : await managementApi.stories.getStoryBySlug(
+                              item.targetFullSlug,
+                              {
+                                  ...apiConfig,
+                                  spaceId: targetSpace,
+                              },
+                          );
 
                 if (existingTargetStory?.story?.id) {
                     targetStory = existingTargetStory.story;

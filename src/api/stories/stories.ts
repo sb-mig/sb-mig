@@ -707,8 +707,8 @@ export const createStory: CreateStory = (content, config, options) => {
  * Stories whose exact `full_slug` is one of `fullSlugs`, read with `by_slugs`.
  * Unlike `with_slug`, `by_slugs` matches a startpage's `folder/` path, so this
  * is the lookup to use when a story must be found where it actually lives.
- * Returns an empty list when the read fails; the caller decides what a miss
- * means.
+ * Returns an empty list when nothing is found (or on a 404); a failed read is
+ * retried when transient and otherwise thrown, never answered as "none".
  */
 export const getStoriesByFullSlugs = async (
     fullSlugs: string[],
@@ -720,19 +720,38 @@ export const getStoriesByFullSlugs = async (
         return [];
     }
 
-    return sbApi
-        .get(`spaces/${spaceId}/stories/`, {
-            per_page: 100,
-            // @ts-ignore
-            by_slugs: fullSlugs.join(","),
-        })
+    // A failed lookup is never "no such stories" (MAR-3411): a transient
+    // failure is tried again, anything else reaches the caller. Only a 404
+    // answers as nothing found.
+    return withRetry(
+        () =>
+            sbApi.get(`spaces/${spaceId}/stories/`, {
+                per_page: 100,
+                // @ts-ignore
+                by_slugs: fullSlugs.join(","),
+            }),
+        {
+            step: "look up stories by full_slug",
+            subject: `space ${spaceId}`,
+            onRetry: (line) => Logger.warning(line),
+        },
+    )
         .then((res: any) => res?.data?.stories ?? [])
         .catch((err: any) => {
-            Logger.error(
-                `Could not look up stories by full_slug in space '${spaceId}' (status ${resolveStoryblokErrorStatus(err) ?? "unknown"}).`,
-            );
+            const status = resolveStoryblokErrorStatus(err);
 
-            return [];
+            if (status === 404) {
+                return [];
+            }
+
+            const attempts = retryAttemptsOf(err);
+
+            throw Object.assign(
+                new Error(
+                    `Could not look up stories by full_slug (${fullSlugs.join(", ")}) in space '${spaceId}': ${status ? `status ${status}` : describeRetryReason(err)}${attempts && attempts > 1 ? ` (after ${attempts} attempts)` : ""}.`,
+                ),
+                { cause: err },
+            );
         });
 };
 
