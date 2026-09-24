@@ -23,6 +23,12 @@ import chalk from "chalk";
 import { mapWithConcurrency } from "../../utils/async-utils.js";
 import Logger from "../../utils/logger.js";
 import { notNullish } from "../../utils/object-utils.js";
+import {
+    describeRetryReason,
+    isTransientError,
+    retryAttemptsOf,
+    withRetry,
+} from "../../utils/retry.js";
 import { getAllItemsWithPagination } from "../utils/request.js";
 
 const resolveStoryLabel = (
@@ -335,6 +341,35 @@ const resolveStoryblokErrorStatus = (err: any): number | undefined =>
     err?.message?.status ??
     err?.message?.response?.status;
 
+/**
+ * storyblok-js-client does not reject a network failure with the fetch error
+ * itself: it resolves `{ message: <the error> }` internally and then rejects
+ * that wrapper, which has no status (measured: a refused connection arrives
+ * as `{ message: TypeError("fetch failed", { cause: { code: "ECONNREFUSED" } }) }`).
+ * Unwrapped, the socket code is visible to the retry decision and the line.
+ */
+const unwrapClientNetworkError = (err: any): any =>
+    err &&
+    typeof err === "object" &&
+    err.message instanceof Error &&
+    resolveStoryblokErrorStatus(err) === undefined
+        ? err.message
+        : err;
+
+/**
+ * A read worth trying again: the transient classes of MAR-3355, plus Node's
+ * `fetch failed`, which undici only throws for a network-level failure.
+ */
+const isRetryableRead = (err: any): boolean =>
+    isTransientError(err) || err?.message === "fetch failed";
+
+const readThroughClient =
+    <T>(request: () => Promise<T>) =>
+    (): Promise<T> =>
+        request().catch((err: any) => {
+            throw unwrapClientNetworkError(err);
+        });
+
 const resolveStoryblokErrorResponse = (err: any): string | undefined => {
     if (typeof err?.response === "string" && err.response.trim().length > 0) {
         return err.response.trim();
@@ -509,42 +544,77 @@ export const getAllStories: GetAllStories = async (args, config) => {
         },
     );
 
-    return allStories;
+    // A failed read has already thrown (MAR-3405), so what is left undefined
+    // here is a 404: a story the listing named and Storyblok no longer has,
+    // deleted while the content was read. It is gone, not failed; it is said
+    // out loud and left out, never handed on as a hole in the list.
+    const gone = allStoriesWithoutContent.filter(
+        (_story: any, index: number) => !allStories[index],
+    );
+
+    if (gone.length > 0) {
+        Logger.warning(
+            `${gone.length} listed story/stories no longer exist in space '${spaceId}' (404 when read): ${gone
+                .map((story: any) => story.full_slug ?? `#${story.id}`)
+                .join(", ")}. They are left out.`,
+        );
+    }
+
+    return allStories.filter(Boolean);
 };
 
 // GET
-export const getStoryById: GetStoryById = (storyId, config) => {
+export const getStoryById: GetStoryById = async (storyId, config) => {
     const { spaceId, sbApi, debug } = config;
     if (debug) {
         console.log(
             `Trying to get Story with id: ${storyId} from space: ${spaceId}, to fill content field.`,
         );
     }
-    return sbApi
-        .get(`spaces/${spaceId}/stories/${storyId}`)
-        .then((res: any) => {
-            if (debug) {
-                Logger.success(
-                    `Successfuly fetched story with content, with id: ${storyId} from space: ${spaceId}.`,
-                );
-            }
 
-            return res.data;
-        })
-        .catch((err: any) => {
-            const status = resolveStoryblokErrorStatus(err);
-            const responseMessage = resolveStoryblokErrorResponse(err);
-            const statusLabel = status ? `status ${status}` : "unknown status";
-            const responseLabel = responseMessage
-                ? ` Response: ${responseMessage}`
-                : "";
+    try {
+        // A dropped connection or a 5xx is tried again; only Storyblok's
+        // own 404 means the story is not there (MAR-3405).
+        const res: any = await withRetry(
+            readThroughClient(() =>
+                sbApi.get(`spaces/${spaceId}/stories/${storyId}`),
+            ),
+            {
+                step: `read story ${storyId}`,
+                subject: `space ${spaceId}`,
+                onRetry: (line) => Logger.warning(line),
+                isRetryable: isRetryableRead,
+            },
+        );
 
-            Logger.error(
-                `Failed to fetch story '${storyId}' with full content from space '${spaceId}' (${statusLabel}).${responseLabel}`,
+        if (debug) {
+            Logger.success(
+                `Successfuly fetched story with content, with id: ${storyId} from space: ${spaceId}.`,
             );
+        }
 
+        return res.data;
+    } catch (err: any) {
+        const status = resolveStoryblokErrorStatus(err);
+        const responseMessage = resolveStoryblokErrorResponse(err);
+        const statusLabel = status
+            ? `status ${status}`
+            : describeRetryReason(err);
+        const responseLabel = responseMessage
+            ? ` Response: ${responseMessage}`
+            : "";
+        const attempts = retryAttemptsOf(err);
+        const message = `Failed to fetch story '${storyId}' with full content from space '${spaceId}' (${statusLabel}).${responseLabel}${attempts && attempts > 1 ? ` (after ${attempts} attempts)` : ""}`;
+
+        if (status === 404) {
+            Logger.error(message);
             return undefined;
-        });
+        }
+
+        // Anything else is not "missing": answering undefined here made a
+        // network blip look like a deleted story to every caller.
+        throw Object.assign(new Error(message), { cause: err });
+    }
 };
 
 /**
@@ -556,14 +626,23 @@ export const getStoryById: GetStoryById = (storyId, config) => {
  */
 export const getStoryBySlug: GetStoryBySlug = async (slug, config) => {
     const { spaceId, sbApi } = config;
-    const storiesWithoutContent: any = await sbApi
-        .get(`spaces/${spaceId}/stories/`, {
-            per_page: 100,
-            // @ts-ignore
-            with_slug: slug,
-        })
-        .then((res: any) => res.data.stories)
-        .catch((err: any) => console.error(err));
+    // The listing's error reaches the caller (MAR-3405): swallowing it into
+    // `undefined` crashed the `.map` below with a TypeError.
+    const storiesWithoutContent: any = await withRetry(
+        readThroughClient(() =>
+            sbApi.get(`spaces/${spaceId}/stories/`, {
+                per_page: 100,
+                // @ts-ignore
+                with_slug: slug,
+            }),
+        ),
+        {
+            step: `find story ${slug}`,
+            subject: `space ${spaceId}`,
+            onRetry: (line) => Logger.warning(line),
+            isRetryable: isRetryableRead,
+        },
+    ).then((res: any) => res.data.stories);
 
     const storiesWithContent = await Promise.all(
         storiesWithoutContent.map(
