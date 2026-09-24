@@ -1,3 +1,10 @@
+# [6.5.0-beta.20](https://github.com/sb-mig/sb-mig/compare/v6.5.0-beta.19...v6.5.0-beta.20) (2026-09-24)
+
+
+### Bug Fixes
+
+* **stories:** only a 404 means a story is missing — a failed read is retried, then stops the run (relink never skips a repair on a network error) ([4783606](https://github.com/sb-mig/sb-mig/commit/4783606f383691371c2a211cc67ab0e718fcfdaf))
+
 # [6.5.0-beta.19](https://github.com/sb-mig/sb-mig/compare/v6.5.0-beta.18...v6.5.0-beta.19) (2026-09-24)
 
 
