@@ -1,3 +1,10 @@
+# [6.5.0-beta.21](https://github.com/sb-mig/sb-mig/compare/v6.5.0-beta.20...v6.5.0-beta.21) (2026-09-24)
+
+
+### Bug Fixes
+
+* **retry:** recognise storyblok-js-client's wrapped network error, so listing, signed-URL and finish retries really retry a network drop ([5fa1f8e](https://github.com/sb-mig/sb-mig/commit/5fa1f8e98a1a4b53305d65e81d18d553dfb913bc))
+
 # [6.5.0-beta.20](https://github.com/sb-mig/sb-mig/compare/v6.5.0-beta.19...v6.5.0-beta.20) (2026-09-24)
 
 
