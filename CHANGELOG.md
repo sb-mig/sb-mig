@@ -1,3 +1,10 @@
+# [6.5.0-beta.22](https://github.com/sb-mig/sb-mig/compare/v6.5.0-beta.21...v6.5.0-beta.22) (2026-09-24)
+
+
+### Bug Fixes
+
+* **copy:** relink adopts folder startpages at their folder path — and a failed by-path lookup stops the run instead of reading as missing ([658236e](https://github.com/sb-mig/sb-mig/commit/658236e76094aedd0a047518ee9789034885c353))
+
 # [6.5.0-beta.21](https://github.com/sb-mig/sb-mig/compare/v6.5.0-beta.20...v6.5.0-beta.21) (2026-09-24)
 
 
