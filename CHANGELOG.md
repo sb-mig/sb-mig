@@ -1,3 +1,10 @@
+# [6.5.0-beta.18](https://github.com/sb-mig/sb-mig/compare/v6.5.0-beta.17...v6.5.0-beta.18) (2026-09-24)
+
+
+### Bug Fixes
+
+* **api:** a listing returns every item or throws — no partial list from a failed or shifted page ([66fd1b0](https://github.com/sb-mig/sb-mig/commit/66fd1b01d785a34e2c1fcb4256cb5a80846a831e))
+
 # [6.5.0-beta.17](https://github.com/sb-mig/sb-mig/compare/v6.5.0-beta.16...v6.5.0-beta.17) (2026-09-24)
 
 
