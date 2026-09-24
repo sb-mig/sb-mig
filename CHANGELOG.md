@@ -1,3 +1,10 @@
+# [6.5.0-beta.17](https://github.com/sb-mig/sb-mig/compare/v6.5.0-beta.16...v6.5.0-beta.17) (2026-09-24)
+
+
+### Features
+
+* **copy:** copy stories and copy relink keep each language's publish state — unpublished translations stay unpublished (MAR-3076) ([e78611d](https://github.com/sb-mig/sb-mig/commit/e78611dd1f17ec3f984626663af80e95e0c5e045))
+
 # [6.5.0-beta.16](https://github.com/sb-mig/sb-mig/compare/v6.5.0-beta.15...v6.5.0-beta.16) (2026-09-24)
 
 
