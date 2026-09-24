@@ -1582,7 +1582,12 @@ describe("copy stories dry-run", () => {
             },
         } as any);
 
-        expect(mocks.getSpace).not.toHaveBeenCalled();
+        // MAR-3076: the only space reads are the publish setting of the two
+        // spaces (the target publishes, the source holds each language's
+        // state); nothing asks for languages to place translated slugs.
+        expect(
+            mocks.getSpace.mock.calls.map((call: any[]) => call[0].spaceId),
+        ).toEqual(["target-space", "source-space"]);
         expect(
             planGateLines().some((line) => line.includes("translated slug")),
         ).toBe(false);
@@ -1919,6 +1924,131 @@ describe("copy stories dry-run", () => {
         await rm(tempDir, { recursive: true, force: true });
     });
 
+
+    describe("each language keeps its publish state (MAR-3076)", () => {
+        /** The clean published source story, and the settings of both spaces. */
+        const copyPublishedStory = async ({
+            sourcePerLanguage,
+            targetPerLanguage,
+            publicationLanguages = "default,de,pl",
+        }: {
+            sourcePerLanguage: boolean;
+            targetPerLanguage: boolean;
+            publicationLanguages?: string;
+        }) => {
+            const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-copy-"));
+
+            mocks.getSpace.mockImplementation(({ spaceId }: any) =>
+                Promise.resolve({
+                    space: {
+                        use_translated_stories:
+                            spaceId === "source-space"
+                                ? sourcePerLanguage
+                                : targetPerLanguage,
+                        languages: [{ code: "de" }, { code: "pl" }],
+                    },
+                }),
+            );
+            mocks.getStoryBySlug.mockImplementation((slug: string) => {
+                if (slug === "imported") {
+                    return Promise.resolve({
+                        story: {
+                            id: 900,
+                            name: "Imported",
+                            slug: "imported",
+                            full_slug: "imported",
+                            is_folder: true,
+                            uuid: "target-imported-uuid",
+                        },
+                    });
+                }
+
+                if (slug === "published") {
+                    return Promise.resolve({
+                        story: {
+                            id: 4,
+                            name: "Published Story",
+                            slug: "published",
+                            full_slug: "published",
+                            is_folder: false,
+                            parent_id: 0,
+                            uuid: "source-published-uuid",
+                            published: true,
+                            unpublished_changes: false,
+                            // The SOURCE story's own state: de is live, pl was
+                            // only ever saved.
+                            translated_stories: [
+                                { lang: "de", unpublished_changes: false },
+                            ],
+                            content: {
+                                component: "page",
+                                headline: "Published content",
+                            },
+                        },
+                    });
+                }
+
+                return Promise.resolve(undefined);
+            });
+            mocks.createTree.mockImplementationOnce((stories: any[]) => [
+                { id: stories[0].id, story: stories[0], children: [] },
+            ]);
+            mocks.createStory.mockResolvedValueOnce({
+                story: {
+                    id: 1004,
+                    uuid: "target-published-uuid",
+                    full_slug: "imported/published",
+                },
+            });
+
+            await copyCommand({
+                input: ["copy", "stories"],
+                flags: {
+                    from: "source-space",
+                    to: "target-space",
+                    source: "published",
+                    destination: "imported",
+                    publicationLanguages,
+                    manifestRoot: path.join(tempDir, ".sb-mig"),
+                    yes: true,
+                },
+            } as any);
+
+            await rm(tempDir, { recursive: true, force: true });
+        };
+        const publishedLanguages = () =>
+            mocks.publishStoryLanguages.mock.calls.map(
+                (call: any[]) => call[0].languages,
+            );
+        const languageLines = () =>
+            planGateLines().filter((line) => line.startsWith("  languages: "));
+
+        it("publishes the languages the SOURCE story had live, and no others", async () => {
+            await copyPublishedStory({
+                sourcePerLanguage: true,
+                targetPerLanguage: true,
+            });
+
+            expect(publishedLanguages()).toEqual([["[default]", "de"]]);
+            expect(languageLines()).toEqual([
+                "  languages: 0 stories publish in all their live languages; 1 stories keep 1 unpublished translation(s) unpublished; 0 translation(s) with unpublished changes left as they are",
+            ]);
+        });
+
+        it("warns when the source publishes translations one by one and the target cannot", async () => {
+            await copyPublishedStory({
+                sourcePerLanguage: true,
+                targetPerLanguage: false,
+            });
+
+            // The target publishes every language together: nothing to choose.
+            expect(publishedLanguages()).toEqual([["[default]", "de", "pl"]]);
+            expect(languageLines()).toEqual([
+                "  languages: this space publishes all languages together (use_translated_stories off) — a published story goes live in every language",
+                "  languages: space source-space publishes translations individually and the target does not, so each translation's publish state cannot be reproduced; copy the setting first with copy space --only settings",
+            ]);
+        });
+    });
     it("keeps published copied stories as drafts in save-only publication mode", async () => {
         const tempDir = await mkdtemp(path.join(tmpdir(), "sb-mig-copy-"));
         const manifestRoot = path.join(tempDir, ".sb-mig");
