@@ -1,3 +1,10 @@
+# [6.5.0-beta.16](https://github.com/sb-mig/sb-mig/compare/v6.5.0-beta.15...v6.5.0-beta.16) (2026-09-24)
+
+
+### Features
+
+* **copy:** progress while stories are listed, read and matched (MAR-3356 follow-up) ([ff0e1ae](https://github.com/sb-mig/sb-mig/commit/ff0e1ae407184422212020ef85d011c7b1fdcfd0))
+
 # [6.5.0-beta.15](https://github.com/sb-mig/sb-mig/compare/v6.5.0-beta.14...v6.5.0-beta.15) (2026-09-23)
 
 
