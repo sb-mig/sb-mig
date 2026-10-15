@@ -620,18 +620,19 @@ sb-mig debug
 `sb-mig debug` shows the resolved config, config file paths, sb-mig and Node
 versions, dependency versions, and package module type without calling Storyblok.
 Use `sb-mig debug --json` for a single JSON report. Both formats mask values under
-keys containing `token`, `secret`, `key`, or `password`, plus `auth` word segments
-(including `authorization` and `authentication`, but excluding `author`). Values
+keys matching `/token|secret|key|password|auth(?!or(?!iz))/i` (including `oauth`,
+`proxyauth`, and `authorization`, but excluding `author`). Values
 appear as `••••abcd` (only the last four characters; values with four characters
 or fewer are fully masked). Known secret strings longer than four characters,
-their URL-encoded copies, URL userinfo, and sensitive URL query values are also
-masked, including nested config and embedded copies. Ordinary booleans and
-numbers are never masked by value.
+their URL-encoded and JSON-escaped copies, URL userinfo, and sensitive URL query
+and fragment values are also masked, including nested config and embedded copies.
+Ordinary booleans and numbers are never masked by value.
 
 The report shows the loaded config file (or `null` when using defaults), searched
 config paths, and `.env` and project `package.json` paths with `envExists` and
-`packageJsonExists` flags. `configError` reports masked config-loading errors,
-including syntax errors, or `null` when none occurred. Config resolution uses
+`packageJsonExists` flags. `configError` reports only the error name and config
+line:column when available, or `null` when none occurred. Error messages and source
+code are omitted to protect credentials in invalid config. Config resolution uses
 defaults when `package.json` is absent; this applies to normal commands too.
 
 # Releasing

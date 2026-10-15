@@ -18,6 +18,11 @@ const secrets = {
     password: "A8v2D5h7J9k3Yq64",
     encoded: "B9w3/E6+j8@K2m4Zr75",
     proxy: "FakeProxyPass55",
+    unquoted: "Wd7Hp2Kx9Mq4Rz6Nv8Ta5B",
+    oauth: "C4x6N8p2H5j7Vs93",
+    atPassword: "Ab@Cd7Ef9Gh2Jk4Lm6No8P",
+    fragment: "D5y7P9q3J6k8Wt24",
+    jsonSecret: 'E6z8Q2r4"K7m9\\Xu35',
 };
 let project: string;
 const run = (json: boolean, env: NodeJS.ProcessEnv = {}) => {
@@ -34,6 +39,8 @@ const run = (json: boolean, env: NodeJS.ProcessEnv = {}) => {
                 OPENAI_API_KEY: secrets.OPENAI_API_KEY,
                 OTHER_PASSWORD: secrets.OTHER_PASSWORD,
                 ENCODED_SECRET: secrets.encoded,
+                STORYBLOK_OAUTH: secrets.oauth,
+                JSON_SECRET: secrets.jsonSecret,
                 CLAUDE_CODE_SDK_HAS_HOST_AUTH_REFRESH: "1",
                 TOKENIZERS_PARALLELISM: "false",
                 ...env,
@@ -46,6 +53,7 @@ const run = (json: boolean, env: NodeJS.ProcessEnv = {}) => {
     for (const secret of Object.values(secrets).flatMap((secret) => [
         secret,
         encodeURIComponent(secret),
+        JSON.stringify(secret).slice(1, -1),
     ])) {
         for (let i = 0; i <= secret.length - 5; i++) {
             expect(result.stdout + result.stderr).not.toContain(
@@ -207,7 +215,7 @@ it("reports syntax errors instead of silently showing defaults", () => {
     );
     const report = JSON.parse(run(true));
     expect(report.paths.storyblokConfig).toBeNull();
-    expect(report.configError).toContain("storyblok.config.mjs: SyntaxError:");
+    expect(report.configError).toBe("SyntaxError");
 });
 
 it.each([false, true])("masks config loading errors (json=%s)", (json) => {
@@ -221,15 +229,74 @@ it.each([false, true])("masks config loading errors (json=%s)", (json) => {
         "export default { rateLimit: 7 };",
     );
     const output = run(json);
-    expect(output).toContain(
-        "Error: https://••••Xp53:••••Yq64@example.test/?access_token=••••Wk42",
-    );
+    expect(output).not.toContain("example.test");
+    expect(output).not.toContain("ENCODED_SECRET");
     if (json) {
         const report = JSON.parse(output);
         expect(report.paths.storyblokConfig).toBe(
             path.join(project, "storyblok.config.mjs"),
         );
         expect(report.config.rateLimit).toBe(7);
-        expect(report.configError).toContain("storyblok.config.js:");
+        expect(report.configError).toMatch(/^Error at 1:\d+$/);
     }
 });
+
+it.each([false, true])(
+    "masks OAuth, URL fragments, raw @ passwords and JSON-escaped copies (json=%s)",
+    (json) => {
+        writeFileSync(
+            path.join(project, "storyblok.config.mjs"),
+            `export default {
+        oauth: process.env.STORYBLOK_OAUTH,
+        alias: process.env.STORYBLOK_OAUTH,
+        githubOauth: '${secrets.config}',
+        proxyauth: '${secrets.config}',
+        author: 'Marcin',
+        credentialsUrl: 'https://svc:${secrets.atPassword}@example.test/path',
+        fragmentUrl: 'https://example.test/#access_token=${secrets.fragment};page=2',
+        jsonCopy: JSON.stringify({ value: process.env.JSON_SECRET })
+    };`,
+        );
+        const output = run(json);
+        expect(output).toContain("https://••••:••••No8P@example.test/path");
+        expect(output).toContain("#access_token=••••Wt24;page=2");
+        expect(output).toContain("••••Vs93");
+        expect(output).toContain("••••Xu35");
+        if (json) {
+            const report = JSON.parse(output);
+            expect(report.config.author).toBe("Marcin");
+            expect(report.config.jsonCopy).toBe('{"value":"••••Xu35"}');
+        }
+    },
+);
+
+it.each([false, true])(
+    "never copies an unquoted credential from config errors (json=%s)",
+    (json) => {
+        writeFileSync(
+            path.join(project, "storyblok.config.mjs"),
+            `export default {\n    pasted: ${secrets.unquoted},\n};`,
+        );
+        const output = run(json);
+        expect(output).not.toContain("is not defined");
+        if (json)
+            expect(JSON.parse(output).configError).toMatch(
+                /^ReferenceError at 2:\d+$/,
+            );
+        else expect(output).toMatch(/configError: 'ReferenceError at 2:\d+'/);
+    },
+);
+
+it.each([false, true])(
+    "never copies an unexpected token from .js config syntax errors (json=%s)",
+    (json) => {
+        writeFileSync(
+            path.join(project, "storyblok.config.js"),
+            `export default { pasted: 0 ${secrets.unquoted} };`,
+        );
+        const output = run(json);
+        expect(output).not.toContain("Unexpected");
+        if (json) expect(JSON.parse(output).configError).toBe("SyntaxError");
+        else expect(output).toContain("configError: 'SyntaxError'");
+    },
+);

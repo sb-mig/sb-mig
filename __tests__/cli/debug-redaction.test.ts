@@ -94,7 +94,7 @@ it("does not treat short flags or ordinary booleans and numbers as credentials",
     });
 });
 
-it("matches auth segments and authorization without masking author metadata", () => {
+it("matches auth keys and authorization without masking author metadata", () => {
     expect(
         redactDebugSecrets(
             {
@@ -161,4 +161,61 @@ it("masks encoded known secrets, including lowercase percent escapes and form en
         form: "value=••••s@55",
         embedded: "Bearer ••••s@55",
     });
+});
+
+it("masks OAuth keys and STORYBLOK_OAUTH copies while preserving author", () => {
+    expect(
+        redactDebugSecrets(
+            {
+                oauth: "oauth-credential-1234",
+                githubOauth: "github-credential-5678",
+                proxyauth: "proxy-credential-9876",
+                alias: "env-credential-4321",
+                author: "Marcin",
+                metadataSelection: { author: true },
+                authorization: "header-credential-8765",
+            },
+            { STORYBLOK_OAUTH: "env-credential-4321" },
+        ),
+    ).toEqual({
+        oauth: "••••1234",
+        githubOauth: "••••5678",
+        proxyauth: "••••9876",
+        alias: "••••4321",
+        author: "Marcin",
+        metadataSelection: { author: true },
+        authorization: "••••8765",
+    });
+});
+
+it("masks userinfo greedily through the last @", () => {
+    expect(
+        redactDebugSecrets(
+            { url: "https://svc:Ab@Cd7Ef9Gh2Jk4Lm6No8P@example.test/path" },
+            {},
+        ),
+    ).toEqual({ url: "https://••••:••••No8P@example.test/path" });
+});
+
+it("masks fragment and semicolon parameter values", () => {
+    expect(
+        redactDebugSecrets(
+            {
+                url: "https://example.test/#access_token=unknownCredential1234;oauth=otherCredential5678&author=Marcin",
+            },
+            {},
+        ),
+    ).toEqual({
+        url: "https://example.test/#access_token=••••1234;oauth=••••5678&author=Marcin",
+    });
+});
+
+it("masks JSON-escaped known secrets in embedded JSON strings", () => {
+    const secret = 'json-credential"with\\escapes-1234';
+    expect(
+        redactDebugSecrets(
+            { jsonCopy: JSON.stringify({ value: secret }) },
+            { API_SECRET: secret },
+        ),
+    ).toEqual({ jsonCopy: '{"value":"••••1234"}' });
 });

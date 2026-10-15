@@ -6,6 +6,39 @@ import Logger from "../utils/logger.js";
 const toImportSpecifier = (filePath: string): string =>
     process.platform === "win32" ? pathToFileURL(filePath).href : filePath;
 
+// Error messages can contain source code, including credentials that never loaded.
+// Keep only a standard error name and the config frame's numeric position.
+const configErrorSummary = (error: unknown, filePath: string): string => {
+    const names = [
+        "Error",
+        "EvalError",
+        "RangeError",
+        "ReferenceError",
+        "SyntaxError",
+        "TypeError",
+        "URIError",
+        "AggregateError",
+    ];
+    const name =
+        error instanceof Error && names.includes(error.name)
+            ? error.name
+            : "Error";
+    const frame =
+        error instanceof Error
+            ? error.stack
+                  ?.split("\n")
+                  .slice(1)
+                  .find(
+                      (line) =>
+                          line.trimStart().startsWith("at ") &&
+                          (line.includes(`${pathToFileURL(filePath).href}:`) ||
+                              line.includes(`${filePath}:`)),
+                  )
+            : undefined;
+    const position = frame?.match(/:(\d+):(\d+)\)?$/);
+    return `${name}${position ? ` at ${position[1]}:${position[2]}` : ""}`;
+};
+
 export { defaultConfig } from "./defaultConfig.js";
 export { SCHEMA } from "./constants.js";
 
@@ -28,7 +61,7 @@ export const getStoryblokConfigWithPath = (data: {
         })
         .catch((error) => {
             const configError = existsSync(`${data.filePath}${data.ext}`)
-                ? `${data.filePath}${data.ext}: ${String(error)}`
+                ? configErrorSummary(error, `${data.filePath}${data.ext}`)
                 : null;
             if (!data.quiet) {
                 Logger.warning(
@@ -51,7 +84,10 @@ export const getStoryblokConfigWithPath = (data: {
                     const errors = [configError];
                     if (existsSync(`${data.filePath}.mjs`)) {
                         errors.push(
-                            `${data.filePath}.mjs: ${String(fallbackError)}`,
+                            configErrorSummary(
+                                fallbackError,
+                                `${data.filePath}.mjs`,
+                            ),
                         );
                     }
                     if (!data.quiet) {

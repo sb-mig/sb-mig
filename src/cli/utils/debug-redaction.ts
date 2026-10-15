@@ -1,14 +1,5 @@
-const isSecretKey = (key: string) => {
-    const segments = key
-        .replace(/([A-Z]+)([A-Z][a-z])/g, "$1_$2")
-        .replace(/([a-z0-9])([A-Z])/g, "$1_$2");
-    return (
-        /token|secret|key|password/i.test(key) ||
-        /(?:^|[^a-z0-9])auth(?:entication|orization)?(?:$|[^a-z0-9])/i.test(
-            segments,
-        )
-    );
-};
+const isSecretKey = (key: string) =>
+    /token|secret|key|password|auth(?!or(?!iz))/i.test(key);
 const mask = (value: string) =>
     `••••${value.length > 4 ? value.slice(-4) : ""}`;
 const decode = (value: string) => {
@@ -52,6 +43,7 @@ export const redactDebugSecrets = (
     for (const secret of secrets) {
         for (const encoded of [
             secret,
+            JSON.stringify(secret).slice(1, -1),
             encodeURIComponent(secret),
             encodeURI(secret),
             new URLSearchParams({ value: secret }).toString().slice(6),
@@ -76,7 +68,7 @@ export const redactDebugSecrets = (
     const scrub = (text: string) => {
         const urlsMasked = text
             .replace(
-                /(\b[a-z][a-z\d+.-]*:\/\/)([^\s/@?#]+)@/gi,
+                /(\b[a-z][a-z\d+.-]*:\/\/)([^\s/?#]+)@/gi,
                 (_match, scheme: string, userinfo: string) =>
                     `${scheme}${userinfo
                         .split(":")
@@ -84,7 +76,7 @@ export const redactDebugSecrets = (
                         .join(":")}@`,
             )
             .replace(
-                /([?&]([^=&#\s]+)=)([^&#\s]*)/g,
+                /([?&#;]([^=&#;\s]+)=)([^&#;\s]*)/g,
                 (_match, prefix: string, key: string, entry: string) =>
                     `${prefix}${isSecretKey(decode(key)) ? mask(decode(entry)) : entry}`,
             );
