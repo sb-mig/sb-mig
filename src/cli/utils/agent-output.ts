@@ -109,24 +109,32 @@ export const buildSyncReport = ({
     errors?: SyncError[];
 }): SyncReport => {
     const allErrors = [...results.flatMap((r) => r.errors), ...errors];
-    const failed = (scope: string) =>
-        new Set(
-            allErrors
-                .filter((error) => error.scope === scope)
-                .map((error) => error.name),
+
+    // An item failed when its own write failed, or a write that belongs to
+    // it did: a component's preset, a datasource's entry (`name/child`).
+    const failedNames = (scope: string, childScope: string) => {
+        const own = new Set(
+            allErrors.filter((e) => e.scope === scope).map((e) => e.name),
         );
-    const failedComponents = failed("component");
-    const failedDatasources = failed("datasource");
+        const parents = new Set(
+            allErrors
+                .filter((e) => e.scope === childScope)
+                .map((e) => String(e.name).split("/")[0]),
+        );
+        return new Set([...own, ...parents]);
+    };
+    const failedComponents = failedNames("component", "preset");
+    const failedDatasources = failedNames("datasource", "datasource-entry");
 
     const withStatus = <T extends { name: string }>(
         plan: T,
-        failedNames: Set<string>,
+        failed: Set<string | undefined>,
     ) =>
         dryRun
             ? plan
             : {
                   ...plan,
-                  status: failedNames.has(plan.name) ? "failed" : "written",
+                  status: failed.has(plan.name) ? "failed" : "written",
               };
 
     const report: SyncReport = {
@@ -172,11 +180,14 @@ const printSummary = (report: CommandReport): void => {
 /**
  * Run a command that produces a report, and finish it honestly: an error
  * anywhere sets exit code 1, and the report is the JSON document or, for a
- * person, a summary after the logs. `empty` is the report to fill in when
- * the command throws before it has one.
+ * person, a summary after the logs.
+ *
+ * `partial` builds the report from whatever the command has done so far.
+ * When the command throws, that report is the one printed, with the error
+ * added: a failure after writes must never hide the writes.
  */
 export const reportCommand = async <T extends CommandReport>(
-    { json, empty }: { json: boolean; empty: T },
+    { json, partial }: { json: boolean; partial: () => T },
     run: () => Promise<T>,
 ): Promise<T> => {
     let report: T;
@@ -184,9 +195,13 @@ export const reportCommand = async <T extends CommandReport>(
     try {
         report = await run();
     } catch (error) {
+        const sofar = partial();
         report = {
-            ...empty,
-            errors: [{ scope: "command", message: messageOf(error) }],
+            ...sofar,
+            errors: [
+                ...sofar.errors,
+                { scope: "command", message: messageOf(error) },
+            ],
         };
     }
 
@@ -210,19 +225,32 @@ export const reportCommand = async <T extends CommandReport>(
  * did not load, say. Writes nothing if a document is already out.
  */
 export const failJsonCommand = ({
-    command,
+    report,
     error,
-    extra = {},
 }: {
-    command: string;
+    report: CommandReport;
     error: unknown;
-    extra?: Record<string, unknown>;
 }): void => {
     process.exitCode = 1;
     writeJsonDocument({
+        ...report,
         ok: false,
-        command,
-        ...extra,
-        errors: [{ scope: "command", message: messageOf(error) }],
+        errors: [
+            ...report.errors,
+            { scope: "command", message: messageOf(error) },
+        ],
     });
+};
+
+/**
+ * Before a question in a command an agent may run: without a terminal on
+ * stdin the read would wait forever on a pipe nobody writes to, and under
+ * `--json` a program is reading, not a person. Fails with the flags to pass.
+ */
+export const assertCanPrompt = (question: string): void => {
+    if (process.stdin.isTTY === true && !isJsonMode()) return;
+
+    throw new Error(
+        `Confirmation needed, but there is no interactive terminal to ask: "${question}" Re-run with --yes to confirm, or with --dry-run to only preview.`,
+    );
 };

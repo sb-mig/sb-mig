@@ -19,8 +19,9 @@ import {
 import { askForConfirmation } from "../helpers.js";
 import { syncAllRoles, syncProvidedRoles } from "../roles/sync.js";
 import {
+    assertCanPrompt,
     buildSyncReport,
-    emptySyncReport,
+    messageOf,
     reportCommand,
 } from "../utils/agent-output.js";
 import {
@@ -86,114 +87,120 @@ export const sync = async (props: CLIOptions) => {
     }
 
     switch (command) {
-        case SYNC_COMMANDS.components:
+        case SYNC_COMMANDS.components: {
             Logger.warning(`sync components... with command: ${command}`);
 
-            await reportCommand(
-                {
-                    json,
-                    empty: emptySyncReport("sync components", dryRun),
-                },
-                async () => {
-                    const results: SyncResult[] = [];
-                    const errors: SyncError[] = [];
-                    const presets = Boolean(flags["presets"]);
+            // Filled as the steps run, so a step that throws late still
+            // leaves a report of what was written before it.
+            const results: SyncResult[] = [];
+            const errors: SyncError[] = [];
+            const report = () =>
+                buildSyncReport({
+                    command: "sync components",
+                    dryRun,
+                    results,
+                    errors,
+                });
+            const presets = Boolean(flags["presets"]);
+            // The CLI never syncs against a listing it could not read.
+            const options = { dryRun, strict: true };
 
-                    if (isIt("all")) {
-                        Logger.log(
-                            `Syncing ALL components with ${storyblokConfig.schemaFileExt} extension...`,
+            /** Runs after real writes: a failure here is reported, never thrown. */
+            const setDefaultPresets = async (componentsToSync?: string[]) => {
+                if (dryRun) return;
+
+                try {
+                    errors.push(
+                        ...(await setComponentDefaultPreset({
+                            presets,
+                            componentsToSync,
+                            apiConfig,
+                        })),
+                    );
+                } catch (error) {
+                    errors.push({
+                        scope: "default-preset",
+                        name: "(all components)",
+                        message: messageOf(error),
+                    });
+                }
+            };
+
+            await reportCommand({ json, partial: report }, async () => {
+                if (isIt("all")) {
+                    Logger.log(
+                        `Syncing ALL components with ${storyblokConfig.schemaFileExt} extension...`,
+                    );
+
+                    results.push(
+                        await syncAllComponents(presets, apiConfig, options),
+                    );
+                    await setDefaultPresets();
+                } else if (isIt("empty")) {
+                    const componentsToSync = unpackElements(input);
+
+                    if (componentsToSync.length === 0) {
+                        throw new Error(
+                            "Nothing to sync: name the components (sb-mig sync components hero card) or pass --all.",
                         );
-
-                        results.push(
-                            await syncAllComponents(presets, apiConfig, {
-                                dryRun,
-                            }),
-                        );
-
-                        if (!dryRun) {
-                            errors.push(
-                                ...(await setComponentDefaultPreset({
-                                    presets,
-                                    apiConfig,
-                                })),
-                            );
-                        }
-                    } else if (isIt("empty")) {
-                        const componentsToSync = unpackElements(input);
-
-                        if (componentsToSync.length === 0) {
-                            throw new Error(
-                                "Nothing to sync: name the components (sb-mig sync components hero card) or pass --all.",
-                            );
-                        }
-
-                        Logger.warning("Synchronizing PROVIDED components...");
-
-                        results.push(
-                            await syncProvidedComponents(
-                                presets,
-                                componentsToSync,
-                                flags.packageName,
-                                apiConfig,
-                                { dryRun },
-                            ),
-                        );
-
-                        if (!dryRun) {
-                            errors.push(
-                                ...(await setComponentDefaultPreset({
-                                    presets,
-                                    componentsToSync,
-                                    apiConfig,
-                                })),
-                            );
-                        }
-                    } else if (isIt("allWithSSOT")) {
-                        Logger.warning(
-                            "Synchronizing ALL components as Single Source of Truth...",
-                        );
-
-                        if (dryRun) {
-                            results.push(
-                                await syncAllComponents(presets, apiConfig, {
-                                    dryRun,
-                                    ssot: true,
-                                }),
-                            );
-                        } else {
-                            await askForConfirmation(
-                                "Are you sure you want to use Single Source of truth? It will remove all your components added in GUI and replace them 1 to 1 with code versions.",
-                                async () => {
-                                    results.push(
-                                        await syncAllComponents(
-                                            presets,
-                                            apiConfig,
-                                            { ssot: true },
-                                        ),
-                                    );
-                                },
-                                () => {
-                                    Logger.success(
-                                        "Syncing components aborted.",
-                                    );
-                                },
-                                flags["yes"],
-                            );
-                        }
-                    } else {
-                        throw unsupportedFlags("components", flags);
                     }
 
-                    return buildSyncReport({
-                        command: "sync components",
-                        dryRun,
-                        results,
-                        errors,
-                    });
-                },
-            );
+                    Logger.warning("Synchronizing PROVIDED components...");
+
+                    results.push(
+                        await syncProvidedComponents(
+                            presets,
+                            componentsToSync,
+                            flags.packageName,
+                            apiConfig,
+                            options,
+                        ),
+                    );
+                    await setDefaultPresets(componentsToSync);
+                } else if (isIt("allWithSSOT")) {
+                    Logger.warning(
+                        "Synchronizing ALL components as Single Source of Truth...",
+                    );
+
+                    if (dryRun) {
+                        results.push(
+                            await syncAllComponents(presets, apiConfig, {
+                                ...options,
+                                ssot: true,
+                            }),
+                        );
+                    } else {
+                        const question =
+                            "Are you sure you want to use Single Source of truth? It will remove all your components added in GUI and replace them 1 to 1 with code versions.";
+
+                        if (!flags["yes"]) assertCanPrompt(question);
+
+                        await askForConfirmation(
+                            question,
+                            async () => {
+                                results.push(
+                                    await syncAllComponents(
+                                        presets,
+                                        apiConfig,
+                                        { ...options, ssot: true },
+                                    ),
+                                );
+                            },
+                            () => {
+                                Logger.success("Syncing components aborted.");
+                            },
+                            flags["yes"],
+                        );
+                    }
+                } else {
+                    throw unsupportedFlags("components", flags);
+                }
+
+                return report();
+            });
 
             break;
+        }
         case SYNC_COMMANDS.roles:
             if (isIt("all")) {
                 Logger.log("Syncing all roles...");
@@ -211,52 +218,49 @@ export const sync = async (props: CLIOptions) => {
                 );
             }
             break;
-        case SYNC_COMMANDS.datasources:
-            await reportCommand(
-                {
-                    json,
-                    empty: emptySyncReport("sync datasources", dryRun),
-                },
-                async () => {
-                    const results: SyncResult[] = [];
+        case SYNC_COMMANDS.datasources: {
+            const results: SyncResult[] = [];
+            const report = () =>
+                buildSyncReport({
+                    command: "sync datasources",
+                    dryRun,
+                    results,
+                });
 
-                    if (isIt("all")) {
-                        Logger.log(
-                            `${dryRun ? "[dry-run] " : ""}Syncing all datasources with extension...`,
-                        );
-                        results.push(
-                            await syncAllDatasources(apiConfig, { dryRun }),
-                        );
-                    } else if (isIt("empty")) {
-                        const datasourcesToSync = unpackElements(input);
+            await reportCommand({ json, partial: report }, async () => {
+                if (isIt("all")) {
+                    Logger.log(
+                        `${dryRun ? "[dry-run] " : ""}Syncing all datasources with extension...`,
+                    );
+                    results.push(
+                        await syncAllDatasources(apiConfig, { dryRun }),
+                    );
+                } else if (isIt("empty")) {
+                    const datasourcesToSync = unpackElements(input);
 
-                        if (datasourcesToSync.length === 0) {
-                            throw new Error(
-                                "Nothing to sync: name the datasources (sb-mig sync datasources colors) or pass --all.",
-                            );
-                        }
-
-                        Logger.log(
-                            `${dryRun ? "[dry-run] " : ""}Syncing provided datasources with extension...`,
+                    if (datasourcesToSync.length === 0) {
+                        throw new Error(
+                            "Nothing to sync: name the datasources (sb-mig sync datasources colors) or pass --all.",
                         );
-                        results.push(
-                            await syncProvidedDatasources(
-                                { datasources: datasourcesToSync, dryRun },
-                                apiConfig,
-                            ),
-                        );
-                    } else {
-                        throw unsupportedFlags("datasources", flags);
                     }
 
-                    return buildSyncReport({
-                        command: "sync datasources",
-                        dryRun,
-                        results,
-                    });
-                },
-            );
+                    Logger.log(
+                        `${dryRun ? "[dry-run] " : ""}Syncing provided datasources with extension...`,
+                    );
+                    results.push(
+                        await syncProvidedDatasources(
+                            { datasources: datasourcesToSync, dryRun },
+                            apiConfig,
+                        ),
+                    );
+                } else {
+                    throw unsupportedFlags("datasources", flags);
+                }
+
+                return report();
+            });
             break;
+        }
         case SYNC_COMMANDS.content:
             Logger.log(`Syncing content with command: ${command}`);
 

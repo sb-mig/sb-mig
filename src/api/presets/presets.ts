@@ -76,22 +76,37 @@ export const createPreset = (p: any, config: RequestBaseConfig) => {
         } as any)
         .then((res: any) => {
             Logger.warning(`Preset: '${p.preset.name}' has been created.`);
-            return {
-                ok: true,
-                name: p.preset.name,
-                data: res,
-            };
+            return res;
+        })
+        .catch((e) => {
+            console.log("!!!!!!!!!!");
+            console.log(e);
+            Logger.error(
+                `Error happened. Preset: '${p.preset.name}' has been not created.`,
+            );
+        });
+};
+
+/**
+ * createPreset for the component sync: a failed create rejects with the
+ * API's error, so the sync can report it. createPreset keeps its public
+ * contract (log, resolve undefined).
+ */
+export const createPresetOrThrow = (p: any, config: RequestBaseConfig) => {
+    const { spaceId, sbApi } = config;
+    return sbApi
+        .post(`spaces/${spaceId}/presets/`, {
+            preset: p.preset,
+        } as any)
+        .then((res: any) => {
+            Logger.warning(`Preset: '${p.preset.name}' has been created.`);
+            return res;
         })
         .catch((error) => {
             Logger.error(
-                `Error happened. Preset: '${p.preset.name}' has been not created. ${error?.message ?? ""}`,
+                `Error happened. Preset: '${p.preset.name}' has been not created.`,
             );
-
-            return {
-                ok: false,
-                name: p.preset.name,
-                error,
-            };
+            throw error;
         });
 };
 

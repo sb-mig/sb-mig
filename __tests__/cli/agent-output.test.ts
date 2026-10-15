@@ -188,6 +188,50 @@ describe("sync components --json", () => {
         expect(mockApiConfig.sbApi.post).toHaveBeenCalledTimes(1);
     });
 
+    it("keeps the written components in the report when a later step fails", async () => {
+        let componentReads = 0;
+        mockApiConfig.sbApi.get.mockImplementation((path: string) => {
+            if (path.includes("component_groups")) {
+                return Promise.resolve(
+                    createPaginatedResponse([], "component_groups"),
+                );
+            }
+            // The second listing is the default-preset step, after the writes.
+            return ++componentReads === 1
+                ? Promise.resolve(
+                      createPaginatedResponse(
+                          [
+                              { id: 1, name: "hero", schema: {} },
+                              { id: 2, name: "card", schema: {} },
+                          ],
+                          "components",
+                      ),
+                  )
+                : Promise.reject(new Error("listing is down"));
+        });
+        const sync = await loadSync();
+
+        await sync({
+            input: ["sync", "components"],
+            flags: { all: true, presets: true, json: true },
+        } as any);
+
+        const [report] = jsonDocuments();
+        expect(process.exitCode).toBe(1);
+        expect(report.components.map((c: any) => [c.name, c.status])).toEqual([
+            ["hero", "written"],
+            ["card", "written"],
+            ["promo", "written"],
+        ]);
+        expect(report.errors).toEqual([
+            {
+                scope: "default-preset",
+                name: "(all components)",
+                message: expect.stringContaining("listing is down"),
+            },
+        ]);
+    });
+
     it("turns a flag combination nothing handles into an error, not a quiet success", async () => {
         const sync = await loadSync();
 
@@ -233,35 +277,41 @@ describe("prompts without a terminal", () => {
         });
     });
 
-    it("refuses to ask and names the flag to pass", async () => {
+    it("refuses to ask without a terminal, and names the flag to pass", async () => {
         Object.defineProperty(process.stdin, "isTTY", {
             value: undefined,
             configurable: true,
         });
         vi.resetModules();
-        const { askForConfirmation } = await import("../../src/cli/helpers.js");
-        const yes = vi.fn();
-        const no = vi.fn();
+        const { assertCanPrompt } =
+            await import("../../src/cli/utils/agent-output.js");
 
-        await expect(
-            askForConfirmation("Delete everything?", yes, no, undefined),
-        ).rejects.toThrow(/no interactive terminal.*--yes.*--dry-run/);
-        expect(yes).not.toHaveBeenCalled();
-        expect(no).not.toHaveBeenCalled();
+        expect(() => assertCanPrompt("Delete everything?")).toThrow(
+            /no interactive terminal.*--yes.*--dry-run/,
+        );
     });
 
-    it("still goes ahead with --yes", async () => {
+    it("lets a terminal answer", async () => {
         Object.defineProperty(process.stdin, "isTTY", {
-            value: undefined,
+            value: true,
             configurable: true,
         });
         vi.resetModules();
-        const { askForConfirmation } = await import("../../src/cli/helpers.js");
-        const yes = vi.fn();
+        const { assertCanPrompt } =
+            await import("../../src/cli/utils/agent-output.js");
 
-        await askForConfirmation("Delete everything?", yes, vi.fn(), true);
+        expect(() => assertCanPrompt("Delete everything?")).not.toThrow();
+    });
 
-        expect(yes).toHaveBeenCalledTimes(1);
+    it("leaves the shared prompt alone: other commands still take piped answers", async () => {
+        const helpers = await import("node:fs").then((fs) =>
+            fs.readFileSync("src/cli/helpers.ts", "utf8"),
+        );
+
+        // migrate, revert and sync content confirm through askForConfirmation;
+        // `echo y | sb-mig ...` must keep working there (MAR-4104 review).
+        expect(helpers).not.toContain("isTTY");
+        expect(helpers).not.toContain("assertCanPrompt");
     });
 
     it("fails sync components --ssot with exit code 1 instead of waiting", async () => {
@@ -287,5 +337,85 @@ describe("prompts without a terminal", () => {
         expect(mockApiConfig.sbApi.delete).not.toHaveBeenCalled();
         vi.restoreAllMocks();
         process.exitCode = undefined;
+    });
+});
+
+describe("report shape", () => {
+    it("gives an early failure the full shape", async () => {
+        vi.resetModules();
+        const { emptySyncReport, failJsonCommand } =
+            await import("../../src/cli/utils/agent-output.js");
+        const written: string[] = [];
+        vi.spyOn(process.stdout, "write").mockImplementation((chunk: any) => {
+            written.push(String(chunk));
+            return true;
+        });
+
+        failJsonCommand({
+            report: emptySyncReport("sync components", true),
+            error: new Error("config is broken"),
+        });
+
+        const report = JSON.parse(written.join(""));
+        expect(Object.keys(report).sort()).toEqual(REPORT_KEYS);
+        expect(report).toMatchObject({
+            ok: false,
+            dryRun: true,
+            components: [],
+            errors: [{ scope: "command", message: "config is broken" }],
+        });
+        vi.restoreAllMocks();
+        process.exitCode = undefined;
+    });
+
+    it("marks a datasource with a failed entry, and a component with a failed preset, as failed", async () => {
+        const { buildSyncReport } =
+            await import("../../src/cli/utils/agent-output.js");
+        const plan = (name: string) => ({ name, action: "update" });
+
+        const report = buildSyncReport({
+            command: "sync",
+            dryRun: false,
+            results: [
+                {
+                    created: [],
+                    updated: ["hero", "card"],
+                    skipped: [],
+                    errors: [
+                        { scope: "preset", name: "hero/Default", message: "x" },
+                    ],
+                    plan: {
+                        components: [plan("hero"), plan("card")] as any,
+                    },
+                },
+                {
+                    created: [],
+                    updated: ["colors", "sizes"],
+                    skipped: [],
+                    errors: [
+                        {
+                            scope: "datasource-entry",
+                            name: "colors/red",
+                            message: "x",
+                        },
+                    ],
+                    plan: {
+                        datasources: [plan("colors"), plan("sizes")] as any,
+                    },
+                },
+            ],
+        });
+
+        expect(
+            [...report.components, ...report.datasources].map((item: any) => [
+                item.name,
+                item.status,
+            ]),
+        ).toEqual([
+            ["hero", "failed"],
+            ["card", "written"],
+            ["colors", "failed"],
+            ["sizes", "written"],
+        ]);
     });
 });

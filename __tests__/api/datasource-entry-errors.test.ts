@@ -20,7 +20,6 @@ vi.mock("../../src/utils/logger.js", () => ({
     },
 }));
 
-// Each write logs its failure and rethrows it: the sync counts it (MAR-4104).
 describe("datasource API error logging", () => {
     beforeEach(() => {
         vi.clearAllMocks();
@@ -39,23 +38,21 @@ describe("datasource API error logging", () => {
             },
         });
 
-        await expect(
-            createDatasourceEntry(
-                {
-                    data: {
-                        datasource: {
-                            id: 123,
-                            name: "colors-theme-dark",
-                        },
-                    },
-                    datasourceEntry: {
-                        name: "color-brand-primary",
-                        value: "#006BD6",
+        await createDatasourceEntry(
+            {
+                data: {
+                    datasource: {
+                        id: 123,
+                        name: "colors-theme-dark",
                     },
                 },
-                config,
-            ),
-        ).rejects.toBeDefined();
+                datasourceEntry: {
+                    name: "color-brand-primary",
+                    value: "#006BD6",
+                },
+            },
+            config,
+        );
 
         expect(Logger.error).toHaveBeenCalledWith(
             expect.stringContaining(
@@ -86,19 +83,17 @@ describe("datasource API error logging", () => {
             },
         });
 
-        await expect(
-            createDatasource(
-                {
-                    datasource: {
-                        name: "colors-theme-dark",
-                        slug: "colors-theme-dark",
-                        dimensions: [],
-                        datasource_entries: [],
-                    },
+        await createDatasource(
+            {
+                datasource: {
+                    name: "colors-theme-dark",
+                    slug: "colors-theme-dark",
+                    dimensions: [],
+                    datasource_entries: [],
                 },
-                config,
-            ),
-        ).rejects.toBeDefined();
+            },
+            config,
+        );
 
         expect(Logger.error).toHaveBeenCalledWith(
             expect.stringContaining(
@@ -117,22 +112,20 @@ describe("datasource API error logging", () => {
         const config = createMockApiConfig();
         config.sbApi.put.mockRejectedValue(new Error("Network unavailable"));
 
-        await expect(
-            updateDatasource(
-                {
-                    datasource: {
-                        name: "colors-theme-dark",
-                        slug: "colors-theme-dark",
-                        dimensions: [],
-                    },
-                    datasourceToBeUpdated: {
-                        id: 123,
-                        dimensions: [],
-                    },
+        await updateDatasource(
+            {
+                datasource: {
+                    name: "colors-theme-dark",
+                    slug: "colors-theme-dark",
+                    dimensions: [],
                 },
-                config,
-            ),
-        ).rejects.toThrow("Network unavailable");
+                datasourceToBeUpdated: {
+                    id: 123,
+                    dimensions: [],
+                },
+            },
+            config,
+        );
 
         expect(Logger.error).toHaveBeenCalledWith(
             expect.stringContaining(

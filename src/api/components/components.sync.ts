@@ -1,3 +1,4 @@
+import type { PresetFailure } from "../presets/resolvePresets.js";
 import type {
     SyncOptions,
     SyncProgressCallback,
@@ -45,17 +46,18 @@ const defaultProgress: SyncProgressCallback = (event) => {
 };
 
 import {
-    createComponent,
-    createComponentsGroup,
+    createComponentForSync,
+    createComponentsGroupForSync,
     getAllComponents,
     getAllComponentsGroups,
     removeComponent,
     removeComponentGroup,
-    updateComponent,
+    updateComponentForSync,
 } from "./components.js";
 
 type RemovalTarget = {
     type: "component" | "component group";
+    item: any;
     name: string;
     remove: () => Promise<any>;
 };
@@ -70,19 +72,19 @@ function getErrorMessage(error: unknown): string {
 }
 
 /**
- * Create the groups the components need. A group that cannot be created is
- * an error of its own; the components in it still sync, without the group.
+ * Create the groups the components need, and return every group the space
+ * has afterwards. A group that cannot be created is an error of its own;
+ * the components in it still sync, without the group.
  */
 async function ensureComponentGroupsExist(
     groupNames: string[],
+    existingGroups: any[],
     config: RequestBaseConfig,
     result: SyncResult,
     options: SyncOptions = {},
-): Promise<void> {
-    // A failed listing is never "no groups" (MAR-3139): it would re-create
-    // every group, or drop every component out of its group.
-    const existing = await getAllComponentsGroups(config);
-    const existingNames = new Set((existing ?? []).map((g: any) => g.name));
+): Promise<any[]> {
+    const groups = [...existingGroups];
+    const existingNames = new Set(groups.map((g: any) => g.name));
 
     for (const groupName of groupNames) {
         if (existingNames.has(groupName)) continue;
@@ -95,7 +97,7 @@ async function ensureComponentGroupsExist(
         }
 
         try {
-            await createComponentsGroup(groupName, config);
+            groups.push(await createComponentsGroupForSync(groupName, config));
         } catch (error) {
             result.errors.push({
                 scope: "component-group",
@@ -104,23 +106,21 @@ async function ensureComponentGroupsExist(
             });
         }
     }
+
+    return groups;
 }
 
 function recordPresetFailures(
     componentName: string,
-    presetResults: unknown,
+    failures: PresetFailure[],
     result: SyncResult,
 ): void {
-    if (!Array.isArray(presetResults)) return;
-
-    for (const preset of presetResults) {
-        if (preset && typeof preset === "object" && preset.ok === false) {
-            result.errors.push({
-                scope: "preset",
-                name: `${componentName}/${String(preset.name ?? "unknown")}`,
-                message: getErrorMessage(preset.error),
-            });
-        }
+    for (const failure of failures) {
+        result.errors.push({
+            scope: "preset",
+            name: `${componentName}/${failure.name}`,
+            message: getErrorMessage(failure.error),
+        });
     }
 }
 
@@ -154,11 +154,17 @@ export async function syncComponentsData(
         presets: boolean;
         ssot?: boolean;
         dryRun?: boolean;
+        /**
+         * Stop when the space cannot be listed, instead of syncing against an
+         * empty listing (MAR-3139). The CLI sets it; api-v2 callers keep the
+         * old behaviour, a warning and a recorded error.
+         */
+        strict?: boolean;
         onProgress?: SyncProgressCallback;
     },
     config: RequestBaseConfig,
 ): Promise<SyncResult> {
-    const { components, presets, ssot, dryRun, onProgress } = args;
+    const { components, presets, ssot, dryRun, strict, onProgress } = args;
     const progress = onProgress ?? defaultProgress;
 
     const result: SyncResult = {
@@ -176,9 +182,42 @@ export async function syncComponentsData(
 
     const destructive: DestructiveChange[] = [];
 
+    /** Undefined when the listing failed and the sync is not strict. */
+    const listOrRecord = async (
+        what: string,
+        list: () => Promise<any>,
+    ): Promise<any[] | undefined> => {
+        try {
+            return (await list()) ?? [];
+        } catch (error) {
+            if (strict) throw error;
+
+            const message = getErrorMessage(error);
+            Logger.warning(`Could not fetch ${what}: ${message}`);
+            result.errors.push({ scope: "listing", name: what, message });
+            return undefined;
+        }
+    };
+
+    // Under --ssot the space is listed once, before anything is removed.
+    // The plan compares against that listing: SSOT deletes and recreates
+    // every component, so the fields it drops are exactly what a reader
+    // must see. What remains afterwards is derived from the removals, never
+    // listed again: a failed listing after the removals would otherwise
+    // stop the run with every component deleted.
+    let ssotState:
+        | {
+              planComponents: any[];
+              planGroups: any[];
+              remainingComponents: any[];
+              remainingGroups: any[];
+          }
+        | undefined;
+
     if (ssot) {
-        const existingComponents = await getAllComponents(config);
-        const existingGroups = await getAllComponentsGroups(config);
+        const existingComponents = (await getAllComponents(config)) ?? [];
+        const existingGroups = (await getAllComponentsGroups(config)) ?? [];
+        const removed = new Set<any>();
 
         destructive.push(
             ...detectSsotRemovals(
@@ -190,6 +229,9 @@ export async function syncComponentsData(
         );
 
         if (dryRun) {
+            existingComponents.forEach((c: any) => removed.add(c));
+            existingGroups.forEach((g: any) => removed.add(g));
+
             for (const component of existingComponents ?? []) {
                 Logger.warning(
                     `[dry-run] Would remove component '${component.name}'.`,
@@ -204,11 +246,13 @@ export async function syncComponentsData(
             const removalTargets: RemovalTarget[] = [
                 ...(existingComponents ?? []).map((component: any) => ({
                     type: "component" as const,
+                    item: component,
                     name: String(component?.name ?? component?.id ?? "unknown"),
                     remove: () => removeComponent(component, config),
                 })),
                 ...(existingGroups ?? []).map((group: any) => ({
                     type: "component group" as const,
+                    item: group,
                     name: String(group?.name ?? group?.id ?? "unknown"),
                     remove: () => removeComponentGroup(group, config),
                 })),
@@ -219,10 +263,13 @@ export async function syncComponentsData(
             );
 
             removalResults.forEach((removalResult, index) => {
-                if (removalResult.status === "fulfilled") return;
-
                 const target = removalTargets[index];
                 if (!target) return;
+
+                if (removalResult.status === "fulfilled") {
+                    removed.add(target.item);
+                    return;
+                }
 
                 const name = `${target.type} '${target.name}'`;
                 const message = getErrorMessage(removalResult.reason);
@@ -238,6 +285,15 @@ export async function syncComponentsData(
                 );
             });
         }
+
+        ssotState = {
+            planComponents: existingComponents,
+            planGroups: existingGroups,
+            remainingComponents: existingComponents.filter(
+                (c: any) => !removed.has(c),
+            ),
+            remainingGroups: existingGroups.filter((g: any) => !removed.has(g)),
+        };
     }
 
     const nonEmptyComponents = components.filter((c) => !isObjectEmpty(c));
@@ -247,15 +303,34 @@ export async function syncComponentsData(
             .map((c) => c.component_group_name),
     );
 
-    await ensureComponentGroupsExist(groupsToCheck, config, result, {
-        dryRun,
-    });
+    // Every listing happens before the first write, so a strict run that
+    // cannot read the space stops with nothing written.
+    const listedGroups = ssotState
+        ? ssotState.remainingGroups
+        : await listOrRecord("component groups", () =>
+              getAllComponentsGroups(config),
+          );
+    const remoteComponents: any[] = ssotState
+        ? ssotState.remainingComponents
+        : ((await listOrRecord("components", () => getAllComponents(config))) ??
+          []);
 
-    // A failed listing stops the sync: read as "no components", it would turn
-    // every update into a create (MAR-3139).
-    const remoteComponents: any[] =
-        ssot && dryRun ? [] : ((await getAllComponents(config)) ?? []);
-    const remoteGroups: any[] = (await getAllComponentsGroups(config)) ?? [];
+    // Without a group listing nothing is created: every group would look
+    // missing. The uuids are then read once more, as before MAR-4104.
+    const remoteGroups: any[] = listedGroups
+        ? await ensureComponentGroupsExist(
+              groupsToCheck,
+              listedGroups,
+              config,
+              result,
+              { dryRun },
+          )
+        : ((await listOrRecord("component groups", () =>
+              getAllComponentsGroups(config),
+          )) ?? []);
+
+    const planComponents = ssotState?.planComponents ?? remoteComponents;
+    const planGroups = ssotState?.planGroups ?? remoteGroups;
 
     const componentsToUpdate: any[] = [];
     const componentsToCreate: any[] = [];
@@ -272,8 +347,10 @@ export async function syncComponentsData(
         );
         const plan = planComponent({
             local: component,
-            remote,
-            remoteGroups,
+            remote: planComponents.find(
+                (rc: any) => rc.name === component.name,
+            ),
+            remoteGroups: planGroups,
             presets,
         });
         plans.push(plan);
@@ -336,13 +413,13 @@ export async function syncComponentsData(
                 continue;
             }
 
-            const presetResults = await updateComponent(
+            const presetFailures = await updateComponentForSync(
                 component,
                 presets,
                 config,
             );
             result.updated.push(name);
-            recordPresetFailures(name, presetResults, result);
+            recordPresetFailures(name, presetFailures, result);
             progress({
                 type: "progress",
                 current: currentIndex,
@@ -394,13 +471,13 @@ export async function syncComponentsData(
                 continue;
             }
 
-            const presetResults = await createComponent(
+            const presetFailures = await createComponentForSync(
                 component,
                 presets,
                 config,
             );
             result.created.push(name);
-            recordPresetFailures(name, presetResults, result);
+            recordPresetFailures(name, presetFailures, result);
             progress({
                 type: "progress",
                 current: currentIndex,

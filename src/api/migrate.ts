@@ -38,6 +38,7 @@ import { isObjectEmpty } from "../utils/object-utils.js";
 import { findMissingSchemaFiles } from "../utils/path-utils.js";
 
 import { getAllAssets, migrateAsset } from "./assets/assets.js";
+import { updateComponentForSync } from "./components/components.js";
 import { syncComponentsData } from "./components/components.sync.js";
 import { contentHubApi } from "./contentHubApi.js";
 import { managementApi } from "./managementApi.js";
@@ -161,6 +162,7 @@ export const syncComponents: SyncComponents = async (
             presets,
             ssot: options.ssot,
             dryRun: options.dryRun,
+            strict: options.strict,
         },
         config,
     );
@@ -208,6 +210,7 @@ export const syncAllComponents: SyncAllComponents = async (
     return await syncComponents([...local, ...external], presets, config, {
         dryRun: options.dryRun,
         ssot: options.ssot,
+        strict: options.strict,
     });
 };
 
@@ -243,7 +246,7 @@ export const syncProvidedComponents: SyncProvidedComponents = async (
             [...local, ...external],
             presets,
             config,
-            { dryRun: options.dryRun },
+            { dryRun: options.dryRun, strict: options.strict },
         );
 
         return withMissingComponents(
@@ -270,6 +273,7 @@ export const syncProvidedComponents: SyncProvidedComponents = async (
         // #4: sync - do all stuff already done (groups resolving, and so on)
         return syncComponents([...local, ...external], presets, config, {
             dryRun: options.dryRun,
+            strict: options.strict,
         });
     }
 };
@@ -503,11 +507,7 @@ export const setComponentDefaultPreset = async ({
         Logger.warning("Updating componet with default presets...");
         const results = await Promise.allSettled(
             finalRemoteComponents.map((component: any) => {
-                return managementApi.components.updateComponent(
-                    component,
-                    false,
-                    apiConfig,
-                );
+                return updateComponentForSync(component, false, apiConfig);
             }),
         );
 

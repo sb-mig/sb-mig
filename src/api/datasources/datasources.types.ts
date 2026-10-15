@@ -43,7 +43,7 @@ export type CreateDatasourceEntries = (
         dryRun?: boolean;
     },
     config: RequestBaseConfig,
-) => Promise<{ name: string; message: string }[]>;
+) => Promise<any> | void;
 export type CreateDatasourceEntry = (
     args: {
         data: any;

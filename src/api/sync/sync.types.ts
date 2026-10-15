@@ -28,6 +28,8 @@ export interface SyncResult {
 
 export interface SyncOptions {
     dryRun?: boolean;
+    /** Stop when the space cannot be listed (the CLI); see syncComponentsData. */
+    strict?: boolean;
 }
 
 /**

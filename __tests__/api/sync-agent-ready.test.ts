@@ -159,13 +159,25 @@ describe("component sync: plan", () => {
         expect(config.sbApi.delete).not.toHaveBeenCalled();
     });
 
-    it("plans every component as a create under --ssot, and flags what it deletes", async () => {
+    it("plans --ssot against the space before removal, so dropped fields still show", async () => {
         const config = createMockApiConfig();
         serveComponents(config);
 
         const result = await syncComponentsData(
             {
-                components: [{ name: "hero", schema: {} }],
+                components: [
+                    {
+                        name: "hero",
+                        schema: {
+                            headline: { type: "text" },
+                            items: {
+                                type: "bloks",
+                                restrict_components: true,
+                                component_whitelist: ["card"],
+                            },
+                        },
+                    },
+                ],
                 presets: false,
                 ssot: true,
                 dryRun: true,
@@ -173,15 +185,21 @@ describe("component sync: plan", () => {
             config,
         );
 
-        expect(result.plan?.components?.map((c: any) => c.action)).toEqual([
-            "create",
+        // SSOT deletes and recreates hero, so the sync counts a create...
+        expect(result.created).toEqual(["hero"]);
+        // ...but the plan diffs against what the space held before.
+        expect(result.plan?.components).toEqual([
+            expect.objectContaining({ name: "hero", action: "update" }),
         ]);
-        expect(result.plan?.destructive).toEqual([
-            expect.objectContaining({
-                kind: "component-removed",
-                component: "card",
-            }),
+        expect(
+            result.plan?.destructive?.map((d: any) => [d.kind, d.component]),
+        ).toEqual([
+            ["component-removed", "card"],
+            ["likely-rename", "hero"],
+            ["whitelist-narrowed", "hero"],
         ]);
+        expect(config.sbApi.delete).not.toHaveBeenCalled();
+        expect(config.sbApi.post).not.toHaveBeenCalled();
     });
 });
 
@@ -298,7 +316,7 @@ describe("component sync: failures", () => {
         ]);
     });
 
-    it("stops when the space cannot be listed instead of planning against nothing", async () => {
+    it("stops a strict run when the space cannot be listed, before any write", async () => {
         const config = createMockApiConfig();
         config.sbApi.get.mockImplementation((path: string) =>
             path.includes("component_groups")
@@ -311,14 +329,206 @@ describe("component sync: failures", () => {
         await expect(
             syncComponentsData(
                 {
-                    components: [{ name: "hero", schema: {} }],
+                    components: [
+                        {
+                            name: "hero",
+                            component_group_name: "New",
+                            schema: {},
+                        },
+                    ],
                     presets: false,
-                    dryRun: true,
+                    strict: true,
                 },
                 config,
             ),
         ).rejects.toBeDefined();
         expect(config.sbApi.post).not.toHaveBeenCalled();
+        expect(config.sbApi.put).not.toHaveBeenCalled();
+    });
+
+    it("keeps the api-v2 contract when not strict: resolves, and records the failed listing", async () => {
+        const config = createMockApiConfig();
+        config.sbApi.get.mockImplementation((path: string) =>
+            path.includes("component_groups")
+                ? Promise.resolve(
+                      createPaginatedResponse([], "component_groups"),
+                  )
+                : Promise.reject(rejection(401, "Unauthorized")),
+        );
+        config.sbApi.post.mockImplementation((_path: string, body: any) =>
+            Promise.resolve({
+                data: { component: { ...body.component, id: 9 } },
+            }),
+        );
+
+        const result = await syncComponentsData(
+            { components: [{ name: "hero", schema: {} }], presets: false },
+            config,
+        );
+
+        expect(result.created).toEqual(["hero"]);
+        expect(result.errors).toEqual([
+            expect.objectContaining({ scope: "listing", name: "components" }),
+        ]);
+    });
+});
+
+describe("component sync: --ssot", () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+    });
+
+    it("recreates every component when the space cannot be listed after the removals", async () => {
+        const config = createMockApiConfig();
+        let componentReads = 0;
+        let groupReads = 0;
+
+        // Only the first listing of each kind answers; every later one fails.
+        config.sbApi.get.mockImplementation((path: string) => {
+            if (path.includes("component_groups")) {
+                return ++groupReads === 1
+                    ? Promise.resolve(
+                          createPaginatedResponse(
+                              [
+                                  {
+                                      id: 1,
+                                      uuid: "uuid-content",
+                                      name: "Content",
+                                  },
+                              ],
+                              "component_groups",
+                          ),
+                      )
+                    : Promise.reject(rejection(500, "groups are down"));
+            }
+            return ++componentReads === 1
+                ? Promise.resolve(
+                      createPaginatedResponse(remoteComponents, "components"),
+                  )
+                : Promise.reject(rejection(500, "components are down"));
+        });
+        config.sbApi.delete.mockResolvedValue({ data: {} });
+        config.sbApi.post.mockImplementation((path: string, body: any) =>
+            Promise.resolve({
+                data: path.includes("component_groups")
+                    ? {
+                          component_group: {
+                              ...body.component_group,
+                              uuid: "uuid-new",
+                          },
+                      }
+                    : { component: { ...body.component, id: 10 } },
+            }),
+        );
+
+        const result = await syncComponentsData(
+            {
+                components: [
+                    {
+                        name: "hero",
+                        component_group_name: "Content",
+                        schema: {},
+                    },
+                    { name: "card", schema: {} },
+                ],
+                presets: false,
+                ssot: true,
+                strict: true,
+            },
+            config,
+        );
+
+        expect(config.sbApi.delete).toHaveBeenCalledTimes(3);
+        expect(result.created).toEqual(["hero", "card"]);
+        expect(result.errors).toEqual([]);
+        // The removed group is created again, and hero is put back in it.
+        expect(config.sbApi.post).toHaveBeenCalledWith(
+            "spaces/12345/components/",
+            {
+                component: expect.objectContaining({
+                    name: "hero",
+                    component_group_uuid: "uuid-new",
+                }),
+            },
+        );
+        expect(componentReads).toBe(1);
+    });
+
+    it("updates a component whose removal failed instead of creating it twice", async () => {
+        const config = createMockApiConfig();
+        serveComponents(config);
+        config.sbApi.delete.mockImplementation((path: string) =>
+            path.endsWith("/components/1")
+                ? Promise.reject(rejection(422, "in use"))
+                : Promise.resolve({ data: {} }),
+        );
+        config.sbApi.put.mockImplementation((_path: string, body: any) =>
+            Promise.resolve({ data: { component: body.component } }),
+        );
+        config.sbApi.post.mockImplementation((_path: string, body: any) =>
+            Promise.resolve({
+                data: { component: { ...body.component, id: 10 } },
+            }),
+        );
+
+        const result = await syncComponentsData(
+            {
+                components: [
+                    { name: "hero", schema: {} },
+                    { name: "card", schema: {} },
+                ],
+                presets: false,
+                ssot: true,
+            },
+            config,
+        );
+
+        expect(result.updated).toEqual(["hero"]);
+        expect(result.created).toEqual(["card"]);
+        expect(result.errors).toEqual([
+            expect.objectContaining({
+                scope: "ssot-removal",
+                name: "component 'hero'",
+            }),
+        ]);
+    });
+});
+
+describe("public api contracts (unchanged from beta)", () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+    });
+
+    it("updateComponent and createComponentsGroup still log and resolve on failure", async () => {
+        const { updateComponent, createComponentsGroup } =
+            await import("../../src/api/components/components.js");
+        const config = createMockApiConfig();
+        config.sbApi.put.mockRejectedValue(rejection(422, "refused"));
+        config.sbApi.post.mockRejectedValue(rejection(422, "refused"));
+
+        await expect(
+            updateComponent({ id: 1, name: "hero" }, false, config),
+        ).resolves.toBeUndefined();
+        await expect(
+            createComponentsGroup("Content", config),
+        ).resolves.toBeUndefined();
+    });
+
+    it("createPreset resolves the response, and undefined on failure", async () => {
+        const { createPreset } =
+            await import("../../src/api/presets/presets.js");
+        const config = createMockApiConfig();
+        const response = { data: { preset: { id: 1, name: "Default" } } };
+        config.sbApi.post.mockResolvedValueOnce(response);
+        config.sbApi.post.mockRejectedValueOnce(rejection(422, "refused"));
+        vi.spyOn(console, "log").mockImplementation(() => undefined);
+
+        await expect(
+            createPreset({ preset: { name: "Default" } }, config),
+        ).resolves.toBe(response);
+        await expect(
+            createPreset({ preset: { name: "Default" } }, config),
+        ).resolves.toBeUndefined();
     });
 });
 

@@ -25,8 +25,13 @@ const _decorateWithDimensions: _DecorateWithDimensions = async (
     const { currentDatasource, dimensionsData, _callback } = args;
     const { spaceId, sbApi } = config;
     const { finalDatasource_entry } = dimensionsData;
-    // callback for create or update
-    const syncedEntry = await _callback();
+    // callback for create or update. Its failure is held, not thrown yet:
+    // the dimension values are still written, as they always were.
+    let entryError: unknown;
+    const syncedEntry = await _callback().catch((error: unknown) => {
+        entryError = error;
+        return undefined;
+    });
 
     // On the create path the local entry has no id yet, so the entry the
     // callback just wrote is the only place the dimension PUTs can read it from.
@@ -38,6 +43,8 @@ const _decorateWithDimensions: _DecorateWithDimensions = async (
     );
 
     if (entryId === undefined || entryId === null) {
+        if (entryError) throw entryError;
+
         return dimensionValueEntries.map(([name]) => {
             Logger.warning(
                 `Skipping dimension value for '${finalDatasource_entry.name}' and dimension '${name}' in '${currentDatasource.datasource.name}' datasource, because the entry has no id.`,
@@ -100,8 +107,15 @@ const _decorateWithDimensions: _DecorateWithDimensions = async (
             : [],
     );
 
-    if (failed.length > 0) {
-        throw new Error(failed.join("; "));
+    if (entryError && failed.length === 0) throw entryError;
+
+    if (entryError || failed.length > 0) {
+        throw new Error(
+            [
+                ...(entryError ? [formatDatasourceApiError(entryError)] : []),
+                ...failed,
+            ].join("; "),
+        );
     }
 
     return settled.map((outcome) =>
@@ -192,14 +206,17 @@ export const getDatasourceDimensionValues = async (
     return values;
 };
 
+export type DatasourceEntryFailure = { name: string; message: string };
+
 /**
- * Create or update every entry. Never stops at the first failure: each one
- * that could not be written comes back as `{ name, message }`.
+ * For the datasource sync: create or update every entry. Never stops at the
+ * first failure: each one that could not be written comes back as
+ * `{ name, message }`.
  */
-export const createDatasourceEntries: CreateDatasourceEntries = async (
-    args,
-    config,
-) => {
+export const syncDatasourceEntries = async (
+    args: Parameters<CreateDatasourceEntries>[0],
+    config: RequestBaseConfig,
+): Promise<DatasourceEntryFailure[]> => {
     const { datasource_entries, remoteDatasourceEntries, data, dryRun } = args;
     const remoteEntries = Array.isArray(
         remoteDatasourceEntries?.datasource_entries,
@@ -225,12 +242,15 @@ export const createDatasourceEntries: CreateDatasourceEntries = async (
             }
 
             if (datasourceToBeUpdated) {
-                return updateDatasourceEntry(
+                return updateDatasourceEntryForSync(
                     { data, datasourceEntry, datasourceToBeUpdated },
                     config,
                 );
             }
-            return createDatasourceEntry({ data, datasourceEntry }, config);
+            return createDatasourceEntryForSync(
+                { data, datasourceEntry },
+                config,
+            );
         }),
     );
 
@@ -268,6 +288,11 @@ export const createDatasourceEntries: CreateDatasourceEntries = async (
     return failures;
 };
 
+export const createDatasourceEntries: CreateDatasourceEntries = (
+    args,
+    config,
+) => syncDatasourceEntries(args, config).then(() => args.data);
+
 const _createDatasourceEntry: _CreateDatasourceEntry = (args, config) => {
     const { currentDatasource, finalDatasource_entry } = args;
     const { spaceId, sbApi } = config;
@@ -303,7 +328,15 @@ const _createDatasourceEntry: _CreateDatasourceEntry = (args, config) => {
         });
 };
 
-export const createDatasourceEntry: CreateDatasourceEntry = (args, config) => {
+/**
+ * For the datasource sync: a failed entry write — the entry itself or one of
+ * its dimension values — rejects. createDatasourceEntry keeps its public
+ * contract (log, resolve).
+ */
+export const createDatasourceEntryForSync: CreateDatasourceEntry = (
+    args,
+    config,
+) => {
     const { datasourceEntry, data } = args;
     const finalDatasource_entry = {
         name: datasourceEntry.name,
@@ -367,7 +400,10 @@ const _updateDatasourceEntry: _UpdateDatasourceEntry = (args, config) => {
             throw err;
         });
 };
-export const updateDatasourceEntry: UpdateDatasourceEntry = (args, config) => {
+export const updateDatasourceEntryForSync: UpdateDatasourceEntry = (
+    args,
+    config,
+) => {
     const { datasourceEntry, datasourceToBeUpdated, data } = args;
     const finalDatasource_entry = {
         name: datasourceEntry.name,
@@ -403,3 +439,9 @@ export const updateDatasourceEntry: UpdateDatasourceEntry = (args, config) => {
         );
     }
 };
+
+export const createDatasourceEntry: CreateDatasourceEntry = (args, config) =>
+    createDatasourceEntryForSync(args, config).catch(() => undefined);
+
+export const updateDatasourceEntry: UpdateDatasourceEntry = (args, config) =>
+    updateDatasourceEntryForSync(args, config).catch(() => undefined);

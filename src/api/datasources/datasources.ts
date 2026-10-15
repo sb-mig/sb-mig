@@ -13,9 +13,9 @@ import { planDatasource } from "../sync/sync-plan.js";
 import { getAllItemsWithPagination } from "../utils/request.js";
 
 import {
-    createDatasourceEntries,
     getDatasourceDimensionValues,
     getDatasourceEntries,
+    syncDatasourceEntries,
 } from "./datasource-entries.js";
 import { formatDatasourceApiError } from "./error-formatting.js";
 
@@ -87,7 +87,12 @@ export const getDatasource: GetDatasource = (args, config) => {
 };
 
 // POST
-export const createDatasource: CreateDatasource = (args, config) => {
+/**
+ * For the datasource sync: a failed write is logged and rejects.
+ * createDatasource / updateDatasource keep their public contract (log,
+ * resolve undefined).
+ */
+export const createDatasourceForSync: CreateDatasource = (args, config) => {
     const { datasource } = args;
     const { sbApi, spaceId } = config;
 
@@ -119,7 +124,7 @@ export const createDatasource: CreateDatasource = (args, config) => {
         });
 };
 
-export const updateDatasource: UpdateDatasource = (args, config) => {
+export const updateDatasourceForSync: UpdateDatasource = (args, config) => {
     const { datasource, datasourceToBeUpdated } = args;
     const { sbApi, spaceId } = config;
 
@@ -166,6 +171,12 @@ export const updateDatasource: UpdateDatasource = (args, config) => {
             throw err;
         });
 };
+
+export const createDatasource: CreateDatasource = (args, config) =>
+    createDatasourceForSync(args, config).catch(() => undefined);
+
+export const updateDatasource: UpdateDatasource = (args, config) =>
+    updateDatasourceForSync(args, config).catch(() => undefined);
 
 // File-based sync wrapper lives in `datasources.sync.ts` to keep this module CJS-safe.
 
@@ -268,11 +279,11 @@ export const syncDatasourcesData = async (
         let opResult: any;
         try {
             opResult = datasourceToBeUpdated
-                ? await updateDatasource(
+                ? await updateDatasourceForSync(
                       { datasource, datasourceToBeUpdated },
                       config,
                   )
-                : await createDatasource({ datasource }, config);
+                : await createDatasourceForSync({ datasource }, config);
         } catch (e) {
             result.errors.push(asError(name, e));
             continue;
@@ -283,7 +294,7 @@ export const syncDatasourcesData = async (
 
         if (opResult?.data?.datasource && opResult?.datasource_entries) {
             try {
-                const failures = await createDatasourceEntries(
+                const failures = await syncDatasourceEntries(
                     {
                         data: opResult.data,
                         datasource_entries: opResult.datasource_entries,
@@ -294,7 +305,7 @@ export const syncDatasourcesData = async (
                     config,
                 );
 
-                for (const failure of failures ?? []) {
+                for (const failure of failures) {
                     result.errors.push({
                         scope: "datasource-entry",
                         name: `${name}/${failure.name}`,

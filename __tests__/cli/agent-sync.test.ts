@@ -198,20 +198,4 @@ describe("sb-mig as an agent runs it", () => {
         expect(report.errors[0].message).toContain("--yes");
         expect(writes()).toEqual([]);
     }, 30_000);
-
-    it("debug --json: versions and config, with credentials redacted", () => {
-        const result = runCli(["debug", "--json"]);
-
-        expect(result.exitCode).toBe(0);
-        const report = JSON.parse(result.stdout);
-        expect(report).toMatchObject({
-            ok: true,
-            command: "debug",
-            moduleType: "module",
-            errors: [],
-        });
-        expect(report.config.oauthToken).toBe("[redacted]");
-        expect(result.stdout).not.toContain("fixture-oauth-token");
-        expect(result.stderr).not.toContain("fixture-oauth-token");
-    });
 });

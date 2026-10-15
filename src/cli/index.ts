@@ -18,7 +18,11 @@ import {
     migrationsDescription,
     copyDescription,
 } from "./cli-descriptions.js";
-import { failJsonCommand, startJsonMode } from "./utils/agent-output.js";
+import {
+    emptySyncReport,
+    failJsonCommand,
+    startJsonMode,
+} from "./utils/agent-output.js";
 import { pipe, prop } from "./utils/cli-utils.js";
 
 const app: any = () => ({
@@ -47,9 +51,11 @@ app.sync = () => ({
             if (!json) throw error;
 
             failJsonCommand({
-                command: ["sync", cli.input[1]].filter(Boolean).join(" "),
+                report: emptySyncReport(
+                    ["sync", cli.input[1]].filter(Boolean).join(" "),
+                    Boolean(cli.flags.dryRun),
+                ),
                 error,
-                extra: { dryRun: Boolean(cli.flags.dryRun) },
             });
         }
     },
@@ -348,19 +354,9 @@ app.debug = () => ({
         importMeta: import.meta,
         booleanDefault: undefined,
     }),
-    action: async (cli: any) => {
-        const json = Boolean(cli.flags.json);
-
-        if (json) startJsonMode();
-
-        try {
-            const { debug } = await import("./commands/debug.js");
-            await debug({ json });
-        } catch (error) {
-            if (!json) throw error;
-
-            failJsonCommand({ command: "debug", error });
-        }
+    action: async () => {
+        const { debug } = await import("./commands/debug.js");
+        await debug();
     },
 });
 
