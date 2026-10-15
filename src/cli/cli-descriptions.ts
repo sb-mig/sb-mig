@@ -197,7 +197,8 @@ export const syncDescription = `
         fromFileToSpace is implemented for stories, but assets log that it is not implemented.
         fromAWSToSpace is implemented for stories. Assets log that unsupported directions are not implemented.
         --ssot is destructive for components and prompts unless --yes is passed.
-        Without an interactive terminal (or with --json) a prompt fails instead of waiting: pass --yes or --dry-run.
+        Without an interactive terminal (or with --json) the --ssot prompt of sync components fails instead of waiting:
+        pass --yes or --dry-run. Other prompts are unchanged.
 
     EXAMPLES
         $ sb-mig sync components --all

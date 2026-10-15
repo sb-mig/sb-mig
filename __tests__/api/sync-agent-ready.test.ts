@@ -189,7 +189,11 @@ describe("component sync: plan", () => {
         expect(result.created).toEqual(["hero"]);
         // ...but the plan diffs against what the space held before.
         expect(result.plan?.components).toEqual([
-            expect.objectContaining({ name: "hero", action: "update" }),
+            expect.objectContaining({
+                name: "hero",
+                action: "update",
+                recreated: true,
+            }),
         ]);
         expect(
             result.plan?.destructive?.map((d: any) => [d.kind, d.component]),
@@ -278,6 +282,7 @@ describe("component sync: failures", () => {
             expect.objectContaining({
                 scope: "preset",
                 name: "promo/Default",
+                parent: "promo",
             }),
         ]);
     });
@@ -440,6 +445,9 @@ describe("component sync: --ssot", () => {
 
         expect(config.sbApi.delete).toHaveBeenCalledTimes(3);
         expect(result.created).toEqual(["hero", "card"]);
+        expect(
+            result.plan?.components?.every((c: any) => c.recreated === true),
+        ).toBe(true);
         expect(result.errors).toEqual([]);
         // The removed group is created again, and hero is put back in it.
         expect(config.sbApi.post).toHaveBeenCalledWith(
@@ -485,6 +493,13 @@ describe("component sync: --ssot", () => {
 
         expect(result.updated).toEqual(["hero"]);
         expect(result.created).toEqual(["card"]);
+        // hero stayed and was updated in place; card was deleted and recreated.
+        expect(
+            result.plan?.components?.map((c: any) => [c.name, c.recreated]),
+        ).toEqual([
+            ["hero", undefined],
+            ["card", true],
+        ]);
         expect(result.errors).toEqual([
             expect.objectContaining({
                 scope: "ssot-removal",
@@ -675,6 +690,7 @@ describe("datasource sync", () => {
             expect.objectContaining({
                 scope: "datasource-entry",
                 name: "colors/green",
+                parent: "colors",
                 message: expect.stringContaining("green is refused"),
             }),
         ]);
@@ -711,6 +727,7 @@ describe("datasource sync", () => {
             expect.objectContaining({
                 scope: "datasource-entry",
                 name: "colors/blue",
+                parent: "colors",
                 message: expect.stringContaining("dimension 'dark'"),
             }),
         ]);

@@ -9,6 +9,12 @@ export type SyncError = {
     message: string;
     /** What failed: a component, a preset, a datasource entry, ... */
     scope?: string;
+    /**
+     * For a write that belongs to a component or a datasource (a preset, an
+     * entry): that component's or datasource's name. Kept apart from `name`
+     * because names may contain any character.
+     */
+    parent?: string;
 };
 
 export interface SyncPlan {

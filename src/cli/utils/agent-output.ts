@@ -15,6 +15,8 @@ import Logger from "../../utils/logger.js";
 export type ReportError = {
     scope: string;
     name?: string;
+    /** The component or datasource a preset or entry belongs to. */
+    parent?: string;
     message: string;
 };
 
@@ -77,6 +79,7 @@ export const messageOf = (error: unknown): string => {
 const toReportError = (error: SyncError): ReportError => ({
     scope: error.scope ?? "sync",
     ...(error.name !== undefined ? { name: error.name } : {}),
+    ...(error.parent !== undefined ? { parent: error.parent } : {}),
     message: error.message,
 });
 
@@ -111,7 +114,7 @@ export const buildSyncReport = ({
     const allErrors = [...results.flatMap((r) => r.errors), ...errors];
 
     // An item failed when its own write failed, or a write that belongs to
-    // it did: a component's preset, a datasource's entry (`name/child`).
+    // it did: a component's preset, a datasource's entry (`parent`).
     const failedNames = (scope: string, childScope: string) => {
         const own = new Set(
             allErrors.filter((e) => e.scope === scope).map((e) => e.name),
@@ -119,14 +122,15 @@ export const buildSyncReport = ({
         const parents = new Set(
             allErrors
                 .filter((e) => e.scope === childScope)
-                .map((e) => String(e.name).split("/")[0]),
+                .map((e) => e.parent),
         );
         return new Set([...own, ...parents]);
     };
     const failedComponents = failedNames("component", "preset");
     const failedDatasources = failedNames("datasource", "datasource-entry");
 
-    const withStatus = <T extends { name: string }>(
+    // `recreated`: deleted and created again by --ssot, not updated in place.
+    const withStatus = <T extends { name: string; recreated?: boolean }>(
         plan: T,
         failed: Set<string | undefined>,
     ) =>
@@ -134,7 +138,11 @@ export const buildSyncReport = ({
             ? plan
             : {
                   ...plan,
-                  status: failed.has(plan.name) ? "failed" : "written",
+                  status: failed.has(plan.name)
+                      ? "failed"
+                      : plan.recreated
+                        ? "recreated"
+                        : "written",
               };
 
     const report: SyncReport = {

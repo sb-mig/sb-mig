@@ -44,6 +44,11 @@ export type ComponentPlan = {
     fields: FieldChange[];
     whitelist: WhitelistChange[];
     presets?: PresetPlan[];
+    /**
+     * Under `--ssot`: the component exists in the space and the sync deletes
+     * it and creates it again. `action` still says how the schema changes.
+     */
+    recreated?: boolean;
 };
 
 export type DestructiveKind =

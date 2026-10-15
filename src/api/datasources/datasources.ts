@@ -309,6 +309,7 @@ export const syncDatasourcesData = async (
                     result.errors.push({
                         scope: "datasource-entry",
                         name: `${name}/${failure.name}`,
+                        parent: name,
                         message: failure.message,
                     });
                 }

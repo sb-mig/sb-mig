@@ -371,7 +371,11 @@ describe("report shape", () => {
     it("marks a datasource with a failed entry, and a component with a failed preset, as failed", async () => {
         const { buildSyncReport } =
             await import("../../src/cli/utils/agent-output.js");
-        const plan = (name: string) => ({ name, action: "update" });
+        const plan = (name: string, extra = {}) => ({
+            name,
+            action: "update",
+            ...extra,
+        });
 
         const report = buildSyncReport({
             command: "sync",
@@ -382,7 +386,12 @@ describe("report shape", () => {
                     updated: ["hero", "card"],
                     skipped: [],
                     errors: [
-                        { scope: "preset", name: "hero/Default", message: "x" },
+                        {
+                            scope: "preset",
+                            name: "hero/Default",
+                            parent: "hero",
+                            message: "x",
+                        },
                     ],
                     plan: {
                         components: [plan("hero"), plan("card")] as any,
@@ -390,17 +399,22 @@ describe("report shape", () => {
                 },
                 {
                     created: [],
-                    updated: ["colors", "sizes"],
+                    updated: ["brand/colors", "brand"],
                     skipped: [],
                     errors: [
+                        // A name may hold a "/": the parent is its own field.
                         {
                             scope: "datasource-entry",
-                            name: "colors/red",
+                            name: "brand/colors/red",
+                            parent: "brand/colors",
                             message: "x",
                         },
                     ],
                     plan: {
-                        datasources: [plan("colors"), plan("sizes")] as any,
+                        datasources: [
+                            plan("brand/colors"),
+                            plan("brand"),
+                        ] as any,
                     },
                 },
             ],
@@ -414,8 +428,55 @@ describe("report shape", () => {
         ).toEqual([
             ["hero", "failed"],
             ["card", "written"],
-            ["colors", "failed"],
-            ["sizes", "written"],
+            ["brand/colors", "failed"],
+            ["brand", "written"],
+        ]);
+        expect(report.errors[1]).toEqual({
+            scope: "datasource-entry",
+            name: "brand/colors/red",
+            parent: "brand/colors",
+            message: "x",
+        });
+    });
+
+    it("reports a component --ssot deleted and created again as recreated", async () => {
+        const { buildSyncReport } =
+            await import("../../src/cli/utils/agent-output.js");
+
+        const report = buildSyncReport({
+            command: "sync components",
+            dryRun: false,
+            results: [
+                {
+                    created: ["hero", "promo"],
+                    updated: ["card"],
+                    skipped: [],
+                    errors: [
+                        { scope: "component", name: "promo", message: "x" },
+                    ],
+                    plan: {
+                        components: [
+                            {
+                                name: "hero",
+                                action: "unchanged",
+                                recreated: true,
+                            },
+                            {
+                                name: "promo",
+                                action: "update",
+                                recreated: true,
+                            },
+                            { name: "card", action: "update" },
+                        ] as any,
+                    },
+                },
+            ],
+        });
+
+        expect(report.components.map((c: any) => [c.name, c.status])).toEqual([
+            ["hero", "recreated"],
+            ["promo", "failed"],
+            ["card", "written"],
         ]);
     });
 });

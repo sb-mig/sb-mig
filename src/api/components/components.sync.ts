@@ -119,6 +119,7 @@ function recordPresetFailures(
         result.errors.push({
             scope: "preset",
             name: `${componentName}/${failure.name}`,
+            parent: componentName,
             message: getErrorMessage(failure.error),
         });
     }
@@ -331,6 +332,16 @@ export async function syncComponentsData(
 
     const planComponents = ssotState?.planComponents ?? remoteComponents;
     const planGroups = ssotState?.planGroups ?? remoteGroups;
+    // Existed before --ssot and was (or, in a dry-run, would be) removed.
+    const recreatedNames = new Set<string>(
+        ssotState
+            ? ssotState.planComponents
+                  .filter(
+                      (c: any) => !ssotState?.remainingComponents.includes(c),
+                  )
+                  .map((c: any) => String(c.name))
+            : [],
+    );
 
     const componentsToUpdate: any[] = [];
     const componentsToCreate: any[] = [];
@@ -353,7 +364,11 @@ export async function syncComponentsData(
             remoteGroups: planGroups,
             presets,
         });
-        plans.push(plan);
+        plans.push(
+            recreatedNames.has(String(component.name))
+                ? { ...plan, recreated: true }
+                : plan,
+        );
         destructive.push(...detectDestructiveChanges(plan));
 
         if (remote) {
