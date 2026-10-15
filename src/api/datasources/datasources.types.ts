@@ -1,4 +1,5 @@
 import type { OneFileElement } from "../../utils/path-utils.js";
+import type { SyncResult } from "../sync/sync.types.js";
 import type { RequestBaseConfig } from "../utils/request.js";
 
 export type GetAllDatasources = (config: RequestBaseConfig) => Promise<any>;
@@ -19,19 +20,19 @@ export type UpdateDatasource = (
 export type SyncDatasources = (
     args: { providedDatasources: OneFileElement[]; dryRun?: boolean },
     config: RequestBaseConfig,
-) => Promise<any>;
+) => Promise<SyncResult>;
 export type SyncProvidedDatasources = (
     args: { datasources: string[]; dryRun?: boolean },
     config: RequestBaseConfig,
-) => Promise<void>;
+) => Promise<SyncResult>;
 export type SyncAllDatasources = (
     config: RequestBaseConfig,
     args?: { dryRun?: boolean },
-) => Promise<void>;
+) => Promise<SyncResult>;
 
 // Datasource Entries
 export type GetDatasourceEntries = (
-    args: { datasourceName: string },
+    args: { datasourceName: string; datasourceId?: number | string },
     config: RequestBaseConfig,
 ) => Promise<any>;
 export type CreateDatasourceEntries = (
@@ -42,7 +43,7 @@ export type CreateDatasourceEntries = (
         dryRun?: boolean;
     },
     config: RequestBaseConfig,
-) => Promise<any> | void;
+) => Promise<{ name: string; message: string }[]>;
 export type CreateDatasourceEntry = (
     args: {
         data: any;

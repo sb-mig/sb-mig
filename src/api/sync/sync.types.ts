@@ -1,10 +1,29 @@
-export type SyncError = { name: string; message: string };
+import type {
+    ComponentPlan,
+    DatasourcePlan,
+    DestructiveChange,
+} from "./sync-plan.js";
+
+export type SyncError = {
+    name: string;
+    message: string;
+    /** What failed: a component, a preset, a datasource entry, ... */
+    scope?: string;
+};
+
+export interface SyncPlan {
+    components?: ComponentPlan[];
+    datasources?: DatasourcePlan[];
+    destructive?: DestructiveChange[];
+}
 
 export interface SyncResult {
     created: string[];
     updated: string[];
     skipped: string[];
     errors: SyncError[];
+    /** What the sync changes (or, in a dry-run, would change). */
+    plan?: SyncPlan;
 }
 
 export interface SyncOptions {

@@ -2,6 +2,16 @@ import readline from "node:readline/promises";
 
 import chalk from "chalk";
 
+import { isJsonMode } from "./utils/agent-output.js";
+
+/**
+ * Whether a question can be asked at all. Without a terminal on stdin the
+ * read would wait forever on a pipe an agent never writes to; under `--json`
+ * a program is reading, not a person.
+ */
+export const canPrompt = (): boolean =>
+    process.stdin.isTTY === true && !isJsonMode();
+
 export const askForConfirmation = async (
     message: string,
     resolveYes: () => void | Promise<void>,
@@ -11,6 +21,12 @@ export const askForConfirmation = async (
     if (ci) {
         await resolveYes();
         return;
+    }
+
+    if (!canPrompt()) {
+        throw new Error(
+            `Confirmation needed, but there is no interactive terminal to ask: "${message}" Re-run with --yes to confirm, or with --dry-run to only preview.`,
+        );
     }
     // This section has to be changed, it was fast solution to asking for confirmation
     // need to reimplement it better

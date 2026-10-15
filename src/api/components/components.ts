@@ -89,17 +89,25 @@ export const createComponent: CreateComponent = (
         .post(`spaces/${spaceId}/components/`, {
             component: componentWithoutPresets,
         })
-        .then((res) => {
-            Logger.success(`Component '${component.name}' has been created.`);
-            if (presets) {
-                _resolvePresets(res, all_presets, component, config);
-            }
-        })
         .catch((err) => {
             Logger.error(
                 `${err.message} in migration of ${component.name} in createComponent function`,
             );
             throw err;
+        })
+        .then(async (res) => {
+            Logger.success(`Component '${component.name}' has been created.`);
+            // Awaited and returned: a preset failure is the caller's to report,
+            // never an unhandled rejection after the command has exited 0.
+            if (presets) {
+                return await _resolvePresets(
+                    res,
+                    all_presets,
+                    component,
+                    config,
+                );
+            }
+            return [];
         });
 };
 
@@ -122,6 +130,13 @@ export const updateComponent: UpdateComponent = (
         .put(`spaces/${spaceId}/components/${component.id}`, {
             component: componentWithoutPresets,
         })
+        .catch((err) => {
+            Logger.error(
+                `${err.message} in migration of ${component.name} in updateComponent function`,
+            );
+            // A failed update is a failed sync: the caller counts it.
+            throw err;
+        })
         .then(async (res) => {
             Logger.success(`Component '${component.name}' has been updated.`);
             if (presets) {
@@ -134,11 +149,6 @@ export const updateComponent: UpdateComponent = (
             } else {
                 return [];
             }
-        })
-        .catch((err) => {
-            Logger.error(
-                `${err.message} in migration of ${component.name} in updateComponent function`,
-            );
         });
 };
 
@@ -267,7 +277,9 @@ export const createComponentsGroup: CreateComponentsGroup = (
             return res.data;
         })
         .catch((err: any) => {
-            console.log(err.message);
-            console.error("Error happened :()");
+            Logger.error(
+                `Unable to create component group '${groupName}': ${err?.message ?? String(err)}`,
+            );
+            throw err;
         });
 };

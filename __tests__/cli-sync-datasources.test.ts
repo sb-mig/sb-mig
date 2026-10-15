@@ -35,6 +35,13 @@ const tick = async () =>
         setTimeout(resolve, 0);
     });
 
+const emptyResult = () => ({
+    created: [],
+    updated: [],
+    skipped: [],
+    errors: [],
+});
+
 const createDeferred = () => {
     let resolve!: () => void;
 
@@ -54,16 +61,18 @@ describe("Datasource sync CLI helpers", () => {
         }));
         discoverDatasources.mockResolvedValue([]);
         discoverManyDatasources.mockResolvedValue([]);
+        syncDatasources.mockResolvedValue(emptyResult());
     });
 
     const expectSyncHelperToAwaitDatasourceSync = async (
-        syncHelper: () => Promise<void>,
+        syncHelper: () => Promise<unknown>,
     ) => {
         const deferred = createDeferred();
         let helperResolved = false;
 
         syncDatasources.mockImplementation(async () => {
             await deferred.promise;
+            return emptyResult();
         });
 
         const helperPromise = syncHelper().then(() => {
@@ -118,5 +127,33 @@ describe("Datasource sync CLI helpers", () => {
             },
             {},
         );
+    });
+
+    it("reports a named datasource with no file as an error", async () => {
+        discoverManyDatasources.mockImplementation(async ({ scope }) =>
+            scope === "local"
+                ? ["src/datasources/colors.sb.datasource.js"]
+                : [],
+        );
+        compare.mockImplementation(({ local, external }) => ({
+            local: local.map((p: string) => ({
+                name: p.split("/").pop(),
+                p,
+            })),
+            external,
+        }));
+
+        const result = await syncProvidedDatasources(
+            { datasources: ["colors", "sizes"] },
+            {} as any,
+        );
+
+        expect(result.errors).toEqual([
+            {
+                scope: "datasource",
+                name: "sizes",
+                message: "No datasource file found for 'sizes'.",
+            },
+        ]);
     });
 });

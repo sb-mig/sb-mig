@@ -18,6 +18,7 @@ import {
     migrationsDescription,
     copyDescription,
 } from "./cli-descriptions.js";
+import { failJsonCommand, startJsonMode } from "./utils/agent-output.js";
 import { pipe, prop } from "./utils/cli-utils.js";
 
 const app: any = () => ({
@@ -34,8 +35,23 @@ app.sync = () => ({
         booleanDefault: undefined,
     }),
     action: async (cli: any) => {
-        const { sync } = await import("./commands/sync.js");
-        await sync(cli);
+        const json = Boolean(cli.flags.json);
+
+        // Before the command loads: loading the config already logs.
+        if (json) startJsonMode();
+
+        try {
+            const { sync } = await import("./commands/sync.js");
+            await sync(cli);
+        } catch (error) {
+            if (!json) throw error;
+
+            failJsonCommand({
+                command: ["sync", cli.input[1]].filter(Boolean).join(" "),
+                error,
+                extra: { dryRun: Boolean(cli.flags.dryRun) },
+            });
+        }
     },
 });
 
@@ -332,9 +348,19 @@ app.debug = () => ({
         importMeta: import.meta,
         booleanDefault: undefined,
     }),
-    action: async () => {
-        const { debug } = await import("./commands/debug.js");
-        await debug();
+    action: async (cli: any) => {
+        const json = Boolean(cli.flags.json);
+
+        if (json) startJsonMode();
+
+        try {
+            const { debug } = await import("./commands/debug.js");
+            await debug({ json });
+        } catch (error) {
+            if (!json) throw error;
+
+            failJsonCommand({ command: "debug", error });
+        }
     },
 });
 

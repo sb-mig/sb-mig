@@ -11,6 +11,7 @@ import type {
     SyncProvidedComponents,
     SyncStories,
 } from "./migrate.types.js";
+import type { SyncError, SyncResult } from "./sync/sync.types.js";
 import type { RequestBaseConfig } from "./utils/request.js";
 import type { Preset } from "storyblok-schema-types";
 
@@ -34,6 +35,7 @@ import {
 } from "../utils/files.js";
 import Logger from "../utils/logger.js";
 import { isObjectEmpty } from "../utils/object-utils.js";
+import { findMissingSchemaFiles } from "../utils/path-utils.js";
 
 import { getAllAssets, migrateAsset } from "./assets/assets.js";
 import { syncComponentsData } from "./components/components.sync.js";
@@ -153,7 +155,7 @@ export const syncComponents: SyncComponents = async (
         specifiedComponentsContent,
     );
 
-    await syncComponentsData(
+    return await syncComponentsData(
         {
             components: specifiedComponentsContent,
             presets,
@@ -163,6 +165,21 @@ export const syncComponents: SyncComponents = async (
         config,
     );
 };
+
+const withMissingComponents = (
+    result: SyncResult,
+    missing: string[],
+): SyncResult => ({
+    ...result,
+    errors: [
+        ...missing.map((name) => ({
+            scope: "component",
+            name,
+            message: `No schema file found for '${name}'.`,
+        })),
+        ...result.errors,
+    ],
+});
 
 export const syncAllComponents: SyncAllComponents = async (
     presets,
@@ -222,9 +239,17 @@ export const syncProvidedComponents: SyncProvidedComponents = async (
         });
 
         // #4: sync - do all stuff already done (groups resolving, and so on)
-        return await syncComponents([...local, ...external], presets, config, {
-            dryRun: options.dryRun,
-        });
+        const result = await syncComponents(
+            [...local, ...external],
+            presets,
+            config,
+            { dryRun: options.dryRun },
+        );
+
+        return withMissingComponents(
+            result,
+            findMissingSchemaFiles(components, [...local, ...external]),
+        );
     } else {
         // implement discovering and syncrhonizing with packageName
         // #1: discover all external .sb.js files
@@ -454,7 +479,7 @@ export const setComponentDefaultPreset = async ({
     presets: boolean;
     componentsToSync?: string[];
     apiConfig: RequestBaseConfig;
-}) => {
+}): Promise<SyncError[]> => {
     if (presets) {
         Logger.warning("Setting default presets for components...");
 
@@ -476,7 +501,7 @@ export const setComponentDefaultPreset = async ({
         );
 
         Logger.warning("Updating componet with default presets...");
-        return Promise.all(
+        const results = await Promise.allSettled(
             finalRemoteComponents.map((component: any) => {
                 return managementApi.components.updateComponent(
                     component,
@@ -485,7 +510,27 @@ export const setComponentDefaultPreset = async ({
                 );
             }),
         );
+
+        // Every failure is reported, not only the first one to reject.
+        return results.flatMap((result, index) =>
+            result.status === "rejected"
+                ? [
+                      {
+                          scope: "default-preset",
+                          name: String(
+                              finalRemoteComponents[index]?.name ?? "unknown",
+                          ),
+                          message:
+                              result.reason instanceof Error
+                                  ? result.reason.message
+                                  : String(
+                                        result.reason?.message ?? result.reason,
+                                    ),
+                      },
+                  ]
+                : [],
+        );
     } else {
-        return false;
+        return [];
     }
 };

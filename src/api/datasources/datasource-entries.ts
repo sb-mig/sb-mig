@@ -7,6 +7,7 @@ import type {
     UpdateDatasourceEntry,
     _DecorateWithDimensions,
 } from "./datasources.types.js";
+import type { RequestBaseConfig } from "../utils/request.js";
 
 import chalk from "chalk";
 
@@ -45,7 +46,7 @@ const _decorateWithDimensions: _DecorateWithDimensions = async (
         });
     }
 
-    return dimensionValueEntries.map(([name, value]) => {
+    const writes = dimensionValueEntries.map(([name, value]) => {
         const data = dimensionsData.datasourceDimensions.find(
             (dimension: any) => dimension.name === name,
         );
@@ -77,26 +78,58 @@ const _decorateWithDimensions: _DecorateWithDimensions = async (
                 return true;
             })
             .catch((err) => {
-                Logger.error(err);
+                Logger.error(
+                    `Unable to set dimension '${name}' of datasource entry '${finalDatasource_entry.name}' in ${currentDatasource.datasource.name} datasource. ${formatDatasourceApiError(err)}`,
+                );
+                throw new Error(
+                    `dimension '${name}': ${formatDatasourceApiError(err)}`,
+                );
             });
     });
+
+    // Awaited: these writes used to be left running after the sync reported
+    // success, and their failures went nowhere.
+    const settled = await Promise.allSettled(writes);
+    const failed = settled.flatMap((outcome) =>
+        outcome.status === "rejected"
+            ? [
+                  outcome.reason instanceof Error
+                      ? outcome.reason.message
+                      : String(outcome.reason),
+              ]
+            : [],
+    );
+
+    if (failed.length > 0) {
+        throw new Error(failed.join("; "));
+    }
+
+    return settled.map((outcome) =>
+        outcome.status === "fulfilled" ? outcome.value : false,
+    );
 };
 
 export const getDatasourceEntries: GetDatasourceEntries = async (
     args,
     config,
 ) => {
-    const { datasourceName } = args;
+    const { datasourceName, datasourceId } = args;
     const { spaceId, sbApi } = config;
     Logger.log(`Trying to get '${datasourceName}' datasource entries.`);
 
-    const data = await getDatasource({ datasourceName }, config); // TODO: maybe this step is not needed, i think we can retrieve entries directly using slug (but using delivery api, not management)
+    // With the id known there is nothing to look up; the lookup also swallows
+    // a failed listing, which would read as "no entries" and duplicate them.
+    const id =
+        datasourceId ??
+        (await getDatasource({ datasourceName }, config).then((data: any) =>
+            data ? data[0].id : undefined,
+        )); // TODO: maybe this step is not needed, i think we can retrieve entries directly using slug (but using delivery api, not management)
 
-    if (data) {
+    if (id !== undefined) {
         const datasourceEntries = await getAllItemsWithPagination({
             apiFn: ({ per_page, page }) =>
                 sbApi.get(`spaces/${spaceId}/datasource_entries/`, {
-                    datasource_id: data[0].id,
+                    datasource_id: id,
                     per_page,
                     page,
                 } as any),
@@ -114,7 +147,56 @@ export const getDatasourceEntries: GetDatasourceEntries = async (
     return { datasource_entries: [] };
 };
 
-export const createDatasourceEntries: CreateDatasourceEntries = (
+/**
+ * The dimension values the space holds for the entries we are about to sync,
+ * as `dimension name -> entry name -> value`. Only dimensions that both the
+ * local entries use and the remote datasource has are read: a new dimension
+ * has no values yet.
+ */
+export const getDatasourceDimensionValues = async (
+    args: { datasource: any; localEntries: any[] },
+    config: RequestBaseConfig,
+): Promise<Record<string, Record<string, unknown>>> => {
+    const { datasource, localEntries } = args;
+    const { spaceId, sbApi } = config;
+
+    const usedDimensions = new Set(
+        localEntries.flatMap((entry: any) =>
+            Object.keys(entry?.dimension_values ?? {}),
+        ),
+    );
+    const dimensions = (
+        Array.isArray(datasource?.dimensions) ? datasource.dimensions : []
+    ).filter((dimension: any) => usedDimensions.has(dimension?.name));
+
+    const values: Record<string, Record<string, unknown>> = {};
+
+    for (const dimension of dimensions) {
+        const entries = await getAllItemsWithPagination({
+            apiFn: ({ per_page, page }) =>
+                sbApi.get(`spaces/${spaceId}/datasource_entries/`, {
+                    datasource_id: datasource.id,
+                    dimension: dimension.entry_value,
+                    per_page,
+                    page,
+                } as any),
+            params: {},
+            itemsKey: "datasource_entries",
+        });
+
+        values[dimension.name] = Object.fromEntries(
+            entries.map((entry: any) => [entry.name, entry.dimension_value]),
+        );
+    }
+
+    return values;
+};
+
+/**
+ * Create or update every entry. Never stops at the first failure: each one
+ * that could not be written comes back as `{ name, message }`.
+ */
+export const createDatasourceEntries: CreateDatasourceEntries = async (
     args,
     config,
 ) => {
@@ -125,7 +207,7 @@ export const createDatasourceEntries: CreateDatasourceEntries = (
         ? remoteDatasourceEntries.datasource_entries
         : [];
 
-    return Promise.all(
+    const outcomes = await Promise.allSettled(
         datasource_entries.map((datasourceEntry: any) => {
             const datasourceEntryName =
                 datasourceEntry.name ?? Object.values(datasourceEntry)[0];
@@ -150,21 +232,40 @@ export const createDatasourceEntries: CreateDatasourceEntries = (
             }
             return createDatasourceEntry({ data, datasourceEntry }, config);
         }),
-    )
-        .then((_: any) => {
-            if (dryRun) {
-                Logger.warning(
-                    `[dry-run] Datasource entries for ${data.datasource.id} datasource id were planned without API writes.`,
-                );
-                return data;
-            }
+    );
 
-            Logger.success(
-                `Datasource entries for ${data.datasource.id} datasource id has been successfully synced.`,
-            );
-            return data;
-        })
-        .catch((err) => Logger.error(err));
+    const failures = outcomes.flatMap((outcome, index) => {
+        if (outcome.status === "fulfilled") return [];
+
+        const entry = datasource_entries[index];
+        const reason = outcome.reason;
+
+        return [
+            {
+                name: String(entry?.name ?? Object.values(entry ?? {})[0]),
+                message:
+                    reason instanceof Error && !(reason as any).response
+                        ? reason.message
+                        : formatDatasourceApiError(reason),
+            },
+        ];
+    });
+
+    if (dryRun) {
+        Logger.warning(
+            `[dry-run] Datasource entries for ${data.datasource.id} datasource id were planned without API writes.`,
+        );
+    } else if (failures.length === 0) {
+        Logger.success(
+            `Datasource entries for ${data.datasource.id} datasource id has been successfully synced.`,
+        );
+    } else {
+        Logger.error(
+            `${failures.length} of ${datasource_entries.length} datasource entries for ${data.datasource.id} datasource id could not be synced.`,
+        );
+    }
+
+    return failures;
 };
 
 const _createDatasourceEntry: _CreateDatasourceEntry = (args, config) => {
@@ -198,6 +299,7 @@ const _createDatasourceEntry: _CreateDatasourceEntry = (args, config) => {
             Logger.error(
                 `Unable to create datasource entry '${finalDatasource_entry.name}' in ${currentDatasource.datasource.name} datasource. Value: '${finalDatasource_entry.value}'. ${formatDatasourceApiError(err)}`,
             );
+            throw err;
         });
 };
 
@@ -262,6 +364,7 @@ const _updateDatasourceEntry: _UpdateDatasourceEntry = (args, config) => {
             Logger.error(
                 `Unable to update datasource entry '${finalDatasource_entry.name}' in ${currentDatasource.datasource.name} datasource. Value: '${finalDatasource_entry.value}'. ${formatDatasourceApiError(err)}`,
             );
+            throw err;
         });
 };
 export const updateDatasourceEntry: UpdateDatasourceEntry = (args, config) => {

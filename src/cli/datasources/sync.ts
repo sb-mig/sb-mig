@@ -4,6 +4,7 @@ import type {
 } from "../../api/datasources/datasources.types.js";
 
 import { managementApi } from "../../api/managementApi.js";
+import { findMissingSchemaFiles } from "../../utils/path-utils.js";
 import {
     compare,
     discoverDatasources,
@@ -36,13 +37,30 @@ export const syncProvidedDatasources: SyncProvidedDatasources = async (
         external: allExternalDatasources,
     });
 
-    await managementApi.datasources.syncDatasources(
+    const result = await managementApi.datasources.syncDatasources(
         {
             providedDatasources: [...local, ...external],
             dryRun,
         },
         config,
     );
+
+    const missing = findMissingSchemaFiles(datasources, [
+        ...local,
+        ...external,
+    ]);
+
+    return {
+        ...result,
+        errors: [
+            ...missing.map((name) => ({
+                scope: "datasource",
+                name,
+                message: `No datasource file found for '${name}'.`,
+            })),
+            ...result.errors,
+        ],
+    };
 };
 
 export const syncAllDatasources: SyncAllDatasources = async (
@@ -66,7 +84,7 @@ export const syncAllDatasources: SyncAllDatasources = async (
         external: allExternalDatasources,
     });
 
-    await managementApi.datasources.syncDatasources(
+    return await managementApi.datasources.syncDatasources(
         {
             providedDatasources: [...local, ...external],
             dryRun,

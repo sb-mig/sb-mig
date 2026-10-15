@@ -1,0 +1,59 @@
+{
+    "components": [
+        {
+            "id": 1,
+            "name": "hero",
+            "display_name": "Hero",
+            "is_root": false,
+            "is_nestable": true,
+            "component_group_uuid": "group-1",
+            "all_presets": [],
+            "schema": {
+                "title": { "type": "text", "pos": 0, "required": false },
+                "subtitle": { "type": "text", "pos": 1 },
+                "items": {
+                    "type": "bloks",
+                    "pos": 2,
+                    "restrict_components": true,
+                    "component_whitelist": ["card", "banner"]
+                }
+            }
+        },
+        {
+            "id": 2,
+            "name": "card",
+            "display_name": "Card",
+            "is_root": false,
+            "is_nestable": true,
+            "component_group_uuid": "group-1",
+            "all_presets": [],
+            "schema": {
+                "title": { "type": "text", "pos": 0 }
+            }
+        },
+        {
+            "id": 3,
+            "name": "legacy",
+            "display_name": "Legacy",
+            "is_root": false,
+            "is_nestable": true,
+            "component_group_uuid": null,
+            "all_presets": [],
+            "schema": {}
+        }
+    ],
+    "component_groups": [{ "id": 1, "uuid": "group-1", "name": "Content" }],
+    "presets": [],
+    "datasources": [
+        {
+            "id": 1,
+            "name": "colors",
+            "slug": "colors",
+            "dimensions": []
+        }
+    ],
+    "datasource_entries": [
+        { "id": 1, "datasource_id": 1, "name": "red", "value": "#f00" },
+        { "id": 2, "datasource_id": 1, "name": "blue", "value": "#00f" }
+    ]
+}

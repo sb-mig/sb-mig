@@ -17,12 +17,39 @@ const stripRemoteIdentity = (source: any): any => {
     return payload;
 };
 
+export type PresetWriteResult = {
+    ok: boolean;
+    name: string;
+    error?: unknown;
+};
+
+/**
+ * Create or update a component's presets. Never throws: every preset that
+ * could not be written comes back as `ok: false`, so the component sync can
+ * report it without calling the component itself failed.
+ */
 const _resolvePresets = async (
     res: any,
     all_presets: any,
     component: any,
     config: RequestBaseConfig,
-) => {
+): Promise<PresetWriteResult[]> => {
+    try {
+        return await writePresets(res, all_presets, component, config);
+    } catch (error) {
+        Logger.error(
+            `Unable to sync presets for '${component.name}': ${error instanceof Error ? error.message : String(error)}`,
+        );
+        return [{ ok: false, name: "(all presets)", error }];
+    }
+};
+
+const writePresets = async (
+    res: any,
+    all_presets: any,
+    component: any,
+    config: RequestBaseConfig,
+): Promise<PresetWriteResult[]> => {
     const componentId = res.data.component.id;
 
     if (all_presets && all_presets.length > 0) {
@@ -77,7 +104,7 @@ const _resolvePresets = async (
             }),
         );
 
-        return [...presetsToCreateResult, presetsToUpdateResult];
+        return [...presetsToCreateResult, ...presetsToUpdateResult];
     } else {
         Logger.warning("There are no presets for this component.");
         return [];

@@ -90,6 +90,7 @@ describe("sync components SSOT", () => {
         expect(result.skipped).toEqual(["component 'page'"]);
         expect(result.errors).toEqual([
             {
+                scope: "ssot-removal",
                 name: "component 'page'",
                 message:
                     "SSOT removal failed: Cannot delete default content type",

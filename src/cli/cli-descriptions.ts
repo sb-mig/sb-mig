@@ -152,9 +152,9 @@ export const languagePublishStateDescription = `
 
 export const syncDescription = `
     USAGE
-        $ sb-mig sync components [component-name ...] | --all [--presets] [--ssot] [--dry-run]
+        $ sb-mig sync components [component-name ...] | --all [--presets] [--ssot] [--dry-run] [--json]
         $ sb-mig sync roles [role-name ...] | --all [--dry-run]
-        $ sb-mig sync datasources [datasource-name ...] | --all [--dry-run]
+        $ sb-mig sync datasources [datasource-name ...] | --all [--dry-run] [--json]
         $ sb-mig sync plugins [plugin-name ...] [--dry-run]
         $ sb-mig sync content (--all | --stories | --assets) --from [spaceId] --to [spaceId-or-file] --syncDirection [direction]
 
@@ -176,6 +176,8 @@ export const syncDescription = `
         --ssot          Single Source of Truth mode. Removes GUI-only components and replaces them with code versions. [components only]
         --packageName   External package name used when resolving provided components. [components only]
         --dry-run       Preview planned changes without making writes. [components, roles, datasources, plugins, content]
+                        For components and datasources the plan is field-level, after resolvers, and flags destructive changes.
+        --json          Print exactly one JSON report on stdout; logs go to stderr. [components, datasources]
         --yes           Skip confirmation prompts. [components --ssot, destructive content sync]
         --from          Source space ID or local story file name, depending on --syncDirection. [content only]
         --to            Target space ID or local output file name, depending on --syncDirection. [content only]
@@ -186,15 +188,21 @@ export const syncDescription = `
         content with fromSpaceToSpace or fromFileToSpace can delete all target stories before recreating them.
         content with fromSpaceToFile writes local story and asset backup files.
 
+    EXIT CODES
+        components and datasources exit 1 when any create or update fails. Every failure is reported;
+        the sync does not stop at the first one. A dry-run that finds destructive changes still exits 0.
+
     GOTCHAS
         --syncDirection is required for content sync.
         fromFileToSpace is implemented for stories, but assets log that it is not implemented.
         fromAWSToSpace is implemented for stories. Assets log that unsupported directions are not implemented.
         --ssot is destructive for components and prompts unless --yes is passed.
+        Without an interactive terminal (or with --json) a prompt fails instead of waiting: pass --yes or --dry-run.
 
     EXAMPLES
         $ sb-mig sync components --all
         $ sb-mig sync components --all --dry-run
+        $ sb-mig sync components --all --dry-run --json
         $ sb-mig sync components --all --presets
         $ sb-mig sync components --all --ssot --yes
         $ sb-mig sync components accordion accordion-item --presets
@@ -204,6 +212,7 @@ export const syncDescription = `
 
         $ sb-mig sync datasources --all
         $ sb-mig sync datasources countries cities --dry-run
+        $ sb-mig sync datasources --all --dry-run --json
 
         $ sb-mig sync plugins my-awesome-plugin
 
@@ -633,10 +642,14 @@ export const backupDescription = `
 
 export const debugDescription = `
     USAGE
-        $ sb-mig debug
+        $ sb-mig debug [--json]
 
     DESCRIPTION
         Output extra debugging information about resolved Storyblok config, sb-mig version, dependency versions, and package module type.
+        Tokens and other credentials in the config are printed as [redacted].
+
+    FLAGS
+        --json          Print exactly one JSON report on stdout; logs go to stderr.
 
     SIDE EFFECTS
         Reads local config and package metadata. Does not call Storyblok.

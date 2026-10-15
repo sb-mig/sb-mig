@@ -76,14 +76,22 @@ export const createPreset = (p: any, config: RequestBaseConfig) => {
         } as any)
         .then((res: any) => {
             Logger.warning(`Preset: '${p.preset.name}' has been created.`);
-            return res;
+            return {
+                ok: true,
+                name: p.preset.name,
+                data: res,
+            };
         })
-        .catch((e) => {
-            console.log("!!!!!!!!!!");
-            console.log(e);
+        .catch((error) => {
             Logger.error(
-                `Error happened. Preset: '${p.preset.name}' has been not created.`,
+                `Error happened. Preset: '${p.preset.name}' has been not created. ${error?.message ?? ""}`,
             );
+
+            return {
+                ok: false,
+                name: p.preset.name,
+                error,
+            };
         });
 };
 

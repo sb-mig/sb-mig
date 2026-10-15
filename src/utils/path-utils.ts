@@ -208,3 +208,19 @@ export const compare = (request: CompareRequest): CompareResult => {
 
     return result;
 };
+
+/**
+ * Names asked for on the command line that matched no schema file. Without
+ * this a typo syncs nothing and still reads as success.
+ */
+export const findMissingSchemaFiles = (
+    requested: string[],
+    found: OneFileElement[],
+): string[] =>
+    requested.filter(
+        (name) =>
+            !found.some(
+                (file) =>
+                    file.name === name || file.name.startsWith(`${name}.`),
+            ),
+    );
