@@ -1,3 +1,10 @@
+# [6.5.0-beta.23](https://github.com/sb-mig/sb-mig/compare/v6.5.0-beta.22...v6.5.0-beta.23) (2026-10-16)
+
+
+### Bug Fixes
+
+* **copy:** never double the trailing slash on links to folder start pages (MAR-4142) ([5e59a2d](https://github.com/sb-mig/sb-mig/commit/5e59a2d279563d4b073a9fbca0f1c9392ce21dd4))
+
 # [6.5.0-beta.22](https://github.com/sb-mig/sb-mig/compare/v6.5.0-beta.21...v6.5.0-beta.22) (2026-09-24)
 
 
