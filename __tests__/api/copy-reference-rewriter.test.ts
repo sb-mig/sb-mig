@@ -327,6 +327,154 @@ describe("copy reference rewriter", () => {
         );
     });
 
+    it("never doubles the trailing slash of a link to a folder start page", () => {
+        const maps = createEmptyCopyMaps();
+        maps.storyUuids.set("source-bba-uuid", "target-bba-uuid");
+        // A start page's full_slug ends in `/`, and the ledger keeps it so.
+        maps.storyFullSlugs.set("source-bba-uuid", "go/undergraduate/bba/");
+        maps.storyUuids.set("source-masters-uuid", "target-masters-uuid");
+        maps.storyFullSlugs.set("source-masters-uuid", "masters/");
+
+        const content = {
+            component: "page",
+            // Storyblok stores a link to a start page as `folder/`.
+            multilink: {
+                linktype: "story",
+                id: "source-bba-uuid",
+                cached_url: "go/undergraduate/bba/",
+                story: {
+                    full_slug: "go/undergraduate/bba/",
+                    url: "go/undergraduate/bba/",
+                },
+            },
+            withoutSlash: {
+                linktype: "story",
+                id: "source-bba-uuid",
+                cached_url: "go/undergraduate/bba",
+            },
+            withSuffix: {
+                linktype: "story",
+                id: "source-bba-uuid",
+                cached_url: "go/undergraduate/bba/?utm=1#top",
+            },
+            body: {
+                type: "doc",
+                content: [
+                    {
+                        type: "link",
+                        attrs: {
+                            linktype: "story",
+                            uuid: "source-masters-uuid",
+                            href: "/masters/",
+                        },
+                    },
+                ],
+            },
+        };
+
+        const result = rewriteCopyReferences({ value: content, maps });
+
+        expect(result.value.multilink.cached_url).toBe("go/undergraduate/bba/");
+        expect(result.value.multilink.story.full_slug).toBe(
+            "go/undergraduate/bba/",
+        );
+        expect(result.value.multilink.story.url).toBe("go/undergraduate/bba/");
+        expect(result.value.withoutSlash.cached_url).toBe(
+            "go/undergraduate/bba/",
+        );
+        expect(result.value.withSuffix.cached_url).toBe(
+            "go/undergraduate/bba/?utm=1#top",
+        );
+        expect(result.value.body.content[0].attrs.href).toBe("/masters/");
+        // Nothing ends in `//`, so no path is recorded as rewritten wrongly.
+        expect(
+            result.records.filter((record) =>
+                String(record.targetValue).includes("//"),
+            ),
+        ).toHaveLength(0);
+    });
+
+    it("repairs a start-page link an earlier run left with a doubled slash", () => {
+        const maps = createEmptyCopyMaps();
+        maps.storyUuids.set("source-about-uuid", "target-about-uuid");
+        maps.storyFullSlugs.set("source-about-uuid", "about/");
+        maps.storyFullSlugs.set("target-about-uuid", "about/");
+
+        const content = {
+            component: "page",
+            cta: {
+                linktype: "story",
+                id: "target-about-uuid",
+                cached_url: "about//",
+            },
+            body: {
+                type: "doc",
+                content: [
+                    {
+                        type: "link",
+                        attrs: {
+                            linktype: "story",
+                            uuid: "target-about-uuid",
+                            href: "/about//",
+                        },
+                    },
+                ],
+            },
+        };
+
+        const result = rewriteCopyReferences({ value: content, maps });
+
+        expect(result.value.cta.cached_url).toBe("about/");
+        expect(result.value.body.content[0].attrs.href).toBe("/about/");
+
+        // Repaired once, and stable after that.
+        const second = rewriteCopyReferences({ value: result.value, maps });
+
+        expect(second.value.cta.cached_url).toBe("about/");
+        expect(second.value.body.content[0].attrs.href).toBe("/about/");
+        expect(second.records).toHaveLength(0);
+    });
+
+    it("keeps the slash convention when a link moves to a path that is not a start page", () => {
+        const maps = createEmptyCopyMaps();
+        maps.storyUuids.set("source-a-uuid", "target-a-uuid");
+        maps.storyFullSlugs.set(
+            "source-a-uuid",
+            "undergraduate/bba/majors-minors",
+        );
+        maps.storyUuids.set("source-b-uuid", "target-b-uuid");
+        maps.storyFullSlugs.set("source-b-uuid", "new/path");
+        maps.storyUuids.set("source-c-uuid", "target-c-uuid");
+        maps.storyFullSlugs.set("source-c-uuid", "new/path");
+
+        const content = {
+            component: "page",
+            trailing: {
+                linktype: "story",
+                id: "source-a-uuid",
+                cached_url: "undergraduate/majors-minors/",
+            },
+            plain: {
+                linktype: "story",
+                id: "source-b-uuid",
+                cached_url: "old/path",
+            },
+            both: {
+                linktype: "story",
+                id: "source-c-uuid",
+                cached_url: "/old/path/",
+            },
+        };
+
+        const result = rewriteCopyReferences({ value: content, maps });
+
+        expect(result.value.trailing.cached_url).toBe(
+            "undergraduate/bba/majors-minors/",
+        );
+        expect(result.value.plain.cached_url).toBe("new/path");
+        expect(result.value.both.cached_url).toBe("/new/path/");
+    });
+
     it("leaves the stored path alone when the target path is unknown", () => {
         const maps = createEmptyCopyMaps();
         maps.storyUuids.set("source-header-uuid", "target-header-uuid");
