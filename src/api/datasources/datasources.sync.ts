@@ -15,7 +15,7 @@ export const syncDatasources: SyncDatasources = async (args, config) => {
         }),
     );
 
-    await syncDatasourcesData(
+    return await syncDatasourcesData(
         { datasources: providedDatasourcesContent, dryRun },
         config,
     );
