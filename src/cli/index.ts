@@ -331,10 +331,11 @@ app.debug = () => ({
     cli: meow(debugDescription, {
         importMeta: import.meta,
         booleanDefault: undefined,
+        flags: { json: { type: "boolean", default: false } },
     }),
-    action: async () => {
+    action: async (cli: any) => {
         const { debug } = await import("./commands/debug.js");
-        await debug();
+        await debug(cli);
     },
 });
 
