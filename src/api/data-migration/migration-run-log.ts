@@ -80,6 +80,12 @@ export interface MigrationRunLogRecord {
     error?: unknown;
 }
 
+export interface MigrationRunLogItemLabel {
+    id?: number | string;
+    name?: string;
+    slug?: string;
+}
+
 interface SaveMigrationRunLogArgs {
     artifactBaseName: string;
     useDatestamp: boolean;
@@ -94,6 +100,13 @@ interface SaveMigrationRunLogArgs {
     fromFilePath?: string;
     languagePublishStatePath?: string;
     pipelineResult: MigrationPipelineResult;
+    /**
+     * When the changed items are streamed in batches (migrate continue),
+     * pipelineResult.changedItems is intentionally empty; these carry the
+     * per-result item labels (aligned with writeResults) and the real count.
+     */
+    changedItemLabels?: MigrationRunLogItemLabel[];
+    totalChangedItems?: number;
     writeResults: PromiseSettledResult<MutationWriteResult>[];
     writeSummary: MutationWriteSummary;
     continuedFromManifest?: string;
@@ -150,6 +163,8 @@ export const buildMigrationRunLogRecords = ({
     fromFilePath,
     languagePublishStatePath,
     pipelineResult,
+    changedItemLabels,
+    totalChangedItems,
     writeResults,
     writeSummary,
     continuedFromManifest,
@@ -184,15 +199,16 @@ export const buildMigrationRunLogRecords = ({
             (step) => step.migrationConfig,
         ),
         totalItems: pipelineResult.totalItems,
-        totalChangedItems: pipelineResult.changedItems.length,
+        totalChangedItems:
+            totalChangedItems ?? pipelineResult.changedItems.length,
     } satisfies Omit<MigrationRunLogRecord, "event">;
 
     const updateRecords: MigrationRunLogRecord[] = writeResults.map(
         (result, index) => {
             const value = resolveWriteResultValue(result);
-            const changedItem = resolveChangedItemPayload(
-                pipelineResult.changedItems[index],
-            );
+            const changedItem =
+                changedItemLabels?.[index] ??
+                resolveChangedItemPayload(pipelineResult.changedItems[index]);
             const stage = value.stage || "update";
             const event: MigrationRunLogEvent = value.publishSkippedReason
                 ? "publish_skipped"

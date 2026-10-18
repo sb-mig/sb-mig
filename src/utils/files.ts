@@ -203,61 +203,54 @@ export const writeJsonArrayStreamed = (
  * Only the array document is streamed; each individual element is parsed with
  * JSON.parse (elements are small). Throws if the file is not a JSON array.
  */
-export const readJsonArrayStreamed = (pathToFile: string): Promise<any[]> => {
-    return new Promise<any[]>((resolve, reject) => {
-        const stream = fs.createReadStream(resolveFromCwd(pathToFile), {
-            encoding: "utf8",
-        });
+export async function* iterateJsonArrayStreamed(
+    pathToFile: string,
+): AsyncGenerator<any, void, undefined> {
+    const stream = fs.createReadStream(resolveFromCwd(pathToFile), {
+        encoding: "utf8",
+    });
 
-        const items: any[] = [];
-        let started = false; // seen the opening `[`
-        let done = false; // seen the matching top-level `]`
-        let buffer = ""; // current element text
-        let depth = 0; // nesting depth inside the current element
-        let inString = false;
-        let escaped = false;
-        let settled = false;
+    let started = false; // seen the opening `[`
+    let done = false; // seen the matching top-level `]`
+    let buffer = ""; // current element text
+    let depth = 0; // nesting depth inside the current element
+    let inString = false;
+    let escaped = false;
 
-        const fail = (err: Error) => {
-            if (settled) return;
-            settled = true;
-            stream.destroy();
-            reject(err);
-        };
+    const flushElement = (): any | undefined => {
+        const text = buffer.trim();
+        buffer = "";
+        if (text.length === 0) {
+            return undefined;
+        }
+        return JSON.parse(text);
+    };
 
-        const flushElement = () => {
-            const text = buffer.trim();
-            buffer = "";
-            if (text.length === 0) {
-                return;
-            }
-            items.push(JSON.parse(text));
-        };
-
-        stream.on("data", (rawChunk: string | Buffer) => {
-            if (done) return;
-
+    try {
+        for await (const rawChunk of stream) {
             // The stream is opened with utf8 encoding, so chunks arrive as
             // strings (decoded across multi-byte boundaries). The Buffer arm is
             // only here to satisfy the Node type signature.
             const chunk =
                 typeof rawChunk === "string"
                     ? rawChunk
-                    : rawChunk.toString("utf8");
+                    : (rawChunk as Buffer).toString("utf8");
 
             for (let i = 0; i < chunk.length; i++) {
                 const ch = chunk[i]!;
+
+                if (done) {
+                    // trailing whitespace/newlines after the closing `]`
+                    continue;
+                }
 
                 if (!started) {
                     if (ch === "[") {
                         started = true;
                     } else if (ch.trim() !== "") {
-                        fail(
-                            new Error(
-                                `Expected a JSON array in ${pathToFile}, found "${ch}".`,
-                            ),
+                        throw new Error(
+                            `Expected a JSON array in ${pathToFile}, found "${ch}".`,
                         );
-                        return;
                     }
                     continue;
                 }
@@ -295,14 +288,12 @@ export const readJsonArrayStreamed = (pathToFile: string): Promise<any[]> => {
                 if (ch === "]") {
                     if (depth === 0) {
                         // closing the top-level array
-                        try {
-                            flushElement();
-                        } catch (error) {
-                            fail(error as Error);
-                            return;
+                        const element = flushElement();
+                        if (element !== undefined) {
+                            yield element;
                         }
                         done = true;
-                        break;
+                        continue;
                     }
                     depth--;
                     buffer += ch;
@@ -310,30 +301,42 @@ export const readJsonArrayStreamed = (pathToFile: string): Promise<any[]> => {
                 }
 
                 if (ch === "," && depth === 0) {
-                    try {
-                        flushElement();
-                    } catch (error) {
-                        fail(error as Error);
-                        return;
+                    const element = flushElement();
+                    if (element !== undefined) {
+                        yield element;
                     }
                     continue;
                 }
 
                 buffer += ch;
             }
-        });
+        }
+    } finally {
+        stream.destroy();
+    }
 
-        stream.on("error", fail);
-        stream.on("end", () => {
-            if (settled) return;
-            if (!started) {
-                fail(new Error(`Empty or non-JSON file: ${pathToFile}`));
-                return;
-            }
-            settled = true;
-            resolve(items);
-        });
-    });
+    if (!started) {
+        throw new Error(`Empty or non-JSON file: ${pathToFile}`);
+    }
+
+    // A dry-run killed mid-write leaves a file without the closing `]`.
+    // Failing here (instead of returning the partial set) is what prevents a
+    // later `migrate continue` from silently writing a subset of stories.
+    if (!done) {
+        throw new Error(
+            `Truncated JSON array in ${pathToFile}: the file ends before the closing "]". The artifact was likely written by an interrupted run - re-run the dry-run.`,
+        );
+    }
+}
+
+export const readJsonArrayStreamed = async (
+    pathToFile: string,
+): Promise<any[]> => {
+    const items: any[] = [];
+    for await (const item of iterateJsonArrayStreamed(pathToFile)) {
+        items.push(item);
+    }
+    return items;
 };
 
 export const createJSAllComponentsFile = async (
