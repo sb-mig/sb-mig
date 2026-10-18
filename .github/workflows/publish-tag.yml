@@ -78,5 +78,16 @@ jobs:
         run: |
           set -euo pipefail
           PKG_VERSION="$(node -p "require('./package.json').version")"
-          npm view "sb-mig@${PKG_VERSION}" version
-          echo "dist-tag ${{ inputs.dist_tag }} -> $(npm view sb-mig "dist-tags.${{ inputs.dist_tag }}")"
+          # npm replicates a freshly published version to its read path with a
+          # delay (about 2.5 minutes observed for 6.5.0-beta.4). Poll for up to
+          # five minutes instead of asking once and failing a successful publish.
+          for attempt in $(seq 1 20); do
+            if npm view "sb-mig@${PKG_VERSION}" version >/dev/null 2>&1; then
+              echo "verified sb-mig@${PKG_VERSION} on the registry after ${attempt} attempt(s)"
+              echo "dist-tag ${{ inputs.dist_tag }} -> $(npm view sb-mig "dist-tags.${{ inputs.dist_tag }}")"
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "sb-mig@${PKG_VERSION} not visible on the registry after 5 minutes" >&2
+          exit 1
