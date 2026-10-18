@@ -177,6 +177,37 @@ describe("isItFactory - flag matching", () => {
         expect(isIt("allWithSSOT")).toBe(false);
     });
 
+    // meow emits a key for every flag declared with `default:` or
+    // `isMultiple: true`, whether or not the user typed it. Such a flag has to
+    // be handled explicitly or it silently defeats the rule — this is what made
+    // `migrate content <component...>` unreachable (GCTT-3879).
+    describe("flags meow always injects", () => {
+        const meowRules = { empty: [], withDefault: ["migrateFrom"] };
+
+        it("kills a rule that neither whitelists nor consumes the injected flag", () => {
+            const flags = { migrateFrom: "space", from: "12345" };
+            const isIt = isItFactory(flags, meowRules, ["from"]);
+
+            expect(isIt("empty")).toBe(false);
+        });
+
+        it("matches once the rule consumes the injected flag", () => {
+            const flags = { migrateFrom: "space", from: "12345" };
+            const isIt = isItFactory(flags, meowRules, ["from"]);
+
+            expect(isIt("withDefault")).toBe(true);
+        });
+
+        it("cannot be solved by whitelisting when another rule requires the flag", () => {
+            const flags = { migrateFrom: "space" };
+            const isIt = isItFactory(flags, meowRules, ["migrateFrom"]);
+
+            // The whitelist is checked before the rule, so the rule's
+            // requirement is never satisfied and it can never match.
+            expect(isIt("withDefault")).toBe(false);
+        });
+    });
+
     it("should handle SSOT flag", () => {
         const flags = { all: true, ssot: true };
         const isIt = isItFactory(flags, rules, []);
