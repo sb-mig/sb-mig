@@ -633,10 +633,14 @@ export const backupDescription = `
 
 export const debugDescription = `
     USAGE
-        $ sb-mig debug
+        $ sb-mig debug [--json]
 
     DESCRIPTION
-        Output extra debugging information about resolved Storyblok config, sb-mig version, dependency versions, and package module type.
+        Show resolved Storyblok config, config paths, sb-mig and Node versions, dependency versions, and package module type.
+        Masks secrets as ••••abcd (last four characters only).
+
+    FLAGS
+        --json            Output a single JSON report.
 
     SIDE EFFECTS
         Reads local config and package metadata. Does not call Storyblok.
