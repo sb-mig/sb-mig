@@ -29,8 +29,12 @@ export * as sync from "./sync/index.js";
 export type {
     SyncResult,
     SyncError,
+    SyncPlan,
     SyncProgressEvent,
     SyncProgressCallback,
+    ComponentPlan,
+    DatasourcePlan,
+    DestructiveChange,
 } from "./sync/types.js";
 
 // Discovery

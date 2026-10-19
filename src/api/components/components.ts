@@ -9,9 +9,13 @@ import type {
     RemoveComponentGroup,
     UpdateComponent,
 } from "./components.types.js";
+import type { PresetFailure } from "../presets/resolvePresets.js";
+import type { RequestBaseConfig } from "../utils/request.js";
 
 import Logger from "../../utils/logger.js";
-import _resolvePresets from "../presets/resolvePresets.js";
+import _resolvePresets, {
+    resolvePresetsForSync,
+} from "../presets/resolvePresets.js";
 import { getAllItemsWithPagination } from "../utils/request.js";
 
 /*
@@ -139,6 +143,98 @@ export const updateComponent: UpdateComponent = (
             Logger.error(
                 `${err.message} in migration of ${component.name} in updateComponent function`,
             );
+        });
+};
+
+/*
+ *
+ * For the component sync
+ *
+ * The public createComponent / updateComponent / createComponentsGroup keep
+ * their contracts for api-v2 callers: an update or a group that fails is
+ * logged and resolves, and presets are written in the background after a
+ * create. The sync needs to count every failure, so it writes through these
+ * instead: a failed write rejects, and preset failures come back as data.
+ *
+ * */
+export const createComponentForSync = async (
+    component: any,
+    presets: boolean,
+    config: RequestBaseConfig,
+): Promise<PresetFailure[]> => {
+    const { spaceId, sbApi } = config;
+    Logger.log(`Trying to create '${component.name}'`);
+    const { all_presets, ...componentWithoutPresets } = component;
+
+    const res = await sbApi
+        .post(`spaces/${spaceId}/components/`, {
+            component: componentWithoutPresets,
+        })
+        .catch((err) => {
+            Logger.error(
+                `${err.message} in migration of ${component.name} in createComponent function`,
+            );
+            throw err;
+        });
+
+    Logger.success(`Component '${component.name}' has been created.`);
+
+    return presets
+        ? await resolvePresetsForSync(res, all_presets, component, config)
+        : [];
+};
+
+export const updateComponentForSync = async (
+    component: any,
+    presets: boolean,
+    config: RequestBaseConfig,
+): Promise<PresetFailure[]> => {
+    const { spaceId, sbApi } = config;
+    Logger.log(`Trying to update '${component.name}' with id ${component.id}`);
+    const { all_presets, ...componentWithoutPresets } = component;
+
+    const res = await sbApi
+        .put(`spaces/${spaceId}/components/${component.id}`, {
+            component: componentWithoutPresets,
+        })
+        .catch((err) => {
+            Logger.error(
+                `${err.message} in migration of ${component.name} in updateComponent function`,
+            );
+            throw err;
+        });
+
+    Logger.success(`Component '${component.name}' has been updated.`);
+
+    return presets
+        ? await resolvePresetsForSync(res, all_presets, component, config)
+        : [];
+};
+
+/** Resolves to the created group (`{ name, uuid, ... }`); rejects on failure. */
+export const createComponentsGroupForSync = (
+    groupName: string,
+    config: RequestBaseConfig,
+): Promise<any> => {
+    const { spaceId, sbApi } = config;
+    Logger.log(`Trying to create '${groupName}' group`);
+
+    return sbApi
+        .post(`spaces/${spaceId}/component_groups/`, {
+            component_group: {
+                name: groupName,
+            },
+        } as any)
+        .then((res: any) => {
+            const group = res.data.component_group;
+            Logger.log(`'${groupName}' created with uuid: ${group.uuid}`);
+            return group;
+        })
+        .catch((err: any) => {
+            Logger.error(
+                `Unable to create component group '${groupName}': ${err?.message ?? String(err)}`,
+            );
+            throw err;
         });
 };
 
