@@ -1,3 +1,17 @@
+# [6.5.0-beta.25](https://github.com/sb-mig/sb-mig/compare/v6.5.0-beta.24...v6.5.0-beta.25) (2026-10-27)
+
+
+### Bug Fixes
+
+* **sync:** harden the agent syncs against dropped writes, --ssot and stray input ([5c3f75c](https://github.com/sb-mig/sb-mig/commit/5c3f75cd1728b462125c198ffa830b1a950e4113)), closes [#427](https://github.com/sb-mig/sb-mig/issues/427)
+* **sync:** make --ssot safe and keep the api-v2 contracts unchanged ([5e55d93](https://github.com/sb-mig/sb-mig/commit/5e55d93469eca092f9232631eb282904c22b9398)), closes [#427](https://github.com/sb-mig/sb-mig/issues/427)
+* **sync:** report --ssot recreations and keep error parents apart from names ([de5ff5f](https://github.com/sb-mig/sb-mig/commit/de5ff5f2dfc604a2da21c34a88301387156c55af)), closes [#427](https://github.com/sb-mig/sb-mig/issues/427)
+
+
+### Features
+
+* **sync:** make sync components and sync datasources safe for agents ([09558ba](https://github.com/sb-mig/sb-mig/commit/09558ba62d8c15bd6c33621bd580a56941086bad))
+
 # [6.5.0-beta.24](https://github.com/sb-mig/sb-mig/compare/v6.5.0-beta.23...v6.5.0-beta.24) (2026-10-19)
 
 
