@@ -27,7 +27,11 @@ export type WhitelistChange = {
     field: string;
     added: string[];
     removed: string[];
-    /** `restrict_components` before and after; a newly restricted field narrows too. */
+    /**
+     * Whether the whitelist is enforced, before and after: `restrict_components`
+     * on a blocks field, `restrict_content_types` on a link field. A newly
+     * restricted field narrows too.
+     */
     restricted: { from: boolean; to: boolean };
 };
 
@@ -54,13 +58,21 @@ export type ComponentPlan = {
 export type DestructiveKind =
     | "field-removed"
     | "likely-rename"
+    | "type-changed"
     | "whitelist-narrowed"
-    | "component-removed";
+    | "component-removed"
+    | "group-removed";
 
 export type DestructiveChange = {
     kind: DestructiveKind;
-    component: string;
+    /** Absent only for `group-removed`. */
+    component?: string;
+    /** For `group-removed`: the component group --ssot deletes. */
+    group?: string;
     field?: string;
+    /** For `type-changed`: the field type before and after. */
+    from?: string;
+    to?: string;
     /** For `likely-rename`: the added fields of the same type. */
     candidates?: string[];
     /** For `whitelist-narrowed`: the components no longer allowed. */
@@ -148,6 +160,10 @@ const sameValue = (local: unknown, remote: unknown): boolean => {
     return isBlank(local) && isBlank(remote);
 };
 
+// The space numbers every field; a schema that leaves `pos` out has no
+// opinion about it, so a missing local `pos` is never a change.
+const UNSET_MEANS_UNCHANGED = new Set(["pos"]);
+
 const diffProperties = (
     local: Record<string, any>,
     remote: Record<string, any>,
@@ -160,6 +176,7 @@ const diffProperties = (
 
     return keys
         .filter((key) => !ignored.has(key))
+        .filter((key) => !(UNSET_MEANS_UNCHANGED.has(key) && !(key in local)))
         .filter((key) => !sameValue(local[key], remote[key]))
         .sort()
         .map((key) => ({ property: key, from: remote[key], to: local[key] }));
@@ -184,9 +201,11 @@ const diffWhitelist = (
     const remoteList = asStringList(remote.component_whitelist);
     const added = localList.filter((name) => !remoteList.includes(name));
     const removed = remoteList.filter((name) => !localList.includes(name));
+    const enforced = (field: Record<string, any>) =>
+        Boolean(field.restrict_components || field.restrict_content_types);
     const restricted = {
-        from: Boolean(remote.restrict_components),
-        to: Boolean(local.restrict_components),
+        from: enforced(remote),
+        to: enforced(local),
     };
 
     if (
@@ -390,6 +409,32 @@ export const detectDestructiveChanges = (
         }
     }
 
+    // Content stored under a field is shaped by its type: a textarea's
+    // string is not a richtext document, an asset is not a multiasset.
+    for (const field of plan.fields) {
+        if (field.change !== "changed") continue;
+
+        const type = field.properties?.find(
+            (property) => property.property === "type",
+        );
+        if (!type) continue;
+
+        const from = String(type.from);
+        const to = String(type.to);
+        if (LAYOUT_FIELD_TYPES.has(from) && LAYOUT_FIELD_TYPES.has(to)) {
+            continue;
+        }
+
+        destructive.push({
+            kind: "type-changed",
+            component: plan.name,
+            field: field.field,
+            from,
+            to,
+            message: `'${plan.name}.${field.field}' changes type from ${from} to ${to}. Content stored under it may no longer fit the field.`,
+        });
+    }
+
     for (const change of plan.whitelist) {
         if (!change.restricted.to) continue;
 
@@ -427,6 +472,28 @@ export const detectSsotRemovals = (
             kind: "component-removed" as const,
             component: name,
             message: `'${name}' exists only in the space and is deleted by --ssot.`,
+        }));
+};
+
+/**
+ * Under `--ssot` every group is deleted too. A group no local component uses
+ * is not created again: it is gone, and so is every space-only component's
+ * place in it.
+ */
+export const detectSsotGroupRemovals = (
+    localGroupNames: string[],
+    remoteGroups: any[],
+): DestructiveChange[] => {
+    const local = new Set(localGroupNames);
+
+    return remoteGroups
+        .map((group) => String(group?.name ?? "unknown"))
+        .filter((name) => !local.has(name))
+        .sort()
+        .map((name) => ({
+            kind: "group-removed" as const,
+            group: name,
+            message: `Component group '${name}' exists only in the space and is deleted by --ssot.`,
         }));
 };
 

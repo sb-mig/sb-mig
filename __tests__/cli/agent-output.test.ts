@@ -480,3 +480,102 @@ describe("report shape", () => {
         ]);
     });
 });
+
+describe("flags are checked per subcommand", () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+        process.exitCode = undefined;
+        stdout = [];
+        vi.spyOn(process.stdout, "write").mockImplementation((chunk: any) => {
+            stdout.push(String(chunk));
+            return true;
+        });
+    });
+
+    afterEach(() => {
+        vi.restoreAllMocks();
+        process.exitCode = undefined;
+    });
+
+    it("rejects --to on sync components instead of syncing the configured space", async () => {
+        const sync = await loadSync();
+
+        await sync({
+            input: ["sync", "components"],
+            flags: { all: true, to: 999999, json: true },
+        } as any);
+
+        const [report] = jsonDocuments();
+        expect(process.exitCode).toBe(1);
+        expect(report.errors[0].message).toMatch(
+            /Unknown flag for 'sync components': --to\./,
+        );
+        expect(mockApiConfig.sbApi.get).not.toHaveBeenCalled();
+        expect(mockApiConfig.sbApi.put).not.toHaveBeenCalled();
+    });
+
+    it("rejects --presets on sync datasources", async () => {
+        const sync = await loadSync();
+
+        await sync({
+            input: ["sync", "datasources", "colors"],
+            flags: { presets: true, json: true },
+        } as any);
+
+        const [report] = jsonDocuments();
+        expect(process.exitCode).toBe(1);
+        expect(report.command).toBe("sync datasources");
+        expect(report.errors[0].message).toContain("--presets");
+        expect(mockApiConfig.sbApi.get).not.toHaveBeenCalled();
+    });
+});
+
+describe("a report JSON cannot hold", () => {
+    afterEach(() => {
+        vi.restoreAllMocks();
+        process.exitCode = undefined;
+    });
+
+    it("still prints one document, with the values as text and an error", async () => {
+        vi.resetModules();
+        const { emptySyncReport, reportCommand } =
+            await import("../../src/cli/utils/agent-output.js");
+        const written: string[] = [];
+        vi.spyOn(process.stdout, "write").mockImplementation((chunk: any) => {
+            written.push(String(chunk));
+            return true;
+        });
+        const report = {
+            ...emptySyncReport("sync components", true),
+            components: [
+                {
+                    name: "counter",
+                    action: "update",
+                    properties: [
+                        {
+                            property: "max",
+                            from: BigInt(1),
+                            to: BigInt("12345678901234567890"),
+                        },
+                    ],
+                },
+            ],
+        };
+
+        await reportCommand(
+            { json: true, partial: () => report },
+            async () => report,
+        );
+
+        expect(written).toHaveLength(1);
+        const document = JSON.parse(written[0] ?? "");
+        expect(document.ok).toBe(false);
+        expect(document.components[0].properties[0].to).toBe(
+            "12345678901234567890",
+        );
+        expect(document.errors).toEqual([
+            expect.objectContaining({ scope: "report" }),
+        ]);
+        expect(process.exitCode).toBe(1);
+    });
+});

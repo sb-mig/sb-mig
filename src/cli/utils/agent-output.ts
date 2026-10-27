@@ -59,13 +59,72 @@ export const startJsonMode = (): void => {
     ) as typeof stdout.write;
 };
 
+/** JSON for anything: a BigInt becomes text, a cycle a marker. */
+const tolerantJson = (value: unknown): string => {
+    const seen = new WeakSet<object>();
+
+    return JSON.stringify(
+        value,
+        (_key, item) => {
+            if (typeof item === "bigint") return item.toString();
+            if (item && typeof item === "object") {
+                if (seen.has(item)) return "[Circular]";
+                seen.add(item);
+            }
+            return item;
+        },
+        2,
+    );
+};
+
+/**
+ * Serialize first, mark written after: a report that cannot be serialized
+ * (a BigInt in a schema, a cycle) must still leave one document on stdout.
+ * It goes out with its values converted, `ok: false` and an error saying so.
+ */
+const serializeReport = (report: CommandReport): string => {
+    try {
+        return JSON.stringify(report, null, 2);
+    } catch (error) {
+        process.exitCode = 1;
+        const fallback = {
+            ...report,
+            ok: false,
+            errors: [
+                ...(report.errors ?? []),
+                {
+                    scope: "report",
+                    message: `The report could not be serialized as JSON (${messageOf(error)}); values that JSON cannot hold were converted to text.`,
+                },
+            ],
+        };
+
+        try {
+            return tolerantJson(fallback);
+        } catch {
+            return JSON.stringify({
+                ok: false,
+                command: String(report.command),
+                errors: [
+                    {
+                        scope: "report",
+                        message: `The report could not be serialized as JSON: ${messageOf(error)}`,
+                    },
+                ],
+            });
+        }
+    }
+};
+
 const writeJsonDocument = (report: CommandReport): void => {
     if (documentWritten) return;
+
+    const text = serializeReport(report);
     documentWritten = true;
 
     const write =
         writeToStdout ?? ((chunk: string) => process.stdout.write(chunk));
-    write(`${JSON.stringify(report, null, 2)}\n`);
+    write(`${text}\n`);
 };
 
 export const messageOf = (error: unknown): string => {

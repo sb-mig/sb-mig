@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
     detectDestructiveChanges,
+    detectSsotGroupRemovals,
     detectSsotRemovals,
     planComponent,
     planDatasource,
@@ -412,5 +413,106 @@ describe("planDatasource", () => {
 
         expect(plan.action).toBe("unchanged");
         expect(plan.unchangedEntries).toBe(1);
+    });
+});
+
+describe("destructive plan gaps (MAR-4104 review)", () => {
+    it("flags a field whose type changes on the same key", () => {
+        const plan = planComponent({
+            local: {
+                name: "article",
+                schema: { body: { type: "richtext", pos: 0 } },
+            },
+            remote: {
+                name: "article",
+                schema: { body: { type: "textarea", pos: 0 } },
+            },
+        });
+
+        expect(detectDestructiveChanges(plan)).toEqual([
+            expect.objectContaining({
+                kind: "type-changed",
+                component: "article",
+                field: "body",
+                from: "textarea",
+                to: "richtext",
+            }),
+        ]);
+    });
+
+    it("flags a narrowed whitelist on a link field restricted by content type", () => {
+        const link = (whitelist: string[]) => ({
+            type: "multilink",
+            restrict_content_types: true,
+            component_whitelist: whitelist,
+        });
+        const plan = planComponent({
+            local: { name: "teaser", schema: { link: link(["page"]) } },
+            remote: {
+                name: "teaser",
+                schema: { link: link(["page", "article"]) },
+            },
+        });
+
+        expect(detectDestructiveChanges(plan)).toEqual([
+            expect.objectContaining({
+                kind: "whitelist-narrowed",
+                field: "link",
+                removed: ["article"],
+            }),
+        ]);
+    });
+
+    it("lists the groups --ssot deletes that no local component uses", () => {
+        expect(
+            detectSsotGroupRemovals(
+                ["Content"],
+                [{ name: "Content" }, { name: "Legacy" }],
+            ),
+        ).toEqual([
+            expect.objectContaining({ kind: "group-removed", group: "Legacy" }),
+        ]);
+    });
+
+    it("does not read a missing local pos as a change", () => {
+        const plan = planComponent({
+            local: {
+                name: "card",
+                schema: {
+                    title: { type: "text" },
+                    image: { type: "asset" },
+                },
+            },
+            remote: {
+                name: "card",
+                schema: {
+                    title: { type: "text", pos: 0 },
+                    image: { type: "asset", pos: 1 },
+                },
+            },
+        });
+
+        expect(plan.action).toBe("unchanged");
+        expect(plan.fields).toEqual([]);
+    });
+
+    it("still reports a pos the schema sets", () => {
+        const plan = planComponent({
+            local: {
+                name: "card",
+                schema: { title: { type: "text", pos: 2 } },
+            },
+            remote: {
+                name: "card",
+                schema: { title: { type: "text", pos: 0 } },
+            },
+        });
+
+        expect(plan.fields).toEqual([
+            expect.objectContaining({
+                field: "title",
+                properties: [{ property: "pos", from: 0, to: 2 }],
+            }),
+        ]);
     });
 });

@@ -256,14 +256,17 @@ export const syncProvidedComponents: SyncProvidedComponents = async (
     } else {
         // implement discovering and syncrhonizing with packageName
         // #1: discover all external .sb.js files
+        const found = new Map<string, number>();
         const allLocalSbComponentsSchemaFiles = discoverManyByPackageName({
             scope: SCOPE.local,
             packageNames: components,
+            found,
         });
         // #2: discover all local .sb.js files
         const allExternalSbComponentsSchemaFiles = discoverManyByPackageName({
             scope: SCOPE.external,
             packageNames: components,
+            found,
         });
         // #3: compare results, prefer local ones (so we have to create final external paths array and local array of things to sync from where)
         const { local, external } = compare({
@@ -271,10 +274,39 @@ export const syncProvidedComponents: SyncProvidedComponents = async (
             external: allExternalSbComponentsSchemaFiles,
         });
         // #4: sync - do all stuff already done (groups resolving, and so on)
-        return syncComponents([...local, ...external], presets, config, {
-            dryRun: options.dryRun,
-            strict: options.strict,
-        });
+        const result = await syncComponents(
+            [...local, ...external],
+            presets,
+            config,
+            { dryRun: options.dryRun, strict: options.strict },
+        );
+
+        // A package name that matched nothing is a typo, not an empty sync.
+        return {
+            ...result,
+            errors: [
+                ...components.flatMap((name) =>
+                    found.has(name)
+                        ? found.get(name) === 0
+                            ? [
+                                  {
+                                      scope: "component",
+                                      name,
+                                      message: `Package '${name}' has no schema files.`,
+                                  },
+                              ]
+                            : []
+                        : [
+                              {
+                                  scope: "component",
+                                  name,
+                                  message: `No package named '${name}' was found in componentsDirectories.`,
+                              },
+                          ],
+                ),
+                ...result.errors,
+            ],
+        };
     }
 };
 

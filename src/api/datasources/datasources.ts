@@ -11,6 +11,7 @@ import type { SyncError, SyncResult } from "../sync/sync.types.js";
 import Logger from "../../utils/logger.js";
 import { planDatasource } from "../sync/sync-plan.js";
 import { getAllItemsWithPagination } from "../utils/request.js";
+import { checkWritten } from "../utils/write-response.js";
 
 import {
     getDatasourceDimensionValues,
@@ -20,7 +21,7 @@ import {
 import { formatDatasourceApiError } from "./error-formatting.js";
 
 // GET
-export const getAllDatasources: GetAllDatasources = (config) => {
+export const getAllDatasources: GetAllDatasources = (config, options = {}) => {
     const { sbApi, spaceId } = config;
     Logger.log("Trying to get all Datasources.");
 
@@ -38,7 +39,9 @@ export const getAllDatasources: GetAllDatasources = (config) => {
                     return res;
                 })
                 .catch((err: any) => {
-                    if (err?.response?.status === 404) {
+                    // Strict callers (the CLI) never read a failed listing as
+                    // an empty space: it would plan every datasource as new.
+                    if (err?.response?.status === 404 && !options.strict) {
                         Logger.error(
                             `There is no datasources in your Storyblok ${spaceId} space.`,
                         );
@@ -107,7 +110,12 @@ export const createDatasourceForSync: CreateDatasource = (args, config) => {
         .post(`spaces/${spaceId}/datasources/`, {
             datasource: finalDatasource,
         } as any)
-        .then(({ data }: any) => {
+        .then((res: any) => {
+            const { data } = checkWritten(
+                res,
+                `create datasource '${datasource.name}'`,
+                "datasource",
+            );
             Logger.success(
                 `Datasource '${data.datasource.name}' with id '${data.datasource.id}' created.`,
             );
@@ -155,7 +163,12 @@ export const updateDatasourceForSync: UpdateDatasource = (args, config) => {
                 ],
             },
         } as any)
-        .then(({ data }: any) => {
+        .then((res: any) => {
+            const { data } = checkWritten(
+                res,
+                `update datasource '${datasource.name}'`,
+                "datasource",
+            );
             Logger.success(
                 `Datasource '${data.datasource.name}' with id '${data.datasource.id}' updated.`,
             );
@@ -194,7 +207,11 @@ const asError = (name: string, error: unknown): SyncError => ({
  * recorded and the run moves on to the next one.
  */
 export const syncDatasourcesData = async (
-    { datasources, dryRun }: { datasources: any[]; dryRun?: boolean },
+    {
+        datasources,
+        dryRun,
+        strict,
+    }: { datasources: any[]; dryRun?: boolean; strict?: boolean },
     config: any,
 ): Promise<SyncResult> => {
     const result: SyncResult = {
@@ -211,7 +228,7 @@ export const syncDatasourcesData = async (
         );
     }
 
-    const remoteDatasourcesRaw = await getAllDatasources(config);
+    const remoteDatasourcesRaw = await getAllDatasources(config, { strict });
     const remoteDatasources = Array.isArray(remoteDatasourcesRaw)
         ? remoteDatasourcesRaw
         : [];

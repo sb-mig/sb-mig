@@ -9,11 +9,13 @@ import type { RequestBaseConfig } from "../utils/request.js";
 import { uniqueValuesFrom } from "../../utils/array-utils.js";
 import Logger from "../../utils/logger.js";
 import { isObjectEmpty } from "../../utils/object-utils.js";
+import { errorStatusOf } from "../../utils/retry.js";
 import { formatDatasourceApiError as describeApiError } from "../datasources/error-formatting.js";
 import {
     type ComponentPlan,
     type DestructiveChange,
     detectDestructiveChanges,
+    detectSsotGroupRemovals,
     detectSsotRemovals,
     planComponent,
 } from "../sync/sync-plan.js";
@@ -50,8 +52,7 @@ import {
     createComponentsGroupForSync,
     getAllComponents,
     getAllComponentsGroups,
-    removeComponent,
-    removeComponentGroup,
+    removeComponentForSync,
     updateComponentForSync,
 } from "./components.js";
 
@@ -108,6 +109,91 @@ async function ensureComponentGroupsExist(
     }
 
     return groups;
+}
+
+/**
+ * --ssot deletes every component and group before it creates anything. Run
+ * from the wrong directory, or with the wrong schemaFileExt, it finds no
+ * schema files and would leave the space empty. Refuse, before any removal,
+ * when nothing local was found, or when no component in the space is among
+ * the local ones.
+ */
+function refuseUnsafeSsot(
+    components: any[],
+    existingComponents: any[],
+    existingGroups: any[],
+): void {
+    const localNames = new Set(
+        components
+            .filter((c) => !isObjectEmpty(c) && c?.name)
+            .map((c) => String(c.name)),
+    );
+    const inSpace = `${existingComponents.length} component(s) and ${existingGroups.length} group(s)`;
+
+    if (localNames.size === 0) {
+        throw new Error(
+            `Refusing --ssot: no component schema files were found, so it would delete all ${inSpace} in the space and create nothing. Check the working directory and schemaFileExt.`,
+        );
+    }
+
+    if (
+        existingComponents.length > 0 &&
+        !existingComponents.some((c: any) => localNames.has(String(c?.name)))
+    ) {
+        throw new Error(
+            `Refusing --ssot: none of the ${existingComponents.length} component(s) in the space is in your schema files, so it would delete all ${inSpace}. Check the working directory and schemaFileExt.`,
+        );
+    }
+}
+
+/**
+ * Re-read the space after failed --ssot removals. An item that is gone was
+ * removed after all: it joins `removed`, and its removal error is dropped.
+ */
+async function confirmFailedRemovals(
+    failed: RemovalTarget[],
+    removed: Set<any>,
+    result: SyncResult,
+    config: RequestBaseConfig,
+): Promise<void> {
+    const stillThere = async (
+        type: RemovalTarget["type"],
+    ): Promise<Set<string> | undefined> => {
+        try {
+            const items =
+                type === "component"
+                    ? await getAllComponents(config)
+                    : await getAllComponentsGroups(config);
+            return new Set((items ?? []).map((item: any) => String(item.id)));
+        } catch (error) {
+            Logger.warning(
+                `Could not re-read the space after a failed removal: ${getErrorMessage(error)}`,
+            );
+            return undefined;
+        }
+    };
+
+    const ids = {
+        component: failed.some((t) => t.type === "component")
+            ? await stillThere("component")
+            : undefined,
+        "component group": failed.some((t) => t.type === "component group")
+            ? await stillThere("component group")
+            : undefined,
+    };
+
+    for (const target of failed) {
+        const present = ids[target.type];
+        if (!present || present.has(String(target.item?.id))) continue;
+
+        const name = `${target.type} '${target.name}'`;
+        Logger.log(`${name} was removed after all.`);
+        removed.add(target.item);
+        result.skipped = result.skipped.filter((skipped) => skipped !== name);
+        result.errors = result.errors.filter(
+            (error) => !(error.scope === "ssot-removal" && error.name === name),
+        );
+    }
 }
 
 function recordPresetFailures(
@@ -218,9 +304,19 @@ export async function syncComponentsData(
     if (ssot) {
         const existingComponents = (await getAllComponents(config)) ?? [];
         const existingGroups = (await getAllComponentsGroups(config)) ?? [];
+
+        if (strict) {
+            refuseUnsafeSsot(components, existingComponents, existingGroups);
+        }
         const removed = new Set<any>();
 
         destructive.push(
+            ...detectSsotGroupRemovals(
+                components
+                    .filter((c) => !isObjectEmpty(c) && c?.component_group_name)
+                    .map((c) => String(c.component_group_name)),
+                existingGroups,
+            ),
             ...detectSsotRemovals(
                 components
                     .filter((c) => !isObjectEmpty(c) && c?.name)
@@ -249,19 +345,27 @@ export async function syncComponentsData(
                     type: "component" as const,
                     item: component,
                     name: String(component?.name ?? component?.id ?? "unknown"),
-                    remove: () => removeComponent(component, config),
+                    remove: () =>
+                        removeComponentForSync(component, "components", config),
                 })),
                 ...(existingGroups ?? []).map((group: any) => ({
                     type: "component group" as const,
                     item: group,
                     name: String(group?.name ?? group?.id ?? "unknown"),
-                    remove: () => removeComponentGroup(group, config),
+                    remove: () =>
+                        removeComponentForSync(
+                            group,
+                            "component_groups",
+                            config,
+                        ),
                 })),
             ];
 
             const removalResults = await Promise.allSettled(
                 removalTargets.map((target) => target.remove()),
             );
+
+            const failedRemovals: RemovalTarget[] = [];
 
             removalResults.forEach((removalResult, index) => {
                 const target = removalTargets[index];
@@ -272,6 +376,7 @@ export async function syncComponentsData(
                     return;
                 }
 
+                failedRemovals.push(target);
                 const name = `${target.type} '${target.name}'`;
                 const message = getErrorMessage(removalResult.reason);
 
@@ -285,6 +390,20 @@ export async function syncComponentsData(
                     `Could not remove ${name} during SSOT sync: ${message}`,
                 );
             });
+
+            // A removal that failed may still have happened: the DELETE
+            // committed and its answer was lost (a 504, a timeout). Ask the
+            // space which of those items are really still there. If it
+            // cannot answer, keep them, and the update path below falls back
+            // to a create on a 404.
+            if (failedRemovals.length > 0) {
+                await confirmFailedRemovals(
+                    failedRemovals,
+                    removed,
+                    result,
+                    config,
+                );
+            }
         }
 
         ssotState = {
@@ -342,6 +461,12 @@ export async function syncComponentsData(
                   .map((c: any) => String(c.name))
             : [],
     );
+    const markRecreated = (name: string) => {
+        recreatedNames.add(name);
+        const index = plans.findIndex((plan) => plan.name === name);
+        const plan = plans[index];
+        if (plan) plans[index] = { ...plan, recreated: true };
+    };
 
     const componentsToUpdate: any[] = [];
     const componentsToCreate: any[] = [];
@@ -428,12 +553,40 @@ export async function syncComponentsData(
                 continue;
             }
 
-            const presetFailures = await updateComponentForSync(
-                component,
-                presets,
-                config,
-            );
-            result.updated.push(name);
+            let presetFailures: PresetFailure[];
+
+            try {
+                presetFailures = await updateComponentForSync(
+                    component,
+                    presets,
+                    config,
+                );
+                result.updated.push(name);
+            } catch (error) {
+                // Under --ssot a component whose removal looked failed may be
+                // gone after all. Updating a deleted id answers 404: create it
+                // instead, or the sync ends with the component lost.
+                if (!(ssot && errorStatusOf(error) === 404)) throw error;
+
+                Logger.warning(
+                    `Component '${name}' is gone after the --ssot removals; creating it again.`,
+                );
+                presetFailures = await createComponentForSync(
+                    stripRemoteIdentity(component),
+                    presets,
+                    config,
+                );
+                result.created.push(name);
+                markRecreated(name);
+
+                // The 404 says the removal went through after all.
+                const removal = `component '${name}'`;
+                result.skipped = result.skipped.filter((s) => s !== removal);
+                result.errors = result.errors.filter(
+                    (e) => !(e.scope === "ssot-removal" && e.name === removal),
+                );
+            }
+
             recordPresetFailures(name, presetFailures, result);
             progress({
                 type: "progress",

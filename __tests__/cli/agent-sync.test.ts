@@ -1,5 +1,13 @@
 import { spawn, spawnSync } from "child_process";
-import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync } from "fs";
+import {
+    cpSync,
+    existsSync,
+    mkdirSync,
+    mkdtempSync,
+    readFileSync,
+    rmSync,
+    writeFileSync,
+} from "fs";
 import { tmpdir } from "os";
 import path from "path";
 
@@ -133,7 +141,7 @@ describe("sb-mig as an agent runs it", () => {
             {
                 scope: "component",
                 name: "card",
-                message: expect.stringContaining("'card' is refused"),
+                message: expect.stringContaining("status: 422"),
             },
         ]);
         expect(
@@ -198,4 +206,121 @@ describe("sb-mig as an agent runs it", () => {
         expect(report.errors[0].message).toContain("--yes");
         expect(writes()).toEqual([]);
     }, 30_000);
+
+    it("a write whose connection drops is a failure, not a success", () => {
+        const result = runCli(["sync", "components", "--all", "--json"], {
+            SBMIG_FAKE_FAULTS: JSON.stringify({ "PUT card": "network" }),
+        });
+
+        expect(result.exitCode).toBe(1);
+        const report = JSON.parse(result.stdout);
+        expect(report.ok).toBe(false);
+        expect(
+            report.components.find((c: any) => c.name === "card").status,
+        ).toBe("failed");
+        expect(report.errors).toEqual([
+            expect.objectContaining({
+                scope: "component",
+                name: "card",
+                message: expect.stringContaining("ECONNRESET"),
+            }),
+        ]);
+    });
+
+    it("--ssot --yes with no schema files found refuses, and deletes nothing", () => {
+        rmSync(path.join(projectDir, "src/components"), {
+            recursive: true,
+            force: true,
+        });
+
+        const result = runCli([
+            "sync",
+            "components",
+            "--all",
+            "--ssot",
+            "--yes",
+            "--json",
+        ]);
+
+        expect(result.exitCode).toBe(1);
+        const report = JSON.parse(result.stdout);
+        expect(report.ok).toBe(false);
+        expect(report.errors[0].message).toContain(
+            "Refusing --ssot: no component schema files were found",
+        );
+        expect(writes()).toEqual([]);
+    });
+
+    it("an unknown flag for the subcommand exits 1 and writes nothing", () => {
+        const result = runCli([
+            "sync",
+            "components",
+            "--all",
+            "--to=999999",
+            "--json",
+        ]);
+
+        expect(result.exitCode).toBe(1);
+        expect(JSON.parse(result.stdout).errors[0].message).toContain("--to");
+        expect(writes()).toEqual([]);
+    });
+
+    it("a datasource listing that answers 404 exits 1 instead of planning everything as new", () => {
+        const result = runCli(
+            ["sync", "datasources", "--all", "--dry-run", "--json"],
+            { SBMIG_FAKE_FAULTS: JSON.stringify({ "GET datasources": "404" }) },
+        );
+
+        expect(result.exitCode).toBe(1);
+        const report = JSON.parse(result.stdout);
+        expect(report.ok).toBe(false);
+        expect(report.datasources).toEqual([]);
+    });
+
+    it("--package-name: an unknown package exits 1, a known one is planned", () => {
+        const kit = path.join(projectDir, "src/packages/ui-kit");
+        mkdirSync(kit, { recursive: true });
+        writeFileSync(
+            path.join(kit, "package.json"),
+            JSON.stringify({ name: "ui-kit", type: "module" }),
+        );
+        writeFileSync(
+            path.join(kit, "badge.sb.js"),
+            'export default { name: "badge", schema: { label: { type: "text" } } };\n',
+        );
+
+        const missing = runCli([
+            "sync",
+            "components",
+            "missing-package",
+            "--package-name",
+            "--dry-run",
+            "--json",
+        ]);
+        const known = runCli([
+            "sync",
+            "components",
+            "ui-kit",
+            "--package-name",
+            "--dry-run",
+            "--json",
+        ]);
+
+        expect(missing.exitCode).toBe(1);
+        expect(JSON.parse(missing.stdout).errors).toEqual([
+            {
+                scope: "component",
+                name: "missing-package",
+                message:
+                    "No package named 'missing-package' was found in componentsDirectories.",
+            },
+        ]);
+        expect(known.exitCode).toBe(0);
+        expect(
+            JSON.parse(known.stdout).components.map((c: any) => [
+                c.name,
+                c.action,
+            ]),
+        ).toEqual([["badge", "create"]]);
+    });
 });

@@ -42,6 +42,44 @@ const SYNC_COMMANDS = {
 // The sync commands that report: `--json`, honest exit codes, a summary.
 const AGENT_COMMANDS = [SYNC_COMMANDS.components, SYNC_COMMANDS.datasources];
 
+/**
+ * The flags each agent command understands. The flag matching below ignores
+ * a shared list (`--from`, `--to`, ...) for every subcommand, so without this
+ * `sync components --all --to=999999` would quietly sync the configured space.
+ */
+const KNOWN_FLAGS: Record<string, string[]> = {
+    [SYNC_COMMANDS.components]: [
+        "all",
+        "ssot",
+        "presets",
+        "packageName",
+        "yes",
+        "dryRun",
+        "json",
+    ],
+    [SYNC_COMMANDS.datasources]: ["all", "dryRun", "json"],
+};
+
+const rejectUnknownFlags = (
+    command: string,
+    flags: Record<string, unknown>,
+): void => {
+    const known = KNOWN_FLAGS[command] ?? [];
+    const unknown = Object.keys(flags).filter(
+        (flag) => flags[flag] !== undefined && !known.includes(flag),
+    );
+
+    if (unknown.length > 0) {
+        throw new Error(
+            `Unknown flag${unknown.length === 1 ? "" : "s"} for 'sync ${command}': ${unknown
+                .map((flag) => `--${flag}`)
+                .join(" ")}. Supported: ${known
+                .map((flag) => `--${flag}`)
+                .join(" ")}.`,
+        );
+    }
+};
+
 /** A flag combination no branch handles must not read as a sync that did nothing. */
 const unsupportedFlags = (command: string, flags: Record<string, unknown>) =>
     new Error(
@@ -127,6 +165,8 @@ export const sync = async (props: CLIOptions) => {
             };
 
             await reportCommand({ json, partial: report }, async () => {
+                rejectUnknownFlags(SYNC_COMMANDS.components, flags);
+
                 if (isIt("all")) {
                     Logger.log(
                         `Syncing ALL components with ${storyblokConfig.schemaFileExt} extension...`,
@@ -228,12 +268,17 @@ export const sync = async (props: CLIOptions) => {
                 });
 
             await reportCommand({ json, partial: report }, async () => {
+                rejectUnknownFlags(SYNC_COMMANDS.datasources, flags);
+
                 if (isIt("all")) {
                     Logger.log(
                         `${dryRun ? "[dry-run] " : ""}Syncing all datasources with extension...`,
                     );
                     results.push(
-                        await syncAllDatasources(apiConfig, { dryRun }),
+                        await syncAllDatasources(apiConfig, {
+                            dryRun,
+                            strict: true,
+                        }),
                     );
                 } else if (isIt("empty")) {
                     const datasourcesToSync = unpackElements(input);
@@ -249,7 +294,11 @@ export const sync = async (props: CLIOptions) => {
                     );
                     results.push(
                         await syncProvidedDatasources(
-                            { datasources: datasourcesToSync, dryRun },
+                            {
+                                datasources: datasourcesToSync,
+                                dryRun,
+                                strict: true,
+                            },
                             apiConfig,
                         ),
                     );

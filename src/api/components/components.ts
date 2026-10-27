@@ -17,6 +17,7 @@ import _resolvePresets, {
     resolvePresetsForSync,
 } from "../presets/resolvePresets.js";
 import { getAllItemsWithPagination } from "../utils/request.js";
+import { checkWritten } from "../utils/write-response.js";
 
 /*
  *
@@ -170,6 +171,13 @@ export const createComponentForSync = async (
         .post(`spaces/${spaceId}/components/`, {
             component: componentWithoutPresets,
         })
+        .then((answer) =>
+            checkWritten(
+                answer,
+                `create component '${component.name}'`,
+                "component",
+            ),
+        )
         .catch((err) => {
             Logger.error(
                 `${err.message} in migration of ${component.name} in createComponent function`,
@@ -197,6 +205,13 @@ export const updateComponentForSync = async (
         .put(`spaces/${spaceId}/components/${component.id}`, {
             component: componentWithoutPresets,
         })
+        .then((answer) =>
+            checkWritten(
+                answer,
+                `update component '${component.name}'`,
+                "component",
+            ),
+        )
         .catch((err) => {
             Logger.error(
                 `${err.message} in migration of ${component.name} in updateComponent function`,
@@ -226,7 +241,11 @@ export const createComponentsGroupForSync = (
             },
         } as any)
         .then((res: any) => {
-            const group = res.data.component_group;
+            const group = checkWritten(
+                res,
+                `create component group '${groupName}'`,
+                "component_group",
+            ).data.component_group;
             Logger.log(`'${groupName}' created with uuid: ${group.uuid}`);
             return group;
         })
@@ -236,6 +255,22 @@ export const createComponentsGroupForSync = (
             );
             throw err;
         });
+};
+
+/** For the --ssot removals: a removal that is not confirmed rejects. */
+export const removeComponentForSync = (
+    item: any,
+    kind: "components" | "component_groups",
+    config: RequestBaseConfig,
+): Promise<unknown> => {
+    const { spaceId, sbApi } = config;
+    console.log(
+        `Removing '${item.name}' ${kind === "components" ? "component" : "component group"}.`,
+    );
+
+    return sbApi
+        .delete(`spaces/${spaceId}/${kind}/${item.id}`, {})
+        .then((res: any) => checkWritten(res, `remove '${item.name}'`));
 };
 
 /*

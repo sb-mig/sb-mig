@@ -1,6 +1,7 @@
 import type { RequestBaseConfig } from "../utils/request.js";
 
 import Logger from "../../utils/logger.js";
+import { isWritten } from "../utils/write-response.js";
 
 import { getComponentPresets } from "./componentPresets.js";
 import { createPreset, createPresetOrThrow, updatePreset } from "./presets.js";
@@ -150,10 +151,21 @@ export const resolvePresetsForSync = async (
                     ? [{ name, error: outcome.reason }]
                     : [],
             ),
+            // updatePreset resolves `{ ok, data }`; a dropped connection
+            // still says ok, so the answer itself is checked too.
             ...written.updated.flatMap((result: any) =>
                 result?.ok === false
                     ? [{ name: String(result.name), error: result.error }]
-                    : [],
+                    : !isWritten(result?.data)
+                      ? [
+                            {
+                                name: String(result?.name ?? "unknown"),
+                                error: new Error(
+                                    `update preset '${result?.name}': no confirmation from Storyblok${result?.data?.message ? ` (${String(result.data.message?.message ?? result.data.message)})` : ""}`,
+                                ),
+                            },
+                        ]
+                      : [],
             ),
         ];
     } catch (error) {

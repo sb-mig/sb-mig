@@ -14,6 +14,7 @@ import chalk from "chalk";
 import Logger from "../../utils/logger.js";
 import { isObjectEmpty } from "../../utils/object-utils.js";
 import { getAllItemsWithPagination } from "../utils/request.js";
+import { checkWritten } from "../utils/write-response.js";
 
 import { getDatasource } from "./datasources.js";
 import { formatDatasourceApiError } from "./error-formatting.js";
@@ -72,7 +73,11 @@ const _decorateWithDimensions: _DecorateWithDimensions = async (
                 `spaces/${spaceId}/datasource_entries/${entryId}`,
                 params as any,
             )
-            .then((_: any) => {
+            .then((res: any) => {
+                checkWritten(
+                    res,
+                    `set dimension '${name}' of entry '${finalDatasource_entry.name}'`,
+                );
                 console.log(
                     `${chalk.green(
                         "✓ Datasource Entry Dimension value for",
@@ -306,7 +311,12 @@ const _createDatasourceEntry: _CreateDatasourceEntry = (args, config) => {
         .post(`spaces/${spaceId}/datasource_entries/`, {
             datasource_entry: finalDatasource_entry,
         } as any)
-        .then(({ data }: any) => {
+        .then((res: any) => {
+            const { data } = checkWritten(
+                res,
+                `create datasource entry '${finalDatasource_entry.name}'`,
+                "datasource_entry",
+            );
             console.log(
                 `${chalk.green("✓ Datasource Entry")} ${chalk.blue(
                     data.datasource_entry.name,
@@ -379,7 +389,11 @@ const _updateDatasourceEntry: _UpdateDatasourceEntry = (args, config) => {
                 datasource_entry: finalDatasource_entry,
             } as any,
         )
-        .then((_: any) => {
+        .then((res: any) => {
+            checkWritten(
+                res,
+                `update datasource entry '${finalDatasource_entry.name}'`,
+            );
             console.log(
                 `${chalk.green("✓ Datasource Entry")} ${chalk.blue(
                     finalDatasource_entry.name,
