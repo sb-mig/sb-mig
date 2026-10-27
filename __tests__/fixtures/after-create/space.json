@@ -91,7 +91,7 @@
       "image": "https://s3.eu-central-1.amazonaws.com/cdn.ef.design/libs/backpack/latest/components/Accordion/storyblok/sb-accordion-default.webp",
       "preview_field": null,
       "is_root": false,
-      "preview_tmpl": "{{@if(it.content?.length &gt; 0)}}&lt;span class=&quot;font-regular&quot;&gt;{{it.content.length}} {{@if(it.content.length === 1)}}accordion item{{#else}}accordion items{{/if}}&lt;/span&gt;{{#else}}&lt;span class=&quot;font-light&quot;&gt;Empty&lt;/span&gt;{{/if}}",
+      "preview_tmpl": "{{@if(it.content?.length &gt; 0)}}<span class=\"font-regular\">{{it.content.length}} {{@if(it.content.length === 1)}}accordion item{{#else}}accordion items{{/if}}</span>{{#else}}<span class=\"font-light\">Empty</span>{{/if}}",
       "is_nestable": true,
       "all_presets": [
         {
@@ -329,7 +329,7 @@
       "image": "https://s3.eu-central-1.amazonaws.com/cdn.ef.design/libs/backpack/latest/components/Alert/storyblok/sb-alert-default.webp",
       "preview_field": null,
       "is_root": false,
-      "preview_tmpl": "{{@if(it.title?.[0]?.content?.content?.[0]?.content?.[0]?.text)}}<i>{{it.title[0].content.content[0].content[0].text}}</i>{{/if}} | {{@if(it.content?.[0]?.content?.content?.[0]?.content?.[0]?.text)}}<i>{{it.content[0].content.content[0].content[0].text}}</i>{{/if}}",
+      "preview_tmpl": "{{@if(it.title?.[0]?.content?.content?.[0]?.content?.[0]?.text)}}<i>{{it.title[0].content.content[0].content[0].text}}</i>{{/if}}<span class=\"font-light\"> | </span>{{@if(it.content?.[0]?.content?.content?.[0]?.content?.[0]?.text)}}<i>{{it.content[0].content.content[0].content[0].text}}</i>{{/if}}",
       "is_nestable": true,
       "all_presets": [
         {

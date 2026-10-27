@@ -175,7 +175,7 @@ const HTML_ENTITIES: Record<string, string> = {
     gt: ">",
     quot: '"',
     apos: "'",
-    nbsp: " ",
+    nbsp: "\u00a0",
 };
 
 const decodeEntities = (text: string): string =>
@@ -191,21 +191,19 @@ const decodeEntities = (text: string): string =>
     });
 
 /**
- * Storyblok does not hand a preview template back as it was written. Right
- * after a create, 68 Backpack 4.11.0 components read back with a different
- * `preview_tmpl`, and Backpack has exactly 68 templates with a `<span>` in
- * them: the space rewrites markup. What a reader needs to see change is
- * the template's logic and text, so both sides are compared with entities
- * decoded, without their tags and without whitespace: a dropped tag may
- * leave a space behind or not. A change to the markup or the spacing alone
- * is still written; the plan just does not list it.
+ * Storyblok stores a preview template HTML-escaped outside its tags: the
+ * tags stay as written, but a `>` in the template's logic comes back as
+ * `&gt;` (`{{@if(it.content?.length &gt; 0)}}`). Right after a create, 68
+ * Backpack 4.11.0 components read back with a different `preview_tmpl`,
+ * and 68 is exactly how many of its templates have a `>`, `<`, `&`, a
+ * quote or a non-ASCII character outside a tag. Both sides are compared
+ * with entities decoded and runs of whitespace as one space, so any change
+ * to the markup or the text still shows.
  */
 export const normalizePreviewTemplate = (value: unknown): unknown => {
     if (typeof value !== "string") return value;
 
-    return decodeEntities(value)
-        .replace(/<\/?[a-z][^<>]*>/gi, "")
-        .replace(/\s+/g, "");
+    return decodeEntities(value).replace(/\s+/g, " ").trim();
 };
 
 // Component properties the space rewrites: compared in a normalized form.

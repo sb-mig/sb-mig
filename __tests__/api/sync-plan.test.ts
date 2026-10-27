@@ -519,54 +519,100 @@ describe("destructive plan gaps (MAR-4104 review)", () => {
 });
 
 describe("a sync right after a sync plans nothing (MAR-4738)", () => {
-    // Backpack's sb-alert template, as the schema file writes it.
-    const alertTemplate =
-        '{{@if(it.title?.[0]?.content?.content?.[0]?.content?.[0]?.text)}}<i>{{it.title[0].content.content[0].content[0].text}}</i>{{/if}}<span class="font-light"> | </span>{{@if(it.content?.[0]?.content?.content?.[0]?.content?.[0]?.text)}}<i>{{it.content[0].content.content[0].content[0].text}}</i>{{/if}}';
+    // sb-accordion in Backpack 4.11.0, and as the sandbox space stored it
+    // (read back through the Storyblok MCP after #429's first live check).
+    const accordionTemplate =
+        '{{@if(it.content?.length > 0)}}<span class="font-regular">{{it.content.length}} {{@if(it.content.length === 1)}}accordion item{{#else}}accordion items{{/if}}</span>{{#else}}<span class="font-light">Empty</span>{{/if}}';
+    const accordionStored =
+        '{{@if(it.content?.length &gt; 0)}}<span class="font-regular">{{it.content.length}} {{@if(it.content.length === 1)}}accordion item{{#else}}accordion items{{/if}}</span>{{#else}}<span class="font-light">Empty</span>{{/if}}';
 
     const withTemplate = (local: unknown, remote: unknown) =>
         planComponent({
-            local: { name: "sb-alert", preview_tmpl: local, schema: {} },
+            local: { name: "sb-accordion", preview_tmpl: local, schema: {} },
             remote: {
                 id: 1,
-                name: "sb-alert",
+                name: "sb-accordion",
                 preview_tmpl: remote,
                 schema: {},
             },
         });
 
-    it.each([
-        ["without its span tags", alertTemplate.replace(/<\/?span[^>]*>/g, "")],
-        [
-            "with its span tags turned into spaces",
-            alertTemplate.replace(/<\/?span[^>]*>/g, " "),
-        ],
-        [
-            "with its span attributes rewritten",
-            alertTemplate.replace(
-                '<span class="font-light">',
-                "<span class='font-light'>",
-            ),
-        ],
-        [
-            "with its markup escaped",
-            alertTemplate
-                .replace(/</g, "&lt;")
-                .replace(/>/g, "&gt;")
-                .replace(/"/g, "&quot;"),
-        ],
-        [
-            "with its whitespace changed",
-            `\n  ${alertTemplate.replace("</i>", "</i>\n")}  \n`,
-        ],
-    ])(
-        "reads a preview_tmpl the space stores %s as unchanged",
-        (_how, remote) => {
-            const plan = withTemplate(alertTemplate, remote);
+    it("reads sb-accordion's preview_tmpl as the space stores it as unchanged", () => {
+        const plan = withTemplate(accordionTemplate, accordionStored);
 
-            expect(plan.action).toBe("unchanged");
-            expect(plan.properties).toEqual([]);
+        expect(plan.action).toBe("unchanged");
+        expect(plan.properties).toEqual([]);
+    });
+
+    it.each([
+        [
+            "<",
+            "{{@if(index < 3)}}<i>{{val.content}}</i>{{/if}}",
+            "{{@if(index &lt; 3)}}<i>{{val.content}}</i>{{/if}}",
+        ],
+        [
+            "&",
+            "{{@if(it.a && it.b)}}<i>both</i>{{/if}}",
+            "{{@if(it.a &amp;&amp; it.b)}}<i>both</i>{{/if}}",
+        ],
+        [
+            '"',
+            '{{@if(it.size === "s")}}<i>small</i>{{/if}}',
+            "{{@if(it.size === &quot;s&quot;)}}<i>small</i>{{/if}}",
+        ],
+        [
+            "'",
+            "{{@if(val.component === 'sb-headline')}}<i>H</i>{{/if}}",
+            "{{@if(val.component === &#39;sb-headline&#39;)}}<i>H</i>{{/if}}",
+        ],
+        [
+            "•",
+            '<span class="font-light"> • </span>',
+            '<span class="font-light"> &#8226; </span>',
+        ],
+        ["→", "<i>Next →</i>", "<i>Next &#x2192;</i>"],
+    ])(
+        "reads a %s the space stores as an entity as unchanged",
+        (_char, local, stored) => {
+            expect(withTemplate(local, stored).action).toBe("unchanged");
         },
     );
+
+    it("reads a preview_tmpl whose whitespace the space changes as unchanged", () => {
+        // Line endings, runs of spaces, and whitespace around the template.
+        const respaced = `\n  ${accordionStored.replace("}} {{", "}}\r\n    {{")}  \n`;
+
+        expect(withTemplate(accordionTemplate, respaced).action).toBe(
+            "unchanged",
+        );
+    });
+
+    it.each([
+        [
+            "a changed class",
+            accordionTemplate.replace("font-light", "font-bold"),
+        ],
+        [
+            "a span removed",
+            accordionTemplate
+                .replace('<span class="font-light">', "")
+                .replace("Empty</span>", "Empty"),
+        ],
+        [
+            "a span added",
+            accordionTemplate.replace(
+                "{{it.content.length}}",
+                '<span class="font-bold">{{it.content.length}}</span>',
+            ),
+        ],
+    ])("still reports %s as an update", (_how, local) => {
+        const plan = withTemplate(local, accordionStored);
+
+        expect(plan.action).toBe("update");
+        expect(plan.properties).toEqual([
+            { property: "preview_tmpl", from: accordionStored, to: local },
+        ]);
+    });
 
     it.each([
         [undefined, null],
@@ -581,22 +627,18 @@ describe("a sync right after a sync plans nothing (MAR-4738)", () => {
     );
 
     it("still reports a preview_tmpl whose logic or text changes", () => {
-        const changed = alertTemplate.replace(" | ", " — ");
-        const plan = withTemplate(changed, alertTemplate);
+        const changed = accordionTemplate.replace("> 0", "> 1");
+        const plan = withTemplate(changed, accordionStored);
 
         expect(plan.action).toBe("update");
         expect(plan.properties).toEqual([
-            { property: "preview_tmpl", from: alertTemplate, to: changed },
+            { property: "preview_tmpl", from: accordionStored, to: changed },
         ]);
     });
 
-    it("keeps template comparisons and arrows that are not tags", () => {
-        expect(
-            normalizePreviewTemplate(
-                "{{@if(index < 3)}}<div><i>{{val.content}}</i></div>{{/if}} {{@each(it.content) => val}}",
-            ),
-        ).toBe(
-            "{{@if(index<3)}}{{val.content}}{{/if}}{{@each(it.content)=>val}}",
+    it("decodes entities and keeps tags", () => {
+        expect(normalizePreviewTemplate(accordionStored)).toBe(
+            accordionTemplate,
         );
         expect(normalizePreviewTemplate(null)).toBe(null);
     });
