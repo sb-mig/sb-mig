@@ -4,6 +4,7 @@ import {
     detectDestructiveChanges,
     detectSsotGroupRemovals,
     detectSsotRemovals,
+    normalizePreviewTemplate,
     planComponent,
     planDatasource,
 } from "../../src/api/sync/sync-plan.js";
@@ -513,6 +514,206 @@ describe("destructive plan gaps (MAR-4104 review)", () => {
                 field: "title",
                 properties: [{ property: "pos", from: 0, to: 2 }],
             }),
+        ]);
+    });
+});
+
+describe("a sync right after a sync plans nothing (MAR-4738)", () => {
+    // Backpack's sb-alert template, as the schema file writes it.
+    const alertTemplate =
+        '{{@if(it.title?.[0]?.content?.content?.[0]?.content?.[0]?.text)}}<i>{{it.title[0].content.content[0].content[0].text}}</i>{{/if}}<span class="font-light"> | </span>{{@if(it.content?.[0]?.content?.content?.[0]?.content?.[0]?.text)}}<i>{{it.content[0].content.content[0].content[0].text}}</i>{{/if}}';
+
+    const withTemplate = (local: unknown, remote: unknown) =>
+        planComponent({
+            local: { name: "sb-alert", preview_tmpl: local, schema: {} },
+            remote: {
+                id: 1,
+                name: "sb-alert",
+                preview_tmpl: remote,
+                schema: {},
+            },
+        });
+
+    it.each([
+        ["without its span tags", alertTemplate.replace(/<\/?span[^>]*>/g, "")],
+        [
+            "with its span tags turned into spaces",
+            alertTemplate.replace(/<\/?span[^>]*>/g, " "),
+        ],
+        [
+            "with its span attributes rewritten",
+            alertTemplate.replace(
+                '<span class="font-light">',
+                "<span class='font-light'>",
+            ),
+        ],
+        [
+            "with its markup escaped",
+            alertTemplate
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;"),
+        ],
+        [
+            "with its whitespace changed",
+            `\n  ${alertTemplate.replace("</i>", "</i>\n")}  \n`,
+        ],
+    ])(
+        "reads a preview_tmpl the space stores %s as unchanged",
+        (_how, remote) => {
+            const plan = withTemplate(alertTemplate, remote);
+
+            expect(plan.action).toBe("unchanged");
+            expect(plan.properties).toEqual([]);
+        },
+    );
+
+    it.each([
+        [undefined, null],
+        ["", null],
+        [null, ""],
+        ["", undefined],
+    ])(
+        "reads a blank preview_tmpl %j against %j as unchanged",
+        (local, remote) => {
+            expect(withTemplate(local, remote).action).toBe("unchanged");
+        },
+    );
+
+    it("still reports a preview_tmpl whose logic or text changes", () => {
+        const changed = alertTemplate.replace(" | ", " — ");
+        const plan = withTemplate(changed, alertTemplate);
+
+        expect(plan.action).toBe("update");
+        expect(plan.properties).toEqual([
+            { property: "preview_tmpl", from: alertTemplate, to: changed },
+        ]);
+    });
+
+    it("keeps template comparisons and arrows that are not tags", () => {
+        expect(
+            normalizePreviewTemplate(
+                "{{@if(index < 3)}}<div><i>{{val.content}}</i></div>{{/if}} {{@each(it.content) => val}}",
+            ),
+        ).toBe(
+            "{{@if(index<3)}}{{val.content}}{{/if}}{{@each(it.content)=>val}}",
+        );
+        expect(normalizePreviewTemplate(null)).toBe(null);
+    });
+
+    const content = {
+        _uid: "648638bd-357a-4340-885e-aaa4011e8020",
+        component: "sb-alert",
+        custom_classname: "",
+        title: [
+            {
+                _uid: "6ba2d328-27ac-4a4b-9cae-c27cec68385a",
+                component: "sb-body-text",
+                content: {
+                    type: "doc",
+                    content: [
+                        {
+                            type: "paragraph",
+                            content: [
+                                { type: "text", text: "Title goes here" },
+                            ],
+                        },
+                    ],
+                },
+            },
+        ],
+    };
+    const image =
+        "https://backpack.example.com/Alert/storyblok/sb-alert-default.webp";
+
+    const localAlert = {
+        name: "sb-alert",
+        schema: {},
+        all_presets: [
+            { preset: { name: "Default (Section)", preset: content, image } },
+        ],
+    };
+    const remoteAlert = {
+        id: 7,
+        name: "sb-alert",
+        schema: {},
+        all_presets: [{ id: 70, name: "Default (Section)", component_id: 7 }],
+    };
+    // A preset as the space lists it: ids, dates and its own empty keys.
+    const remotePreset = (overrides: Record<string, unknown> = {}) => ({
+        id: 70,
+        name: "Default (Section)",
+        preset: content,
+        component_id: 7,
+        space_id: 295911465792355,
+        created_at: "2026-10-27T18:02:11.000Z",
+        updated_at: "2026-10-27T18:02:11.000Z",
+        image,
+        color: null,
+        icon: null,
+        description: null,
+        ...overrides,
+    });
+    const planPresets = (remotePresets?: any[]) =>
+        planComponent({
+            local: localAlert,
+            remote: remoteAlert,
+            presets: true,
+            remotePresets,
+        }).presets;
+
+    it("plans a preset whose content matches the space as unchanged", () => {
+        expect(planPresets([remotePreset()])).toEqual([
+            { name: "Default (Section)", action: "unchanged" },
+        ]);
+    });
+
+    it("reads ids, dates, the space's own keys, a new _uid and the image's protocol as no change", () => {
+        expect(
+            planPresets([
+                remotePreset({
+                    image: image.replace("https:", ""),
+                    preset: {
+                        ...content,
+                        _uid: "another-uid",
+                        title: [
+                            { ...content.title[0], _uid: "another-uid-too" },
+                        ],
+                        added_by_the_space: "",
+                    },
+                }),
+            ]),
+        ).toEqual([{ name: "Default (Section)", action: "unchanged" }]);
+    });
+
+    it("plans an update only on a real difference, and says where", () => {
+        const edited = structuredClone(content);
+        edited.title[0].content.content[0].content[0].text =
+            "Edited in Storyblok";
+
+        expect(
+            planPresets([
+                remotePreset({
+                    preset: { ...edited, extra: "set by an editor" },
+                    image: "https://a.storyblok.com/f/1/other.webp",
+                }),
+            ]),
+        ).toEqual([
+            {
+                name: "Default (Section)",
+                action: "update",
+                changedKeys: [
+                    "image",
+                    "preset.title.0.content.content.0.content.0.text",
+                    "preset.extra",
+                ],
+            },
+        ]);
+    });
+
+    it("still plans an update by name when the space's presets were not read", () => {
+        expect(planPresets(undefined)).toEqual([
+            { name: "Default (Section)", action: "update" },
         ]);
     });
 });

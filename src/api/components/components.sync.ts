@@ -11,6 +11,7 @@ import Logger from "../../utils/logger.js";
 import { isObjectEmpty } from "../../utils/object-utils.js";
 import { errorStatusOf } from "../../utils/retry.js";
 import { formatDatasourceApiError as describeApiError } from "../datasources/error-formatting.js";
+import { getAllPresets } from "../presets/presets.js";
 import {
     type ComponentPlan,
     type DestructiveChange,
@@ -449,6 +450,26 @@ export async function syncComponentsData(
               getAllComponentsGroups(config),
           )) ?? []);
 
+    // The space's presets with their content, so the plan can tell an
+    // unchanged preset from one the sync overwrites. Not under --ssot: there
+    // every preset goes with its component and is created again.
+    const remotePresets: any[] | undefined =
+        presets && !ssotState
+            ? await listOrRecord("presets", () => getAllPresets(config))
+            : undefined;
+    const presetsOf = (remote: any): any[] | undefined => {
+        if (!remotePresets || !remote) return undefined;
+        const ids = new Set(
+            (Array.isArray(remote.all_presets) ? remote.all_presets : []).map(
+                (preset: any) => preset?.id,
+            ),
+        );
+        return remotePresets.filter(
+            (preset: any) =>
+                preset?.component_id === remote.id || ids.has(preset?.id),
+        );
+    };
+
     const planComponents = ssotState?.planComponents ?? remoteComponents;
     const planGroups = ssotState?.planGroups ?? remoteGroups;
     // Existed before --ssot and was (or, in a dry-run, would be) removed.
@@ -481,13 +502,15 @@ export async function syncComponentsData(
         const remote = remoteComponents.find(
             (rc: any) => rc.name === component.name,
         );
+        const planRemote = planComponents.find(
+            (rc: any) => rc.name === component.name,
+        );
         const plan = planComponent({
             local: component,
-            remote: planComponents.find(
-                (rc: any) => rc.name === component.name,
-            ),
+            remote: planRemote,
             remoteGroups: planGroups,
             presets,
+            remotePresets: presetsOf(planRemote),
         });
         plans.push(
             recreatedNames.has(String(component.name))

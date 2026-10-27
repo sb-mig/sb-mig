@@ -196,6 +196,9 @@ describe("sync components --json", () => {
                     createPaginatedResponse([], "component_groups"),
                 );
             }
+            if (path.includes("presets")) {
+                return Promise.resolve(createPaginatedResponse([], "presets"));
+            }
             // The second listing is the default-preset step, after the writes.
             return ++componentReads === 1
                 ? Promise.resolve(

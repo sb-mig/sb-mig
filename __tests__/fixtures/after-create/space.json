@@ -1,0 +1,1100 @@
+{
+  "components": [
+    {
+      "name": "sb-accordion",
+      "display_name": "Accordion",
+      "created_at": "2026-10-27T18:02:11.418Z",
+      "updated_at": "2026-10-27T18:02:11.418Z",
+      "id": 1201,
+      "schema": {
+        "content": {
+          "translatable": false,
+          "type": "bloks",
+          "component_whitelist": [
+            "sb-accordion-item"
+          ],
+          "restrict_components": true,
+          "display_name": "Accordion Items",
+          "pos": 0,
+          "id": "f-1201-0"
+        },
+        "type": {
+          "type": "option",
+          "options": [
+            {
+              "name": "Single",
+              "value": "single"
+            },
+            {
+              "name": "Multiple",
+              "value": "multiple"
+            }
+          ],
+          "default_value": "multiple",
+          "description": "Single: only one item can be open at a time. Multiple: items open and close independently.",
+          "pos": 1,
+          "id": "f-1201-1"
+        },
+        "design": {
+          "type": "custom",
+          "field_type": "backpack-breakpoints-v2",
+          "display_name": "Design",
+          "options": [
+            {
+              "name": "fieldsPerPlacement",
+              "value": "{\"sb-section\":[\"position\",\"order\",\"transitionsOnEnter\",\"stretch\"],\"sb-flex-group\":[\"item_flex\",\"item_basis\",\"item_width\",\"item_height\"],\"sb-collapsible-group\":[\"item_flex\",\"item_basis\",\"item_width\",\"item_height\"]}"
+            },
+            {
+              "name": "__collapsibles",
+              "value": "[{\"type\":\"custom\",\"field_type\":\"backpack-collapsible\",\"display_name\":\"Size\",\"keys\":[\"aspect_ratio\",\"height\",\"width\",\"minimum_height\",\"size\",\"viewport_size\",\"item_basis\",\"stretch\",\"fill_height\",\"item_flex\",\"resize\",\"item_width\",\"style_width\",\"style_height\",\"embed_width\",\"embed_height\"],\"default_value\":{}},{\"type\":\"custom\",\"field_type\":\"backpack-collapsible\",\"display_name\":\"Layout\",\"keys\":[\"position\",\"order\",\"spacing\",\"cross_axis_stretch\",\"direction\",\"horizontal\",\"justify\",\"align\",\"item_align\",\"wrap\",\"gap\",\"marker\",\"item_spacing\"],\"default_value\":{}},{\"type\":\"custom\",\"field_type\":\"backpack-collapsible\",\"display_name\":\"Component\",\"keys\":[],\"default_value\":{}},{\"type\":\"custom\",\"field_type\":\"backpack-collapsible\",\"display_name\":\"Appearance\",\"keys\":[\"mono\",\"theme\",\"background\",\"background_color\",\"border_color\",\"bg_color\",\"content_color\",\"color\",\"icon_color\",\"icon_bg_color\",\"controls_background\",\"controls_foreground\",\"outline_color\",\"ribbon_color\",\"border\",\"border_radius\",\"withBorder\",\"assets_radius\",\"radius\",\"thickness\",\"shadow\",\"text_align\"],\"default_value\":{}},{\"type\":\"custom\",\"field_type\":\"backpack-collapsible\",\"display_name\":\"Text\",\"keys\":[\"position_align\",\"align_without_inputs\",\"text_color\",\"description_text_color\",\"hover_text_color\"],\"default_value\":{}},{\"type\":\"custom\",\"field_type\":\"backpack-collapsible\",\"display_name\":\"Animation\",\"keys\":[\"transitionsOnEnter\",\"transition\",\"autoplay\",\"autoplay_stagger\",\"loop\",\"play_highlighted_video\",\"auto_play_videos\",\"scroll_to_highlighted_slide_on_click\",\"animated\",\"hover_effect\",\"parallax\"],\"default_value\":{}},{\"type\":\"custom\",\"field_type\":\"backpack-collapsible\",\"display_name\":\"Code Overrides\",\"keys\":[\"custom_classname\"],\"default_value\":{}}]"
+            }
+          ],
+          "pos": 2,
+          "id": "f-1201-2"
+        },
+        "custom_classname": {
+          "type": "text",
+          "description": "Add a custom global classname for styling in your project",
+          "pos": 3,
+          "id": "f-1201-3"
+        },
+        "section_dev": {
+          "type": "section",
+          "display_name": "Developer",
+          "keys": [
+            "custom_classname"
+          ],
+          "pos": 4,
+          "id": "f-1201-4"
+        },
+        "tab_content": {
+          "type": "tab",
+          "display_name": "Content",
+          "keys": [
+            "type",
+            "content"
+          ],
+          "pos": 5,
+          "id": "f-1201-5"
+        },
+        "tab_design": {
+          "type": "tab",
+          "display_name": "Design",
+          "keys": [
+            "design",
+            "section_dev"
+          ],
+          "pos": 6,
+          "id": "f-1201-6"
+        }
+      },
+      "image": "https://s3.eu-central-1.amazonaws.com/cdn.ef.design/libs/backpack/latest/components/Accordion/storyblok/sb-accordion-default.webp",
+      "preview_field": null,
+      "is_root": false,
+      "preview_tmpl": "{{@if(it.content?.length &gt; 0)}}&lt;span class=&quot;font-regular&quot;&gt;{{it.content.length}} {{@if(it.content.length === 1)}}accordion item{{#else}}accordion items{{/if}}&lt;/span&gt;{{#else}}&lt;span class=&quot;font-light&quot;&gt;Empty&lt;/span&gt;{{/if}}",
+      "is_nestable": true,
+      "all_presets": [
+        {
+          "id": 9001,
+          "name": "Default (Section)",
+          "component_id": 1201,
+          "image": "https://s3.eu-central-1.amazonaws.com/cdn.ef.design/libs/backpack/latest/components/Accordion/storyblok/sb-accordion-default.webp",
+          "color": null,
+          "icon": null,
+          "description": null
+        },
+        {
+          "id": 9002,
+          "name": "Default (Flex Group)",
+          "component_id": 1201,
+          "image": "https://s3.eu-central-1.amazonaws.com/cdn.ef.design/libs/backpack/latest/components/Accordion/storyblok/sb-accordion-default.webp",
+          "color": null,
+          "icon": null,
+          "description": null
+        }
+      ],
+      "preset_id": null,
+      "real_name": "sb-accordion",
+      "component_group_uuid": "0b6c3a1e-0000-4000-8000-000000000501",
+      "color": "grey",
+      "icon": "block-add",
+      "internal_tags_list": [],
+      "internal_tag_ids": [],
+      "content_type_asset_preview": null
+    },
+    {
+      "name": "sb-accordion-item",
+      "display_name": "Accordion Item",
+      "created_at": "2026-10-27T18:02:11.418Z",
+      "updated_at": "2026-10-27T18:02:11.418Z",
+      "id": 1202,
+      "schema": {
+        "title": {
+          "required": true,
+          "translatable": false,
+          "type": "bloks",
+          "component_whitelist": [
+            "sb-text"
+          ],
+          "maximum": 1,
+          "restrict_components": true,
+          "pos": 0,
+          "id": "f-1202-0"
+        },
+        "content": {
+          "required": true,
+          "translatable": false,
+          "type": "bloks",
+          "component_whitelist": [
+            "sb-blockquote",
+            "sb-button-group",
+            "sb-content-group",
+            "sb-divider",
+            "sb-flex-group",
+            "sb-icon",
+            "sb-image",
+            "sb-link",
+            "sb-list",
+            "sb-surface",
+            "sb-table",
+            "sb-text",
+            "sb-headline",
+            "sb-body-text"
+          ],
+          "restrict_components": true,
+          "pos": 1,
+          "id": "f-1202-1"
+        },
+        "icon": {
+          "display_name": "Icon",
+          "type": "custom",
+          "translatable": true,
+          "field_type": "backpack-asset-selector-v1",
+          "options": [
+            {
+              "name": "backpackVersion",
+              "value": "4.11.0-beta.6"
+            },
+            {
+              "name": "assetType",
+              "value": "icons"
+            }
+          ],
+          "pos": 2,
+          "id": "f-1202-2"
+        },
+        "design": {
+          "type": "custom",
+          "field_type": "backpack-breakpoints-v2",
+          "display_name": "Design",
+          "options": [
+            {
+              "name": "__collapsibles",
+              "value": "[{\"type\":\"custom\",\"field_type\":\"backpack-collapsible\",\"display_name\":\"Size\",\"keys\":[\"aspect_ratio\",\"height\",\"width\",\"minimum_height\",\"size\",\"viewport_size\",\"item_basis\",\"stretch\",\"fill_height\",\"item_flex\",\"resize\",\"item_width\",\"style_width\",\"style_height\",\"embed_width\",\"embed_height\"],\"default_value\":{}},{\"type\":\"custom\",\"field_type\":\"backpack-collapsible\",\"display_name\":\"Layout\",\"keys\":[\"position\",\"order\",\"spacing\",\"cross_axis_stretch\",\"direction\",\"horizontal\",\"justify\",\"align\",\"item_align\",\"wrap\",\"gap\",\"marker\",\"item_spacing\"],\"default_value\":{}},{\"type\":\"custom\",\"field_type\":\"backpack-collapsible\",\"display_name\":\"Component\",\"keys\":[],\"default_value\":{}},{\"type\":\"custom\",\"field_type\":\"backpack-collapsible\",\"display_name\":\"Appearance\",\"keys\":[\"mono\",\"theme\",\"background\",\"background_color\",\"border_color\",\"bg_color\",\"content_color\",\"color\",\"icon_color\",\"icon_bg_color\",\"controls_background\",\"controls_foreground\",\"outline_color\",\"ribbon_color\",\"border\",\"border_radius\",\"withBorder\",\"assets_radius\",\"radius\",\"thickness\",\"shadow\",\"text_align\"],\"default_value\":{}},{\"type\":\"custom\",\"field_type\":\"backpack-collapsible\",\"display_name\":\"Text\",\"keys\":[\"position_align\",\"align_without_inputs\",\"text_color\",\"description_text_color\",\"hover_text_color\"],\"default_value\":{}},{\"type\":\"custom\",\"field_type\":\"backpack-collapsible\",\"display_name\":\"Animation\",\"keys\":[\"transitionsOnEnter\",\"transition\",\"autoplay\",\"autoplay_stagger\",\"loop\",\"play_highlighted_video\",\"auto_play_videos\",\"scroll_to_highlighted_slide_on_click\",\"animated\",\"hover_effect\",\"parallax\"],\"default_value\":{}},{\"type\":\"custom\",\"field_type\":\"backpack-collapsible\",\"display_name\":\"Code Overrides\",\"keys\":[\"custom_classname\"],\"default_value\":{}}]"
+            },
+            {
+              "name": "icon_bg_color",
+              "value": "{\"display_name\":\"Icon background\",\"type\":\"custom\",\"field_type\":\"backpack-color-picker\",\"options\":[{\"name\":\"colors\",\"value\":\"colors\"}],\"default_value\":{}}"
+            }
+          ],
+          "pos": 3,
+          "id": "f-1202-3"
+        },
+        "open": {
+          "type": "boolean",
+          "pos": 4,
+          "id": "f-1202-4"
+        },
+        "tab_content": {
+          "type": "tab",
+          "display_name": "Content",
+          "keys": [
+            "title",
+            "content",
+            "icon",
+            "open"
+          ],
+          "pos": 5,
+          "id": "f-1202-5"
+        },
+        "tab_design": {
+          "type": "tab",
+          "display_name": "Design",
+          "keys": [
+            "design"
+          ],
+          "pos": 6,
+          "id": "f-1202-6"
+        }
+      },
+      "image": null,
+      "preview_field": null,
+      "is_root": false,
+      "preview_tmpl": "{{@if(it.title?.[0]?.content?.content?.[0]?.content?.[0]?.text)}}<i>{{it.title[0].content.content[0].content[0].text}}</i>{{/if}}",
+      "is_nestable": true,
+      "all_presets": [],
+      "preset_id": null,
+      "real_name": "sb-accordion-item",
+      "component_group_uuid": "0b6c3a1e-0000-4000-8000-000000000501",
+      "color": "grey",
+      "icon": "block-add",
+      "internal_tags_list": [],
+      "internal_tag_ids": [],
+      "content_type_asset_preview": null
+    },
+    {
+      "name": "sb-alert",
+      "display_name": "Alert",
+      "created_at": "2026-10-27T18:02:11.418Z",
+      "updated_at": "2026-10-27T18:02:11.418Z",
+      "id": 1203,
+      "schema": {
+        "title": {
+          "display_name": "Title",
+          "translatable": false,
+          "type": "bloks",
+          "required": true,
+          "restrict_components": true,
+          "component_whitelist": [
+            "sb-body-text"
+          ],
+          "pos": 0,
+          "id": "f-1203-0"
+        },
+        "content": {
+          "display_name": "Content",
+          "translatable": false,
+          "type": "bloks",
+          "required": true,
+          "restrict_components": true,
+          "component_whitelist": [
+            "sb-body-text"
+          ],
+          "pos": 1,
+          "id": "f-1203-1"
+        },
+        "design": {
+          "type": "custom",
+          "field_type": "backpack-breakpoints-v2",
+          "display_name": "Design",
+          "options": [
+            {
+              "name": "fieldsPerPlacement",
+              "value": "{\"sb-section\":[\"position\",\"order\",\"transitionsOnEnter\",\"stretch\"],\"sb-flex-group\":[\"item_flex\",\"item_basis\",\"item_width\",\"item_height\"]}"
+            },
+            {
+              "name": "__collapsibles",
+              "value": "[{\"type\":\"custom\",\"field_type\":\"backpack-collapsible\",\"display_name\":\"Size\",\"keys\":[\"aspect_ratio\",\"height\",\"width\",\"minimum_height\",\"size\",\"viewport_size\",\"item_basis\",\"stretch\",\"fill_height\",\"item_flex\",\"resize\",\"item_width\",\"style_width\",\"style_height\",\"embed_width\",\"embed_height\"],\"default_value\":{}},{\"type\":\"custom\",\"field_type\":\"backpack-collapsible\",\"display_name\":\"Layout\",\"keys\":[\"position\",\"order\",\"spacing\",\"cross_axis_stretch\",\"direction\",\"horizontal\",\"justify\",\"align\",\"item_align\",\"wrap\",\"gap\",\"marker\",\"item_spacing\"],\"default_value\":{}},{\"type\":\"custom\",\"field_type\":\"backpack-collapsible\",\"display_name\":\"Component\",\"keys\":[],\"default_value\":{}},{\"type\":\"custom\",\"field_type\":\"backpack-collapsible\",\"display_name\":\"Appearance\",\"keys\":[\"bg_color\",\"icon_color\"],\"default_value\":{}},{\"type\":\"custom\",\"field_type\":\"backpack-collapsible\",\"display_name\":\"Text\",\"keys\":[\"position_align\",\"align_without_inputs\",\"text_color\",\"description_text_color\",\"hover_text_color\"],\"default_value\":{}},{\"type\":\"custom\",\"field_type\":\"backpack-collapsible\",\"display_name\":\"Animation\",\"keys\":[\"transitionsOnEnter\",\"transition\",\"autoplay\",\"autoplay_stagger\",\"loop\",\"play_highlighted_video\",\"auto_play_videos\",\"scroll_to_highlighted_slide_on_click\",\"animated\",\"hover_effect\",\"parallax\"],\"default_value\":{}},{\"type\":\"custom\",\"field_type\":\"backpack-collapsible\",\"display_name\":\"Code Overrides\",\"keys\":[\"custom_classname\"],\"default_value\":{}}]"
+            }
+          ],
+          "pos": 2,
+          "id": "f-1203-2"
+        },
+        "custom_classname": {
+          "type": "text",
+          "description": "Add a custom global classname for styling in your project",
+          "pos": 3,
+          "id": "f-1203-3"
+        },
+        "section_dev": {
+          "type": "section",
+          "display_name": "Developer",
+          "keys": [
+            "custom_classname"
+          ],
+          "pos": 4,
+          "id": "f-1203-4"
+        },
+        "tab_content": {
+          "type": "tab",
+          "display_name": "Content",
+          "keys": [
+            "title",
+            "content"
+          ],
+          "pos": 5,
+          "id": "f-1203-5"
+        },
+        "tab_design": {
+          "type": "tab",
+          "display_name": "Design",
+          "keys": [
+            "design",
+            "section_dev"
+          ],
+          "pos": 6,
+          "id": "f-1203-6"
+        }
+      },
+      "image": "https://s3.eu-central-1.amazonaws.com/cdn.ef.design/libs/backpack/latest/components/Alert/storyblok/sb-alert-default.webp",
+      "preview_field": null,
+      "is_root": false,
+      "preview_tmpl": "{{@if(it.title?.[0]?.content?.content?.[0]?.content?.[0]?.text)}}<i>{{it.title[0].content.content[0].content[0].text}}</i>{{/if}} | {{@if(it.content?.[0]?.content?.content?.[0]?.content?.[0]?.text)}}<i>{{it.content[0].content.content[0].content[0].text}}</i>{{/if}}",
+      "is_nestable": true,
+      "all_presets": [
+        {
+          "id": 9003,
+          "name": "Default (Section)",
+          "component_id": 1203,
+          "image": "https://s3.eu-central-1.amazonaws.com/cdn.ef.design/libs/backpack/latest/components/Alert/storyblok/sb-alert-default.webp",
+          "color": null,
+          "icon": null,
+          "description": null
+        }
+      ],
+      "preset_id": null,
+      "real_name": "sb-alert",
+      "component_group_uuid": "0b6c3a1e-0000-4000-8000-000000000501",
+      "color": "grey",
+      "icon": "block-add",
+      "internal_tags_list": [],
+      "internal_tag_ids": [],
+      "content_type_asset_preview": null
+    },
+    {
+      "name": "sb-divider",
+      "display_name": "Divider",
+      "created_at": "2026-10-27T18:02:11.418Z",
+      "updated_at": "2026-10-27T18:02:11.418Z",
+      "id": 1204,
+      "schema": {
+        "design": {
+          "type": "custom",
+          "field_type": "backpack-breakpoints-v2",
+          "display_name": "Design",
+          "options": [
+            {
+              "name": "fieldsPerPlacement",
+              "value": "{\"sb-section\":[\"position\",\"order\",\"transitionsOnEnter\",\"stretch\"],\"sb-flex-group\":[\"item_flex\",\"item_basis\",\"item_width\",\"item_height\"],\"sb-collapsible-group\":[\"item_flex\",\"item_basis\",\"item_width\",\"item_height\"]}"
+            },
+            {
+              "name": "__collapsibles",
+              "value": "[{\"type\":\"custom\",\"field_type\":\"backpack-collapsible\",\"display_name\":\"Size\",\"keys\":[\"aspect_ratio\",\"height\",\"width\",\"minimum_height\",\"size\",\"viewport_size\",\"item_basis\",\"stretch\",\"fill_height\",\"item_flex\",\"resize\",\"item_width\",\"style_width\",\"style_height\",\"embed_width\",\"embed_height\"],\"default_value\":{}},{\"type\":\"custom\",\"field_type\":\"backpack-collapsible\",\"display_name\":\"Layout\",\"keys\":[\"position\",\"order\",\"spacing\",\"cross_axis_stretch\",\"direction\",\"horizontal\",\"justify\",\"align\",\"item_align\",\"wrap\",\"gap\",\"marker\",\"item_spacing\"],\"default_value\":{}},{\"type\":\"custom\",\"field_type\":\"backpack-collapsible\",\"display_name\":\"Component\",\"keys\":[],\"default_value\":{}},{\"type\":\"custom\",\"field_type\":\"backpack-collapsible\",\"display_name\":\"Appearance\",\"keys\":[\"mono\",\"theme\",\"background\",\"background_color\",\"border_color\",\"bg_color\",\"content_color\",\"color\",\"icon_color\",\"icon_bg_color\",\"controls_background\",\"controls_foreground\",\"outline_color\",\"ribbon_color\",\"border\",\"border_radius\",\"withBorder\",\"assets_radius\",\"radius\",\"thickness\",\"shadow\",\"text_align\"],\"default_value\":{}},{\"type\":\"custom\",\"field_type\":\"backpack-collapsible\",\"display_name\":\"Text\",\"keys\":[\"position_align\",\"align_without_inputs\",\"text_color\",\"description_text_color\",\"hover_text_color\"],\"default_value\":{}},{\"type\":\"custom\",\"field_type\":\"backpack-collapsible\",\"display_name\":\"Animation\",\"keys\":[\"transitionsOnEnter\",\"transition\",\"autoplay\",\"autoplay_stagger\",\"loop\",\"play_highlighted_video\",\"auto_play_videos\",\"scroll_to_highlighted_slide_on_click\",\"animated\",\"hover_effect\",\"parallax\"],\"default_value\":{}},{\"type\":\"custom\",\"field_type\":\"backpack-collapsible\",\"display_name\":\"Code Overrides\",\"keys\":[\"custom_classname\"],\"default_value\":{}}]"
+            }
+          ],
+          "pos": 0,
+          "id": "f-1204-0"
+        },
+        "custom_classname": {
+          "type": "text",
+          "description": "Add a custom global classname for styling in your project",
+          "pos": 1,
+          "id": "f-1204-1"
+        },
+        "section_dev": {
+          "type": "section",
+          "display_name": "Developer",
+          "keys": [
+            "custom_classname"
+          ],
+          "pos": 2,
+          "id": "f-1204-2"
+        },
+        "tab_design": {
+          "type": "tab",
+          "display_name": "Design",
+          "keys": [
+            "design",
+            "section_dev"
+          ],
+          "pos": 3,
+          "id": "f-1204-3"
+        }
+      },
+      "image": null,
+      "preview_field": null,
+      "is_root": false,
+      "preview_tmpl": "{{@if(!!it.content)}}{{@if(!Array.isArray(it.content))}}{{it.content}}{{/if}}{{/if}}",
+      "is_nestable": true,
+      "all_presets": [
+        {
+          "id": 9004,
+          "name": "Default (Section)",
+          "component_id": 1204,
+          "image": "",
+          "color": null,
+          "icon": null,
+          "description": null
+        },
+        {
+          "id": 9005,
+          "name": "Default (Flex Group)",
+          "component_id": 1204,
+          "image": "",
+          "color": null,
+          "icon": null,
+          "description": null
+        }
+      ],
+      "preset_id": null,
+      "real_name": "sb-divider",
+      "component_group_uuid": "0b6c3a1e-0000-4000-8000-000000000501",
+      "color": "grey",
+      "icon": "block-add",
+      "internal_tags_list": [],
+      "internal_tag_ids": [],
+      "content_type_asset_preview": null
+    }
+  ],
+  "component_groups": [
+    {
+      "id": 501,
+      "uuid": "0b6c3a1e-0000-4000-8000-000000000501",
+      "name": "Single components",
+      "parent_id": null,
+      "parent_uuid": null
+    }
+  ],
+  "presets": [
+    {
+      "id": 9001,
+      "name": "Default (Section)",
+      "preset": {
+        "_uid": "9d5ac2c4-1f6e-4c8b-a2f7-3a2b2d0c1e11",
+        "content": [
+          {
+            "_uid": "df8bdb58-87f7-44f6-b491-9fbbf3b2988c",
+            "open": false,
+            "icon": {
+              "selectedIcon": {
+                "id": "icon-airplane-tilt",
+                "data": "airplane-tilt",
+                "typeName": "airplane-tilt"
+              }
+            },
+            "title": [
+              {
+                "_uid": "a25bc1b7-1d8c-4d41-9d5d-cb20fff73e50",
+                "design": "",
+                "content": {
+                  "type": "doc",
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "text": "Item 1",
+                          "type": "text"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "component": "sb-text",
+                "custom_classname": ""
+              }
+            ],
+            "content": [
+              {
+                "_uid": "6fb52480-9799-40d7-ada4-9334153fc6b9",
+                "design": "",
+                "content": {
+                  "type": "doc",
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "text": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi.",
+                          "type": "text"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "component": "sb-body-text"
+              }
+            ],
+            "component": "sb-accordion-item"
+          },
+          {
+            "_uid": "a75034f9-14aa-46d6-b742-d827eff91ff5",
+            "open": false,
+            "title": [
+              {
+                "_uid": "aabc3934-88c8-4125-80f9-aa927a4249f5",
+                "design": "",
+                "content": {
+                  "type": "doc",
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "text": "Item 2",
+                          "type": "text"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "component": "sb-text",
+                "custom_classname": ""
+              }
+            ],
+            "content": [
+              {
+                "_uid": "c055f6c3-541a-40d2-b1a1-125d11f9a861",
+                "design": "",
+                "content": {
+                  "type": "doc",
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "text": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi.",
+                          "type": "text"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "component": "sb-body-text"
+              }
+            ],
+            "component": "sb-accordion-item"
+          },
+          {
+            "_uid": "b0a7317b-6b6a-4def-a2da-5167b5a1c707",
+            "open": false,
+            "title": [
+              {
+                "_uid": "0bcb225e-83df-4ea3-b319-c5a8cc35d17c",
+                "design": "",
+                "content": {
+                  "type": "doc",
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "text": "Item 3",
+                          "type": "text"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "component": "sb-text",
+                "custom_classname": ""
+              }
+            ],
+            "content": [
+              {
+                "_uid": "be5657d9-2500-4972-9638-0affcae9b350",
+                "design": "",
+                "content": {
+                  "type": "doc",
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "text": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi.",
+                          "type": "text"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "component": "sb-body-text"
+              }
+            ],
+            "component": "sb-accordion-item"
+          }
+        ],
+        "type": "multiple",
+        "design": {
+          "_uid": "69e22090-2231-483e-8618-1d3c44a0025e",
+          "title": "Backpack Breakpoints plugin",
+          "fields": {
+            "order": {
+              "type": "number",
+              "values": {}
+            },
+            "spacing": {
+              "type": "custom",
+              "values": {},
+              "field_type": "backpack-spacing"
+            },
+            "position": {
+              "type": "custom",
+              "values": {
+                "s": {
+                  "x": [
+                    1,
+                    5
+                  ]
+                }
+              },
+              "field_type": "backpack-layout"
+            },
+            "visibility": {
+              "type": "custom",
+              "values": {},
+              "field_type": "backpack-toggle"
+            },
+            "transitionsOnEnter": {
+              "type": "boolean",
+              "values": {}
+            }
+          },
+          "plugin": "backpack-breakpoints",
+          "description": "Plugin which wraps almost any type with breakpoints to support responsive web design."
+        },
+        "component": "sb-accordion",
+        "custom_classname": ""
+      },
+      "component_id": 1201,
+      "space_id": 295911465792355,
+      "created_at": "2026-10-27T18:02:11.418Z",
+      "updated_at": "2026-10-27T18:02:11.418Z",
+      "image": "https://s3.eu-central-1.amazonaws.com/cdn.ef.design/libs/backpack/latest/components/Accordion/storyblok/sb-accordion-default.webp",
+      "color": null,
+      "icon": null,
+      "description": null
+    },
+    {
+      "id": 9002,
+      "name": "Default (Flex Group)",
+      "preset": {
+        "_uid": "192b6d05-f7af-4d83-b327-e5c860211c89",
+        "content": [
+          {
+            "_uid": "3abf2dbd-9c73-47a4-8208-d14dba78030f",
+            "open": false,
+            "title": [
+              {
+                "_uid": "73e32f2f-4d6b-4ca4-a65c-f944a83a9e97",
+                "design": "",
+                "content": {
+                  "type": "doc",
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "text": "Item 1",
+                          "type": "text"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "component": "sb-text",
+                "custom_classname": ""
+              }
+            ],
+            "content": [
+              {
+                "_uid": "8173af84-2409-4dc4-987d-35154d44cf60",
+                "design": "",
+                "content": {
+                  "type": "doc",
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "text": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi.",
+                          "type": "text"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "component": "sb-body-text"
+              }
+            ],
+            "component": "sb-accordion-item"
+          },
+          {
+            "_uid": "d38cbdff-1b02-4824-8219-75fc31683819",
+            "open": false,
+            "title": [
+              {
+                "_uid": "4929e67d-ba9b-43a2-a59a-4edbc8e0be7f",
+                "design": "",
+                "content": {
+                  "type": "doc",
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "text": "Item 2",
+                          "type": "text"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "component": "sb-text",
+                "custom_classname": ""
+              }
+            ],
+            "content": [
+              {
+                "_uid": "8cc4d33b-c0b0-4cfc-8efa-8626ee5d6a90",
+                "design": "",
+                "content": {
+                  "type": "doc",
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "text": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi.",
+                          "type": "text"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "component": "sb-body-text"
+              }
+            ],
+            "component": "sb-accordion-item"
+          },
+          {
+            "_uid": "15205363-9f03-4542-858e-82f21d889f2b",
+            "open": false,
+            "title": [
+              {
+                "_uid": "eefd076e-790e-455e-92cf-4a91833f2ca8",
+                "design": "",
+                "content": {
+                  "type": "doc",
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "text": "Item 3",
+                          "type": "text"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "component": "sb-text",
+                "custom_classname": ""
+              }
+            ],
+            "content": [
+              {
+                "_uid": "92c05f64-4822-45ad-a8e4-87976af32274",
+                "design": "",
+                "content": {
+                  "type": "doc",
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "text": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi.",
+                          "type": "text"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "component": "sb-body-text"
+              }
+            ],
+            "component": "sb-accordion-item"
+          }
+        ],
+        "design": "",
+        "component": "sb-accordion",
+        "custom_classname": ""
+      },
+      "component_id": 1201,
+      "space_id": 295911465792355,
+      "created_at": "2026-10-27T18:02:11.418Z",
+      "updated_at": "2026-10-27T18:02:11.418Z",
+      "image": "https://s3.eu-central-1.amazonaws.com/cdn.ef.design/libs/backpack/latest/components/Accordion/storyblok/sb-accordion-default.webp",
+      "color": null,
+      "icon": null,
+      "description": null
+    },
+    {
+      "id": 9003,
+      "name": "Default (Section)",
+      "preset": {
+        "_uid": "648638bd-357a-4340-885e-aaa4011e8020",
+        "title": [
+          {
+            "_uid": "6ba2d328-27ac-4a4b-9cae-c27cec68385a",
+            "design": {
+              "plugin": "backpack-breakpoints",
+              "title": "Backpack Breakpoints plugin",
+              "description": "Plugin which wraps almost any type with breakpoints to support responsive web design.",
+              "_uid": "c0cda3f0-d7c3-4b81-9623-bf05788f470e",
+              "fields": {
+                "spacing": {
+                  "type": "custom",
+                  "field_type": "backpack-spacing",
+                  "values": {}
+                },
+                "text_align": {
+                  "type": "custom",
+                  "field_type": "backpack-toggle",
+                  "values": {
+                    "s": "start"
+                  }
+                },
+                "variant": {
+                  "type": "option",
+                  "values": {
+                    "s": "uiLabelBold"
+                  }
+                },
+                "visibility": {
+                  "type": "custom",
+                  "field_type": "backpack-toggle",
+                  "values": {}
+                }
+              }
+            },
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Title goes here"
+                    }
+                  ]
+                }
+              ]
+            },
+            "component": "sb-body-text",
+            "custom_classname": ""
+          }
+        ],
+        "design": {
+          "plugin": "backpack-breakpoints",
+          "title": "Backpack Breakpoints plugin",
+          "description": "Plugin which wraps almost any type with breakpoints to support responsive web design.",
+          "_uid": "fb22b607-a915-4eb7-be0e-893bfca67b54",
+          "fields": {
+            "position": {
+              "type": "custom",
+              "field_type": "backpack-layout",
+              "values": {}
+            },
+            "visibility": {
+              "type": "custom",
+              "field_type": "backpack-toggle",
+              "values": {}
+            },
+            "spacing": {
+              "type": "custom",
+              "field_type": "backpack-spacing",
+              "values": {}
+            },
+            "intent": {
+              "type": "option",
+              "values": {
+                "s": "info"
+              }
+            }
+          }
+        },
+        "content": [
+          {
+            "_uid": "2d68c493-e501-41af-adbd-5f0c3a8631cf",
+            "design": {
+              "_uid": "2a0e269e-00a1-4dfc-b08c-34e5ef6a8130",
+              "plugin": "backpack-breakpoints",
+              "fields": {
+                "variant": {
+                  "type": "option",
+                  "values": {
+                    "s": "uiLabel"
+                  }
+                },
+                "text_align": {
+                  "type": "custom",
+                  "values": {
+                    "s": "start"
+                  },
+                  "field_type": "backpack-toggle"
+                }
+              }
+            },
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Description goes here"
+                    }
+                  ]
+                }
+              ]
+            },
+            "component": "sb-body-text",
+            "custom_classname": ""
+          }
+        ],
+        "component": "sb-alert",
+        "custom_classname": ""
+      },
+      "component_id": 1203,
+      "space_id": 295911465792355,
+      "created_at": "2026-10-27T18:02:11.418Z",
+      "updated_at": "2026-10-27T18:02:11.418Z",
+      "image": "https://s3.eu-central-1.amazonaws.com/cdn.ef.design/libs/backpack/latest/components/Alert/storyblok/sb-alert-default.webp",
+      "color": null,
+      "icon": null,
+      "description": null
+    },
+    {
+      "id": 9004,
+      "name": "Default (Section)",
+      "preset": {
+        "_uid": "531ebe9c-ad30-4575-85de-32bbe8934d1e",
+        "design": {
+          "_uid": "cece3bbf-86fd-4ab2-bfac-dd786c7920b1",
+          "title": "Backpack Breakpoints plugin",
+          "fields": {
+            "color": {
+              "type": "custom",
+              "values": {},
+              "field_type": "backpack-color-picker"
+            },
+            "order": {
+              "type": "number",
+              "values": {}
+            },
+            "width": {
+              "type": "number",
+              "values": {
+                "s": "100"
+              }
+            },
+            "spacing": {
+              "type": "custom",
+              "values": {
+                "s": {
+                  "mb": "m",
+                  "mt": "m"
+                }
+              },
+              "field_type": "backpack-spacing"
+            },
+            "position": {
+              "type": "custom",
+              "values": {
+                "s": {
+                  "x": [
+                    1,
+                    5
+                  ]
+                }
+              },
+              "field_type": "backpack-layout"
+            },
+            "thickness": {
+              "type": "number",
+              "values": {
+                "s": "1"
+              }
+            },
+            "visibility": {
+              "type": "custom",
+              "values": {},
+              "field_type": "backpack-toggle"
+            },
+            "transitionsOnEnter": {
+              "type": "boolean",
+              "values": {}
+            }
+          },
+          "plugin": "backpack-breakpoints",
+          "description": "Plugin which wraps almost any type with breakpoints to support responsive web design."
+        },
+        "component": "sb-divider",
+        "custom_classname": ""
+      },
+      "component_id": 1204,
+      "space_id": 295911465792355,
+      "created_at": "2026-10-27T18:02:11.418Z",
+      "updated_at": "2026-10-27T18:02:11.418Z",
+      "image": "",
+      "color": null,
+      "icon": null,
+      "description": null
+    },
+    {
+      "id": 9005,
+      "name": "Default (Flex Group)",
+      "preset": {
+        "_uid": "0580854b-824f-43c9-a924-6d87b711e828",
+        "design": {
+          "_uid": "99a19b54-9587-447f-8747-90bf771d2930",
+          "title": "Backpack Breakpoints plugin",
+          "fields": {
+            "color": {
+              "type": "custom",
+              "values": {},
+              "field_type": "backpack-color-picker"
+            },
+            "spacing": {
+              "type": "custom",
+              "values": {
+                "s": {
+                  "mb": "m",
+                  "mt": "m"
+                }
+              },
+              "field_type": "backpack-spacing"
+            },
+            "item_flex": {
+              "type": "custom",
+              "values": {
+                "s": "auto"
+              },
+              "field_type": "backpack-toggle"
+            },
+            "thickness": {
+              "type": "number",
+              "values": {
+                "s": "1"
+              }
+            },
+            "item_width": {
+              "type": "number",
+              "values": {}
+            },
+            "visibility": {
+              "type": "custom",
+              "values": {},
+              "field_type": "backpack-toggle"
+            }
+          },
+          "plugin": "backpack-breakpoints",
+          "description": "Plugin which wraps almost any type with breakpoints to support responsive web design."
+        },
+        "component": "sb-divider",
+        "custom_classname": ""
+      },
+      "component_id": 1204,
+      "space_id": 295911465792355,
+      "created_at": "2026-10-27T18:02:11.418Z",
+      "updated_at": "2026-10-27T18:02:11.418Z",
+      "image": "",
+      "color": null,
+      "icon": null,
+      "description": null
+    }
+  ]
+}
