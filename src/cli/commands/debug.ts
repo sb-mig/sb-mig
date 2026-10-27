@@ -1,50 +1,46 @@
-import path from "path";
+import { fileURLToPath } from "url";
+import { inspect } from "util";
 
-import config from "../../config/config.js";
-import {
-    getConsumerPackageJson,
-    getSbMigPackageJson,
-} from "../../utils/files.js";
-import Logger from "../../utils/logger.js";
+import { resolveConfig } from "../../config/resolve-config.js";
 import { pkg } from "../../utils/pkg.js";
+import { redactDebugSecrets } from "../utils/debug-redaction.js";
 
-export const debug = async () => {
-    console.log("storyblok.config.js: ", config, "\n");
-    Logger.log(" ");
-    Logger.log(" ");
-    Logger.log(" ");
-    Logger.log(" ");
+export const debug = async (cli?: { flags?: { json?: boolean } }) => {
+    const resolved = await resolveConfig({ quiet: true });
+    const ownPackage = pkg(
+        fileURLToPath(new URL("../../../package.json", import.meta.url)),
+    );
+    const consumerPackage = resolved.paths.packageJsonExists
+        ? pkg(resolved.paths.packageJson)
+        : {};
+    const report = redactDebugSecrets(
+        {
+            version: ownPackage.version,
+            nodeVersion: process.version,
+            paths: resolved.paths,
+            configError: resolved.configError,
+            dependencies: {
+                "storyblok-js-client":
+                    ownPackage.dependencies?.["storyblok-js-client"] ?? null,
+                typescript: ownPackage.dependencies?.typescript ?? null,
+                "@ef-global/backpack":
+                    consumerPackage.dependencies?.["@ef-global/backpack"] ??
+                    null,
+            },
+            moduleType: consumerPackage.type ?? "commonjs",
+            config: resolved.config,
+        },
+        process.env,
+    );
 
-    console.log("whatever man just testing");
-
-    try {
-        const fileContent = await getSbMigPackageJson();
-        const consumerPkg = await getConsumerPackageJson();
-
-        Logger.log("sb-mig version: ");
-        Logger.success(fileContent["version"]);
-        Logger.log(" ");
-        Logger.log("Version used: ");
-        Logger.success(
-            `storyblok-js-client: ${fileContent["dependencies"]["storyblok-js-client"]}`,
-        );
-        Logger.success(
-            `typescript: ${fileContent["dependencies"]["typescript"]}`,
-        );
-        Logger.success(
-            `@ef-global/backpack: ${consumerPkg["dependencies"]["@ef-global/backpack"]}`,
-        );
-        Logger.log(" ");
-        Logger.log(" ");
-
-        if (
-            pkg(path.join(`${process.cwd()}`, `package.json`)).type === "module"
-        ) {
-            Logger.log("U are using new esm stuff. Good for you!");
-        } else {
-            Logger.log("Oh, common, commonjs, really? (common....js got it ?)");
-        }
-    } catch (e) {
-        Logger.warning("Can't find package.json");
-    }
+    console.log(
+        cli?.flags?.json
+            ? JSON.stringify(report, null, 2)
+            : inspect(report, {
+                  depth: null,
+                  colors: false,
+                  maxArrayLength: null,
+                  maxStringLength: null,
+              }),
+    );
 };

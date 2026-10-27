@@ -1,3 +1,22 @@
+# [6.5.0-beta.24](https://github.com/sb-mig/sb-mig/compare/v6.5.0-beta.23...v6.5.0-beta.24) (2026-10-19)
+
+
+### Bug Fixes
+
+* **debug:** close remaining credential disclosure paths ([85f18e2](https://github.com/sb-mig/sb-mig/commit/85f18e2151840d616c8f58698a7cc896ebdf28ab))
+
+
+### Features
+
+* **debug:** add masked JSON diagnostics ([64d42ef](https://github.com/sb-mig/sb-mig/commit/64d42efa8c563bfae98ce96a7345d2ba68b295cc))
+
+# [6.5.0-beta.23](https://github.com/sb-mig/sb-mig/compare/v6.5.0-beta.22...v6.5.0-beta.23) (2026-10-16)
+
+
+### Bug Fixes
+
+* **copy:** never double the trailing slash on links to folder start pages (MAR-4142) ([5e59a2d](https://github.com/sb-mig/sb-mig/commit/5e59a2d279563d4b073a9fbca0f1c9392ce21dd4))
+
 # [6.5.0-beta.22](https://github.com/sb-mig/sb-mig/compare/v6.5.0-beta.21...v6.5.0-beta.22) (2026-09-24)
 
 

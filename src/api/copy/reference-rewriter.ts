@@ -300,10 +300,22 @@ const splitStoryLinkPath = (value: string) => {
         : { linkPath: value.slice(0, boundary), suffix: value.slice(boundary) };
 };
 
-/** Keeps whatever leading and trailing slash convention the space stores. */
+/**
+ * Keeps whatever leading and trailing slash convention the space stores. A
+ * folder start page's full_slug already ends in `/` (`folder/`), and so does
+ * Storyblok's own link to it: the slash is added only when the target path
+ * lacks it, never doubled. A path an earlier run left as `folder//` therefore
+ * comes back as `folder/`.
+ */
 const applyTargetFullSlug = (linkPath: string, targetFullSlug: string) => {
-    const leading = linkPath.startsWith("/") ? "/" : "";
-    const trailing = linkPath.length > 1 && linkPath.endsWith("/") ? "/" : "";
+    const leading =
+        linkPath.startsWith("/") && !targetFullSlug.startsWith("/") ? "/" : "";
+    const trailing =
+        linkPath.length > 1 &&
+        linkPath.endsWith("/") &&
+        !targetFullSlug.endsWith("/")
+            ? "/"
+            : "";
 
     return `${leading}${targetFullSlug}${trailing}`;
 };

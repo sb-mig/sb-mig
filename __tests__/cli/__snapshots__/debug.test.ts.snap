@@ -1,0 +1,168 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`debug CLI > masks secrets throughout the report (json=false) 1`] = `
+"{
+  version: '<version>',
+  nodeVersion: '<node-version>',
+  paths: {
+    storyblokConfig: '<project>/storyblok.config.mjs',
+    configCandidates: [
+      '<project>/storyblok.config.js',
+      '<project>/storyblok.config.mjs'
+    ],
+    env: '<project>/.env',
+    envExists: true,
+    packageJson: '<project>/package.json',
+    packageJsonExists: true
+  },
+  configError: null,
+  dependencies: {
+    'storyblok-js-client': '^<version>',
+    typescript: '^<version>',
+    '@ef-global/backpack': null
+  },
+  moduleType: 'module',
+  config: {
+    storyblokComponentsLocalDirectory: 'src/@storyblok-components',
+    sbmigWorkingDirectory: 'sbmig',
+    presetsBackupDirectory: 'component-presets',
+    storiesBackupDirectory: 'stories',
+    componentsDirectories: [ 'src', 'storyblok' ],
+    awsBucketData: {
+      bucketName: 'site-builder-content-hub',
+      s3Url: 's3://site-builder-content-hub',
+      httpUrl: 'https://site-builder-content-hub.s3.eu-central-1.amazonaws.com'
+    },
+    contentHubOriginUrl: 'https://site-builder-content-hub.vercel.app/api/hub/',
+    contentHubAuthorizationToken: '',
+    metadataSelection: { name: true, version: true, author: true, description: true },
+    schemaFileExt: 'sb.js',
+    datasourceExt: 'sb.datasource.js',
+    rolesExt: 'sb.roles.js',
+    migrationConfigExt: 'sb.migration.js',
+    storiesExt: 'sb.stories.json',
+    storyblokApiUrl: 'https://mapi.storyblok.com/v1',
+    storyblokDeliveryApiUrl: 'https://api.storyblok.com/v2',
+    storyblokGraphqlApiUrl: 'https://gapi.storyblok.com/v1/api',
+    oauthToken: '••••Zx81',
+    openaiToken: '••••Jq62',
+    spaceId: '',
+    accessToken: '',
+    boilerplateSpaceId: '172677',
+    schemaType: 'js',
+    flushCache: true,
+    cacheDir: '.next/cache',
+    debug: false,
+    rateLimit: 2,
+    nested: {
+      apiKey: '••••Tu95',
+      alias: '••••Zx81',
+      entries: [ '••••Vm43', { value: '••••Jq62' } ],
+      description: 'Bearer ••••Rs24',
+      auth: { header: '••••Tu95' },
+      emptyToken: '',
+      shortSecret: '••••',
+      numericPassword: '••••4321',
+      flag: true,
+      queryUrl: 'https://example.test/?access_token=••••Wk42&page=2',
+      credentialsUrl: 'https://••••Xp53:••••Yq64@example.test/path',
+      encodedUrl: 'https://example.test/?value=••••Zr75',
+      encodedAlias: '••••Zr75',
+      simulatedNodeVersion: '<node-version>',
+      ordinaryNumber: 1
+    }
+  }
+}
+"
+`;
+
+exports[`debug CLI > masks secrets throughout the report (json=true) 1`] = `
+"{
+  "version": "<version>",
+  "nodeVersion": "<node-version>",
+  "paths": {
+    "storyblokConfig": "<project>/storyblok.config.mjs",
+    "configCandidates": [
+      "<project>/storyblok.config.js",
+      "<project>/storyblok.config.mjs"
+    ],
+    "env": "<project>/.env",
+    "envExists": true,
+    "packageJson": "<project>/package.json",
+    "packageJsonExists": true
+  },
+  "configError": null,
+  "dependencies": {
+    "storyblok-js-client": "^<version>",
+    "typescript": "^<version>",
+    "@ef-global/backpack": null
+  },
+  "moduleType": "module",
+  "config": {
+    "storyblokComponentsLocalDirectory": "src/@storyblok-components",
+    "sbmigWorkingDirectory": "sbmig",
+    "presetsBackupDirectory": "component-presets",
+    "storiesBackupDirectory": "stories",
+    "componentsDirectories": [
+      "src",
+      "storyblok"
+    ],
+    "awsBucketData": {
+      "bucketName": "site-builder-content-hub",
+      "s3Url": "s3://site-builder-content-hub",
+      "httpUrl": "https://site-builder-content-hub.s3.eu-central-1.amazonaws.com"
+    },
+    "contentHubOriginUrl": "https://site-builder-content-hub.vercel.app/api/hub/",
+    "contentHubAuthorizationToken": "",
+    "metadataSelection": {
+      "name": true,
+      "version": true,
+      "author": true,
+      "description": true
+    },
+    "schemaFileExt": "sb.js",
+    "datasourceExt": "sb.datasource.js",
+    "rolesExt": "sb.roles.js",
+    "migrationConfigExt": "sb.migration.js",
+    "storiesExt": "sb.stories.json",
+    "storyblokApiUrl": "https://mapi.storyblok.com/v1",
+    "storyblokDeliveryApiUrl": "https://api.storyblok.com/v2",
+    "storyblokGraphqlApiUrl": "https://gapi.storyblok.com/v1/api",
+    "oauthToken": "••••Zx81",
+    "openaiToken": "••••Jq62",
+    "spaceId": "",
+    "accessToken": "",
+    "boilerplateSpaceId": "172677",
+    "schemaType": "js",
+    "flushCache": true,
+    "cacheDir": ".next/cache",
+    "debug": false,
+    "rateLimit": 2,
+    "nested": {
+      "apiKey": "••••Tu95",
+      "alias": "••••Zx81",
+      "entries": [
+        "••••Vm43",
+        {
+          "value": "••••Jq62"
+        }
+      ],
+      "description": "Bearer ••••Rs24",
+      "auth": {
+        "header": "••••Tu95"
+      },
+      "emptyToken": "",
+      "shortSecret": "••••",
+      "numericPassword": "••••4321",
+      "flag": true,
+      "queryUrl": "https://example.test/?access_token=••••Wk42&page=2",
+      "credentialsUrl": "https://••••Xp53:••••Yq64@example.test/path",
+      "encodedUrl": "https://example.test/?value=••••Zr75",
+      "encodedAlias": "••••Zr75",
+      "simulatedNodeVersion": "<node-version>",
+      "ordinaryNumber": 1
+    }
+  }
+}
+"
+`;
