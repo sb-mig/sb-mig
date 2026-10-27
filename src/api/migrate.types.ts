@@ -1,6 +1,6 @@
 import type { RequestBaseConfig } from "./utils/request.js";
 import type { SyncDirection } from "../cli/sync.types.js";
-import type { SyncOptions } from "./sync/sync.types.js";
+import type { SyncOptions, SyncResult } from "./sync/sync.types.js";
 import type { OneFileElement } from "../cli/utils/discover.js";
 
 export type SyncComponents = (
@@ -8,20 +8,20 @@ export type SyncComponents = (
     presets: boolean,
     config: RequestBaseConfig,
     options?: SyncOptions & { ssot?: boolean },
-) => Promise<any>;
+) => Promise<SyncResult>;
 
 export type SyncAllComponents = (
     presets: boolean,
     config: RequestBaseConfig,
     options?: SyncOptions & { ssot?: boolean },
-) => Promise<any>;
+) => Promise<SyncResult>;
 export type SyncProvidedComponents = (
     presets: boolean,
     components: string[],
     packageName: boolean,
     config: RequestBaseConfig,
     options?: SyncOptions,
-) => Promise<any>;
+) => Promise<SyncResult>;
 
 // interface SyncAllComponents {
 //     presets: boolean;

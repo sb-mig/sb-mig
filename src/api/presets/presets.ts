@@ -7,6 +7,7 @@ import type { RequestBaseConfig } from "../utils/request.js";
 
 import Logger from "../../utils/logger.js";
 import { getAllItemsWithPagination } from "../utils/request.js";
+import { checkWritten } from "../utils/write-response.js";
 
 // GET
 export const getPreset: GetPresetById = (args, config) => {
@@ -84,6 +85,30 @@ export const createPreset = (p: any, config: RequestBaseConfig) => {
             Logger.error(
                 `Error happened. Preset: '${p.preset.name}' has been not created.`,
             );
+        });
+};
+
+/**
+ * createPreset for the component sync: a failed create rejects with the
+ * API's error, so the sync can report it. createPreset keeps its public
+ * contract (log, resolve undefined).
+ */
+export const createPresetOrThrow = (p: any, config: RequestBaseConfig) => {
+    const { spaceId, sbApi } = config;
+    return sbApi
+        .post(`spaces/${spaceId}/presets/`, {
+            preset: p.preset,
+        } as any)
+        .then((res: any) => {
+            checkWritten(res, `create preset '${p.preset.name}'`, "preset");
+            Logger.warning(`Preset: '${p.preset.name}' has been created.`);
+            return res;
+        })
+        .catch((error) => {
+            Logger.error(
+                `Error happened. Preset: '${p.preset.name}' has been not created.`,
+            );
+            throw error;
         });
 };
 

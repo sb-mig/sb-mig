@@ -1,7 +1,12 @@
 import type { OneFileElement } from "../../utils/path-utils.js";
+import type { SyncResult } from "../sync/sync.types.js";
 import type { RequestBaseConfig } from "../utils/request.js";
 
-export type GetAllDatasources = (config: RequestBaseConfig) => Promise<any>;
+export type GetAllDatasources = (
+    config: RequestBaseConfig,
+    /** `strict`: a 404 on the listing is an error, not an empty space. */
+    options?: { strict?: boolean },
+) => Promise<any>;
 export type GetDatasource = (
     args: { datasourceName: string | undefined },
     config: RequestBaseConfig,
@@ -17,21 +22,25 @@ export type UpdateDatasource = (
 ) => Promise<any>;
 
 export type SyncDatasources = (
-    args: { providedDatasources: OneFileElement[]; dryRun?: boolean },
+    args: {
+        providedDatasources: OneFileElement[];
+        dryRun?: boolean;
+        strict?: boolean;
+    },
     config: RequestBaseConfig,
-) => Promise<any>;
+) => Promise<SyncResult>;
 export type SyncProvidedDatasources = (
-    args: { datasources: string[]; dryRun?: boolean },
+    args: { datasources: string[]; dryRun?: boolean; strict?: boolean },
     config: RequestBaseConfig,
-) => Promise<void>;
+) => Promise<SyncResult>;
 export type SyncAllDatasources = (
     config: RequestBaseConfig,
-    args?: { dryRun?: boolean },
-) => Promise<void>;
+    args?: { dryRun?: boolean; strict?: boolean },
+) => Promise<SyncResult>;
 
 // Datasource Entries
 export type GetDatasourceEntries = (
-    args: { datasourceName: string },
+    args: { datasourceName: string; datasourceId?: number | string },
     config: RequestBaseConfig,
 ) => Promise<any>;
 export type CreateDatasourceEntries = (

@@ -5,19 +5,23 @@ import type {
     SyncDatasources,
     UpdateDatasource,
 } from "./datasources.types.js";
-import type { SyncResult } from "../sync/sync.types.js";
+import type { DatasourcePlan } from "../sync/sync-plan.js";
+import type { SyncError, SyncResult } from "../sync/sync.types.js";
 
 import Logger from "../../utils/logger.js";
+import { planDatasource } from "../sync/sync-plan.js";
 import { getAllItemsWithPagination } from "../utils/request.js";
+import { checkWritten } from "../utils/write-response.js";
 
 import {
-    createDatasourceEntries,
+    getDatasourceDimensionValues,
     getDatasourceEntries,
+    syncDatasourceEntries,
 } from "./datasource-entries.js";
 import { formatDatasourceApiError } from "./error-formatting.js";
 
 // GET
-export const getAllDatasources: GetAllDatasources = (config) => {
+export const getAllDatasources: GetAllDatasources = (config, options = {}) => {
     const { sbApi, spaceId } = config;
     Logger.log("Trying to get all Datasources.");
 
@@ -35,7 +39,9 @@ export const getAllDatasources: GetAllDatasources = (config) => {
                     return res;
                 })
                 .catch((err: any) => {
-                    if (err?.response?.status === 404) {
+                    // Strict callers (the CLI) never read a failed listing as
+                    // an empty space: it would plan every datasource as new.
+                    if (err?.response?.status === 404 && !options.strict) {
                         Logger.error(
                             `There is no datasources in your Storyblok ${spaceId} space.`,
                         );
@@ -84,7 +90,12 @@ export const getDatasource: GetDatasource = (args, config) => {
 };
 
 // POST
-export const createDatasource: CreateDatasource = (args, config) => {
+/**
+ * For the datasource sync: a failed write is logged and rejects.
+ * createDatasource / updateDatasource keep their public contract (log,
+ * resolve undefined).
+ */
+export const createDatasourceForSync: CreateDatasource = (args, config) => {
     const { datasource } = args;
     const { sbApi, spaceId } = config;
 
@@ -99,7 +110,12 @@ export const createDatasource: CreateDatasource = (args, config) => {
         .post(`spaces/${spaceId}/datasources/`, {
             datasource: finalDatasource,
         } as any)
-        .then(({ data }: any) => {
+        .then((res: any) => {
+            const { data } = checkWritten(
+                res,
+                `create datasource '${datasource.name}'`,
+                "datasource",
+            );
             Logger.success(
                 `Datasource '${data.datasource.name}' with id '${data.datasource.id}' created.`,
             );
@@ -108,14 +124,15 @@ export const createDatasource: CreateDatasource = (args, config) => {
                 datasource_entries: datasource.datasource_entries,
             };
         })
-        .catch((err) =>
+        .catch((err) => {
             Logger.error(
                 `Unable to create datasource '${datasource.name}' with slug '${datasource.slug}'. ${formatDatasourceApiError(err)}`,
-            ),
-        );
+            );
+            throw err;
+        });
 };
 
-export const updateDatasource: UpdateDatasource = (args, config) => {
+export const updateDatasourceForSync: UpdateDatasource = (args, config) => {
     const { datasource, datasourceToBeUpdated } = args;
     const { sbApi, spaceId } = config;
 
@@ -146,26 +163,55 @@ export const updateDatasource: UpdateDatasource = (args, config) => {
                 ],
             },
         } as any)
-        .then(({ data }: any) => {
+        .then((res: any) => {
+            const { data } = checkWritten(
+                res,
+                `update datasource '${datasource.name}'`,
+                "datasource",
+            );
             Logger.success(
-                `Datasource '${data.datasource.name}' with id '${data.datasource.id}' created.`,
+                `Datasource '${data.datasource.name}' with id '${data.datasource.id}' updated.`,
             );
             return {
                 data,
                 datasource_entries: datasource.datasource_entries,
             };
         })
-        .catch((err) =>
+        .catch((err) => {
             Logger.error(
                 `Unable to update datasource '${datasource.name}' with id '${datasourceToBeUpdated.id}'. ${formatDatasourceApiError(err)}`,
-            ),
-        );
+            );
+            throw err;
+        });
 };
+
+export const createDatasource: CreateDatasource = (args, config) =>
+    createDatasourceForSync(args, config).catch(() => undefined);
+
+export const updateDatasource: UpdateDatasource = (args, config) =>
+    updateDatasourceForSync(args, config).catch(() => undefined);
 
 // File-based sync wrapper lives in `datasources.sync.ts` to keep this module CJS-safe.
 
+const asError = (name: string, error: unknown): SyncError => ({
+    scope: "datasource",
+    name,
+    message: formatDatasourceApiError(error),
+});
+
+/**
+ * Sync datasources and their entries.
+ *
+ * Every datasource is planned against the space first (the plan is the whole
+ * dry-run). A real run then writes it; a datasource or an entry that fails is
+ * recorded and the run moves on to the next one.
+ */
 export const syncDatasourcesData = async (
-    { datasources, dryRun }: { datasources: any[]; dryRun?: boolean },
+    {
+        datasources,
+        dryRun,
+        strict,
+    }: { datasources: any[]; dryRun?: boolean; strict?: boolean },
     config: any,
 ): Promise<SyncResult> => {
     const result: SyncResult = {
@@ -174,6 +220,7 @@ export const syncDatasourcesData = async (
         skipped: [],
         errors: [],
     };
+    const plans: DatasourcePlan[] = [];
 
     if (dryRun) {
         Logger.warning(
@@ -181,7 +228,7 @@ export const syncDatasourcesData = async (
         );
     }
 
-    const remoteDatasourcesRaw = await getAllDatasources(config);
+    const remoteDatasourcesRaw = await getAllDatasources(config, { strict });
     const remoteDatasources = Array.isArray(remoteDatasourcesRaw)
         ? remoteDatasourcesRaw
         : [];
@@ -193,89 +240,103 @@ export const syncDatasourcesData = async (
             continue;
         }
 
+        const datasourceToBeUpdated = remoteDatasources.find(
+            (remoteDatasource: any) =>
+                datasource.name === remoteDatasource.name,
+        );
+
+        let remoteEntries: any[] = [];
+
         try {
-            const datasourceToBeUpdated = remoteDatasources.find(
-                (remoteDatasource: any) =>
-                    datasource.name === remoteDatasource.name,
-            );
-
-            if (dryRun) {
-                if (datasourceToBeUpdated) {
-                    result.updated.push(name);
-                    Logger.warning(
-                        `[dry-run] Would update datasource '${name}'.`,
-                    );
-
-                    const remoteDatasourceEntries = await getDatasourceEntries(
+            if (datasourceToBeUpdated) {
+                remoteEntries = (
+                    await getDatasourceEntries(
                         {
                             datasourceName: name,
+                            datasourceId: datasourceToBeUpdated.id,
                         },
                         config,
-                    );
-
-                    await createDatasourceEntries(
-                        {
-                            data: { datasource: datasourceToBeUpdated },
-                            datasource_entries:
-                                datasource.datasource_entries ?? [],
-                            remoteDatasourceEntries,
-                            dryRun,
-                        },
-                        config,
-                    );
-                } else {
-                    const entriesCount = Array.isArray(
-                        datasource.datasource_entries,
                     )
-                        ? datasource.datasource_entries.length
-                        : 0;
-
-                    result.created.push(name);
-                    Logger.warning(
-                        `[dry-run] Would create datasource '${name}'.`,
-                    );
-
-                    if (entriesCount > 0) {
-                        Logger.warning(
-                            `[dry-run] Would create ${entriesCount} datasource entries for '${name}' after datasource creation.`,
-                        );
-                    }
-                }
-
-                continue;
+                ).datasource_entries;
             }
 
-            const opResult = datasourceToBeUpdated
-                ? await updateDatasource(
+            plans.push(
+                planDatasource({
+                    local: datasource,
+                    remote: datasourceToBeUpdated,
+                    remoteEntries,
+                    remoteDimensionValues: datasourceToBeUpdated
+                        ? await getDatasourceDimensionValues(
+                              {
+                                  datasource: datasourceToBeUpdated,
+                                  localEntries:
+                                      datasource.datasource_entries ?? [],
+                              },
+                              config,
+                          )
+                        : {},
+                }),
+            );
+        } catch (e) {
+            // Without the remote state there is no honest plan, and no write.
+            result.errors.push(asError(name, e));
+            continue;
+        }
+
+        if (dryRun) {
+            const plan = plans[plans.length - 1];
+            if (datasourceToBeUpdated) result.updated.push(name);
+            else result.created.push(name);
+            Logger.warning(
+                `[dry-run] Would ${datasourceToBeUpdated ? "update" : "create"} datasource '${name}' (${plan?.entries.length ?? 0} entries to write, ${plan?.unchangedEntries ?? 0} unchanged).`,
+            );
+            continue;
+        }
+
+        let opResult: any;
+        try {
+            opResult = datasourceToBeUpdated
+                ? await updateDatasourceForSync(
                       { datasource, datasourceToBeUpdated },
                       config,
                   )
-                : await createDatasource({ datasource }, config);
+                : await createDatasourceForSync({ datasource }, config);
+        } catch (e) {
+            result.errors.push(asError(name, e));
+            continue;
+        }
 
-            if (datasourceToBeUpdated) result.updated.push(name);
-            else result.created.push(name);
+        if (datasourceToBeUpdated) result.updated.push(name);
+        else result.created.push(name);
 
-            if (opResult?.data?.datasource && opResult?.datasource_entries) {
-                const remoteDatasourceEntries = await getDatasourceEntries(
-                    {
-                        datasourceName: opResult.data.datasource.name,
-                    },
-                    config,
-                );
-
-                await createDatasourceEntries(
+        if (opResult?.data?.datasource && opResult?.datasource_entries) {
+            try {
+                const failures = await syncDatasourceEntries(
                     {
                         data: opResult.data,
                         datasource_entries: opResult.datasource_entries,
-                        remoteDatasourceEntries,
+                        remoteDatasourceEntries: {
+                            datasource_entries: remoteEntries,
+                        },
                     },
                     config,
                 );
+
+                for (const failure of failures) {
+                    result.errors.push({
+                        scope: "datasource-entry",
+                        name: `${name}/${failure.name}`,
+                        parent: name,
+                        message: failure.message,
+                    });
+                }
+            } catch (e) {
+                result.errors.push(asError(name, e));
             }
-        } catch (e) {
-            result.errors.push({ name, message: String(e) });
         }
     }
+
+    result.plan = { datasources: plans, destructive: [] };
 
     return result;
 };

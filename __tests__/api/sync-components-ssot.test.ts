@@ -64,8 +64,13 @@ describe("sync components SSOT", () => {
 
             return Promise.resolve({ data: {} });
         });
-        config.sbApi.put.mockResolvedValue({ data: {} });
-        config.sbApi.post.mockResolvedValue({ data: {} });
+        // Storyblok answers a component write with the component.
+        config.sbApi.put.mockImplementation((_path: string, body: any) =>
+            Promise.resolve({ data: { component: body.component } }),
+        );
+        config.sbApi.post.mockImplementation((_path: string, body: any) =>
+            Promise.resolve({ data: { component: body.component } }),
+        );
 
         const result = await syncComponentsData(
             {
@@ -90,6 +95,7 @@ describe("sync components SSOT", () => {
         expect(result.skipped).toEqual(["component 'page'"]);
         expect(result.errors).toEqual([
             {
+                scope: "ssot-removal",
                 name: "component 'page'",
                 message:
                     "SSOT removal failed: Cannot delete default content type",

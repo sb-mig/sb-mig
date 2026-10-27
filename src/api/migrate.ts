@@ -11,6 +11,7 @@ import type {
     SyncProvidedComponents,
     SyncStories,
 } from "./migrate.types.js";
+import type { SyncError, SyncResult } from "./sync/sync.types.js";
 import type { RequestBaseConfig } from "./utils/request.js";
 import type { Preset } from "storyblok-schema-types";
 
@@ -34,8 +35,10 @@ import {
 } from "../utils/files.js";
 import Logger from "../utils/logger.js";
 import { isObjectEmpty } from "../utils/object-utils.js";
+import { findMissingSchemaFiles } from "../utils/path-utils.js";
 
 import { getAllAssets, migrateAsset } from "./assets/assets.js";
+import { updateComponentForSync } from "./components/components.js";
 import { syncComponentsData } from "./components/components.sync.js";
 import { contentHubApi } from "./contentHubApi.js";
 import { managementApi } from "./managementApi.js";
@@ -153,16 +156,32 @@ export const syncComponents: SyncComponents = async (
         specifiedComponentsContent,
     );
 
-    await syncComponentsData(
+    return await syncComponentsData(
         {
             components: specifiedComponentsContent,
             presets,
             ssot: options.ssot,
             dryRun: options.dryRun,
+            strict: options.strict,
         },
         config,
     );
 };
+
+const withMissingComponents = (
+    result: SyncResult,
+    missing: string[],
+): SyncResult => ({
+    ...result,
+    errors: [
+        ...missing.map((name) => ({
+            scope: "component",
+            name,
+            message: `No schema file found for '${name}'.`,
+        })),
+        ...result.errors,
+    ],
+});
 
 export const syncAllComponents: SyncAllComponents = async (
     presets,
@@ -191,6 +210,7 @@ export const syncAllComponents: SyncAllComponents = async (
     return await syncComponents([...local, ...external], presets, config, {
         dryRun: options.dryRun,
         ssot: options.ssot,
+        strict: options.strict,
     });
 };
 
@@ -222,20 +242,31 @@ export const syncProvidedComponents: SyncProvidedComponents = async (
         });
 
         // #4: sync - do all stuff already done (groups resolving, and so on)
-        return await syncComponents([...local, ...external], presets, config, {
-            dryRun: options.dryRun,
-        });
+        const result = await syncComponents(
+            [...local, ...external],
+            presets,
+            config,
+            { dryRun: options.dryRun, strict: options.strict },
+        );
+
+        return withMissingComponents(
+            result,
+            findMissingSchemaFiles(components, [...local, ...external]),
+        );
     } else {
         // implement discovering and syncrhonizing with packageName
         // #1: discover all external .sb.js files
+        const found = new Map<string, number>();
         const allLocalSbComponentsSchemaFiles = discoverManyByPackageName({
             scope: SCOPE.local,
             packageNames: components,
+            found,
         });
         // #2: discover all local .sb.js files
         const allExternalSbComponentsSchemaFiles = discoverManyByPackageName({
             scope: SCOPE.external,
             packageNames: components,
+            found,
         });
         // #3: compare results, prefer local ones (so we have to create final external paths array and local array of things to sync from where)
         const { local, external } = compare({
@@ -243,9 +274,39 @@ export const syncProvidedComponents: SyncProvidedComponents = async (
             external: allExternalSbComponentsSchemaFiles,
         });
         // #4: sync - do all stuff already done (groups resolving, and so on)
-        return syncComponents([...local, ...external], presets, config, {
-            dryRun: options.dryRun,
-        });
+        const result = await syncComponents(
+            [...local, ...external],
+            presets,
+            config,
+            { dryRun: options.dryRun, strict: options.strict },
+        );
+
+        // A package name that matched nothing is a typo, not an empty sync.
+        return {
+            ...result,
+            errors: [
+                ...components.flatMap((name) =>
+                    found.has(name)
+                        ? found.get(name) === 0
+                            ? [
+                                  {
+                                      scope: "component",
+                                      name,
+                                      message: `Package '${name}' has no schema files.`,
+                                  },
+                              ]
+                            : []
+                        : [
+                              {
+                                  scope: "component",
+                                  name,
+                                  message: `No package named '${name}' was found in componentsDirectories.`,
+                              },
+                          ],
+                ),
+                ...result.errors,
+            ],
+        };
     }
 };
 
@@ -454,7 +515,7 @@ export const setComponentDefaultPreset = async ({
     presets: boolean;
     componentsToSync?: string[];
     apiConfig: RequestBaseConfig;
-}) => {
+}): Promise<SyncError[]> => {
     if (presets) {
         Logger.warning("Setting default presets for components...");
 
@@ -476,16 +537,32 @@ export const setComponentDefaultPreset = async ({
         );
 
         Logger.warning("Updating componet with default presets...");
-        return Promise.all(
+        const results = await Promise.allSettled(
             finalRemoteComponents.map((component: any) => {
-                return managementApi.components.updateComponent(
-                    component,
-                    false,
-                    apiConfig,
-                );
+                return updateComponentForSync(component, false, apiConfig);
             }),
         );
+
+        // Every failure is reported, not only the first one to reject.
+        return results.flatMap((result, index) =>
+            result.status === "rejected"
+                ? [
+                      {
+                          scope: "default-preset",
+                          name: String(
+                              finalRemoteComponents[index]?.name ?? "unknown",
+                          ),
+                          message:
+                              result.reason instanceof Error
+                                  ? result.reason.message
+                                  : String(
+                                        result.reason?.message ?? result.reason,
+                                    ),
+                      },
+                  ]
+                : [],
+        );
     } else {
-        return false;
+        return [];
     }
 };

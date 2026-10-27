@@ -6,7 +6,7 @@ import Logger from "../../utils/logger.js";
 import { syncDatasourcesData } from "./datasources.js";
 
 export const syncDatasources: SyncDatasources = async (args, config) => {
-    const { providedDatasources, dryRun } = args;
+    const { providedDatasources, dryRun, strict } = args;
     Logger.log(`Trying to sync provided datasources: `);
 
     const providedDatasourcesContent = await Promise.all(
@@ -15,8 +15,8 @@ export const syncDatasources: SyncDatasources = async (args, config) => {
         }),
     );
 
-    await syncDatasourcesData(
-        { datasources: providedDatasourcesContent, dryRun },
+    return await syncDatasourcesData(
+        { datasources: providedDatasourcesContent, dryRun, strict },
         config,
     );
 };

@@ -92,6 +92,7 @@ Do not hesitate to get in touch if you encounter any issues or require further c
     - [Basics](#basics)
     - [Syncing components](#syncing-components)
     - [Syncing datasources](#syncing-datasources)
+    - [Using sb-mig from agents](#using-sb-mig-from-agents)
     - [Migrating content](#migrating-content)
     - [Inspecting publication state](#inspecting-publication-state)
     - [Presets support](#presets-support)
@@ -258,6 +259,22 @@ sb-mig sync components row column
 This command will look for `row.sb.js` and `column.sb.js` files inside a directories mentioned in `componentDirectories` field. (You can change directories name mapping by modifying `componentDirectories` inside `storyblok.config.js`). You can also change the extension searched by changing `schemaFileExt`. [How to install and configure](#how-to-install-and-configure))
 
 ## Syncing datasources
+
+## Using sb-mig from agents
+
+`sync components` and `sync datasources` are safe to run from a coding agent or a script:
+
+```
+sb-mig sync components --all --dry-run --json
+sb-mig sync components hero card --presets --dry-run --json
+sb-mig sync datasources --all --dry-run --json
+```
+
+- `--dry-run` reads the space and writes nothing. It reports every component as `create`, `update` or `unchanged`, with field-level changes and `component_whitelist` changes, computed after your resolvers. Datasources are reported the same way, entry by entry.
+- `--json` prints exactly one JSON document on stdout. Every log line goes to stderr. The document looks like `{ ok, command, dryRun, components, datasources, destructive, errors }`. After a real sync, each component and datasource has `status: "written"`; `"recreated"` for a component `--ssot` deleted and created again; or `"failed"` when its own write or one of its presets or entries failed. A preset or entry error names its component or datasource in `parent`.
+- `destructive` lists the changes that can lose content: a removed field (`field-removed`), a field removed while one of the same type is added (`likely-rename`), a field whose type changes (`type-changed`), a narrowed whitelist on a blocks or link field (`whitelist-narrowed`), and, with `--ssot`, the components and groups that exist only in the space and are deleted (`component-removed`, `group-removed`). Under `--ssot` the plan compares against the space as it is before anything is removed. A dry-run with destructive changes still exits 0, so read `destructive` before you run the sync for real.
+- The exit code is 1 when anything fails: a component or datasource write (including one whose connection drops), a preset, an entry, a name or package with no schema file, a flag the subcommand doesn't take, or a listing of the space that can't be read. sb-mig doesn't stop at the first failure. It syncs everything else and reports every failure in `errors`.
+- `sync components` and `sync datasources` never wait for input without a terminal, or under `--json`. When they would ask (`--ssot`), they fail with a message that names the flag to pass: `--yes` to confirm, or `--dry-run` to preview. `--ssot` also refuses to run when no schema files were found, or when none of the space's components is among them, since that usually means a wrong directory or `schemaFileExt`. Other commands still read a piped answer, such as `echo y | sb-mig ...`.
 
 ## Copying a space's schema
 

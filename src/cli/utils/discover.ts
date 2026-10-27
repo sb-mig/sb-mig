@@ -48,6 +48,11 @@ interface DiscoverOneByPackageNameRequest {
 interface DiscoverManyByPackageNameRequest {
     packageNames: string[];
     scope: SCOPE;
+    /**
+     * Filled with every requested package that was found, and how many
+     * schema files it has, so a caller can tell a typo from an empty package.
+     */
+    found?: Map<string, number>;
 }
 
 type DiscoverResult = string[];
@@ -84,6 +89,19 @@ export {
     filesPattern,
     exactFilesPatterns,
 } from "../../utils/path-utils.js";
+
+const recordFoundPackage = (
+    request: DiscoverManyByPackageNameRequest,
+    packageJsonFile: string,
+    schemaFiles: number,
+) => {
+    if (!request.found) return;
+
+    const name = String(
+        getFileContentWithRequire({ file: packageJsonFile }).name,
+    );
+    request.found.set(name, (request.found.get(name) ?? 0) + schemaFiles);
+};
 
 export const discoverManyByPackageName = (
     request: DiscoverManyByPackageNameRequest,
@@ -133,13 +151,16 @@ export const discoverManyByPackageName = (
                             `[^_]*.${storyblokConfig.schemaFileExt}`,
                         );
 
-                    return globSync(
+                    const schemaFiles = globSync(
                         allStoryblokSchemaFilesWithinFolderPattern.replace(
                             /\\/g,
                             "/",
                         ),
                         { follow: true },
                     );
+                    recordFoundPackage(request, file, schemaFiles.length);
+
+                    return schemaFiles;
                 })
                 .flat();
             break;
@@ -181,13 +202,16 @@ export const discoverManyByPackageName = (
                             `[^_]*.${storyblokConfig.schemaFileExt}`,
                         );
 
-                    return globSync(
+                    const schemaFiles = globSync(
                         allStoryblokSchemaFilesWithinFolderPattern.replace(
                             /\\/g,
                             "/",
                         ),
                         { follow: true },
                     );
+                    recordFoundPackage(request, file, schemaFiles.length);
+
+                    return schemaFiles;
                 })
                 .flat();
             break;
@@ -225,13 +249,16 @@ export const discoverManyByPackageName = (
                             `[^_]*.${storyblokConfig.schemaFileExt}`,
                         );
 
-                    return globSync(
+                    const schemaFiles = globSync(
                         allStoryblokSchemaFilesWithinFolderPattern.replace(
                             /\\/g,
                             "/",
                         ),
                         { follow: true },
                     );
+                    recordFoundPackage(request, file, schemaFiles.length);
+
+                    return schemaFiles;
                 })
                 .flat();
             break;
