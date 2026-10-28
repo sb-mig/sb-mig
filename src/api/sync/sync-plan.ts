@@ -37,7 +37,12 @@ export type WhitelistChange = {
 
 export type PresetPlan = {
     name: string;
-    action: "create" | "update";
+    action: "create" | "update" | "unchanged";
+    /**
+     * Only for `update` when the space's preset was read: where the JSON
+     * differs, as paths (`image`, `preset.title.0.text`).
+     */
+    changedKeys?: string[];
 };
 
 export type ComponentPlan = {
@@ -164,20 +169,134 @@ const sameValue = (local: unknown, remote: unknown): boolean => {
 // opinion about it, so a missing local `pos` is never a change.
 const UNSET_MEANS_UNCHANGED = new Set(["pos"]);
 
+const HTML_ENTITIES: Record<string, string> = {
+    amp: "&",
+    lt: "<",
+    gt: ">",
+    quot: '"',
+    apos: "'",
+    nbsp: "\u00a0",
+};
+
+// A code point outside Unicode (or no number at all) is left as written:
+// `String.fromCodePoint` would throw on it.
+const MAX_CODE_POINT = 0x10ffff;
+
+const decodeEntities = (text: string): string =>
+    text.replace(/&(#x[0-9a-f]+|#[0-9]+|[a-z]+);/gi, (entity, code: string) => {
+        if (code[0] === "#") {
+            const point =
+                code[1] === "x" || code[1] === "X"
+                    ? parseInt(code.slice(2), 16)
+                    : parseInt(code.slice(1), 10);
+            return Number.isNaN(point) || point > MAX_CODE_POINT
+                ? entity
+                : String.fromCodePoint(point);
+        }
+        return HTML_ENTITIES[code.toLowerCase()] ?? entity;
+    });
+
+/**
+ * The markup a preview template may hold, from Storyblok's docs: "The
+ * preview template support `div`, `span`, `strong`, `ul`, `li`, and `p` HTML
+ * tags, as well as `class` attributes."
+ * https://www.storyblok.com/docs/concepts/blocks
+ */
+const PREVIEW_TEMPLATE_TAGS = new Set([
+    "div",
+    "span",
+    "strong",
+    "ul",
+    "li",
+    "p",
+]);
+const PREVIEW_TEMPLATE_ATTRIBUTE = "class";
+
+// An opening or closing tag, its attributes quoted or not.
+const HTML_TAG =
+    /<(\/?)([a-z][a-z0-9-]*)((?:\s+[^\s"'<>/=]+(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s"'<>=`]+))?)*)\s*\/?>/gi;
+const HTML_ATTRIBUTE =
+    /([^\s"'<>/=]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'<>=`]+)))?/g;
+
+/**
+ * The template's markup as Storyblok keeps it: a tag it does not support
+ * goes and its text stays (`<i>{{it.content}}</i>` is stored as
+ * `{{it.content}}`), and a supported tag keeps only its `class`.
+ */
+const sanitizePreviewMarkup = (template: string): string =>
+    template.replace(
+        HTML_TAG,
+        (_tag, slash: string, name: string, attributes: string) => {
+            const tag = name.toLowerCase();
+            if (!PREVIEW_TEMPLATE_TAGS.has(tag)) return "";
+            if (slash) return `</${tag}>`;
+
+            const kept = [...attributes.matchAll(HTML_ATTRIBUTE)].find(
+                (attribute) =>
+                    attribute[1]?.toLowerCase() === PREVIEW_TEMPLATE_ATTRIBUTE,
+            );
+            const value = kept ? (kept[2] ?? kept[3] ?? kept[4] ?? "") : null;
+            return value === null ? `<${tag}>` : `<${tag} class="${value}">`;
+        },
+    );
+
+/**
+ * Storyblok does not store a preview template as it was written. It
+ * sanitises the markup to the tags and attribute its docs allow (above),
+ * and escapes a bare `<` or `>` in the template's logic as `&lt;` / `&gt;`
+ * (`{{@if(it.content?.length &gt; 0)}}`). Right after a create, 68 Backpack
+ * 4.11.0 components read back different: 33 by escaping or whitespace
+ * alone, 35 by sanitising (`<i>`, `<em>` and `style` dropped). That space
+ * kept `span`, `div` and `strong` with `class`; Backpack uses no `ul`, `li`
+ * or `p`, so those three are allowed on the docs' word alone. Both sides
+ * are sanitised the same way, then compared with entities decoded and runs
+ * of whitespace as one space. A changed class, or a supported tag added or
+ * removed, still shows; a change Storyblok would drop anyway does not.
+ */
+export const normalizePreviewTemplate = (value: unknown): unknown => {
+    if (typeof value !== "string") return value;
+
+    return decodeEntities(sanitizePreviewMarkup(value))
+        .replace(/\s+/g, " ")
+        .trim();
+};
+
+// Component properties the space rewrites: compared in a normalized form.
+const COMPONENT_PROPERTY_NORMALIZERS: Record<
+    string,
+    (value: unknown) => unknown
+> = {
+    preview_tmpl: normalizePreviewTemplate,
+};
+
 const diffProperties = (
     local: Record<string, any>,
     remote: Record<string, any>,
     ignored: Set<string>,
-    { localKeysOnly }: { localKeysOnly: boolean },
+    {
+        localKeysOnly,
+        normalizers = {},
+    }: {
+        localKeysOnly: boolean;
+        normalizers?: Record<string, (value: unknown) => unknown>;
+    },
 ): PropertyChange[] => {
     const keys = localKeysOnly
         ? Object.keys(local)
         : [...new Set([...Object.keys(local), ...Object.keys(remote)])];
+    const normalized = (key: string, value: unknown) =>
+        normalizers[key] ? normalizers[key](value) : value;
 
     return keys
         .filter((key) => !ignored.has(key))
         .filter((key) => !(UNSET_MEANS_UNCHANGED.has(key) && !(key in local)))
-        .filter((key) => !sameValue(local[key], remote[key]))
+        .filter(
+            (key) =>
+                !sameValue(
+                    normalized(key, local[key]),
+                    normalized(key, remote[key]),
+                ),
+        )
         .sort()
         .map((key) => ({ property: key, from: remote[key], to: local[key] }));
 };
@@ -229,7 +348,91 @@ const groupNameOf = (
     return remoteGroups.find((group) => group.uuid === uuid)?.name ?? null;
 };
 
-const presetPlanOf = (local: any, remote: any): PresetPlan[] | undefined => {
+// The space numbers, dates and attaches every preset; none of it is synced.
+const IGNORED_PRESET_PROPERTIES = new Set([
+    "id",
+    "component_id",
+    "space_id",
+    "created_at",
+    "updated_at",
+]);
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+    typeof value === "object" && value !== null && !Array.isArray(value);
+
+/**
+ * Where two pieces of preset content differ, as paths. A `_uid` only tells
+ * one blok from another, and a key only one side has counts only when its
+ * value says something (`sameValue`). A key or an array missing on one side
+ * is one path, not one per value under it.
+ */
+const contentPaths = (
+    local: unknown,
+    remote: unknown,
+    path: string,
+): string[] => {
+    if (isBlank(local) && isBlank(remote)) return [];
+
+    if (isRecord(local) && isRecord(remote)) {
+        const keys = [
+            ...new Set([...Object.keys(local), ...Object.keys(remote)]),
+        ].filter((key) => key !== "_uid");
+        return keys.flatMap((key) =>
+            contentPaths(local[key], remote[key], `${path}.${key}`),
+        );
+    }
+
+    if (
+        Array.isArray(local) &&
+        Array.isArray(remote) &&
+        local.length === remote.length
+    ) {
+        return local.flatMap((item, index) =>
+            contentPaths(item, remote[index], `${path}.${index}`),
+        );
+    }
+
+    return deepEqual(local, remote) ? [] : [path];
+};
+
+// `https://host/x.webp` and `//host/x.webp` are the same image.
+const withoutProtocol = (value: unknown): unknown =>
+    typeof value === "string" ? value.replace(/^https?:(?=\/\/)/i, "") : value;
+
+/**
+ * Where a local preset (what the sync writes: name, content, image) differs
+ * from the one in the space. Only the local keys count: the space adds its
+ * own (`color`, `icon`, `description`) to every preset.
+ */
+const presetChangedKeys = (local: any, remote: any): string[] =>
+    Object.keys(local ?? {})
+        .filter((key) => !IGNORED_PRESET_PROPERTIES.has(key))
+        .sort()
+        .flatMap((key) =>
+            key === "image"
+                ? sameValue(
+                      withoutProtocol(local[key]),
+                      withoutProtocol(remote[key]),
+                  )
+                    ? []
+                    : [key]
+                : contentPaths(local[key], remote[key], key),
+        );
+
+/** The preset itself: `all_presets` entries are `{ preset: { name, ... } }`. */
+const presetBodyOf = (entry: any): any =>
+    typeof entry?.preset?.name === "string" ? entry.preset : entry;
+
+/**
+ * Plan a component's presets. A preset the space has by name is compared
+ * with `remotePresets`, the space's presets of this component with their
+ * content; without them (not read) it can only be planned as an update.
+ */
+const presetPlanOf = (
+    local: any,
+    remote: any,
+    remotePresets: any[] | undefined,
+): PresetPlan[] | undefined => {
     if (!Array.isArray(local?.all_presets)) return undefined;
 
     const remoteNames = new Set(
@@ -238,12 +441,20 @@ const presetPlanOf = (local: any, remote: any): PresetPlan[] | undefined => {
         ),
     );
 
-    return local.all_presets.map((preset: any) => {
-        const name = String(preset?.preset?.name ?? preset?.name ?? "unknown");
-        return {
-            name,
-            action: remoteNames.has(name) ? "update" : "create",
-        } as PresetPlan;
+    return local.all_presets.map((entry: any): PresetPlan => {
+        const body = presetBodyOf(entry);
+        const name = String(body?.name ?? "unknown");
+        if (!remoteNames.has(name)) return { name, action: "create" };
+
+        const remotePreset = remotePresets?.find(
+            (preset: any) => preset?.name === name,
+        );
+        if (!remotePreset) return { name, action: "update" };
+
+        const changedKeys = presetChangedKeys(body, remotePreset);
+        return changedKeys.length === 0
+            ? { name, action: "unchanged" }
+            : { name, action: "update", changedKeys };
     });
 };
 
@@ -260,14 +471,19 @@ export const planComponent = ({
     remote,
     remoteGroups = [],
     presets = false,
+    remotePresets,
 }: {
     local: any;
     remote?: any;
     remoteGroups?: RemoteGroup[];
     presets?: boolean;
+    /** The space's presets of this component, content included. */
+    remotePresets?: any[];
 }): ComponentPlan => {
     const name = String(local?.name ?? "unknown");
-    const presetPlan = presets ? presetPlanOf(local, remote) : undefined;
+    const presetPlan = presets
+        ? presetPlanOf(local, remote, remotePresets)
+        : undefined;
     const withPresets = (plan: ComponentPlan): ComponentPlan =>
         presetPlan ? { ...plan, presets: presetPlan } : plan;
 
@@ -295,7 +511,7 @@ export const planComponent = ({
         local,
         remote,
         IGNORED_COMPONENT_PROPERTIES,
-        { localKeysOnly: true },
+        { localKeysOnly: true, normalizers: COMPONENT_PROPERTY_NORMALIZERS },
     );
 
     const localGroup = local.component_group_name ?? null;

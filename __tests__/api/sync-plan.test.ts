@@ -4,6 +4,7 @@ import {
     detectDestructiveChanges,
     detectSsotGroupRemovals,
     detectSsotRemovals,
+    normalizePreviewTemplate,
     planComponent,
     planDatasource,
 } from "../../src/api/sync/sync-plan.js";
@@ -513,6 +514,291 @@ describe("destructive plan gaps (MAR-4104 review)", () => {
                 field: "title",
                 properties: [{ property: "pos", from: 0, to: 2 }],
             }),
+        ]);
+    });
+});
+
+describe("a sync right after a sync plans nothing (MAR-4738)", () => {
+    // sb-accordion in Backpack 4.11.0, and as the sandbox space stored it
+    // (read back through the Storyblok MCP after #429's first live check).
+    const accordionTemplate =
+        '{{@if(it.content?.length > 0)}}<span class="font-regular">{{it.content.length}} {{@if(it.content.length === 1)}}accordion item{{#else}}accordion items{{/if}}</span>{{#else}}<span class="font-light">Empty</span>{{/if}}';
+    const accordionStored =
+        '{{@if(it.content?.length &gt; 0)}}<span class="font-regular">{{it.content.length}} {{@if(it.content.length === 1)}}accordion item{{#else}}accordion items{{/if}}</span>{{#else}}<span class="font-light">Empty</span>{{/if}}';
+
+    const withTemplate = (local: unknown, remote: unknown) =>
+        planComponent({
+            local: { name: "sb-accordion", preview_tmpl: local, schema: {} },
+            remote: {
+                id: 1,
+                name: "sb-accordion",
+                preview_tmpl: remote,
+                schema: {},
+            },
+        });
+
+    it("reads sb-accordion's preview_tmpl as the space stores it as unchanged", () => {
+        const plan = withTemplate(accordionTemplate, accordionStored);
+
+        expect(plan.action).toBe("unchanged");
+        expect(plan.properties).toEqual([]);
+    });
+
+    // As the sandbox stored them: Storyblok drops the tags and attributes
+    // its docs don't allow, and keeps their text (MAR-4738 live check).
+    it.each([
+        ["sb-headline", "<i>{{it.content}}</i>", "{{it.content}}"],
+        [
+            "sb-cta-card",
+            "<div>⚠️ <strong>Heads up!</strong> This component will be retired in Backpack v5. Please switch to <strong>Card</strong> using the <em>CTA Card</em> preset.</div>",
+            "<div>⚠️ <strong>Heads up!</strong> This component will be retired in Backpack v5. Please switch to <strong>Card</strong> using the CTA Card preset.</div>",
+        ],
+        [
+            "sb-card-primitive-body",
+            '{{@if(index !== it.content.length - 1)}}\n  <div style="margin: 4px 0;"></div>\n{{/if}}',
+            "{{@if(index !== it.content.length - 1)}}\n  <div></div>\n{{/if}}",
+        ],
+        [
+            "sb-card-banner",
+            "\n{{@if(it.text)}}\n  <div style=\"background-color: {{@if(it.design?.intent?.base === 'primary')}}var(--color-primary-600){{#else}}var(--color-neutral-600){{/if}}; color: white; padding: 2px 8px;\">\n    <i>{{it.text}}</i>\n  </div>\n{{/if}}\n",
+            "\n{{@if(it.text)}}\n  <div> {{it.text}}\n  </div>\n{{/if}}\n",
+        ],
+    ])(
+        "reads %s's preview_tmpl, sanitised by the space, as unchanged",
+        (_name, local, stored) => {
+            const plan = withTemplate(local, stored);
+
+            expect(plan.action).toBe("unchanged");
+            expect(plan.properties).toEqual([]);
+        },
+    );
+
+    it.each([
+        [
+            "a bare <",
+            "{{@if(index < 3)}}<div>{{val.content}}</div>{{/if}}",
+            "{{@if(index &lt; 3)}}<div>{{val.content}}</div>{{/if}}",
+        ],
+        // How `&&` was stored before Storyblok's fix (storyblok/monoblok#797).
+        [
+            "&&",
+            "{{@if(it.a && it.b)}}<div>both</div>{{/if}}",
+            "{{@if(it.a &amp;&amp; it.b)}}<div>both</div>{{/if}}",
+        ],
+        [
+            "a class quoted differently",
+            "<span class='font-light'>x</span>",
+            '<span class="font-light">x</span>',
+        ],
+    ])(
+        "reads %s as the space stores it as unchanged",
+        (_how, local, stored) => {
+            expect(withTemplate(local, stored).action).toBe("unchanged");
+        },
+    );
+
+    it("reads a preview_tmpl whose whitespace the space changes as unchanged", () => {
+        // Line endings, runs of spaces, and whitespace around the template.
+        const respaced = `\n  ${accordionStored.replace("}} {{", "}}\r\n    {{")}  \n`;
+
+        expect(withTemplate(accordionTemplate, respaced).action).toBe(
+            "unchanged",
+        );
+    });
+
+    it.each([
+        [
+            "a changed class",
+            accordionTemplate.replace("font-light", "font-bold"),
+        ],
+        [
+            "a span removed",
+            accordionTemplate
+                .replace('<span class="font-light">', "")
+                .replace("Empty</span>", "Empty"),
+        ],
+        [
+            "a span added",
+            accordionTemplate.replace(
+                "{{it.content.length}}",
+                '<span class="font-bold">{{it.content.length}}</span>',
+            ),
+        ],
+        [
+            "a strong added",
+            accordionTemplate.replace("Empty", "<strong>Empty</strong>"),
+        ],
+        [
+            "a div added, beside an attribute the space drops",
+            accordionTemplate
+                .replace(
+                    '<span class="font-light">',
+                    '<span class="font-light" title="x"><div class="note">',
+                )
+                .replace("Empty</span>", "Empty</div></span>"),
+        ],
+    ])("still reports %s as an update", (_how, local) => {
+        const plan = withTemplate(local, accordionStored);
+
+        expect(plan.action).toBe("update");
+        expect(plan.properties).toEqual([
+            { property: "preview_tmpl", from: accordionStored, to: local },
+        ]);
+    });
+
+    it.each([
+        [undefined, null],
+        ["", null],
+        [null, ""],
+        ["", undefined],
+    ])(
+        "reads a blank preview_tmpl %j against %j as unchanged",
+        (local, remote) => {
+            expect(withTemplate(local, remote).action).toBe("unchanged");
+        },
+    );
+
+    it("still reports a preview_tmpl whose logic or text changes", () => {
+        const changed = accordionTemplate.replace("> 0", "> 1");
+        const plan = withTemplate(changed, accordionStored);
+
+        expect(plan.action).toBe("update");
+        expect(plan.properties).toEqual([
+            { property: "preview_tmpl", from: accordionStored, to: changed },
+        ]);
+    });
+
+    it("keeps the supported tags with their class, and decodes entities", () => {
+        expect(normalizePreviewTemplate(accordionStored)).toBe(
+            accordionTemplate,
+        );
+        expect(
+            normalizePreviewTemplate(
+                '<P Class="a" id="b"><em>x</em> <UL><li style="c">y</li></UL><br/></P>',
+            ),
+        ).toBe('<p class="a">x <ul><li>y</li></ul></p>');
+        expect(normalizePreviewTemplate(null)).toBe(null);
+    });
+
+    it("leaves an entity outside Unicode as written instead of throwing", () => {
+        expect(
+            normalizePreviewTemplate("a &#x110000; b &#99999999999; c &#x41;"),
+        ).toBe("a &#x110000; b &#99999999999; c A");
+    });
+
+    const content = {
+        _uid: "648638bd-357a-4340-885e-aaa4011e8020",
+        component: "sb-alert",
+        custom_classname: "",
+        title: [
+            {
+                _uid: "6ba2d328-27ac-4a4b-9cae-c27cec68385a",
+                component: "sb-body-text",
+                content: {
+                    type: "doc",
+                    content: [
+                        {
+                            type: "paragraph",
+                            content: [
+                                { type: "text", text: "Title goes here" },
+                            ],
+                        },
+                    ],
+                },
+            },
+        ],
+    };
+    const image =
+        "https://backpack.example.com/Alert/storyblok/sb-alert-default.webp";
+
+    const localAlert = {
+        name: "sb-alert",
+        schema: {},
+        all_presets: [
+            { preset: { name: "Default (Section)", preset: content, image } },
+        ],
+    };
+    const remoteAlert = {
+        id: 7,
+        name: "sb-alert",
+        schema: {},
+        all_presets: [{ id: 70, name: "Default (Section)", component_id: 7 }],
+    };
+    // A preset as the space lists it: ids, dates and its own empty keys.
+    const remotePreset = (overrides: Record<string, unknown> = {}) => ({
+        id: 70,
+        name: "Default (Section)",
+        preset: content,
+        component_id: 7,
+        space_id: 295911465792355,
+        created_at: "2026-10-27T18:02:11.000Z",
+        updated_at: "2026-10-27T18:02:11.000Z",
+        image,
+        color: null,
+        icon: null,
+        description: null,
+        ...overrides,
+    });
+    const planPresets = (remotePresets?: any[]) =>
+        planComponent({
+            local: localAlert,
+            remote: remoteAlert,
+            presets: true,
+            remotePresets,
+        }).presets;
+
+    it("plans a preset whose content matches the space as unchanged", () => {
+        expect(planPresets([remotePreset()])).toEqual([
+            { name: "Default (Section)", action: "unchanged" },
+        ]);
+    });
+
+    it("reads ids, dates, the space's own keys, a new _uid and the image's protocol as no change", () => {
+        expect(
+            planPresets([
+                remotePreset({
+                    image: image.replace("https:", ""),
+                    preset: {
+                        ...content,
+                        _uid: "another-uid",
+                        title: [
+                            { ...content.title[0], _uid: "another-uid-too" },
+                        ],
+                        added_by_the_space: "",
+                    },
+                }),
+            ]),
+        ).toEqual([{ name: "Default (Section)", action: "unchanged" }]);
+    });
+
+    it("plans an update only on a real difference, and says where", () => {
+        const edited = structuredClone(content);
+        edited.title[0].content.content[0].content[0].text =
+            "Edited in Storyblok";
+
+        expect(
+            planPresets([
+                remotePreset({
+                    preset: { ...edited, extra: "set by an editor" },
+                    image: "https://a.storyblok.com/f/1/other.webp",
+                }),
+            ]),
+        ).toEqual([
+            {
+                name: "Default (Section)",
+                action: "update",
+                changedKeys: [
+                    "image",
+                    "preset.title.0.content.content.0.content.0.text",
+                    "preset.extra",
+                ],
+            },
+        ]);
+    });
+
+    it("still plans an update by name when the space's presets were not read", () => {
+        expect(planPresets(undefined)).toEqual([
+            { name: "Default (Section)", action: "update" },
         ]);
     });
 });
