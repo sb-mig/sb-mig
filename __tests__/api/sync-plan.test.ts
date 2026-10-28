@@ -544,36 +544,55 @@ describe("a sync right after a sync plans nothing (MAR-4738)", () => {
         expect(plan.properties).toEqual([]);
     });
 
+    // As the sandbox stored them: Storyblok drops the tags and attributes
+    // its docs don't allow, and keeps their text (MAR-4738 live check).
+    it.each([
+        ["sb-headline", "<i>{{it.content}}</i>", "{{it.content}}"],
+        [
+            "sb-cta-card",
+            "<div>⚠️ <strong>Heads up!</strong> This component will be retired in Backpack v5. Please switch to <strong>Card</strong> using the <em>CTA Card</em> preset.</div>",
+            "<div>⚠️ <strong>Heads up!</strong> This component will be retired in Backpack v5. Please switch to <strong>Card</strong> using the CTA Card preset.</div>",
+        ],
+        [
+            "sb-card-primitive-body",
+            '{{@if(index !== it.content.length - 1)}}\n  <div style="margin: 4px 0;"></div>\n{{/if}}',
+            "{{@if(index !== it.content.length - 1)}}\n  <div></div>\n{{/if}}",
+        ],
+        [
+            "sb-card-banner",
+            "\n{{@if(it.text)}}\n  <div style=\"background-color: {{@if(it.design?.intent?.base === 'primary')}}var(--color-primary-600){{#else}}var(--color-neutral-600){{/if}}; color: white; padding: 2px 8px;\">\n    <i>{{it.text}}</i>\n  </div>\n{{/if}}\n",
+            "\n{{@if(it.text)}}\n  <div> {{it.text}}\n  </div>\n{{/if}}\n",
+        ],
+    ])(
+        "reads %s's preview_tmpl, sanitised by the space, as unchanged",
+        (_name, local, stored) => {
+            const plan = withTemplate(local, stored);
+
+            expect(plan.action).toBe("unchanged");
+            expect(plan.properties).toEqual([]);
+        },
+    );
+
     it.each([
         [
-            "<",
-            "{{@if(index < 3)}}<i>{{val.content}}</i>{{/if}}",
-            "{{@if(index &lt; 3)}}<i>{{val.content}}</i>{{/if}}",
+            "a bare <",
+            "{{@if(index < 3)}}<div>{{val.content}}</div>{{/if}}",
+            "{{@if(index &lt; 3)}}<div>{{val.content}}</div>{{/if}}",
+        ],
+        // How `&&` was stored before Storyblok's fix (storyblok/monoblok#797).
+        [
+            "&&",
+            "{{@if(it.a && it.b)}}<div>both</div>{{/if}}",
+            "{{@if(it.a &amp;&amp; it.b)}}<div>both</div>{{/if}}",
         ],
         [
-            "&",
-            "{{@if(it.a && it.b)}}<i>both</i>{{/if}}",
-            "{{@if(it.a &amp;&amp; it.b)}}<i>both</i>{{/if}}",
+            "a class quoted differently",
+            "<span class='font-light'>x</span>",
+            '<span class="font-light">x</span>',
         ],
-        [
-            '"',
-            '{{@if(it.size === "s")}}<i>small</i>{{/if}}',
-            "{{@if(it.size === &quot;s&quot;)}}<i>small</i>{{/if}}",
-        ],
-        [
-            "'",
-            "{{@if(val.component === 'sb-headline')}}<i>H</i>{{/if}}",
-            "{{@if(val.component === &#39;sb-headline&#39;)}}<i>H</i>{{/if}}",
-        ],
-        [
-            "•",
-            '<span class="font-light"> • </span>',
-            '<span class="font-light"> &#8226; </span>',
-        ],
-        ["→", "<i>Next →</i>", "<i>Next &#x2192;</i>"],
     ])(
-        "reads a %s the space stores as an entity as unchanged",
-        (_char, local, stored) => {
+        "reads %s as the space stores it as unchanged",
+        (_how, local, stored) => {
             expect(withTemplate(local, stored).action).toBe("unchanged");
         },
     );
@@ -604,6 +623,19 @@ describe("a sync right after a sync plans nothing (MAR-4738)", () => {
                 "{{it.content.length}}",
                 '<span class="font-bold">{{it.content.length}}</span>',
             ),
+        ],
+        [
+            "a strong added",
+            accordionTemplate.replace("Empty", "<strong>Empty</strong>"),
+        ],
+        [
+            "a div added, beside an attribute the space drops",
+            accordionTemplate
+                .replace(
+                    '<span class="font-light">',
+                    '<span class="font-light" title="x"><div class="note">',
+                )
+                .replace("Empty</span>", "Empty</div></span>"),
         ],
     ])("still reports %s as an update", (_how, local) => {
         const plan = withTemplate(local, accordionStored);
@@ -636,11 +668,22 @@ describe("a sync right after a sync plans nothing (MAR-4738)", () => {
         ]);
     });
 
-    it("decodes entities and keeps tags", () => {
+    it("keeps the supported tags with their class, and decodes entities", () => {
         expect(normalizePreviewTemplate(accordionStored)).toBe(
             accordionTemplate,
         );
+        expect(
+            normalizePreviewTemplate(
+                '<P Class="a" id="b"><em>x</em> <UL><li style="c">y</li></UL><br/></P>',
+            ),
+        ).toBe('<p class="a">x <ul><li>y</li></ul></p>');
         expect(normalizePreviewTemplate(null)).toBe(null);
+    });
+
+    it("leaves an entity outside Unicode as written instead of throwing", () => {
+        expect(
+            normalizePreviewTemplate("a &#x110000; b &#99999999999; c &#x41;"),
+        ).toBe("a &#x110000; b &#99999999999; c A");
     });
 
     const content = {

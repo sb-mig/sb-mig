@@ -95,8 +95,11 @@ describe("a sync right after a sync (MAR-4738)", () => {
     it("still plans the overwrite of a preset an editor changed in the space", async () => {
         const config = configAfterCreate();
         const edited = structuredClone(space.presets);
+        const dividerId = space.components.find(
+            (component) => component.name === "sb-divider",
+        )?.id;
         const divider = edited.find(
-            (preset) => preset.component_id === 1204,
+            (preset) => preset.component_id === dividerId,
         ) as any;
         divider.preset.custom_classname = "edited-in-storyblok";
         config.sbApi.get.mockImplementation((path: string) =>

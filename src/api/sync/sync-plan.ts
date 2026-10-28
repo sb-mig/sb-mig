@@ -178,6 +178,10 @@ const HTML_ENTITIES: Record<string, string> = {
     nbsp: "\u00a0",
 };
 
+// A code point outside Unicode (or no number at all) is left as written:
+// `String.fromCodePoint` would throw on it.
+const MAX_CODE_POINT = 0x10ffff;
+
 const decodeEntities = (text: string): string =>
     text.replace(/&(#x[0-9a-f]+|#[0-9]+|[a-z]+);/gi, (entity, code: string) => {
         if (code[0] === "#") {
@@ -185,25 +189,76 @@ const decodeEntities = (text: string): string =>
                 code[1] === "x" || code[1] === "X"
                     ? parseInt(code.slice(2), 16)
                     : parseInt(code.slice(1), 10);
-            return Number.isNaN(point) ? entity : String.fromCodePoint(point);
+            return Number.isNaN(point) || point > MAX_CODE_POINT
+                ? entity
+                : String.fromCodePoint(point);
         }
         return HTML_ENTITIES[code.toLowerCase()] ?? entity;
     });
 
 /**
- * Storyblok stores a preview template HTML-escaped outside its tags: the
- * tags stay as written, but a `>` in the template's logic comes back as
- * `&gt;` (`{{@if(it.content?.length &gt; 0)}}`). Right after a create, 68
- * Backpack 4.11.0 components read back with a different `preview_tmpl`,
- * and 68 is exactly how many of its templates have a `>`, `<`, `&`, a
- * quote or a non-ASCII character outside a tag. Both sides are compared
- * with entities decoded and runs of whitespace as one space, so any change
- * to the markup or the text still shows.
+ * The markup a preview template may hold, from Storyblok's docs: "The
+ * preview template support `div`, `span`, `strong`, `ul`, `li`, and `p` HTML
+ * tags, as well as `class` attributes."
+ * https://www.storyblok.com/docs/concepts/blocks
+ */
+const PREVIEW_TEMPLATE_TAGS = new Set([
+    "div",
+    "span",
+    "strong",
+    "ul",
+    "li",
+    "p",
+]);
+const PREVIEW_TEMPLATE_ATTRIBUTE = "class";
+
+// An opening or closing tag, its attributes quoted or not.
+const HTML_TAG =
+    /<(\/?)([a-z][a-z0-9-]*)((?:\s+[^\s"'<>/=]+(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s"'<>=`]+))?)*)\s*\/?>/gi;
+const HTML_ATTRIBUTE =
+    /([^\s"'<>/=]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'<>=`]+)))?/g;
+
+/**
+ * The template's markup as Storyblok keeps it: a tag it does not support
+ * goes and its text stays (`<i>{{it.content}}</i>` is stored as
+ * `{{it.content}}`), and a supported tag keeps only its `class`.
+ */
+const sanitizePreviewMarkup = (template: string): string =>
+    template.replace(
+        HTML_TAG,
+        (_tag, slash: string, name: string, attributes: string) => {
+            const tag = name.toLowerCase();
+            if (!PREVIEW_TEMPLATE_TAGS.has(tag)) return "";
+            if (slash) return `</${tag}>`;
+
+            const kept = [...attributes.matchAll(HTML_ATTRIBUTE)].find(
+                (attribute) =>
+                    attribute[1]?.toLowerCase() === PREVIEW_TEMPLATE_ATTRIBUTE,
+            );
+            const value = kept ? (kept[2] ?? kept[3] ?? kept[4] ?? "") : null;
+            return value === null ? `<${tag}>` : `<${tag} class="${value}">`;
+        },
+    );
+
+/**
+ * Storyblok does not store a preview template as it was written. It
+ * sanitises the markup to the tags and attribute its docs allow (above),
+ * and escapes a bare `<` or `>` in the template's logic as `&lt;` / `&gt;`
+ * (`{{@if(it.content?.length &gt; 0)}}`). Right after a create, 68 Backpack
+ * 4.11.0 components read back different: 33 by escaping or whitespace
+ * alone, 35 by sanitising (`<i>`, `<em>` and `style` dropped). That space
+ * kept `span`, `div` and `strong` with `class`; Backpack uses no `ul`, `li`
+ * or `p`, so those three are allowed on the docs' word alone. Both sides
+ * are sanitised the same way, then compared with entities decoded and runs
+ * of whitespace as one space. A changed class, or a supported tag added or
+ * removed, still shows; a change Storyblok would drop anyway does not.
  */
 export const normalizePreviewTemplate = (value: unknown): unknown => {
     if (typeof value !== "string") return value;
 
-    return decodeEntities(value).replace(/\s+/g, " ").trim();
+    return decodeEntities(sanitizePreviewMarkup(value))
+        .replace(/\s+/g, " ")
+        .trim();
 };
 
 // Component properties the space rewrites: compared in a normalized form.
