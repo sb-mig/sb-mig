@@ -1,3 +1,12 @@
+# [6.5.0-beta.26](https://github.com/sb-mig/sb-mig/compare/v6.5.0-beta.25...v6.5.0-beta.26) (2026-10-28)
+
+
+### Bug Fixes
+
+* **sync:** a sync right after a sync plans nothing (MAR-4738) ([a502757](https://github.com/sb-mig/sb-mig/commit/a502757e84a9da077e25e05cd3e285bb3baa9a51))
+* **sync:** compare preview_tmpl with entities decoded, tags kept (MAR-4738) ([1d515f6](https://github.com/sb-mig/sb-mig/commit/1d515f6b0b719118662ff70ba547263621a4cd8d)), closes [#429](https://github.com/sb-mig/sb-mig/issues/429)
+* **sync:** sanitise preview_tmpl the way Storyblok stores it (MAR-4738) ([a68770b](https://github.com/sb-mig/sb-mig/commit/a68770b90910ee256b047167017cdbcb2c7ec200)), closes [#429](https://github.com/sb-mig/sb-mig/issues/429)
+
 # [6.5.0-beta.25](https://github.com/sb-mig/sb-mig/compare/v6.5.0-beta.24...v6.5.0-beta.25) (2026-10-27)
 
 
